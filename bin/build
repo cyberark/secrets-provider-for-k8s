@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+
+set -e
+
+TAG=cyberark-secrets-provider-for-k8s:dev
+VERSION=$(< VERSION)
+
+function finish {
+    rm -f secrets-provider
+}
+trap finish EXIT
+
+echo "---"
+echo "Building cyberark-secrets-provider-for-k8s-go with tag ${TAG} <<"
+
+docker build -t cyberark-secrets-provider-for-k8s-go:builder .
+
+docker run --rm \
+           -v $PWD:/opt/cyberark-secrets-provider-for-k8s \
+           cyberark-secrets-provider-for-k8s-go:builder env CGO_ENABLED=0 GOOS=linux \
+                                              go build -a -installsuffix cgo -o secrets-provider ./cmd/secrets-provider
+
+docker build -f Dockerfile.scratch \
+             -t "${TAG}" \
+             .
+
+echo "---"
