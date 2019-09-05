@@ -12,6 +12,7 @@ import (
 	"k8s.io/client-go/rest"
 
 	"github.com/cyberark/cyberark-secrets-provider-for-k8s/pkg/log"
+	"github.com/cyberark/cyberark-secrets-provider-for-k8s/pkg/log/messages"
 	secretsConfig "github.com/cyberark/cyberark-secrets-provider-for-k8s/pkg/secrets/config"
 	"github.com/cyberark/cyberark-secrets-provider-for-k8s/pkg/utils"
 )
@@ -56,7 +57,7 @@ func (secretsHandler K8sSecretsHandler) RetrieveK8sSecrets() (*K8sSecretsMap, er
 
 		k8sSecret, err := retrieveK8sSecret(namespace, secretName)
 		if err != nil {
-			return nil, log.RecorderError(log.CSPFK032E)
+			return nil, log.RecorderError(messages.CSPFK020E, err.Error())
 		}
 
 		// Parse its "conjur-map" data entry and store its values in the new-data-entries map
@@ -65,7 +66,7 @@ func (secretsHandler K8sSecretsHandler) RetrieveK8sSecrets() (*K8sSecretsMap, er
 		for key, value := range k8sSecret.Secret.Data {
 			if key == secretsConfig.CONJUR_MAP_KEY {
 				if len(value) == 0 {
-					return nil, log.RecorderError(log.CSPFK067E, secretName, secretsConfig.CONJUR_MAP_KEY)
+					return nil, log.RecorderError(messages.CSPFK029E, secretName, secretsConfig.CONJUR_MAP_KEY)
 				}
 				foundConjurMapKey = true
 				// Split the conjur-map to k8s secret keys. each value holds a Conjur variable ID
@@ -73,7 +74,7 @@ func (secretsHandler K8sSecretsHandler) RetrieveK8sSecrets() (*K8sSecretsMap, er
 				for _, entry := range conjurMapEntries {
 					matchedPattern, _ := regexp.MatchString(".+: .+", entry)
 					if matchedPattern == false {
-						return nil, log.RecorderError(log.CSPFK068E, secretName, secretsConfig.CONJUR_MAP_KEY)
+						return nil, log.RecorderError(messages.CSPFK030E, secretName, secretsConfig.CONJUR_MAP_KEY)
 					}
 
 					// Parse each secret key and store it in the map
@@ -95,7 +96,7 @@ func (secretsHandler K8sSecretsHandler) RetrieveK8sSecrets() (*K8sSecretsMap, er
 	}
 
 	if !foundConjurMapKey {
-		return nil, log.RecorderError(log.CSPFK066E, secretsConfig.CONJUR_MAP_KEY)
+		return nil, log.RecorderError(messages.CSPFK028E, secretsConfig.CONJUR_MAP_KEY)
 	}
 
 	return &K8sSecretsMap{
@@ -110,7 +111,7 @@ func (secretsHandler *K8sSecretsHandler) PatchK8sSecrets(k8sSecretsMap *K8sSecre
 	for secretName, dataEntryMap := range k8sSecretsMap.K8sSecrets {
 		err := patchK8sSecret(namespace, secretName, dataEntryMap)
 		if err != nil {
-			return log.RecorderError(log.CSPFK033E)
+			return log.RecorderError(messages.CSPFK022E, err.Error())
 		}
 	}
 
@@ -119,15 +120,15 @@ func (secretsHandler *K8sSecretsHandler) PatchK8sSecrets(k8sSecretsMap *K8sSecre
 
 func configKubeClient() (*kubernetes.Clientset, error) {
 	// Create the Kubernetes client
-	log.InfoLogger.Printf(log.CSPFK014I)
+	log.InfoLogger.Printf(messages.CSPFK105I)
 	kubeConfig, err := rest.InClusterConfig()
 	if err != nil {
-		return nil, log.RecorderError(log.CSPFK034E, err.Error())
+		return nil, log.RecorderError(messages.CSPFK019E, err.Error())
 	}
 
 	kubeClient, err := kubernetes.NewForConfig(kubeConfig)
 	if err != nil {
-		return nil, log.RecorderError(log.CSPFK035E, err.Error())
+		return nil, log.RecorderError(messages.CSPFK018E, err.Error())
 	}
 	// return a K8s client
 	return kubeClient, err
@@ -136,10 +137,10 @@ func configKubeClient() (*kubernetes.Clientset, error) {
 func retrieveK8sSecret(namespace string, secretName string) (*K8sSecret, error) {
 	// get K8s client object
 	kubeClient, _ := configKubeClient()
-	log.InfoLogger.Printf(log.CSPFK016I, secretName, namespace)
+	log.InfoLogger.Printf(messages.CSPFK106I, secretName, namespace)
 	k8sSecret, err := kubeClient.CoreV1().Secrets(namespace).Get(secretName, metav1.GetOptions{})
 	if err != nil {
-		return nil, log.RecorderError(log.CSPFK036E, err.Error())
+		return nil, err
 	}
 
 	return &K8sSecret{
@@ -153,15 +154,15 @@ func patchK8sSecret(namespace string, secretName string, stringDataEntriesMap ma
 
 	stringDataEntry, err := generateStringDataEntry(stringDataEntriesMap)
 	if err != nil {
-		return log.RecorderError(log.CSPFK037E)
+		return log.RecorderError(messages.CSPFK024E)
 	}
 
-	log.InfoLogger.Printf(log.CSPFK017I, secretName, namespace)
+	log.InfoLogger.Printf(messages.CSPFK107I, secretName, namespace)
 	_, err = kubeClient.CoreV1().Secrets(namespace).Patch(secretName, types.StrategicMergePatchType, stringDataEntry)
 	// Clear secret from memory
 	stringDataEntry = nil
 	if err != nil {
-		return log.RecorderError(log.CSPFK038E, err.Error())
+		return err
 	}
 
 	return nil
@@ -181,7 +182,7 @@ func generateStringDataEntry(stringDataEntriesMap map[string][]byte) ([]byte, er
 	index := 0
 
 	if len(stringDataEntriesMap) == 0 {
-		return nil, log.RecorderError(log.CSPFK039E)
+		return nil, log.RecorderError(messages.CSPFK026E)
 	}
 
 	entries := make([][]byte, len(stringDataEntriesMap))

@@ -4,39 +4,32 @@ import (
 	"os"
 
 	"github.com/cyberark/cyberark-secrets-provider-for-k8s/pkg/log"
+	"github.com/cyberark/cyberark-secrets-provider-for-k8s/pkg/log/messages"
 )
 
 type Config struct {
-	StoreType     string
-	TokenFilePath string
+	StoreType string
 }
 
 const (
-	K8S                  = "k8s_secrets"
-	None                 = "none"
-	SecretsDestination   = "SECRETS_DESTINATION"
-	TokenFilePathDefault = "/run/conjur/access-token"
+	K8S                      = "k8s_secrets"
+	SecretsDestinationEnvVar = "SECRETS_DESTINATION"
 )
 
 func NewFromEnv() (*Config, error) {
-	storeType := None
-	tokenFilePath := TokenFilePathDefault
-	secretsDestinationValue := os.Getenv(SecretsDestination)
+	var storeType string
+
+	secretsDestinationValue := os.Getenv(SecretsDestinationEnvVar)
 	if secretsDestinationValue == K8S {
 		storeType = K8S
-		tokenFilePath = ""
-	} else if secretsDestinationValue == "" || secretsDestinationValue == None {
-		storeType = None
-		// If CONJUR_TOKEN_FILE_PATH not configured take default value
-		if envVal := os.Getenv("CONJUR_AUTHN_TOKEN_FILE"); envVal != "" {
-			tokenFilePath = envVal
-		}
+	} else if secretsDestinationValue == "" {
+		// TODO: decide what to do in this case
+		storeType = K8S
 	} else {
-		// In case SecretsDestination exits and has configured with incorrect value
-		return nil, log.RecorderError(log.CSPFK042E, SecretsDestination)
+		// In case SecretsDestinationEnvVar exists and is configured with incorrect value
+		return nil, log.RecorderError(messages.CSPFK005E, SecretsDestinationEnvVar)
 	}
 	return &Config{
-		StoreType:     storeType,
-		TokenFilePath: tokenFilePath,
+		StoreType: storeType,
 	}, nil
 }

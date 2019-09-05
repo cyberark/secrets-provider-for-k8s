@@ -7,7 +7,7 @@ import (
 
 	. "github.com/smartystreets/goconvey/convey"
 
-	"github.com/cyberark/cyberark-secrets-provider-for-k8s/pkg/log"
+	"github.com/cyberark/cyberark-secrets-provider-for-k8s/pkg/log/messages"
 	"github.com/cyberark/cyberark-secrets-provider-for-k8s/pkg/secrets/k8s"
 )
 
@@ -40,7 +40,7 @@ func TestSecretsHandlerK8sUseCase(t *testing.T) {
 
 			Convey("Raises an error that the map input is empty", func() {
 				_, err := getVariableIDsToRetrieve(pathMap)
-				So(err.Error(), ShouldEqual, log.CSPFK029E)
+				So(err.Error(), ShouldEqual, messages.CSPFK025E)
 			})
 		})
 	})

@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/cyberark/cyberark-secrets-provider-for-k8s/pkg/log"
+	"github.com/cyberark/cyberark-secrets-provider-for-k8s/pkg/log/messages"
 )
 
 // Config defines the configuration parameters
@@ -25,7 +26,7 @@ func NewFromEnv() (*Config, error) {
 		"K8S_SECRETS",
 	} {
 		if os.Getenv(envvar) == "" {
-			return nil, log.RecorderError(log.CSPFK017E, envvar)
+			return nil, log.RecorderError(messages.CSPFK004E, envvar)
 		}
 	}
 

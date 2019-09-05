@@ -9,7 +9,7 @@ import (
 
 	. "github.com/smartystreets/goconvey/convey"
 
-	"github.com/cyberark/cyberark-secrets-provider-for-k8s/pkg/log"
+	"github.com/cyberark/cyberark-secrets-provider-for-k8s/pkg/log/messages"
 )
 
 func TestKubernetesSecrets(t *testing.T) {
@@ -48,7 +48,7 @@ func TestKubernetesSecrets(t *testing.T) {
 
 			Convey("Raises an error that the map input should not be empty", func() {
 				_, err := generateStringDataEntry(m)
-				So(err.Error(), ShouldEqual, log.CSPFK039E)
+				So(err.Error(), ShouldEqual, messages.CSPFK026E)
 			})
 		})
 	})

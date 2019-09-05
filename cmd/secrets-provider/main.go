@@ -10,6 +10,7 @@ import (
 	authnConfigProvider "github.com/cyberark/conjur-authn-k8s-client/pkg/authenticator/config"
 
 	"github.com/cyberark/cyberark-secrets-provider-for-k8s/pkg/log"
+	"github.com/cyberark/cyberark-secrets-provider-for-k8s/pkg/log/messages"
 	"github.com/cyberark/cyberark-secrets-provider-for-k8s/pkg/storage"
 	storageConfigProvider "github.com/cyberark/cyberark-secrets-provider-for-k8s/pkg/storage/config"
 )
@@ -24,26 +25,26 @@ func main() {
 	// Initialize configurations
 	authnConfig, err := authnConfigProvider.NewFromEnv()
 	if err != nil {
-		printErrorAndExit(log.CSPFK045E)
+		printErrorAndExit(messages.CSPFK008E)
 	}
 
 	storageConfig, err := storageConfigProvider.NewFromEnv()
 	if err != nil {
-		printErrorAndExit(log.CSPFK046E)
+		printErrorAndExit(messages.CSPFK012E)
 	}
 
 	if storageConfig.StoreType == storageConfigProvider.K8S && authnConfig.ContainerMode != "init" {
-		printErrorAndExit(log.CSPFK047E)
+		printErrorAndExit(messages.CSPFK007E)
 	}
 
 	storageHandler, err := storage.NewStorageHandler(*storageConfig)
 	if err != nil {
-		printErrorAndExit(log.CSPFK048E)
+		printErrorAndExit(messages.CSPFK013E)
 	}
 
 	authn, err := authenticator.NewWithAccessToken(*authnConfig, storageHandler.AccessToken)
 	if err != nil {
-		printErrorAndExit(log.CSPFK049E)
+		printErrorAndExit(messages.CSPFK009E)
 	}
 
 	// Configure exponential backoff
@@ -56,25 +57,25 @@ func main() {
 
 	err = backoff.Retry(func() error {
 		for {
-			infoLogger.Printf(fmt.Sprintf(log.CSPFK019I, authn.Config.Username))
+			infoLogger.Printf(fmt.Sprintf(messages.CSPFK102I, authn.Config.Username))
 			authnResp, err := authn.Authenticate()
 			if err != nil {
-				return log.RecorderError(log.CSPFK050E)
+				return log.RecorderError(messages.CSPFK010E)
 			}
 
 			err = authn.ParseAuthenticationResponse(authnResp)
 			if err != nil {
-				return log.RecorderError(log.CSPFK051E)
+				return log.RecorderError(messages.CSPFK011E)
 			}
 
 			err = storageHandler.SecretsHandler.HandleSecrets()
 			if err != nil {
-				return log.RecorderError(log.CSPFK052E)
+				return log.RecorderError(messages.CSPFK016E)
 			}
 
 			err = storageHandler.AccessToken.Delete()
 			if err != nil {
-				return log.RecorderError(log.CSPFK065E, err.Error())
+				return log.RecorderError(messages.CSPFK003E, err.Error())
 			}
 
 			if authnConfig.ContainerMode == "init" {
@@ -84,7 +85,7 @@ func main() {
 			// Reset exponential backoff
 			expBackoff.Reset()
 
-			infoLogger.Printf(log.CSPFK013I, authn.Config.TokenRefreshTimeout)
+			infoLogger.Printf(messages.CSPFK108I, authn.Config.TokenRefreshTimeout)
 
 			fmt.Println()
 			time.Sleep(authn.Config.TokenRefreshTimeout)
@@ -96,10 +97,10 @@ func main() {
 		// if the access token is already deleted the action should not fail
 		err = storageHandler.AccessToken.Delete()
 		if err != nil {
-			errorLogger.Printf(log.CSPFK054E)
+			errorLogger.Printf(messages.CSPFK003E, err)
 		}
 
-		printErrorAndExit(log.CSPFK053E)
+		printErrorAndExit(messages.CSPFK038E)
 	}
 }
 
