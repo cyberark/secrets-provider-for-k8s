@@ -6,13 +6,14 @@ import (
 	"time"
 
 	"github.com/cenkalti/backoff"
+	"github.com/cyberark/conjur-authn-k8s-client/pkg/access_token/memory"
 	"github.com/cyberark/conjur-authn-k8s-client/pkg/authenticator"
 	authnConfigProvider "github.com/cyberark/conjur-authn-k8s-client/pkg/authenticator/config"
 
 	"github.com/cyberark/cyberark-secrets-provider-for-k8s/pkg/log"
 	"github.com/cyberark/cyberark-secrets-provider-for-k8s/pkg/log/messages"
-	"github.com/cyberark/cyberark-secrets-provider-for-k8s/pkg/storage"
-	storageConfigProvider "github.com/cyberark/cyberark-secrets-provider-for-k8s/pkg/storage/config"
+	secretsConfigProvider "github.com/cyberark/cyberark-secrets-provider-for-k8s/pkg/secrets/config"
+	"github.com/cyberark/cyberark-secrets-provider-for-k8s/pkg/secrets/k8s_secrets_storage"
 )
 
 // log
@@ -28,21 +29,26 @@ func main() {
 		printErrorAndExit(messages.CSPFK008E)
 	}
 
-	storageConfig, err := storageConfigProvider.NewFromEnv()
+	secretsConfig, err := secretsConfigProvider.NewFromEnv()
 	if err != nil {
-		printErrorAndExit(messages.CSPFK012E)
+		printErrorAndExit(messages.CSPFK015E)
 	}
 
-	if storageConfig.StoreType == storageConfigProvider.K8S && authnConfig.ContainerMode != "init" {
+	accessToken, err := memory.NewAccessToken()
+	if err != nil {
+		printErrorAndExit(messages.CSPFK001E)
+	}
+
+	pushConjurSecrets, err := k8s_secrets_storage.NewProvideConjurSecrets(*secretsConfig, accessToken)
+	if err != nil {
+		printErrorAndExit(messages.CSPFK014E)
+	}
+
+	if secretsConfig.StoreType == secretsConfigProvider.K8S && authnConfig.ContainerMode != "init" {
 		printErrorAndExit(messages.CSPFK007E)
 	}
 
-	storageHandler, err := storage.NewStorageHandler(*storageConfig)
-	if err != nil {
-		printErrorAndExit(messages.CSPFK013E)
-	}
-
-	authn, err := authenticator.NewWithAccessToken(*authnConfig, storageHandler.AccessToken)
+	authn, err := authenticator.NewWithAccessToken(*authnConfig, accessToken)
 	if err != nil {
 		printErrorAndExit(messages.CSPFK009E)
 	}
@@ -68,12 +74,12 @@ func main() {
 				return log.RecorderError(messages.CSPFK011E)
 			}
 
-			err = storageHandler.SecretsHandler.HandleSecrets()
+			err = pushConjurSecrets.Run()
 			if err != nil {
 				return log.RecorderError(messages.CSPFK016E)
 			}
 
-			err = storageHandler.AccessToken.Delete()
+			err = accessToken.Delete()
 			if err != nil {
 				return log.RecorderError(messages.CSPFK003E, err.Error())
 			}
@@ -95,7 +101,7 @@ func main() {
 	if err != nil {
 		// Deleting the retrieved Conjur access token in case we got an error after retrieval.
 		// if the access token is already deleted the action should not fail
-		err = storageHandler.AccessToken.Delete()
+		err = accessToken.Delete()
 		if err != nil {
 			errorLogger.Printf(messages.CSPFK003E, err)
 		}

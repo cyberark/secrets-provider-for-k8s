@@ -12,7 +12,6 @@ package messages
 			then the compiler will not allow it.
 */
 
-const CSPFK101I string = "CSPFK101I Storage configuration is %s"
 const CSPFK102I string = "CSPFK102I Authenticating as user '%s'"
 const CSPFK103I string = "CSPFK103I Creating Conjur client..."
 const CSPFK104I string = "CSPFK104I Retrieving following secrets from Conjur: "

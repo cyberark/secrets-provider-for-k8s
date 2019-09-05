@@ -20,7 +20,6 @@ const CSPFK003E string = "CSPFK003E AccessToken failed to delete access token da
 // Environment variables
 const CSPFK004E string = "CSPFK004E Environment variable '%s' must be provided"
 const CSPFK005E string = "CSPFK005E Provided incorrect value for environment variable %s"
-const CSPFK006E string = "CSPFK006E Store type %s is invalid"
 const CSPFK007E string = "CSPFK007E Setting SECRETS_DESTINATION environment variable to 'k8s_secrets' must run as init container"
 
 // Authenticator
@@ -29,15 +28,11 @@ const CSPFK009E string = "CSPFK009E Failed to instantiate authenticator object"
 const CSPFK010E string = "CSPFK010E Failed to authenticate"
 const CSPFK011E string = "CSPFK011E Failed to parse authentication response"
 
-// Storage
-const CSPFK012E string = "CSPFK012E Failed to instantiate storage configuration"
-const CSPFK013E string = "CSPFK013E Failed to instantiate storage handler"
-
-// Secrets Handler
-const CSPFK014E string = "CSPFK014E Failed to instantiate secrets handler object"
+// ProvideConjurSecrets
+const CSPFK014E string = "CSPFK014E Failed to instantiate ProvideConjurSecrets object"
 const CSPFK015E string = "CSPFK015E Failed to instantiate secrets config"
-const CSPFK016E string = "CSPFK016E Failed to handle secrets"
-const CSPFK017E string = "CSPFK017E Failed to create k8s secrets handler"
+const CSPFK016E string = "CSPFK016E Failed to provide Conjur secrets"
+const CSPFK017E string = "CSPFK017E Failed to create ProvideConjurSecretsToK8sSecrets object"
 
 // Kubernetes
 const CSPFK018E string = "CSPFK018E Failed to create Kubernetes client. Reason: %s"

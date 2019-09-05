@@ -1,4 +1,4 @@
-package handlers
+package k8s_secrets_storage
 
 import (
 	"reflect"
@@ -8,10 +8,10 @@ import (
 	. "github.com/smartystreets/goconvey/convey"
 
 	"github.com/cyberark/cyberark-secrets-provider-for-k8s/pkg/log/messages"
-	"github.com/cyberark/cyberark-secrets-provider-for-k8s/pkg/secrets/k8s"
+	"github.com/cyberark/cyberark-secrets-provider-for-k8s/pkg/secrets/clients/k8s"
 )
 
-func TestSecretsHandlerK8sUseCase(t *testing.T) {
+func TestProvideConjurSecrets(t *testing.T) {
 	Convey("getVariableIDsToRetrieve", t, func() {
 
 		Convey("Given a non-empty pathMap", func() {

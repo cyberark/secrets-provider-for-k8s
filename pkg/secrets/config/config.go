@@ -8,14 +8,19 @@ import (
 	"github.com/cyberark/cyberark-secrets-provider-for-k8s/pkg/log/messages"
 )
 
+const (
+	K8S                      = "k8s_secrets"
+	SecretsDestinationEnvVar = "SECRETS_DESTINATION"
+	CONJUR_MAP_KEY           = "conjur-map"
+)
+
 // Config defines the configuration parameters
 // for the authentication requests
 type Config struct {
 	PodNamespace       string
 	RequiredK8sSecrets []string
+	StoreType          string
 }
-
-const CONJUR_MAP_KEY = "conjur-map"
 
 // New returns a new authenticator configuration object
 func NewFromEnv() (*Config, error) {
@@ -36,8 +41,21 @@ func NewFromEnv() (*Config, error) {
 	// Split the comma-separated list into an array
 	requiredK8sSecrets := strings.Split(os.Getenv("K8S_SECRETS"), ",")
 
+	var storeType string
+	secretsDestinationValue := os.Getenv(SecretsDestinationEnvVar)
+	if secretsDestinationValue == K8S {
+		storeType = K8S
+	} else if secretsDestinationValue == "" {
+		// TODO: decide what to do in this case
+		storeType = K8S
+	} else {
+		// In case SecretsDestinationEnvVar exists and is configured with incorrect value
+		return nil, log.RecorderError(messages.CSPFK005E, SecretsDestinationEnvVar)
+	}
+
 	return &Config{
 		PodNamespace:       podNamespace,
 		RequiredK8sSecrets: requiredK8sSecrets,
+		StoreType:          storeType,
 	}, nil
 }

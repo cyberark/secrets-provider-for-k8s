@@ -17,18 +17,15 @@ import (
 	"github.com/cyberark/cyberark-secrets-provider-for-k8s/pkg/utils"
 )
 
-type K8sSecretsHandler struct {
+/*
+	This client communicates with K8s to retrieve & patch K8s secrets
+*/
+type K8sSecretsClient struct {
 	Config secretsConfig.Config
 }
 
 type K8sSecret struct {
 	Secret *v1.Secret
-}
-
-func New(config secretsConfig.Config) (secrets *K8sSecretsHandler, err error) {
-	return &K8sSecretsHandler{
-		Config: config,
-	}, nil
 }
 
 type K8sSecretsMap struct {
@@ -45,10 +42,16 @@ type K8sSecretsMap struct {
 	PathMap map[string][]string
 }
 
-func (secretsHandler K8sSecretsHandler) RetrieveK8sSecrets() (*K8sSecretsMap, error) {
+func New(config secretsConfig.Config) (secrets *K8sSecretsClient, err error) {
+	return &K8sSecretsClient{
+		Config: config,
+	}, nil
+}
+
+func (k8sSecretsClient K8sSecretsClient) RetrieveK8sSecrets() (*K8sSecretsMap, error) {
 	foundConjurMapKey := false
-	namespace := secretsHandler.Config.PodNamespace
-	requiredK8sSecrets := secretsHandler.Config.RequiredK8sSecrets
+	namespace := k8sSecretsClient.Config.PodNamespace
+	requiredK8sSecrets := k8sSecretsClient.Config.RequiredK8sSecrets
 
 	k8sSecrets := make(map[string]map[string][]byte)
 	pathMap := make(map[string][]string)
@@ -105,8 +108,8 @@ func (secretsHandler K8sSecretsHandler) RetrieveK8sSecrets() (*K8sSecretsMap, er
 	}, nil
 }
 
-func (secretsHandler *K8sSecretsHandler) PatchK8sSecrets(k8sSecretsMap *K8sSecretsMap) error {
-	namespace := secretsHandler.Config.PodNamespace
+func (k8sSecretsClient *K8sSecretsClient) PatchK8sSecrets(k8sSecretsMap *K8sSecretsMap) error {
+	namespace := k8sSecretsClient.Config.PodNamespace
 
 	for secretName, dataEntryMap := range k8sSecretsMap.K8sSecrets {
 		err := patchK8sSecret(namespace, secretName, dataEntryMap)
@@ -118,7 +121,7 @@ func (secretsHandler *K8sSecretsHandler) PatchK8sSecrets(k8sSecretsMap *K8sSecre
 	return nil
 }
 
-func configKubeClient() (*kubernetes.Clientset, error) {
+func configK8sClient() (*kubernetes.Clientset, error) {
 	// Create the Kubernetes client
 	log.InfoLogger.Printf(messages.CSPFK105I)
 	kubeConfig, err := rest.InClusterConfig()
@@ -136,7 +139,7 @@ func configKubeClient() (*kubernetes.Clientset, error) {
 
 func retrieveK8sSecret(namespace string, secretName string) (*K8sSecret, error) {
 	// get K8s client object
-	kubeClient, _ := configKubeClient()
+	kubeClient, _ := configK8sClient()
 	log.InfoLogger.Printf(messages.CSPFK106I, secretName, namespace)
 	k8sSecret, err := kubeClient.CoreV1().Secrets(namespace).Get(secretName, metav1.GetOptions{})
 	if err != nil {
@@ -150,7 +153,7 @@ func retrieveK8sSecret(namespace string, secretName string) (*K8sSecret, error) 
 
 func patchK8sSecret(namespace string, secretName string, stringDataEntriesMap map[string][]byte) error {
 	// get K8s client object
-	kubeClient, _ := configKubeClient()
+	kubeClient, _ := configK8sClient()
 
 	stringDataEntry, err := generateStringDataEntry(stringDataEntriesMap)
 	if err != nil {

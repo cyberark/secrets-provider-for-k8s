@@ -1,4 +1,4 @@
-package handlers
+package k8s_secrets_storage
 
 import (
 	"strings"
@@ -7,39 +7,42 @@ import (
 
 	"github.com/cyberark/cyberark-secrets-provider-for-k8s/pkg/log"
 	"github.com/cyberark/cyberark-secrets-provider-for-k8s/pkg/log/messages"
+	"github.com/cyberark/cyberark-secrets-provider-for-k8s/pkg/secrets/clients/conjur"
+	"github.com/cyberark/cyberark-secrets-provider-for-k8s/pkg/secrets/clients/k8s"
 	secretsConfig "github.com/cyberark/cyberark-secrets-provider-for-k8s/pkg/secrets/config"
-	"github.com/cyberark/cyberark-secrets-provider-for-k8s/pkg/secrets/conjur"
-	"github.com/cyberark/cyberark-secrets-provider-for-k8s/pkg/secrets/k8s"
 )
 
-type SecretsHandlerK8sUseCase struct {
+/*
+	This struct retrieves Conjur secrets that are required by the pod and pushes them into K8s secrets.
+*/
+type ProvideConjurSecretsToK8sSecrets struct {
 	AccessToken            access_token.AccessToken
 	ConjurSecretsRetriever conjur.ConjurSecretsRetriever
-	K8sSecretsHandler      k8s.K8sSecretsHandler
+	K8sSecretsClient       k8s.K8sSecretsClient
 }
 
-func NewSecretHandlerK8sUseCase(secretsConfig secretsConfig.Config, AccessToken access_token.AccessToken) (SecretsHandler *SecretsHandlerK8sUseCase, err error) {
-	k8sSecretsHandler, err := k8s.New(secretsConfig)
+func NewProvideConjurSecrets(secretsConfig secretsConfig.Config, AccessToken access_token.AccessToken) (ProvideConjurSecrets *ProvideConjurSecretsToK8sSecrets, err error) {
+	k8sSecretsClient, err := k8s.New(secretsConfig)
 	if err != nil {
 		return nil, log.RecorderError(messages.CSPFK017E)
 	}
 
 	var conjurSecretsRetriever conjur.ConjurSecretsRetriever
 
-	return &SecretsHandlerK8sUseCase{
+	return &ProvideConjurSecretsToK8sSecrets{
 		AccessToken:            AccessToken,
 		ConjurSecretsRetriever: conjurSecretsRetriever,
-		K8sSecretsHandler:      *k8sSecretsHandler,
+		K8sSecretsClient:       *k8sSecretsClient,
 	}, nil
 }
 
-func (secretsHandlerK8sUseCase SecretsHandlerK8sUseCase) HandleSecrets() error {
-	k8sSecretsMap, err := secretsHandlerK8sUseCase.K8sSecretsHandler.RetrieveK8sSecrets()
+func (provideConjurSecretsToK8sSecrets ProvideConjurSecretsToK8sSecrets) Run() error {
+	k8sSecretsMap, err := provideConjurSecretsToK8sSecrets.K8sSecretsClient.RetrieveK8sSecrets()
 	if err != nil {
 		return log.RecorderError(messages.CSPFK021E)
 	}
 
-	accessToken, err := secretsHandlerK8sUseCase.AccessToken.Read()
+	accessToken, err := provideConjurSecretsToK8sSecrets.AccessToken.Read()
 	if err != nil {
 		return log.RecorderError(messages.CSPFK002E)
 	}
@@ -49,7 +52,7 @@ func (secretsHandlerK8sUseCase SecretsHandlerK8sUseCase) HandleSecrets() error {
 		return log.RecorderError(messages.CSPFK037E)
 	}
 
-	retrievedConjurSecrets, err := secretsHandlerK8sUseCase.ConjurSecretsRetriever.RetrieveConjurSecrets(accessToken, variableIDs)
+	retrievedConjurSecrets, err := provideConjurSecretsToK8sSecrets.ConjurSecretsRetriever.RetrieveConjurSecrets(accessToken, variableIDs)
 	if err != nil {
 		return log.RecorderError(messages.CSPFK034E, err.Error())
 	}
@@ -59,7 +62,7 @@ func (secretsHandlerK8sUseCase SecretsHandlerK8sUseCase) HandleSecrets() error {
 		return log.RecorderError(messages.CSPFK027E)
 	}
 
-	err = secretsHandlerK8sUseCase.K8sSecretsHandler.PatchK8sSecrets(k8sSecretsMap)
+	err = provideConjurSecretsToK8sSecrets.K8sSecretsClient.PatchK8sSecrets(k8sSecretsMap)
 	if err != nil {
 		return log.RecorderError(messages.CSPFK023E)
 	}

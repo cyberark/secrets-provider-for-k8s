@@ -1,0 +1,9 @@
+package secrets
+
+/*
+	Struct implementing this interface provide Conjur secrets to a storage. For example, ProviderConjurSecretsToK8sSecrets
+	retrieves Conjur secrets that are required by the pod and pushes them into K8s secrets.
+*/
+type ProvideConjurSecrets interface {
+	Run() error
+}
