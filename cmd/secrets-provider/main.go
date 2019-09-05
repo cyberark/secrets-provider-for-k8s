@@ -34,6 +34,10 @@ func main() {
 		printErrorAndExit(messages.CSPFK015E)
 	}
 
+	if secretsConfig.StoreType == secretsConfigProvider.K8S && authnConfig.ContainerMode != "init" {
+		printErrorAndExit(messages.CSPFK007E)
+	}
+
 	accessToken, err := memory.NewAccessToken()
 	if err != nil {
 		printErrorAndExit(messages.CSPFK001E)
@@ -42,10 +46,6 @@ func main() {
 	pushConjurSecrets, err := k8s_secrets_storage.NewProvideConjurSecrets(*secretsConfig, accessToken)
 	if err != nil {
 		printErrorAndExit(messages.CSPFK014E)
-	}
-
-	if secretsConfig.StoreType == secretsConfigProvider.K8S && authnConfig.ContainerMode != "init" {
-		printErrorAndExit(messages.CSPFK007E)
 	}
 
 	authn, err := authenticator.NewWithAccessToken(*authnConfig, accessToken)
