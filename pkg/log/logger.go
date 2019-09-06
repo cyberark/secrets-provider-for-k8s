@@ -18,7 +18,7 @@ var ErrorLogger = log.New(os.Stderr, "ERROR: ", log.LUTC|log.Ldate|log.Ltime|log
 
 		returnVal, err := someMethod()
 		if err != nil {
-			return nil, log.RecorderError("failed to run someMethod")
+			return nil, log.RecordedError("failed to run someMethod")
 		}
 
 	On the other hand, if `someMethod()` is a 3rd party method we want to print also the returned error as it wasn't printed
@@ -26,10 +26,10 @@ var ErrorLogger = log.New(os.Stderr, "ERROR: ", log.LUTC|log.Ldate|log.Ltime|log
 
 		returnVal, err := 3rdParty.someMethod()
 		if err != nil {
-			return nil, log.RecorderError(fmt.Sprintf("failed to run someMethod. Reason: %s", err))
+			return nil, log.RecordedError(fmt.Sprintf("failed to run someMethod. Reason: %s", err))
 		}
 */
-func RecorderError(errorMessage string, args ...interface{}) error {
+func RecordedError(errorMessage string, args ...interface{}) error {
 	ErrorLogger.Output(2, fmt.Sprintf(errorMessage, args...))
 	return fmt.Errorf(fmt.Sprintf(errorMessage, args...))
 }

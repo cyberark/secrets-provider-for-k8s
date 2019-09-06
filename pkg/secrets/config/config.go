@@ -31,7 +31,7 @@ func NewFromEnv() (*Config, error) {
 		"K8S_SECRETS",
 	} {
 		if os.Getenv(envvar) == "" {
-			return nil, log.RecorderError(messages.CSPFK004E, envvar)
+			return nil, log.RecordedError(messages.CSPFK004E, envvar)
 		}
 	}
 
@@ -50,7 +50,7 @@ func NewFromEnv() (*Config, error) {
 		storeType = K8S
 	} else {
 		// In case SecretsDestinationEnvVar exists and is configured with incorrect value
-		return nil, log.RecorderError(messages.CSPFK005E, SecretsDestinationEnvVar)
+		return nil, log.RecordedError(messages.CSPFK005E, SecretsDestinationEnvVar)
 	}
 
 	return &Config{

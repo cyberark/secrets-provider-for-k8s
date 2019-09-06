@@ -21,12 +21,12 @@ func NewConjurClient(tokenData []byte) (ConjurClient, error) {
 	log.InfoLogger.Printf(messages.CSPFK103I)
 	config, err := conjurapi.LoadConfig()
 	if err != nil {
-		return nil, log.RecorderError(messages.CSPFK031E, err.Error())
+		return nil, log.RecordedError(messages.CSPFK031E, err.Error())
 	}
 
 	client, err := conjurapi.NewClientFromToken(config, string(tokenData))
 	if err != nil {
-		return nil, log.RecorderError(messages.CSPFK032E, err.Error())
+		return nil, log.RecordedError(messages.CSPFK032E, err.Error())
 	}
 
 	return client, nil

@@ -66,22 +66,22 @@ func main() {
 			infoLogger.Printf(fmt.Sprintf(messages.CSPFK102I, authn.Config.Username))
 			authnResp, err := authn.Authenticate()
 			if err != nil {
-				return log.RecorderError(messages.CSPFK010E)
+				return log.RecordedError(messages.CSPFK010E)
 			}
 
 			err = authn.ParseAuthenticationResponse(authnResp)
 			if err != nil {
-				return log.RecorderError(messages.CSPFK011E)
+				return log.RecordedError(messages.CSPFK011E)
 			}
 
 			err = pushConjurSecrets.Run()
 			if err != nil {
-				return log.RecorderError(messages.CSPFK016E)
+				return log.RecordedError(messages.CSPFK016E)
 			}
 
 			err = accessToken.Delete()
 			if err != nil {
-				return log.RecorderError(messages.CSPFK003E, err.Error())
+				return log.RecordedError(messages.CSPFK003E, err.Error())
 			}
 
 			if authnConfig.ContainerMode == "init" {

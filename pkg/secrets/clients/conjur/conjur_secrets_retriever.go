@@ -13,7 +13,7 @@ func (conjurSecretsRetriever ConjurSecretsRetriever) RetrieveConjurSecrets(acces
 
 	conjurClient, err := NewConjurClient(accessToken)
 	if err != nil {
-		return nil, log.RecorderError(messages.CSPFK033E)
+		return nil, log.RecordedError(messages.CSPFK033E)
 	}
 
 	retrievedSecrets, err := conjurClient.RetrieveBatchSecrets(variableIDs)
