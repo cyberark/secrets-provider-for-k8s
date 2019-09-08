@@ -19,7 +19,7 @@ import (
 func main() {
 	var err error
 
-	configureLog()
+	configureLogLevel()
 
 	// Initialize configurations
 	authnConfig, err := authnConfigProvider.NewFromEnv()
@@ -61,7 +61,7 @@ func main() {
 
 	err = backoff.Retry(func() error {
 		for {
-			log.Info(fmt.Sprintf(messages.CSPFK102I, authn.Config.Username))
+			log.Info(fmt.Sprintf(messages.CSPFK001I, authn.Config.Username))
 			authnResp, err := authn.Authenticate()
 			if err != nil {
 				return log.RecordedError(messages.CSPFK010E)
@@ -89,7 +89,7 @@ func main() {
 			// Reset exponential backoff
 			expBackoff.Reset()
 
-			log.Info(messages.CSPFK108I, authn.Config.TokenRefreshTimeout)
+			log.Info(messages.CSPFK007I, authn.Config.TokenRefreshTimeout)
 
 			fmt.Println()
 			time.Sleep(authn.Config.TokenRefreshTimeout)
@@ -113,8 +113,8 @@ func printErrorAndExit(errorMessage string) {
 	os.Exit(1)
 }
 
-func configureLog() {
-	if os.Getenv("IS_DEBUG") == "yes" {
+func configureLogLevel() {
+	if os.Getenv("ENABLE_DEBUG") == "yes" {
 		log.EnableDebugMode()
 	}
 }

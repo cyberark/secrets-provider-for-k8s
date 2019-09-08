@@ -2,12 +2,13 @@ package log
 
 import (
 	"fmt"
-	"github.com/cyberark/cyberark-secrets-provider-for-k8s/pkg/log/messages"
 	"log"
 	"os"
+
+	"github.com/cyberark/cyberark-secrets-provider-for-k8s/pkg/log/messages"
 )
 
-var defaultLogger = log.New(os.Stdout, "INFO:  ", log.LUTC|log.Ldate|log.Ltime|log.Lshortfile)
+var stdoutLogger = log.New(os.Stdout, "INFO:  ", log.LUTC|log.Ldate|log.Ltime|log.Lshortfile)
 var errorLogger = log.New(os.Stderr, "ERROR: ", log.LUTC|log.Ldate|log.Ltime|log.Lshortfile)
 var isDebug = false
 
@@ -41,19 +42,19 @@ func Error(errorMessage string, args ...interface{}) {
 }
 
 func Info(infoMessage string, args ...interface{}) {
-	defaultLogger.SetPrefix("INFO: ")
-	defaultLogger.Output(2, fmt.Sprintf(infoMessage, args...))
+	stdoutLogger.SetPrefix("INFO: ")
+	stdoutLogger.Output(2, fmt.Sprintf(infoMessage, args...))
 }
 
 func Debug(infoMessage string, args ...interface{}) {
 	if isDebug {
-		defaultLogger.SetPrefix("DEBUG: ")
-		defaultLogger.Output(2, fmt.Sprintf(infoMessage, args...))
+		stdoutLogger.SetPrefix("DEBUG: ")
+		stdoutLogger.Output(2, fmt.Sprintf(infoMessage, args...))
 	}
 }
 
 func EnableDebugMode() {
-	defaultLogger.SetPrefix("DEBUG: ")
-	defaultLogger.Output(2, messages.CSPFK200D)
+	stdoutLogger.SetPrefix("DEBUG: ")
+	stdoutLogger.Output(2, messages.CSPFK001D)
 	isDebug = true
 }
