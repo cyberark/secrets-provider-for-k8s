@@ -61,7 +61,7 @@ func main() {
 
 	err = backoff.Retry(func() error {
 		for {
-			log.Info(fmt.Sprintf(messages.CSPFK102I, authn.Config.Username))
+			log.Info(fmt.Sprintf(messages.CSPFK001I, authn.Config.Username))
 			authnResp, err := authn.Authenticate()
 			if err != nil {
 				return log.RecordedError(messages.CSPFK010E)
@@ -89,7 +89,7 @@ func main() {
 			// Reset exponential backoff
 			expBackoff.Reset()
 
-			log.Info(messages.CSPFK108I, authn.Config.TokenRefreshTimeout)
+			log.Info(messages.CSPFK007I, authn.Config.TokenRefreshTimeout)
 
 			fmt.Println()
 			time.Sleep(authn.Config.TokenRefreshTimeout)
