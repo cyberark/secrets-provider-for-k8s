@@ -9,7 +9,7 @@ import (
 type ConjurSecretsRetriever struct{}
 
 func (conjurSecretsRetriever ConjurSecretsRetriever) RetrieveConjurSecrets(accessToken []byte, variableIDs []string) (map[string][]byte, error) {
-	log.InfoLogger.Println(messages.CSPFK104I, variableIDs)
+	log.Info(messages.CSPFK104I, variableIDs)
 
 	conjurClient, err := NewConjurClient(accessToken)
 	if err != nil {

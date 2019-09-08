@@ -123,7 +123,7 @@ func (k8sSecretsClient *K8sSecretsClient) PatchK8sSecrets(k8sSecretsMap *K8sSecr
 
 func configK8sClient() (*kubernetes.Clientset, error) {
 	// Create the Kubernetes client
-	log.InfoLogger.Printf(messages.CSPFK105I)
+	log.Info(messages.CSPFK105I)
 	kubeConfig, err := rest.InClusterConfig()
 	if err != nil {
 		return nil, log.RecordedError(messages.CSPFK019E, err.Error())
@@ -140,7 +140,7 @@ func configK8sClient() (*kubernetes.Clientset, error) {
 func retrieveK8sSecret(namespace string, secretName string) (*K8sSecret, error) {
 	// get K8s client object
 	kubeClient, _ := configK8sClient()
-	log.InfoLogger.Printf(messages.CSPFK106I, secretName, namespace)
+	log.Info(messages.CSPFK106I, secretName, namespace)
 	k8sSecret, err := kubeClient.CoreV1().Secrets(namespace).Get(secretName, metav1.GetOptions{})
 	if err != nil {
 		return nil, err
@@ -160,7 +160,7 @@ func patchK8sSecret(namespace string, secretName string, stringDataEntriesMap ma
 		return log.RecordedError(messages.CSPFK024E)
 	}
 
-	log.InfoLogger.Printf(messages.CSPFK107I, secretName, namespace)
+	log.Info(messages.CSPFK107I, secretName, namespace)
 	_, err = kubeClient.CoreV1().Secrets(namespace).Patch(secretName, types.StrategicMergePatchType, stringDataEntry)
 	// Clear secret from memory
 	stringDataEntry = nil
