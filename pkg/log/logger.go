@@ -47,13 +47,13 @@ func Info(infoMessage string, args ...interface{}) {
 
 func Debug(infoMessage string, args ...interface{}) {
 	if isDebug {
-		defaultLogger.SetPrefix("Debug: ")
+		defaultLogger.SetPrefix("DEBUG: ")
 		defaultLogger.Output(2, fmt.Sprintf(infoMessage, args...))
 	}
 }
 
 func EnableDebugMode() {
-	defaultLogger.SetPrefix("Debug: ")
+	defaultLogger.SetPrefix("DEBUG: ")
 	defaultLogger.Output(2, messages.CSPFK200D)
 	isDebug = true
 }

@@ -114,7 +114,7 @@ func printErrorAndExit(errorMessage string) {
 }
 
 func configureLog() {
-	if os.Getenv("DEBUG_MODE") == "yes" {
+	if os.Getenv("IS_DEBUG") == "yes" {
 		log.EnableDebugMode()
 	}
 }
