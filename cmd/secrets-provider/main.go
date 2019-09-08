@@ -16,12 +16,10 @@ import (
 	"github.com/cyberark/cyberark-secrets-provider-for-k8s/pkg/secrets/k8s_secrets_storage"
 )
 
-// log
-var errorLogger = log.ErrorLogger
-var infoLogger = log.InfoLogger
-
 func main() {
 	var err error
+
+	configureLog()
 
 	// Initialize configurations
 	authnConfig, err := authnConfigProvider.NewFromEnv()
@@ -63,7 +61,7 @@ func main() {
 
 	err = backoff.Retry(func() error {
 		for {
-			infoLogger.Printf(fmt.Sprintf(messages.CSPFK102I, authn.Config.Username))
+			log.Info(fmt.Sprintf(messages.CSPFK102I, authn.Config.Username))
 			authnResp, err := authn.Authenticate()
 			if err != nil {
 				return log.RecordedError(messages.CSPFK010E)
@@ -91,7 +89,7 @@ func main() {
 			// Reset exponential backoff
 			expBackoff.Reset()
 
-			infoLogger.Printf(messages.CSPFK108I, authn.Config.TokenRefreshTimeout)
+			log.Info(messages.CSPFK108I, authn.Config.TokenRefreshTimeout)
 
 			fmt.Println()
 			time.Sleep(authn.Config.TokenRefreshTimeout)
@@ -103,7 +101,7 @@ func main() {
 		// if the access token is already deleted the action should not fail
 		err = accessToken.Delete()
 		if err != nil {
-			errorLogger.Printf(messages.CSPFK003E, err)
+			log.Error(messages.CSPFK003E, err)
 		}
 
 		printErrorAndExit(messages.CSPFK038E)
@@ -111,6 +109,12 @@ func main() {
 }
 
 func printErrorAndExit(errorMessage string) {
-	errorLogger.Printf(errorMessage)
+	log.Error(errorMessage)
 	os.Exit(1)
+}
+
+func configureLog() {
+	if os.Getenv("DEBUG_MODE") == "yes" {
+		log.EnableDebugMode()
+	}
 }
