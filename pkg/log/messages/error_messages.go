@@ -47,7 +47,7 @@ const CSPFK026E string = "CSPFK026E Data entry map cannot be empty"
 const CSPFK027E string = "CSPFK027E Failed to update K8s secrets map with Conjur secrets"
 const CSPFK028E string = "CSPFK028E Failed to find any k8s secrets defined with a '%s’ data entry"
 const CSPFK029E string = "CSPFK029E k8s secret '%s' has no value defined for the '%s' data entry"
-const CSPFK030E string = "CSPFK030E k8s secret '%s' has an invalid value for '%s' data entry"
+const CSPFK030E string = "CSPFK030E k8s secret '%s' has an invalid value for '%s' data entry. Reason: %s"
 
 // Conjur
 const CSPFK031E string = "CSPFK031E Failed to load Conjur config. Reason: %s"
