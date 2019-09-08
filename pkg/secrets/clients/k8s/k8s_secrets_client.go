@@ -1,10 +1,8 @@
 package k8s
 
 import (
+	"encoding/json"
 	"fmt"
-	"regexp"
-	"strings"
-
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -66,24 +64,20 @@ func (k8sSecretsClient K8sSecretsClient) RetrieveK8sSecrets() (*K8sSecretsMap, e
 		// Parse its "conjur-map" data entry and store its values in the new-data-entries map
 		// This map holds data entries that will be added to the k8s secret after we retrieve their values from Conjur
 		newDataEntriesMap := make(map[string][]byte)
+		conjurMap := make(map[string]string)
 		for key, value := range k8sSecret.Secret.Data {
 			if key == secretsConfig.CONJUR_MAP_KEY {
 				if len(value) == 0 {
 					return nil, log.RecordedError(messages.CSPFK029E, secretName, secretsConfig.CONJUR_MAP_KEY)
 				}
 				foundConjurMapKey = true
-				// Split the conjur-map to k8s secret keys. each value holds a Conjur variable ID
-				conjurMapEntries := strings.Split(string(value), "\n")
-				for _, entry := range conjurMapEntries {
-					matchedPattern, _ := regexp.MatchString(".+: .+", entry)
-					if matchedPattern == false {
-						return nil, log.RecordedError(messages.CSPFK030E, secretName, secretsConfig.CONJUR_MAP_KEY)
-					}
 
-					// Parse each secret key and store it in the map
-					k8sSecretKeyVal := strings.Split(entry, ": ")
-					k8sSecretKey := k8sSecretKeyVal[0]
-					conjurVariableId := k8sSecretKeyVal[1]
+				err := json.Unmarshal(value, &conjurMap)
+				if err != nil {
+					return nil, log.RecordedError(messages.CSPFK030E, secretName, secretsConfig.CONJUR_MAP_KEY, err.Error())
+				}
+
+				for k8sSecretKey, conjurVariableId := range conjurMap {
 					newDataEntriesMap[k8sSecretKey] = []byte(conjurVariableId)
 
 					// This map will help us later to swap the variable id with the secret value
