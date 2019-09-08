@@ -3,6 +3,7 @@ package k8s
 import (
 	"encoding/json"
 	"fmt"
+
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -58,7 +59,9 @@ func (k8sSecretsClient K8sSecretsClient) RetrieveK8sSecrets() (*K8sSecretsMap, e
 
 		k8sSecret, err := retrieveK8sSecret(namespace, secretName)
 		if err != nil {
-			return nil, log.RecordedError(messages.CSPFK020E, err.Error())
+			// Error messages returned from K8s should be printed only in debug mode
+			log.Debug(messages.CSPFK203D, err.Error())
+			return nil, log.RecordedError(messages.CSPFK020E)
 		}
 
 		// Parse its "conjur-map" data entry and store its values in the new-data-entries map
@@ -68,13 +71,17 @@ func (k8sSecretsClient K8sSecretsClient) RetrieveK8sSecrets() (*K8sSecretsMap, e
 		for key, value := range k8sSecret.Secret.Data {
 			if key == secretsConfig.CONJUR_MAP_KEY {
 				if len(value) == 0 {
-					return nil, log.RecordedError(messages.CSPFK029E, secretName, secretsConfig.CONJUR_MAP_KEY)
+					// Error messages returned from K8s should be printed only in debug mode
+					log.Debug(messages.CSPFK205D, secretName, secretsConfig.CONJUR_MAP_KEY)
+					return nil, log.RecordedError(messages.CSPFK029E, secretName)
 				}
 				foundConjurMapKey = true
 
 				err := json.Unmarshal(value, &conjurMap)
 				if err != nil {
-					return nil, log.RecordedError(messages.CSPFK030E, secretName, secretsConfig.CONJUR_MAP_KEY, err.Error())
+					// Error messages returned from K8s should be printed only in debug mode
+					log.Debug(messages.CSPFK206D, secretName, secretsConfig.CONJUR_MAP_KEY, err.Error())
+					return nil, log.RecordedError(messages.CSPFK029E, secretName)
 				}
 
 				for k8sSecretKey, conjurVariableId := range conjurMap {
@@ -108,7 +115,9 @@ func (k8sSecretsClient *K8sSecretsClient) PatchK8sSecrets(k8sSecretsMap *K8sSecr
 	for secretName, dataEntryMap := range k8sSecretsMap.K8sSecrets {
 		err := patchK8sSecret(namespace, secretName, dataEntryMap)
 		if err != nil {
-			return log.RecordedError(messages.CSPFK022E, err.Error())
+			// Error messages returned from K8s should be printed only in debug mode
+			log.Debug(messages.CSPFK204D, err.Error())
+			return log.RecordedError(messages.CSPFK022E)
 		}
 	}
 
@@ -120,12 +129,16 @@ func configK8sClient() (*kubernetes.Clientset, error) {
 	log.Info(messages.CSPFK105I)
 	kubeConfig, err := rest.InClusterConfig()
 	if err != nil {
-		return nil, log.RecordedError(messages.CSPFK019E, err.Error())
+		// Error messages returned from K8s should be printed only in debug mode
+		log.Debug(messages.CSPFK201D, err.Error())
+		return nil, log.RecordedError(messages.CSPFK019E)
 	}
 
 	kubeClient, err := kubernetes.NewForConfig(kubeConfig)
 	if err != nil {
-		return nil, log.RecordedError(messages.CSPFK018E, err.Error())
+		// Error messages returned from K8s should be printed only in debug mode
+		log.Debug(messages.CSPFK202D, err.Error())
+		return nil, log.RecordedError(messages.CSPFK018E)
 	}
 	// return a K8s client
 	return kubeClient, err

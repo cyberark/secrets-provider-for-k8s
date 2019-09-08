@@ -19,7 +19,7 @@ import (
 func main() {
 	var err error
 
-	configureLog()
+	configureLogLevel()
 
 	// Initialize configurations
 	authnConfig, err := authnConfigProvider.NewFromEnv()
@@ -113,8 +113,8 @@ func printErrorAndExit(errorMessage string) {
 	os.Exit(1)
 }
 
-func configureLog() {
-	if os.Getenv("DEBUG_MODE") == "yes" {
+func configureLogLevel() {
+	if os.Getenv("ENABLE_DEBUG") == "yes" {
 		log.EnableDebugMode()
 	}
 }

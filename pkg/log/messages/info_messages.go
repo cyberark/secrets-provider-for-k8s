@@ -14,7 +14,7 @@ package messages
 
 const CSPFK102I string = "CSPFK102I Authenticating as user '%s'"
 const CSPFK103I string = "CSPFK103I Creating Conjur client..."
-const CSPFK104I string = "CSPFK104I Retrieving following secrets from Conjur: "
+const CSPFK104I string = "CSPFK104I Retrieving following secrets from Conjur: %v"
 const CSPFK105I string = "CSPFK105I Creating Kubernetes client..."
 const CSPFK106I string = "CSPFK106I Retrieving Kubernetes secret '%s' from namespace '%s'..."
 const CSPFK107I string = "CSPFK107I Patching Kubernetes secret '%s' in namespace '%s'"
