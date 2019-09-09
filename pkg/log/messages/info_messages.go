@@ -12,10 +12,10 @@ package messages
 			then the compiler will not allow it.
 */
 
-const CSPFK102I string = "CSPFK102I Authenticating as user '%s'"
-const CSPFK103I string = "CSPFK103I Creating Conjur client..."
-const CSPFK104I string = "CSPFK104I Retrieving following secrets from Conjur: "
-const CSPFK105I string = "CSPFK105I Creating Kubernetes client..."
-const CSPFK106I string = "CSPFK106I Retrieving Kubernetes secret '%s' from namespace '%s'..."
-const CSPFK107I string = "CSPFK107I Patching Kubernetes secret '%s' in namespace '%s'"
-const CSPFK108I string = "CSPFK108I Waiting for %s to re-authenticate and fetch secrets."
+const CSPFK001I string = "CSPFK001I Authenticating as user '%s'"
+const CSPFK002I string = "CSPFK002I Creating Conjur client..."
+const CSPFK003I string = "CSPFK003I Retrieving following secrets from Conjur: %v"
+const CSPFK004I string = "CSPFK004I Creating Kubernetes client..."
+const CSPFK005I string = "CSPFK005I Retrieving Kubernetes secret '%s' from namespace '%s'..."
+const CSPFK006I string = "CSPFK006I Patching Kubernetes secret '%s' in namespace '%s'"
+const CSPFK007I string = "CSPFK007I Waiting for %s to re-authenticate and fetch secrets."

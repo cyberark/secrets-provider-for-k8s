@@ -4,10 +4,13 @@ import (
 	"fmt"
 	"log"
 	"os"
+
+	"github.com/cyberark/cyberark-secrets-provider-for-k8s/pkg/log/messages"
 )
 
-var InfoLogger = log.New(os.Stdout, "INFO:  ", log.LUTC|log.Ldate|log.Ltime|log.Lshortfile)
-var ErrorLogger = log.New(os.Stderr, "ERROR: ", log.LUTC|log.Ldate|log.Ltime|log.Lshortfile)
+var stdoutLogger = log.New(os.Stdout, "INFO:  ", log.LUTC|log.Ldate|log.Ltime|log.Lshortfile)
+var errorLogger = log.New(os.Stderr, "ERROR: ", log.LUTC|log.Ldate|log.Ltime|log.Lshortfile)
+var isDebug = false
 
 /*
 	Prints an error message to the error log and returns a new error with the given message.
@@ -30,6 +33,28 @@ var ErrorLogger = log.New(os.Stderr, "ERROR: ", log.LUTC|log.Ldate|log.Ltime|log
 		}
 */
 func RecordedError(errorMessage string, args ...interface{}) error {
-	ErrorLogger.Output(2, fmt.Sprintf(errorMessage, args...))
+	errorLogger.Output(2, fmt.Sprintf(errorMessage, args...))
 	return fmt.Errorf(fmt.Sprintf(errorMessage, args...))
+}
+
+func Error(errorMessage string, args ...interface{}) {
+	errorLogger.Output(2, fmt.Sprintf(errorMessage, args...))
+}
+
+func Info(infoMessage string, args ...interface{}) {
+	stdoutLogger.SetPrefix("INFO: ")
+	stdoutLogger.Output(2, fmt.Sprintf(infoMessage, args...))
+}
+
+func Debug(infoMessage string, args ...interface{}) {
+	if isDebug {
+		stdoutLogger.SetPrefix("DEBUG: ")
+		stdoutLogger.Output(2, fmt.Sprintf(infoMessage, args...))
+	}
+}
+
+func EnableDebugMode() {
+	stdoutLogger.SetPrefix("DEBUG: ")
+	stdoutLogger.Output(2, messages.CSPFK001D)
+	isDebug = true
 }
