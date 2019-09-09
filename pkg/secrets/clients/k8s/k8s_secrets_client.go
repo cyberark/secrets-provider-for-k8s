@@ -2,7 +2,6 @@ package k8s
 
 import (
 	"bytes"
-	"encoding/json"
 	"fmt"
 
 	"gopkg.in/yaml.v2"
@@ -250,6 +249,6 @@ func generateStringDataEntry(stringDataEntriesMap map[string][]byte) ([]byte, er
 
 // Escape secrets with backslashes
 // Otherwise, patching K8s secrets will fail because backslashes in Conjur secret are not escaped
-func escapedSecret(secretByte []byte) ([]byte) {
+func escapedSecret(secretByte []byte) []byte {
 	return bytes.ReplaceAll(secretByte, []byte("\\"), []byte("\\\\"))
 }
