@@ -48,7 +48,6 @@ func New(config secretsConfig.Config) (secrets *K8sSecretsClient, err error) {
 }
 
 func (k8sSecretsClient K8sSecretsClient) RetrieveK8sSecrets() (*K8sSecretsMap, error) {
-	foundConjurMapKey := false
 	namespace := k8sSecretsClient.Config.PodNamespace
 	requiredK8sSecrets := k8sSecretsClient.Config.RequiredK8sSecrets
 
@@ -64,24 +63,35 @@ func (k8sSecretsClient K8sSecretsClient) RetrieveK8sSecrets() (*K8sSecretsMap, e
 			return nil, log.RecordedError(messages.CSPFK020E)
 		}
 
+		// If K8s secret has no "conjur-map" data entry, return an error
+		if _, ok := k8sSecret.Secret.Data[secretsConfig.CONJUR_MAP_KEY]; !ok {
+			// Error messages returned from K8s should be printed only in debug mode
+			log.Debug(messages.CSPFK008D, secretName, secretsConfig.CONJUR_MAP_KEY)
+			return nil, log.RecordedError(messages.CSPFK028E, secretName)
+		}
+
 		// Parse its "conjur-map" data entry and store its values in the new-data-entries map
 		// This map holds data entries that will be added to the k8s secret after we retrieve their values from Conjur
 		newDataEntriesMap := make(map[string][]byte)
 		conjurMap := make(map[string]string)
 		for key, value := range k8sSecret.Secret.Data {
 			if key == secretsConfig.CONJUR_MAP_KEY {
-				if len(value) == 0 {
+				if value == nil || len(value) == 0 {
 					// Error messages returned from K8s should be printed only in debug mode
 					log.Debug(messages.CSPFK006D, secretName, secretsConfig.CONJUR_MAP_KEY)
-					return nil, log.RecordedError(messages.CSPFK029E, secretName)
+					return nil, log.RecordedError(messages.CSPFK028E, secretName)
 				}
-				foundConjurMapKey = true
 
+				log.Debug(messages.CSPFK009D, secretsConfig.CONJUR_MAP_KEY, secretName)
 				err := json.Unmarshal(value, &conjurMap)
 				if err != nil {
 					// Error messages returned from K8s should be printed only in debug mode
 					log.Debug(messages.CSPFK007D, secretName, secretsConfig.CONJUR_MAP_KEY, err.Error())
-					return nil, log.RecordedError(messages.CSPFK029E, secretName)
+					return nil, log.RecordedError(messages.CSPFK028E, secretName)
+				} else if conjurMap == nil || len(conjurMap) == 0 {
+					// Error messages returned from K8s should be printed only in debug mode
+					log.Debug(messages.CSPFK007D, secretName, secretsConfig.CONJUR_MAP_KEY, "value is empty")
+					return nil, log.RecordedError(messages.CSPFK028E, secretName)
 				}
 
 				for k8sSecretKey, conjurVariableId := range conjurMap {
@@ -93,14 +103,7 @@ func (k8sSecretsClient K8sSecretsClient) RetrieveK8sSecrets() (*K8sSecretsMap, e
 			}
 		}
 
-		// We add the data-entries map to the k8sSecrets map only if the k8s secret has a "conjur-map" data entry
-		if len(newDataEntriesMap) > 0 {
-			k8sSecrets[secretName] = newDataEntriesMap
-		}
-	}
-
-	if !foundConjurMapKey {
-		return nil, log.RecordedError(messages.CSPFK028E, secretsConfig.CONJUR_MAP_KEY)
+		k8sSecrets[secretName] = newDataEntriesMap
 	}
 
 	return &K8sSecretsMap{

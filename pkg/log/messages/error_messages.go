@@ -45,8 +45,7 @@ const CSPFK024E string = "CSPFK024E Failed to create stringDataEntry"
 const CSPFK025E string = "CSPFK025E PathMap cannot be empty"
 const CSPFK026E string = "CSPFK026E Data entry map cannot be empty"
 const CSPFK027E string = "CSPFK027E Failed to update K8s secrets map with Conjur secrets"
-const CSPFK028E string = "CSPFK028E Failed to find any k8s secrets defined with a '%s’ data entry"
-const CSPFK029E string = "CSPFK029E Unable to patch k8s secret '%s'"
+const CSPFK028E string = "CSPFK028E Unable to patch k8s secret '%s'"
 
 // Conjur
 const CSPFK031E string = "CSPFK031E Failed to load Conjur config. Reason: %s"
