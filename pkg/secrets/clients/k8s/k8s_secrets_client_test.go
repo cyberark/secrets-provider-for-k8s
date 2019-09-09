@@ -66,7 +66,7 @@ func TestKubernetesSecrets(t *testing.T) {
 		// a more complex use-case where the secret contains a combination of backslashes and the unicode escape sequence for backslashes
 		Convey("Given a map of data entries and a secret with unicode and backslashes", func() {
 			dataEntries := make(map[string][]byte)
-			// simulates a Conjur secret with 1 backslash with unicode
+			// simulates a Conjur secret with backslashes with unicode
 			dataEntries["user"] = []byte("\u005c\u005ca\\u005c\u005cb\u005cc\u005c");
 			escapedDataEntry, err := generateStringDataEntry(dataEntries);
 
@@ -80,6 +80,14 @@ func TestKubernetesSecrets(t *testing.T) {
 				stringDataEntryExpected := `{"stringData":{"user":"\\\\a\\u005c\\b\\c\\"}}`
 				stringDataEntryActual := string(escapedDataEntry)
 				eq := reflect.DeepEqual(stringDataEntryActual, stringDataEntryExpected)
+				So(eq, ShouldEqual, true)
+			})
+
+			Convey("Returns the proper number of backslashes", func() {
+				// counts the number of backslashes to make sure the secret is escaped as expected
+				numExpected := strings.Count(`{"stringData":{"user":"\\\\a\\u005c\\b\\c\\"}}`, "\\")
+				numActual := strings.Count(string(escapedDataEntry), "\\");
+				eq := reflect.DeepEqual(numActual, numExpected)
 				So(eq, ShouldEqual, true)
 			})
 		})
