@@ -1,6 +1,7 @@
 package k8s
 
 import (
+	"bytes"
 	"fmt"
 
 	"gopkg.in/yaml.v2"
@@ -201,6 +202,7 @@ func generateStringDataEntry(stringDataEntriesMap map[string][]byte) ([]byte, er
 	entries := make([][]byte, len(stringDataEntriesMap))
 	// Parse every key-value pair in the map to a "key:value" byte array
 	for key, value := range stringDataEntriesMap {
+		value = escapedSecret(value)
 		entry = utils.ByteSlicePrintf(
 			`"%v":"%v"`,
 			"%v",
@@ -243,4 +245,10 @@ func generateStringDataEntry(stringDataEntriesMap map[string][]byte) ([]byte, er
 	entriesCombined = nil
 
 	return stringDataEntry, nil
+}
+
+// Escape secrets with backslashes
+// Otherwise, patching K8s secrets will fail because backslashes in Conjur secret are not escaped
+func escapedSecret(secretByte []byte) []byte {
+	return bytes.ReplaceAll(secretByte, []byte("\\"), []byte("\\\\"))
 }
