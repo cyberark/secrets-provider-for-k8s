@@ -1,9 +1,9 @@
 package k8s
 
 import (
-	"encoding/json"
 	"fmt"
 
+	"gopkg.in/yaml.v2"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -83,7 +83,7 @@ func (k8sSecretsClient K8sSecretsClient) RetrieveK8sSecrets() (*K8sSecretsMap, e
 				}
 
 				log.Debug(messages.CSPFK009D, secretsConfig.CONJUR_MAP_KEY, secretName)
-				err := json.Unmarshal(value, &conjurMap)
+				err := yaml.Unmarshal(value, &conjurMap)
 				if err != nil {
 					// Error messages returned from K8s should be printed only in debug mode
 					log.Debug(messages.CSPFK007D, secretName, secretsConfig.CONJUR_MAP_KEY, err.Error())
