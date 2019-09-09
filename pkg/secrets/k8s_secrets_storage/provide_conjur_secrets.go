@@ -1,11 +1,11 @@
 package k8s_secrets_storage
 
 import (
-	"encoding/json"
 	"fmt"
 	"strings"
 
 	"github.com/cyberark/conjur-authn-k8s-client/pkg/access_token"
+	"gopkg.in/yaml.v2"
 
 	"github.com/cyberark/cyberark-secrets-provider-for-k8s/pkg/log"
 	"github.com/cyberark/cyberark-secrets-provider-for-k8s/pkg/log/messages"
@@ -107,8 +107,6 @@ func run(k8sSecretsClient k8s.K8sSecretsClientInterface, namespace string, requi
 }
 
 func RetrieveRequiredK8sSecrets(k8sSecretsClient k8s.K8sSecretsClientInterface, namespace string, requiredK8sSecrets []string) (*K8sSecretsMap, error) {
-	foundConjurMapKey := false
-
 	k8sSecrets := make(map[string]map[string][]byte)
 	pathMap := make(map[string][]string)
 
@@ -116,7 +114,16 @@ func RetrieveRequiredK8sSecrets(k8sSecretsClient k8s.K8sSecretsClientInterface, 
 
 		k8sSecret, err := k8sSecretsClient.RetrieveK8sSecret(namespace, secretName)
 		if err != nil {
-			return nil, log.RecordedError(messages.CSPFK020E, err.Error())
+			// Error messages returned from K8s should be printed only in debug mode
+			log.Debug(messages.CSPFK004D, err.Error())
+			return nil, log.RecordedError(messages.CSPFK020E)
+		}
+
+		// If K8s secret has no "conjur-map" data entry, return an error
+		if _, ok := k8sSecret.GetSecretData()[secretsConfig.CONJUR_MAP_KEY]; !ok {
+			// Error messages returned from K8s should be printed only in debug mode
+			log.Debug(messages.CSPFK008D, secretName, secretsConfig.CONJUR_MAP_KEY)
+			return nil, log.RecordedError(messages.CSPFK028E, secretName)
 		}
 
 		// Parse its "conjur-map" data entry and store its values in the new-data-entries map
@@ -126,13 +133,21 @@ func RetrieveRequiredK8sSecrets(k8sSecretsClient k8s.K8sSecretsClientInterface, 
 		for key, value := range k8sSecret.GetSecretData() {
 			if key == secretsConfig.CONJUR_MAP_KEY {
 				if len(value) == 0 {
-					return nil, log.RecordedError(messages.CSPFK029E, secretName, secretsConfig.CONJUR_MAP_KEY)
+					// Error messages returned from K8s should be printed only in debug mode
+					log.Debug(messages.CSPFK006D, secretName, secretsConfig.CONJUR_MAP_KEY)
+					return nil, log.RecordedError(messages.CSPFK028E, secretName)
 				}
-				foundConjurMapKey = true
 
-				err := json.Unmarshal(value, &conjurMap)
+				log.Debug(messages.CSPFK009D, secretsConfig.CONJUR_MAP_KEY, secretName)
+				err := yaml.Unmarshal(value, &conjurMap)
 				if err != nil {
-					return nil, log.RecordedError(messages.CSPFK030E, secretName, secretsConfig.CONJUR_MAP_KEY, err.Error())
+					// Error messages returned from K8s should be printed only in debug mode
+					log.Debug(messages.CSPFK007D, secretName, secretsConfig.CONJUR_MAP_KEY, err.Error())
+					return nil, log.RecordedError(messages.CSPFK028E, secretName)
+				} else if conjurMap == nil || len(conjurMap) == 0 {
+					// Error messages returned from K8s should be printed only in debug mode
+					log.Debug(messages.CSPFK007D, secretName, secretsConfig.CONJUR_MAP_KEY, "value is empty")
+					return nil, log.RecordedError(messages.CSPFK028E, secretName)
 				}
 
 				for k8sSecretKey, conjurVariableId := range conjurMap {
@@ -144,14 +159,7 @@ func RetrieveRequiredK8sSecrets(k8sSecretsClient k8s.K8sSecretsClientInterface, 
 			}
 		}
 
-		// We add the data-entries map to the k8sSecrets map only if the k8s secret has a "conjur-map" data entry
-		if len(newDataEntriesMap) > 0 {
-			k8sSecrets[secretName] = newDataEntriesMap
-		}
-	}
-
-	if !foundConjurMapKey {
-		return nil, log.RecordedError(messages.CSPFK028E, secretsConfig.CONJUR_MAP_KEY)
+		k8sSecrets[secretName] = newDataEntriesMap
 	}
 
 	return &K8sSecretsMap{
@@ -164,7 +172,9 @@ func PatchRequiredK8sSecrets(k8sSecretsClient k8s.K8sSecretsClientInterface, nam
 	for secretName, dataEntryMap := range k8sSecretsMap.K8sSecrets {
 		err := k8sSecretsClient.PatchK8sSecret(namespace, secretName, dataEntryMap)
 		if err != nil {
-			return log.RecordedError(messages.CSPFK022E, err.Error())
+			// Error messages returned from K8s should be printed only in debug mode
+			log.Debug(messages.CSPFK005D, err.Error())
+			return log.RecordedError(messages.CSPFK022E)
 		}
 	}
 
