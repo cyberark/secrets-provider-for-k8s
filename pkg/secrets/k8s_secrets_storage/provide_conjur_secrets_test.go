@@ -1,6 +1,7 @@
 package k8s_secrets_storage
 
 import (
+	"fmt"
 	"reflect"
 	"sort"
 	"testing"
@@ -8,8 +9,16 @@ import (
 	. "github.com/smartystreets/goconvey/convey"
 
 	"github.com/cyberark/cyberark-secrets-provider-for-k8s/pkg/log/messages"
-	"github.com/cyberark/cyberark-secrets-provider-for-k8s/pkg/secrets/clients/k8s"
+	"github.com/cyberark/cyberark-secrets-provider-for-k8s/pkg/secrets/k8s_secrets_storage/mocks"
 )
+
+func prepareMockDBs() {
+	mocks.MockK8sDB = make(map[string]mocks.MockK8sSecret)
+
+	mocks.MockConjurDB = make(map[string][]byte)
+	mocks.MockConjurDB["conjur_variable1"] = []byte("conjur_secret1")
+	mocks.MockConjurDB["conjur_variable2"] = []byte("conjur_secret2")
+}
 
 func TestProvideConjurSecrets(t *testing.T) {
 	Convey("getVariableIDsToRetrieve", t, func() {
@@ -60,7 +69,7 @@ func TestProvideConjurSecrets(t *testing.T) {
 			pathMap := make(map[string][]string)
 			pathMap["allowed/username"] = []string{"mysecret:username"}
 
-			k8sSecretsStruct := k8s.K8sSecretsMap{k8sSecretsMap, pathMap}
+			k8sSecretsStruct := K8sSecretsMap{k8sSecretsMap, pathMap}
 			err := updateK8sSecretsMapWithConjurSecrets(&k8sSecretsStruct, conjurSecrets)
 
 			Convey("Finishes without raising an error", func() {
@@ -88,7 +97,7 @@ func TestProvideConjurSecrets(t *testing.T) {
 			pathMap := make(map[string][]string)
 			pathMap["allowed/username"] = []string{"secret:username", "another-secret:username"}
 
-			k8sSecretsStruct := k8s.K8sSecretsMap{k8sSecretsMap, pathMap}
+			k8sSecretsStruct := K8sSecretsMap{k8sSecretsMap, pathMap}
 			err := updateK8sSecretsMapWithConjurSecrets(&k8sSecretsStruct, conjurSecrets)
 
 			Convey("Finishes without raising an error", func() {
@@ -102,6 +111,90 @@ func TestProvideConjurSecrets(t *testing.T) {
 				eq = reflect.DeepEqual(k8sSecretsStruct.K8sSecrets["another-secret"]["username"], secret)
 				So(eq, ShouldEqual, true)
 			})
+		})
+	})
+
+	Convey("RetrieveRequiredK8sSecrets", t, func() {
+		prepareMockDBs()
+
+		secretName := "k8s_secret1"
+		secretDataEntries := make(map[string]string)
+		secretDataEntries["data_key"] = "conjur_variable1"
+		mocks.MockK8sDB[secretName] = mocks.CreateMockK8sSecret(secretDataEntries)
+
+		mockK8sSecretsClient := &mocks.MockK8sSecretsClient{
+			MockK8sDB: mocks.MockK8sDB,
+		}
+
+		k8sSecretsMap, err := RetrieveRequiredK8sSecrets(mockK8sSecretsClient, "someNameSpace", []string{secretName})
+
+		Convey("Finishes without raising an error", func() {
+			So(err, ShouldEqual, nil)
+		})
+
+		Convey("Creates K8sSecrets map as expected", func() {
+			expectedK8sSecretsData := make(map[string][]byte)
+			expectedK8sSecretsData["data_key"] = []byte("conjur_variable1")
+
+			expectedK8sSecrets := make(map[string]map[string][]byte)
+			expectedK8sSecrets[secretName] = expectedK8sSecretsData
+
+			eq := reflect.DeepEqual(k8sSecretsMap.K8sSecrets, expectedK8sSecrets)
+			So(eq, ShouldEqual, true)
+		})
+
+		Convey("Creates PathMap map as expected", func() {
+			expectedPathMap := make(map[string][]string)
+			expectedPathMap["conjur_variable1"] = []string{fmt.Sprintf("%s:%s", secretName, "data_key")}
+
+			eq := reflect.DeepEqual(k8sSecretsMap.PathMap, expectedPathMap)
+			So(eq, ShouldEqual, true)
+		})
+	})
+
+	Convey("run", t, func() {
+		prepareMockDBs()
+
+		// Create a secret that is required by the pod - should be changed in the DB
+		requiredSecretName := "k8s_secret1"
+		requiredSecretDataEntries := make(map[string]string)
+		requiredSecretDataEntries["data_key"] = "conjur_variable1"
+		mocks.MockK8sDB[requiredSecretName] = mocks.CreateMockK8sSecret(requiredSecretDataEntries)
+
+		// Create a secret that is not required by the pod - should NOT be changed in the DB
+		notRequiredSecretName := "k8s_secret2"
+		notRequiredSecretDataEntries := make(map[string]string)
+		notRequiredSecretDataEntries["data_key"] = "conjur_variable2"
+		mocks.MockK8sDB[notRequiredSecretName] = mocks.CreateMockK8sSecret(notRequiredSecretDataEntries)
+
+		var mockAccessToken mocks.MockAccessToken
+		var mockConjurSecretsRetriever mocks.MockConjurSecretsRetriever
+		mockK8sSecretsClient := &mocks.MockK8sSecretsClient{
+			MockK8sDB: mocks.MockK8sDB,
+		}
+
+		err := run(
+			mockK8sSecretsClient,
+			"someNameSpace",
+			[]string{requiredSecretName},
+			mockAccessToken,
+			mockConjurSecretsRetriever,
+		)
+
+		Convey("Finishes without raising an error", func() {
+			So(err, ShouldEqual, nil)
+		})
+
+		Convey("Updates K8s secrets with their corresponding Conjur secrets", func() {
+			actualK8sSecretDataValue := mocks.MockK8sDB[requiredSecretName].Data["data_key"]
+			expectedK8sSecretDataValue := []byte("conjur_secret1")
+			eq := reflect.DeepEqual(actualK8sSecretDataValue, expectedK8sSecretDataValue)
+			So(eq, ShouldEqual, true)
+		})
+
+		Convey("Does not updates other K8s secrets", func() {
+			actualK8sSecretDataValue := mocks.MockK8sDB[notRequiredSecretName].Data["data_key"]
+			So(actualK8sSecretDataValue, ShouldEqual, nil)
 		})
 	})
 }

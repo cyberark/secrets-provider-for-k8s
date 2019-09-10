@@ -41,7 +41,7 @@ func main() {
 		printErrorAndExit(messages.CSPFK001E)
 	}
 
-	pushConjurSecrets, err := k8s_secrets_storage.NewProvideConjurSecrets(*secretsConfig, accessToken)
+	provideConjurSecrets, err := k8s_secrets_storage.NewProvideConjurSecrets(*secretsConfig, accessToken)
 	if err != nil {
 		printErrorAndExit(messages.CSPFK014E)
 	}
@@ -72,7 +72,7 @@ func main() {
 				return log.RecordedError(messages.CSPFK011E)
 			}
 
-			err = pushConjurSecrets.Run()
+			err = provideConjurSecrets.Run()
 			if err != nil {
 				return log.RecordedError(messages.CSPFK016E)
 			}

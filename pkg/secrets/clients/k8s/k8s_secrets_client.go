@@ -2,10 +2,7 @@ package k8s
 
 import (
 	"bytes"
-	"fmt"
 
-	"gopkg.in/yaml.v2"
-	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
@@ -13,120 +10,17 @@ import (
 
 	"github.com/cyberark/cyberark-secrets-provider-for-k8s/pkg/log"
 	"github.com/cyberark/cyberark-secrets-provider-for-k8s/pkg/log/messages"
-	secretsConfig "github.com/cyberark/cyberark-secrets-provider-for-k8s/pkg/secrets/config"
 	"github.com/cyberark/cyberark-secrets-provider-for-k8s/pkg/utils"
 )
 
-/*
-	This client communicates with K8s to retrieve & patch K8s secrets
-*/
-type K8sSecretsClient struct {
-	Config secretsConfig.Config
+// This interface is used to mock a K8sSecretsClient struct
+type K8sSecretsClientInterface interface {
+	RetrieveK8sSecret(namespace string, secretName string) (K8sSecretInterface, error)
+	PatchK8sSecret(namespace string, secretName string, stringDataEntriesMap map[string][]byte) error
 }
 
-type K8sSecret struct {
-	Secret *v1.Secret
-}
-
-type K8sSecretsMap struct {
-	// Maps a k8s Secret name to a data-entry map that holds the new entries that will be added to the k8s secret.
-	// The data-entry map's key represents an entry name and the value is a Conjur variable ID that holds the value
-	// of the required k8s secret. After the secret is retrieved from Conjur we replace the variable ID with its
-	// corresponding secret value.
-	// The variable ID (which is replaced later with the secret) is held as a byte array so we don't hold the secret as
-	// clear text string
-	K8sSecrets map[string]map[string][]byte
-
-	// Maps a conjur variable id to its place in the k8sSecretsMap. This object helps us to replace
-	// the variable IDs with their corresponding secret value in the map
-	PathMap map[string][]string
-}
-
-func New(config secretsConfig.Config) (secrets *K8sSecretsClient, err error) {
-	return &K8sSecretsClient{
-		Config: config,
-	}, nil
-}
-
-func (k8sSecretsClient K8sSecretsClient) RetrieveK8sSecrets() (*K8sSecretsMap, error) {
-	namespace := k8sSecretsClient.Config.PodNamespace
-	requiredK8sSecrets := k8sSecretsClient.Config.RequiredK8sSecrets
-
-	k8sSecrets := make(map[string]map[string][]byte)
-	pathMap := make(map[string][]string)
-
-	for _, secretName := range requiredK8sSecrets {
-
-		k8sSecret, err := retrieveK8sSecret(namespace, secretName)
-		if err != nil {
-			// Error messages returned from K8s should be printed only in debug mode
-			log.Debug(messages.CSPFK004D, err.Error())
-			return nil, log.RecordedError(messages.CSPFK020E)
-		}
-
-		// If K8s secret has no "conjur-map" data entry, return an error
-		if _, ok := k8sSecret.Secret.Data[secretsConfig.CONJUR_MAP_KEY]; !ok {
-			// Error messages returned from K8s should be printed only in debug mode
-			log.Debug(messages.CSPFK008D, secretName, secretsConfig.CONJUR_MAP_KEY)
-			return nil, log.RecordedError(messages.CSPFK028E, secretName)
-		}
-
-		// Parse its "conjur-map" data entry and store its values in the new-data-entries map
-		// This map holds data entries that will be added to the k8s secret after we retrieve their values from Conjur
-		newDataEntriesMap := make(map[string][]byte)
-		conjurMap := make(map[string]string)
-		for key, value := range k8sSecret.Secret.Data {
-			if key == secretsConfig.CONJUR_MAP_KEY {
-				if value == nil || len(value) == 0 {
-					// Error messages returned from K8s should be printed only in debug mode
-					log.Debug(messages.CSPFK006D, secretName, secretsConfig.CONJUR_MAP_KEY)
-					return nil, log.RecordedError(messages.CSPFK028E, secretName)
-				}
-
-				log.Debug(messages.CSPFK009D, secretsConfig.CONJUR_MAP_KEY, secretName)
-				err := yaml.Unmarshal(value, &conjurMap)
-				if err != nil {
-					// Error messages returned from K8s should be printed only in debug mode
-					log.Debug(messages.CSPFK007D, secretName, secretsConfig.CONJUR_MAP_KEY, err.Error())
-					return nil, log.RecordedError(messages.CSPFK028E, secretName)
-				} else if conjurMap == nil || len(conjurMap) == 0 {
-					// Error messages returned from K8s should be printed only in debug mode
-					log.Debug(messages.CSPFK007D, secretName, secretsConfig.CONJUR_MAP_KEY, "value is empty")
-					return nil, log.RecordedError(messages.CSPFK028E, secretName)
-				}
-
-				for k8sSecretKey, conjurVariableId := range conjurMap {
-					newDataEntriesMap[k8sSecretKey] = []byte(conjurVariableId)
-
-					// This map will help us later to swap the variable id with the secret value
-					pathMap[conjurVariableId] = append(pathMap[conjurVariableId], fmt.Sprintf("%s:%s", secretName, k8sSecretKey))
-				}
-			}
-		}
-
-		k8sSecrets[secretName] = newDataEntriesMap
-	}
-
-	return &K8sSecretsMap{
-		K8sSecrets: k8sSecrets,
-		PathMap:    pathMap,
-	}, nil
-}
-
-func (k8sSecretsClient *K8sSecretsClient) PatchK8sSecrets(k8sSecretsMap *K8sSecretsMap) error {
-	namespace := k8sSecretsClient.Config.PodNamespace
-
-	for secretName, dataEntryMap := range k8sSecretsMap.K8sSecrets {
-		err := patchK8sSecret(namespace, secretName, dataEntryMap)
-		if err != nil {
-			// Error messages returned from K8s should be printed only in debug mode
-			log.Debug(messages.CSPFK005D, err.Error())
-			return log.RecordedError(messages.CSPFK022E)
-		}
-	}
-
-	return nil
-}
+// This empty struct represents a Kubernetes Secrets client. It is used to retrieve & patch k8s secrets.
+type K8sSecretsClient struct{}
 
 func configK8sClient() (*kubernetes.Clientset, error) {
 	// Create the Kubernetes client
@@ -148,7 +42,7 @@ func configK8sClient() (*kubernetes.Clientset, error) {
 	return kubeClient, err
 }
 
-func retrieveK8sSecret(namespace string, secretName string) (*K8sSecret, error) {
+func (k8sSecretsClient K8sSecretsClient) RetrieveK8sSecret(namespace string, secretName string) (K8sSecretInterface, error) {
 	// get K8s client object
 	kubeClient, _ := configK8sClient()
 	log.Info(messages.CSPFK005I, secretName, namespace)
@@ -162,7 +56,7 @@ func retrieveK8sSecret(namespace string, secretName string) (*K8sSecret, error) 
 	}, nil
 }
 
-func patchK8sSecret(namespace string, secretName string, stringDataEntriesMap map[string][]byte) error {
+func (k8sSecretsClient K8sSecretsClient) PatchK8sSecret(namespace string, secretName string, stringDataEntriesMap map[string][]byte) error {
 	// get K8s client object
 	kubeClient, _ := configK8sClient()
 
@@ -182,15 +76,17 @@ func patchK8sSecret(namespace string, secretName string, stringDataEntriesMap ma
 	return nil
 }
 
-// Convert the data entry map to a stringData entry for the PATCH request.
-// for example, the map:
-// {
-//   "username": "theuser",
-//   "password": "supersecret"
-// }
-// will be parsed to the stringData entry "{\"stringData\":{\"username\": \"theuser\", \"password\": \"supersecret\"}}"
-//
-// we need the values to always stay as byte arrays so we don't have Conjur secrets stored as string.
+/*
+	Convert the data entry map to a stringData entry for the PATCH request.
+	for example, the map:
+	{
+	  "username": "theuser",
+	  "password": "supersecret"
+	}
+	will be parsed to the stringData entry "{\"stringData\":{\"username\": \"theuser\", \"password\": \"supersecret\"}}"
+
+	we need the values to always stay as byte arrays so we don't have Conjur secrets stored as string.
+*/
 func generateStringDataEntry(stringDataEntriesMap map[string][]byte) ([]byte, error) {
 	var entry []byte
 	index := 0
