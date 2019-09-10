@@ -96,7 +96,8 @@ func run(k8sSecretsClient k8s.K8sSecretsClientInterface, namespace string, requi
 
 	err = PatchRequiredK8sSecrets(
 		k8sSecretsClient,
-		namespace, k8sSecretsMap,
+		namespace,
+		k8sSecretsMap,
 	)
 
 	if err != nil {
