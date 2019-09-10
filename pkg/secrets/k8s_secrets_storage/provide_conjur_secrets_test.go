@@ -115,43 +115,91 @@ func TestProvideConjurSecrets(t *testing.T) {
 	})
 
 	Convey("RetrieveRequiredK8sSecrets", t, func() {
-		prepareMockDBs()
+		Convey("Given an existing k8s secret that is mapped to an existing conjur secret", func() {
+			prepareMockDBs()
 
-		addK8sSecretToMockDB("k8s_secret1", "conjur_variable1")
-		requiredSecrets := []string{"k8s_secret1"}
+			addK8sSecretToMockDB("k8s_secret1", "conjur_variable1")
+			requiredSecrets := []string{"k8s_secret1"}
 
-		mockK8sSecretsClient := &mocks.MockK8sSecretsClient{}
+			mockK8sSecretsClient := &mocks.MockK8sSecretsClient{
+				Permissions: k8sSecretsPermissions(true, true),
+			}
 
-		k8sSecretsMap, err := RetrieveRequiredK8sSecrets(mockK8sSecretsClient, "someNameSpace", requiredSecrets)
+			k8sSecretsMap, err := RetrieveRequiredK8sSecrets(mockK8sSecretsClient, "someNameSpace", requiredSecrets)
 
-		Convey("Finishes without raising an error", func() {
-			So(err, ShouldEqual, nil)
+			Convey("Finishes without raising an error", func() {
+				So(err, ShouldEqual, nil)
+			})
+
+			Convey("Creates K8sSecrets map as expected", func() {
+				expectedK8sSecretsData := make(map[string][]byte)
+				expectedK8sSecretsData["data_key"] = []byte("conjur_variable1")
+
+				expectedK8sSecrets := make(map[string]map[string][]byte)
+				expectedK8sSecrets["k8s_secret1"] = expectedK8sSecretsData
+
+				eq := reflect.DeepEqual(k8sSecretsMap.K8sSecrets, expectedK8sSecrets)
+				So(eq, ShouldEqual, true)
+			})
+
+			Convey("Creates PathMap map as expected", func() {
+				expectedPathMap := make(map[string][]string)
+				expectedPathMap["conjur_variable1"] = []string{fmt.Sprintf("%s:%s", "k8s_secret1", "data_key")}
+
+				eq := reflect.DeepEqual(k8sSecretsMap.PathMap, expectedPathMap)
+				So(eq, ShouldEqual, true)
+			})
 		})
 
-		Convey("Creates K8sSecrets map as expected", func() {
-			expectedK8sSecretsData := make(map[string][]byte)
-			expectedK8sSecretsData["data_key"] = []byte("conjur_variable1")
+		Convey("Given no 'get' permissions on the 'secrets' k8s resource", func() {
+			prepareMockDBs()
 
-			expectedK8sSecrets := make(map[string]map[string][]byte)
-			expectedK8sSecrets["k8s_secret1"] = expectedK8sSecretsData
+			addK8sSecretToMockDB("k8s_secret1", "conjur_variable1")
+			requiredSecrets := []string{"k8s_secret1"}
 
-			eq := reflect.DeepEqual(k8sSecretsMap.K8sSecrets, expectedK8sSecrets)
-			So(eq, ShouldEqual, true)
+			mockK8sSecretsClient := &mocks.MockK8sSecretsClient{
+				Permissions: k8sSecretsPermissions(false, true),
+			}
+
+			_, err := RetrieveRequiredK8sSecrets(mockK8sSecretsClient, "someNameSpace", requiredSecrets)
+
+			Convey("raises proper error", func() {
+				So(err.Error(), ShouldEqual, messages.CSPFK020E)
+			})
 		})
+	})
 
-		Convey("Creates PathMap map as expected", func() {
-			expectedPathMap := make(map[string][]string)
-			expectedPathMap["conjur_variable1"] = []string{fmt.Sprintf("%s:%s", "k8s_secret1", "data_key")}
+	Convey("PatchRequiredK8sSecrets", t, func() {
+		Convey("Given no 'patch' permissions on the 'secrets' k8s resource", func() {
+			prepareMockDBs()
 
-			eq := reflect.DeepEqual(k8sSecretsMap.PathMap, expectedPathMap)
-			So(eq, ShouldEqual, true)
+			addK8sSecretToMockDB("k8s_secret1", "conjur_variable1")
+			requiredSecrets := []string{"k8s_secret1"}
+
+			mockK8sSecretsClient := &mocks.MockK8sSecretsClient{
+				Permissions: k8sSecretsPermissions(true, false),
+			}
+
+			k8sSecretsMap, err := RetrieveRequiredK8sSecrets(mockK8sSecretsClient, "someNameSpace", requiredSecrets)
+
+			Convey("Finishes without raising an error", func() {
+				So(err, ShouldEqual, nil)
+			})
+
+			err = PatchRequiredK8sSecrets(mockK8sSecretsClient, "someNameSpace", k8sSecretsMap)
+
+			Convey("raises proper error", func() {
+				So(err.Error(), ShouldEqual, messages.CSPFK022E)
+			})
 		})
 	})
 
 	Convey("run", t, func() {
 		var mockAccessToken mocks.MockAccessToken
 		var mockConjurSecretsRetriever mocks.MockConjurSecretsRetriever
-		var mockK8sSecretsClient mocks.MockK8sSecretsClient
+		mockK8sSecretsClient := &mocks.MockK8sSecretsClient{
+			Permissions: k8sSecretsPermissions(true, true),
+		}
 
 		Convey("Given 2 k8s secrets that only one is required by the pod", func() {
 			prepareMockDBs()
@@ -161,7 +209,7 @@ func TestProvideConjurSecrets(t *testing.T) {
 			requiredSecrets := []string{"k8s_secret1"}
 
 			err := run(
-				&mockK8sSecretsClient,
+				mockK8sSecretsClient,
 				"someNameSpace",
 				requiredSecrets,
 				mockAccessToken,
@@ -190,7 +238,7 @@ func TestProvideConjurSecrets(t *testing.T) {
 			requiredSecrets := []string{"k8s_secret1", "k8s_secret2"}
 
 			err := run(
-				&mockK8sSecretsClient,
+				mockK8sSecretsClient,
 				"someNameSpace",
 				requiredSecrets,
 				mockAccessToken,
@@ -215,7 +263,7 @@ func TestProvideConjurSecrets(t *testing.T) {
 			requiredSecrets := []string{"k8s_secret1", "k8s_secret2"}
 
 			err := run(
-				&mockK8sSecretsClient,
+				mockK8sSecretsClient,
 				"someNameSpace",
 				requiredSecrets,
 				mockAccessToken,
@@ -245,4 +293,12 @@ func verifyK8sSecretValue(secretName string, value string) {
 	expectedK8sSecretDataValue := []byte(value)
 	eq := reflect.DeepEqual(actualK8sSecretDataValue, expectedK8sSecretDataValue)
 	So(eq, ShouldEqual, true)
+}
+
+func k8sSecretsPermissions(getPermission bool, patchPermission bool) map[string]bool {
+	permissions := make(map[string]bool)
+	permissions["get"] = getPermission
+	permissions["patch"] = patchPermission
+
+	return permissions
 }
