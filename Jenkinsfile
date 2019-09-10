@@ -23,15 +23,14 @@ pipeline {
       }
     }
 
-// We are not ready to publish the docker image yet
-//     stage('Publish client Docker image') {
-//       when {
-//         branch 'master'
-//       }
-//       steps {
-//         sh './bin/publish'
-//       }
-//     }
+    stage('Publish client Docker image') {
+      when {
+        branch 'master'
+      }
+      steps {
+        sh './bin/publish'
+      }
+    }
   }
 
   post {
