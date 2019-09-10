@@ -160,6 +160,18 @@ func TestProvideConjurSecrets(t *testing.T) {
 			})
 		})
 
+		Convey("Given a non-existing k8s secret", func() {
+			prepareMockDBs()
+
+			requiredSecrets := []string{"non_existing"}
+
+			_, err := RetrieveRequiredK8sSecrets(mockK8sSecretsClient, "someNameSpace", requiredSecrets)
+
+			Convey("raises proper error", func() {
+				So(err.Error(), ShouldEqual, messages.CSPFK020E)
+			})
+		})
+
 		Convey("Given a k8s secret without 'conjur-map'", func() {
 			prepareMockDBs()
 
