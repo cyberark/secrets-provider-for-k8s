@@ -9,9 +9,8 @@ import (
 )
 
 const (
-	K8S                      = "k8s_secrets"
-	SecretsDestinationEnvVar = "SECRETS_DESTINATION"
-	CONJUR_MAP_KEY           = "conjur-map"
+	K8S            = "k8s_secrets"
+	CONJUR_MAP_KEY = "conjur-map"
 )
 
 // Config defines the configuration parameters
@@ -29,6 +28,7 @@ func NewFromEnv() (*Config, error) {
 	for _, envvar := range []string{
 		"MY_POD_NAMESPACE",
 		"K8S_SECRETS",
+		"SECRETS_DESTINATION",
 	} {
 		if os.Getenv(envvar) == "" {
 			return nil, log.RecordedError(messages.CSPFK004E, envvar)
@@ -42,15 +42,12 @@ func NewFromEnv() (*Config, error) {
 	requiredK8sSecrets := strings.Split(os.Getenv("K8S_SECRETS"), ",")
 
 	var storeType string
-	secretsDestinationValue := os.Getenv(SecretsDestinationEnvVar)
+	secretsDestinationValue := os.Getenv("SECRETS_DESTINATION")
 	if secretsDestinationValue == K8S {
 		storeType = K8S
-	} else if secretsDestinationValue == "" {
-		// TODO: decide what to do in this case
-		storeType = K8S
 	} else {
-		// In case SecretsDestinationEnvVar exists and is configured with incorrect value
-		return nil, log.RecordedError(messages.CSPFK005E, SecretsDestinationEnvVar)
+		// In case "SECRETS_DESTINATION" exists and is configured with incorrect value
+		return nil, log.RecordedError(messages.CSPFK005E, "SECRETS_DESTINATION")
 	}
 
 	return &Config{
