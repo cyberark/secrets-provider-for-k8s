@@ -356,6 +356,29 @@ func TestProvideConjurSecrets(t *testing.T) {
 				So(err.Error(), ShouldEqual, fmt.Sprintf(messages.CSPFK034E, "no_conjur_secret_error"))
 			})
 		})
+
+		Convey("Given a k8s secret which is mapped to a conjur secret with an empty secret value", func() {
+			prepareMockDBs()
+
+			addK8sSecretToMockDB("k8s_secret3", "conjur_variable3")
+			requiredSecrets := []string{"k8s_secret3"}
+
+			err := run(
+				mockK8sSecretsClient,
+				"someNameSpace",
+				requiredSecrets,
+				mockAccessToken,
+				mockConjurSecretsRetriever,
+			)
+
+			Convey("Finishes without raising an error", func() {
+				So(err, ShouldEqual, nil)
+			})
+
+			Convey("Updates K8s secrets with their corresponding Conjur secrets", func() {
+				verifyK8sSecretValue("k8s_secret3", "")
+			})
+		})
 	})
 }
 
@@ -365,6 +388,8 @@ func prepareMockDBs() {
 	mocks.MockConjurDB = make(map[string][]byte)
 	mocks.MockConjurDB["conjur_variable1"] = []byte("conjur_secret1")
 	mocks.MockConjurDB["conjur_variable2"] = []byte("conjur_secret2")
+
+	mocks.MockConjurDB["conjur_variable3"] = []byte("")
 }
 
 func addK8sSecretToMockDB(secretName string, conjurVariable string) {
