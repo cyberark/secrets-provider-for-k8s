@@ -39,7 +39,7 @@ func NewFromEnv() (*Config, error) {
 	podNamespace := os.Getenv("MY_POD_NAMESPACE")
 
 	// Remove all white spaces from list
-	k8sSecretsList := strings.Replace(os.Getenv("K8S_SECRETS"), " ", "", -1)
+	k8sSecretsList := strings.ReplaceAll(os.Getenv("K8S_SECRETS"), " ", "")
 	// Split the comma-separated list into an array
 	requiredK8sSecrets := strings.Split(k8sSecretsList, ",")
 
