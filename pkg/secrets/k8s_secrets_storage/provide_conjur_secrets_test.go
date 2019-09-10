@@ -195,6 +195,24 @@ func TestProvideConjurSecrets(t *testing.T) {
 				So(err.Error(), ShouldEqual, fmt.Sprintf(messages.CSPFK028E, "empty_conjur_map_secret"))
 			})
 		})
+
+		Convey("Given a k8s secret with an invalid 'conjur-map'", func() {
+			prepareMockDBs()
+
+			secretData := make(map[string][]byte)
+			secretData["conjur-map"] = []byte("key_with_no_value")
+			mocks.MockK8sDB["invalid_conjur_map_secret"] = mocks.MockK8sSecret{
+				Data: secretData,
+			}
+
+			requiredSecrets := []string{"invalid_conjur_map_secret"}
+
+			_, err := RetrieveRequiredK8sSecrets(mockK8sSecretsClient, "someNameSpace", requiredSecrets)
+
+			Convey("raises proper error", func() {
+				So(err.Error(), ShouldEqual, fmt.Sprintf(messages.CSPFK028E, "invalid_conjur_map_secret"))
+			})
+		})
 	})
 
 	Convey("PatchRequiredK8sSecrets", t, func() {
