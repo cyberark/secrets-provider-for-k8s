@@ -120,9 +120,7 @@ func TestProvideConjurSecrets(t *testing.T) {
 		addK8sSecretToMockDB("k8s_secret1", "conjur_variable1")
 		requiredSecrets := []string{"k8s_secret1"}
 
-		mockK8sSecretsClient := &mocks.MockK8sSecretsClient{
-			MockK8sDB: mocks.MockK8sDB,
-		}
+		mockK8sSecretsClient := &mocks.MockK8sSecretsClient{}
 
 		k8sSecretsMap, err := RetrieveRequiredK8sSecrets(mockK8sSecretsClient, "someNameSpace", requiredSecrets)
 
@@ -164,9 +162,7 @@ func TestProvideConjurSecrets(t *testing.T) {
 
 			var mockAccessToken mocks.MockAccessToken
 			var mockConjurSecretsRetriever mocks.MockConjurSecretsRetriever
-			mockK8sSecretsClient := &mocks.MockK8sSecretsClient{
-				MockK8sDB: mocks.MockK8sDB,
-			}
+			mockK8sSecretsClient := &mocks.MockK8sSecretsClient{}
 
 			err := run(
 				mockK8sSecretsClient,
