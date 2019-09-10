@@ -1,10 +1,10 @@
 #!/bin/bash -e
 
-DOCKERHUB_IMAGE='cyberark/cyberark-secrets-provider-for-k8s'
+DESTINATION_IMAGE='registry2.itci.conjur.net/cyberark-secrets-provider-for-k8s'
 VERSION_TAG="$(<VERSION)"
 
-docker tag cyberark-secrets-provider-for-k8s:dev "$DOCKERHUB_IMAGE"
-docker tag cyberark-secrets-provider-for-k8s:dev "$DOCKERHUB_IMAGE:$VERSION_TAG"
+docker tag cyberark-secrets-provider-for-k8s:dev "$DESTINATION_IMAGE"
+docker tag cyberark-secrets-provider-for-k8s:dev "$DESTINATION_IMAGE:$VERSION_TAG"
 
-docker push $DOCKERHUB_IMAGE
-docker push "$DOCKERHUB_IMAGE:$VERSION_TAG"
+docker push $DESTINATION_IMAGE
+docker push "$DESTINATION_IMAGE:$VERSION_TAG"
