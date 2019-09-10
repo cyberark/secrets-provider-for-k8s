@@ -12,14 +12,6 @@ import (
 	"github.com/cyberark/cyberark-secrets-provider-for-k8s/pkg/secrets/k8s_secrets_storage/mocks"
 )
 
-func prepareMockDBs() {
-	mocks.MockK8sDB = make(map[string]mocks.MockK8sSecret)
-
-	mocks.MockConjurDB = make(map[string][]byte)
-	mocks.MockConjurDB["conjur_variable1"] = []byte("conjur_secret1")
-	mocks.MockConjurDB["conjur_variable2"] = []byte("conjur_secret2")
-}
-
 func TestProvideConjurSecrets(t *testing.T) {
 	Convey("getVariableIDsToRetrieve", t, func() {
 
@@ -115,15 +107,15 @@ func TestProvideConjurSecrets(t *testing.T) {
 	})
 
 	Convey("RetrieveRequiredK8sSecrets", t, func() {
+		mockK8sSecretsClient := &mocks.MockK8sSecretsClient{
+			Permissions: k8sSecretsPermissions(true, true),
+		}
+
 		Convey("Given an existing k8s secret that is mapped to an existing conjur secret", func() {
 			prepareMockDBs()
 
 			addK8sSecretToMockDB("k8s_secret1", "conjur_variable1")
 			requiredSecrets := []string{"k8s_secret1"}
-
-			mockK8sSecretsClient := &mocks.MockK8sSecretsClient{
-				Permissions: k8sSecretsPermissions(true, true),
-			}
 
 			k8sSecretsMap, err := RetrieveRequiredK8sSecrets(mockK8sSecretsClient, "someNameSpace", requiredSecrets)
 
@@ -165,6 +157,24 @@ func TestProvideConjurSecrets(t *testing.T) {
 
 			Convey("raises proper error", func() {
 				So(err.Error(), ShouldEqual, messages.CSPFK020E)
+			})
+		})
+
+		Convey("Given a k8s secret without 'conjur-map'", func() {
+			prepareMockDBs()
+
+			secretData := make(map[string][]byte)
+			secretData["not-conjur-map"] = []byte("some-data")
+			mocks.MockK8sDB["no_conjur_map_secret"] = mocks.MockK8sSecret{
+				Data: secretData,
+			}
+
+			requiredSecrets := []string{"no_conjur_map_secret"}
+
+			_, err := RetrieveRequiredK8sSecrets(mockK8sSecretsClient, "someNameSpace", requiredSecrets)
+
+			Convey("raises proper error", func() {
+				So(err.Error(), ShouldEqual, fmt.Sprintf(messages.CSPFK028E, "no_conjur_map_secret"))
 			})
 		})
 	})
@@ -280,6 +290,14 @@ func TestProvideConjurSecrets(t *testing.T) {
 			})
 		})
 	})
+}
+
+func prepareMockDBs() {
+	mocks.MockK8sDB = make(map[string]mocks.MockK8sSecret)
+
+	mocks.MockConjurDB = make(map[string][]byte)
+	mocks.MockConjurDB["conjur_variable1"] = []byte("conjur_secret1")
+	mocks.MockConjurDB["conjur_variable2"] = []byte("conjur_secret2")
 }
 
 func addK8sSecretToMockDB(secretName string, conjurVariable string) {
