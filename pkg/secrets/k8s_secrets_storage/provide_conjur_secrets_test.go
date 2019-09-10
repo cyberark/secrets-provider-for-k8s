@@ -325,6 +325,25 @@ func TestProvideConjurSecrets(t *testing.T) {
 				verifyK8sSecretValue("k8s_secret2", "conjur_secret1")
 			})
 		})
+
+		Convey("Given a k8s secret which is mapped to a non-existing conjur variable", func() {
+			prepareMockDBs()
+
+			addK8sSecretToMockDB("k8s_secret1", "non_existing_conjur_variable")
+			requiredSecrets := []string{"k8s_secret1"}
+
+			err := run(
+				mockK8sSecretsClient,
+				"someNameSpace",
+				requiredSecrets,
+				mockAccessToken,
+				mockConjurSecretsRetriever,
+			)
+
+			Convey("raises proper error", func() {
+				So(err.Error(), ShouldEqual, fmt.Sprintf(messages.CSPFK034E, "no_conjur_secret_error"))
+			})
+		})
 	})
 }
 

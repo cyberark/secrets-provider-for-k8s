@@ -1,6 +1,9 @@
 package mocks
 
-import "fmt"
+import (
+	"errors"
+	"fmt"
+)
 
 type MockConjurSecretsRetriever struct{}
 
@@ -8,6 +11,12 @@ type MockConjurSecretsRetriever struct{}
 func (ConjurSecretsRetriever MockConjurSecretsRetriever) RetrieveConjurSecrets(accessToken []byte, variableIDs []string) (map[string][]byte, error) {
 	conjurSecrets := make(map[string][]byte)
 	for _, variableId := range variableIDs {
+
+		// Check if the secret exists in the mock Conjur DB
+		if _, ok := MockConjurDB[variableId]; !ok {
+			return nil, errors.New("no_conjur_secret_error")
+		}
+
 		fullVariableId := fmt.Sprintf("account:variable:%s", variableId)
 		conjurSecrets[fullVariableId] = MockConjurDB[variableId]
 	}
