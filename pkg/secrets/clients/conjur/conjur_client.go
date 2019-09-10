@@ -11,13 +11,13 @@ import (
 	Client for communication with Conjur. In this project it is used only for
     batch secrets retrieval so we expose only this method of the client.
 
-	The name ConjurClient also improves readability as Client can be ambiguous.
+	The name ConjurClientInterface also improves readability as Client can be ambiguous.
 */
-type ConjurClient interface {
+type ConjurClientInterface interface {
 	RetrieveBatchSecrets([]string) (map[string][]byte, error)
 }
 
-func NewConjurClient(tokenData []byte) (ConjurClient, error) {
+func NewConjurClient(tokenData []byte) (ConjurClientInterface, error) {
 	log.Info(messages.CSPFK002I)
 	config, err := conjurapi.LoadConfig()
 	if err != nil {
