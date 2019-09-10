@@ -29,6 +29,7 @@ func NewFromEnv() (*Config, error) {
 	for _, envvar := range []string{
 		"MY_POD_NAMESPACE",
 		"K8S_SECRETS",
+		SecretsDestinationEnvVar,
 	} {
 		if os.Getenv(envvar) == "" {
 			return nil, log.RecordedError(messages.CSPFK004E, envvar)
@@ -44,9 +45,6 @@ func NewFromEnv() (*Config, error) {
 	var storeType string
 	secretsDestinationValue := os.Getenv(SecretsDestinationEnvVar)
 	if secretsDestinationValue == K8S {
-		storeType = K8S
-	} else if secretsDestinationValue == "" {
-		// TODO: decide what to do in this case
 		storeType = K8S
 	} else {
 		// In case SecretsDestinationEnvVar exists and is configured with incorrect value
