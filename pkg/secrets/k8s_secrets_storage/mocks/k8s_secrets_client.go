@@ -15,6 +15,12 @@ func (k8sSecretsClient MockK8sSecretsClient) RetrieveK8sSecret(_ string, secretN
 	if !k8sSecretsClient.Permissions["get"] {
 		return nil, errors.New("custom error")
 	}
+
+	// Check if the secret exists in the mock K8s DB
+	if _, ok := MockK8sDB[secretName]; !ok {
+		return nil, errors.New("custom error")
+	}
+
 	return MockK8sDB[secretName], nil
 }
 
