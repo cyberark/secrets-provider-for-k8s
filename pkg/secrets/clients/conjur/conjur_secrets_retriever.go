@@ -7,7 +7,7 @@ import (
 
 type RetrieveConjurSecretsFunc func(accessToken []byte, variableIDs []string) (map[string][]byte, error)
 
-var RetrieveConjurSecrets RetrieveConjurSecretsFunc = func(accessToken []byte, variableIDs []string) (map[string][]byte, error) {
+func RetrieveConjurSecrets(accessToken []byte, variableIDs []string) (map[string][]byte, error) {
 	log.Info(messages.CSPFK003I, variableIDs)
 
 	conjurClient, err := NewConjurClient(accessToken)

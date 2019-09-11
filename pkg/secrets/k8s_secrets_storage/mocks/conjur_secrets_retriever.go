@@ -3,9 +3,6 @@ package mocks
 import (
 	"errors"
 	"fmt"
-
-	"github.com/cyberark/cyberark-secrets-provider-for-k8s/pkg/secrets/clients/conjur"
-
 )
 
 /*
@@ -16,7 +13,7 @@ import (
 */
 var CanExecuteConjurVar bool
 
-var RetrieveConjurSecrets conjur.RetrieveConjurSecretsFunc = func(accessToken []byte, variableIDs []string) (map[string][]byte, error) {
+func RetrieveConjurSecrets(_ []byte, variableIDs []string) (map[string][]byte, error) {
 	conjurSecrets := make(map[string][]byte)
 
 	if !CanExecuteConjurVar {

@@ -16,7 +16,7 @@ import (
 type RetrieveK8sSecretFunc func(namespace string, secretName string) (map[string][]byte, error)
 type PatchK8sSecretFunc func(namespace string, secretName string, stringDataEntriesMap map[string][]byte) error
 
-var RetrieveK8sSecret RetrieveK8sSecretFunc = func(namespace string, secretName string) (map[string][]byte, error) {
+func RetrieveK8sSecret(namespace string, secretName string) (map[string][]byte, error) {
 	// get K8s client object
 	kubeClient, _ := configK8sClient()
 	log.Info(messages.CSPFK005I, secretName, namespace)
@@ -28,7 +28,7 @@ var RetrieveK8sSecret RetrieveK8sSecretFunc = func(namespace string, secretName 
 	return k8sSecret.Data, nil
 }
 
-var PatchK8sSecret PatchK8sSecretFunc = func(namespace string, secretName string, stringDataEntriesMap map[string][]byte) error {
+func PatchK8sSecret(namespace string, secretName string, stringDataEntriesMap map[string][]byte) error {
 	// get K8s client object
 	kubeClient, _ := configK8sClient()
 
