@@ -3,6 +3,9 @@ package mocks
 import (
 	"errors"
 	"fmt"
+
+	"github.com/cyberark/cyberark-secrets-provider-for-k8s/pkg/secrets/clients/conjur"
+
 )
 
 /*
@@ -13,10 +16,7 @@ import (
 */
 var CanExecuteConjurVar bool
 
-type MockConjurSecretsRetriever struct{}
-
-// Reads Conjur secrets from the mock DB and returns a map from variable IDs to the corresponding secrets.
-func (ConjurSecretsRetriever MockConjurSecretsRetriever) RetrieveConjurSecrets(accessToken []byte, variableIDs []string) (map[string][]byte, error) {
+var RetrieveConjurSecrets conjur.RetrieveConjurSecretsFunc = func(accessToken []byte, variableIDs []string) (map[string][]byte, error) {
 	conjurSecrets := make(map[string][]byte)
 
 	if !CanExecuteConjurVar {

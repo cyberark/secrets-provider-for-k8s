@@ -32,18 +32,14 @@ type K8sSecretsMap struct {
 	This struct retrieves Conjur secrets that are required by the pod and pushes them into K8s secrets.
 */
 type ProvideConjurSecretsToK8sSecrets struct {
-	AccessToken            access_token.AccessToken
-	ConjurSecretsRetriever conjur.ConjurSecretsRetriever
-	Config                 secretsConfig.Config
+	AccessToken access_token.AccessToken
+	Config      secretsConfig.Config
 }
 
 func NewProvideConjurSecrets(secretsConfig secretsConfig.Config, AccessToken access_token.AccessToken) (ProvideConjurSecrets *ProvideConjurSecretsToK8sSecrets, err error) {
-	var conjurSecretsRetriever conjur.ConjurSecretsRetriever
-
 	return &ProvideConjurSecretsToK8sSecrets{
-		AccessToken:            AccessToken,
-		ConjurSecretsRetriever: conjurSecretsRetriever,
-		Config:                 secretsConfig,
+		AccessToken: AccessToken,
+		Config:      secretsConfig,
 	}, nil
 }
 
@@ -59,11 +55,11 @@ func (provideConjurSecretsToK8sSecrets ProvideConjurSecretsToK8sSecrets) Run() e
 		provideConjurSecretsToK8sSecrets.Config.PodNamespace,
 		provideConjurSecretsToK8sSecrets.Config.RequiredK8sSecrets,
 		provideConjurSecretsToK8sSecrets.AccessToken,
-		provideConjurSecretsToK8sSecrets.ConjurSecretsRetriever,
+		conjur.RetrieveConjurSecrets,
 	)
 }
 
-func run(k8sSecretsClient k8s.K8sSecretsClientInterface, namespace string, requiredK8sSecrets []string, accessToken access_token.AccessToken, conjurSecretsRetriever conjur.ConjurSecretsRetrieverInterface) error {
+func run(k8sSecretsClient k8s.K8sSecretsClientInterface, namespace string, requiredK8sSecrets []string, accessToken access_token.AccessToken, retrieveConjurSecretsFunc conjur.RetrieveConjurSecretsFunc) error {
 	k8sSecretsMap, err := RetrieveRequiredK8sSecrets(
 		k8sSecretsClient,
 		namespace,
@@ -84,7 +80,7 @@ func run(k8sSecretsClient k8s.K8sSecretsClientInterface, namespace string, requi
 		return log.RecordedError(messages.CSPFK037E)
 	}
 
-	retrievedConjurSecrets, err := conjurSecretsRetriever.RetrieveConjurSecrets(accessTokenData, variableIDs)
+	retrievedConjurSecrets, err := retrieveConjurSecretsFunc(accessTokenData, variableIDs)
 	if err != nil {
 		return log.RecordedError(messages.CSPFK034E, err.Error())
 	}
