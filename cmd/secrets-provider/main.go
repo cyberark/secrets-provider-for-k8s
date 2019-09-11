@@ -114,7 +114,11 @@ func printErrorAndExit(errorMessage string) {
 }
 
 func configureLogLevel() {
-	if os.Getenv("ENABLE_DEBUG") == "yes" {
+	val := os.Getenv("DEBUG")
+	if val == "true" {
 		log.EnableDebugMode()
+	} else if val != "" {
+		// In case "DEBUG" is configured with incorrect value
+		log.Warn(messages.CSPFK001W, val)
 	}
 }

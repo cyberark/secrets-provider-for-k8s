@@ -46,6 +46,11 @@ func Info(infoMessage string, args ...interface{}) {
 	stdoutLogger.Output(2, fmt.Sprintf(infoMessage, args...))
 }
 
+func Warn(infoMessage string, args ...interface{}) {
+	stdoutLogger.SetPrefix("WARN: ")
+	stdoutLogger.Output(2, fmt.Sprintf(infoMessage, args...))
+}
+
 func Debug(infoMessage string, args ...interface{}) {
 	if isDebug {
 		stdoutLogger.SetPrefix("DEBUG: ")
