@@ -185,7 +185,7 @@ func TestProvideConjurSecrets(t *testing.T) {
 
 			_, err := RetrieveRequiredK8sSecrets(mockK8sSecretsClient, "someNameSpace", requiredSecrets)
 
-			Convey("raises proper error", func() {
+			Convey("Raises proper error", func() {
 				So(err.Error(), ShouldEqual, fmt.Sprintf(messages.CSPFK028E, "no_conjur_map_secret"))
 			})
 		})
@@ -203,7 +203,7 @@ func TestProvideConjurSecrets(t *testing.T) {
 
 			_, err := RetrieveRequiredK8sSecrets(mockK8sSecretsClient, "someNameSpace", requiredSecrets)
 
-			Convey("raises proper error", func() {
+			Convey("Raises proper error", func() {
 				So(err.Error(), ShouldEqual, fmt.Sprintf(messages.CSPFK028E, "empty_conjur_map_secret"))
 			})
 		})
@@ -221,7 +221,7 @@ func TestProvideConjurSecrets(t *testing.T) {
 
 			_, err := RetrieveRequiredK8sSecrets(mockK8sSecretsClient, "someNameSpace", requiredSecrets)
 
-			Convey("raises proper error", func() {
+			Convey("Raises proper error", func() {
 				So(err.Error(), ShouldEqual, fmt.Sprintf(messages.CSPFK028E, "invalid_conjur_map_secret"))
 			})
 		})
@@ -246,7 +246,7 @@ func TestProvideConjurSecrets(t *testing.T) {
 
 			err = PatchRequiredK8sSecrets(mockK8sSecretsClient, "someNameSpace", k8sSecretsMap)
 
-			Convey("raises proper error", func() {
+			Convey("Raises proper error", func() {
 				So(err.Error(), ShouldEqual, messages.CSPFK022E)
 			})
 		})
@@ -254,12 +254,10 @@ func TestProvideConjurSecrets(t *testing.T) {
 
 	Convey("run", t, func() {
 		var mockAccessToken mocks.MockAccessToken
+		var mockConjurSecretsRetriever mocks.MockConjurSecretsRetriever
+
 		mockK8sSecretsClient := &mocks.MockK8sSecretsClient{
 			Permissions: k8sSecretsPermissions(true, true),
-		}
-
-		mockConjurSecretsRetriever := &mocks.MockConjurSecretsRetriever{
-			Permissions: conjurSecretsPermissions(true),
 		}
 
 		Convey("Given 2 k8s secrets that only one is required by the pod", func() {
@@ -268,6 +266,8 @@ func TestProvideConjurSecrets(t *testing.T) {
 			addK8sSecretToMockDB("k8s_secret1", "conjur_variable1")
 			addK8sSecretToMockDB("k8s_secret2", "conjur_variable2")
 			requiredSecrets := []string{"k8s_secret1"}
+
+			conjurSecretsPermissions(true)
 
 			err := run(
 				mockK8sSecretsClient,
@@ -298,6 +298,8 @@ func TestProvideConjurSecrets(t *testing.T) {
 			addK8sSecretToMockDB("k8s_secret2", "conjur_variable2")
 			requiredSecrets := []string{"k8s_secret1", "k8s_secret2"}
 
+			conjurSecretsPermissions(true)
+
 			err := run(
 				mockK8sSecretsClient,
 				"someNameSpace",
@@ -323,6 +325,8 @@ func TestProvideConjurSecrets(t *testing.T) {
 			addK8sSecretToMockDB("k8s_secret2", "conjur_variable1")
 			requiredSecrets := []string{"k8s_secret1", "k8s_secret2"}
 
+			conjurSecretsPermissions(true)
+
 			err := run(
 				mockK8sSecretsClient,
 				"someNameSpace",
@@ -347,6 +351,8 @@ func TestProvideConjurSecrets(t *testing.T) {
 			addK8sSecretToMockDB("k8s_secret1", "non_existing_conjur_variable")
 			requiredSecrets := []string{"k8s_secret1"}
 
+			conjurSecretsPermissions(true)
+
 			err := run(
 				mockK8sSecretsClient,
 				"someNameSpace",
@@ -355,7 +361,7 @@ func TestProvideConjurSecrets(t *testing.T) {
 				mockConjurSecretsRetriever,
 			)
 
-			Convey("raises proper error", func() {
+			Convey("Raises proper error", func() {
 				So(err.Error(), ShouldEqual, fmt.Sprintf(messages.CSPFK034E, "no_conjur_secret_error"))
 			})
 		})
@@ -363,8 +369,10 @@ func TestProvideConjurSecrets(t *testing.T) {
 		Convey("Given a k8s secret which is mapped to a conjur secret with an empty secret value", func() {
 			prepareMockDBs()
 
-			addK8sSecretToMockDB("k8s_secret3", "conjur_variable3")
-			requiredSecrets := []string{"k8s_secret3"}
+			addK8sSecretToMockDB("k8s_secret_with_empty_conjur_variable", "conjur_variable_empty_secret")
+			requiredSecrets := []string{"k8s_secret_with_empty_conjur_variable"}
+
+			conjurSecretsPermissions(true)
 
 			err := run(
 				mockK8sSecretsClient,
@@ -379,20 +387,18 @@ func TestProvideConjurSecrets(t *testing.T) {
 			})
 
 			Convey("Updates K8s secrets with their corresponding Conjur secrets", func() {
-				verifyK8sSecretValue("k8s_secret3", "")
+				verifyK8sSecretValue("k8s_secret_with_empty_conjur_variable", "")
 			})
 		})
 
-		Convey("Given a conjur secret without execute permissions", func() {
-			// no privileges on the conjur variable
-			mockConjurSecretsRetriever := &mocks.MockConjurSecretsRetriever{
-				Permissions: conjurSecretsPermissions(false),
-			}
-
+		Convey("Given no 'execute' permissions on the conjur secret", func() {
 			prepareMockDBs()
 
-			addK8sSecretToMockDB("k8s_secret4", "no_permission_conjur_variable")
+			addK8sSecretToMockDB("k8s_secret4", "no_execute_permission_conjur_secret")
 			requiredSecrets := []string{"k8s_secret4"}
+
+			// no execute privileges on the conjur secret
+			conjurSecretsPermissions(false)
 
 			err := run(
 				mockK8sSecretsClient,
@@ -415,8 +421,7 @@ func prepareMockDBs() {
 	mocks.MockConjurDB = make(map[string][]byte)
 	mocks.MockConjurDB["conjur_variable1"] = []byte("conjur_secret1")
 	mocks.MockConjurDB["conjur_variable2"] = []byte("conjur_secret2")
-
-	mocks.MockConjurDB["conjur_variable3"] = []byte("")
+	mocks.MockConjurDB["conjur_variable_empty_secret"] = []byte("")
 }
 
 func addK8sSecretToMockDB(secretName string, conjurVariable string) {
@@ -441,9 +446,9 @@ func k8sSecretsPermissions(getPermission bool, patchPermission bool) map[string]
 }
 
 func conjurSecretsPermissions(executePermission bool) map[string]bool {
-	permissions := make(map[string]bool)
-	// execute permission on conjur variables
-	permissions["execute"] = executePermission
+	mocks.MockPermissions = make(map[string]bool)
+	// determines execute permission on Conjur variables
+	mocks.MockPermissions["execute"] = executePermission
 
-	return permissions
+	return mocks.MockPermissions
 }
