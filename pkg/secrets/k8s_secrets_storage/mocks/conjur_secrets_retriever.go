@@ -6,12 +6,12 @@ import (
 )
 
 /*
-	Determines if Conjur secrets have 'execute' privileges by a representative boolean value. We don't dive deeper
-	into the granularity at the level of each Conjur variable because for this suite of tests we aren't concerned with
-	if some Conjur secrets have permissions and others don't. Our main priority is validating that those
-	secrets with 'execute' permissions can be fetched.
+	Determines if Conjur secrets have 'execute' privileges by mapping `execute` to true or false. We don't
+	dive deeper into the granularity at the level of each Conjur variable because for this suite of tests we
+	aren't concerned with if some Conjur secrets have permissions and others don't. Our main priority is
+	validating that those secrets with 'execute' permissions can be fetched.
 */
-var ExecutePermission bool
+var CanExecuteConjurVar bool
 
 type MockConjurSecretsRetriever struct{}
 
@@ -19,7 +19,7 @@ type MockConjurSecretsRetriever struct{}
 func (ConjurSecretsRetriever MockConjurSecretsRetriever) RetrieveConjurSecrets(accessToken []byte, variableIDs []string) (map[string][]byte, error) {
 	conjurSecrets := make(map[string][]byte)
 
-	if !ExecutePermission {
+	if !CanExecuteConjurVar {
 		return nil, errors.New("custom error")
 	}
 
