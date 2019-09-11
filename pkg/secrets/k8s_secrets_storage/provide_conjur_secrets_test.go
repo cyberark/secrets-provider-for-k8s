@@ -155,7 +155,7 @@ func TestProvideConjurSecrets(t *testing.T) {
 
 			_, err := RetrieveRequiredK8sSecrets(mockK8sSecretsClient, "someNameSpace", requiredSecrets)
 
-			Convey("raises proper error", func() {
+			Convey("Raises proper error", func() {
 				So(err.Error(), ShouldEqual, messages.CSPFK020E)
 			})
 		})
@@ -167,7 +167,7 @@ func TestProvideConjurSecrets(t *testing.T) {
 
 			_, err := RetrieveRequiredK8sSecrets(mockK8sSecretsClient, "someNameSpace", requiredSecrets)
 
-			Convey("raises proper error", func() {
+			Convey("Raises proper error", func() {
 				So(err.Error(), ShouldEqual, messages.CSPFK020E)
 			})
 		})
@@ -254,9 +254,12 @@ func TestProvideConjurSecrets(t *testing.T) {
 
 	Convey("run", t, func() {
 		var mockAccessToken mocks.MockAccessToken
-		var mockConjurSecretsRetriever mocks.MockConjurSecretsRetriever
 		mockK8sSecretsClient := &mocks.MockK8sSecretsClient{
 			Permissions: k8sSecretsPermissions(true, true),
+		}
+
+		mockConjurSecretsRetriever := &mocks.MockConjurSecretsRetriever{
+			Permissions: conjurSecretsPermissions(true),
 		}
 
 		Convey("Given 2 k8s secrets that only one is required by the pod", func() {
@@ -379,6 +382,30 @@ func TestProvideConjurSecrets(t *testing.T) {
 				verifyK8sSecretValue("k8s_secret3", "")
 			})
 		})
+
+		Convey("Given a conjur secret without execute permissions", func() {
+			// no privileges on the conjur variable
+			mockConjurSecretsRetriever := &mocks.MockConjurSecretsRetriever{
+				Permissions: conjurSecretsPermissions(false),
+			}
+
+			prepareMockDBs()
+
+			addK8sSecretToMockDB("k8s_secret4", "no_permission_conjur_variable")
+			requiredSecrets := []string{"k8s_secret4"}
+
+			err := run(
+				mockK8sSecretsClient,
+				"someNameSpace",
+				requiredSecrets,
+				mockAccessToken,
+				mockConjurSecretsRetriever,
+			)
+
+			Convey("Raises proper error", func() {
+				So(err.Error(), ShouldEqual, fmt.Sprintf(messages.CSPFK034E, "custom error"))
+			})
+		})
 	})
 }
 
@@ -409,6 +436,14 @@ func k8sSecretsPermissions(getPermission bool, patchPermission bool) map[string]
 	permissions := make(map[string]bool)
 	permissions["get"] = getPermission
 	permissions["patch"] = patchPermission
+
+	return permissions
+}
+
+func conjurSecretsPermissions(executePermission bool) map[string]bool {
+	permissions := make(map[string]bool)
+	// execute permission on conjur variables
+	permissions["execute"] = executePermission
 
 	return permissions
 }
