@@ -43,13 +43,9 @@ func NewFromEnv() (*Config, error) {
 	// Split the comma-separated list into an array
 	requiredK8sSecrets := strings.Split(k8sSecretsList, ",")
 
-	var storeType string
-	secretsDestinationValue := os.Getenv("SECRETS_DESTINATION")
-	if secretsDestinationValue == K8S {
-		storeType = K8S
-	} else {
-		// In case "SECRETS_DESTINATION" exists and is configured with incorrect value
-		return nil, log.RecordedError(messages.CSPFK005E, "SECRETS_DESTINATION")
+	storeType, err := getStoreType(os.Getenv("SECRETS_DESTINATION"))
+	if err != nil {
+		return nil, err
 	}
 
 	return &Config{
@@ -57,4 +53,16 @@ func NewFromEnv() (*Config, error) {
 		RequiredK8sSecrets: requiredK8sSecrets,
 		StoreType:          storeType,
 	}, nil
+}
+
+func getStoreType(secretsDestination string) (string, error) {
+	var storeType string
+	if secretsDestination == K8S {
+		storeType = K8S
+	} else {
+		// In case "SECRETS_DESTINATION" exists and is configured with incorrect value
+		return "", log.RecordedError(messages.CSPFK005E, "SECRETS_DESTINATION")
+	}
+
+	return storeType, nil
 }
