@@ -3,15 +3,13 @@ package mocks
 import "fmt"
 
 // Mocks a K8s database. Maps k8s secret names to mock K8s secrets.
-var MockK8sDB map[string]MockK8sSecret
+var MockK8sDB map[string]map[string][]byte
 
-func CreateMockK8sSecret(dataEntries map[string]string) MockK8sSecret {
-	secretData := make(map[string][]byte)
-	secretData["conjur-map"] = []byte(createConjurMapDataEntry(dataEntries))
+func CreateMockK8sSecret(dataEntries map[string]string) map[string][]byte {
+	secret := make(map[string][]byte)
+	secret["conjur-map"] = []byte(createConjurMapDataEntry(dataEntries))
 
-	return MockK8sSecret{
-		Data: secretData,
-	}
+	return secret
 }
 
 func createConjurMapDataEntry(dataEntries map[string]string) string {

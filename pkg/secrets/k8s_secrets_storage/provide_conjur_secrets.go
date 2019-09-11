@@ -109,7 +109,7 @@ func RetrieveRequiredK8sSecrets(retrieveSecretFunc k8s.RetrieveK8sSecretFunc, na
 		}
 
 		// If K8s secret has no "conjur-map" data entry, return an error
-		if _, ok := k8sSecret.GetSecretData()[secretsConfig.CONJUR_MAP_KEY]; !ok {
+		if _, ok := k8sSecret[secretsConfig.CONJUR_MAP_KEY]; !ok {
 			// Error messages returned from K8s should be printed only in debug mode
 			log.Debug(messages.CSPFK008D, secretName, secretsConfig.CONJUR_MAP_KEY)
 			return nil, log.RecordedError(messages.CSPFK028E, secretName)
@@ -119,7 +119,7 @@ func RetrieveRequiredK8sSecrets(retrieveSecretFunc k8s.RetrieveK8sSecretFunc, na
 		// This map holds data entries that will be added to the k8s secret after we retrieve their values from Conjur
 		newDataEntriesMap := make(map[string][]byte)
 		conjurMap := make(map[string]string)
-		for key, value := range k8sSecret.GetSecretData() {
+		for key, value := range k8sSecret {
 			if key == secretsConfig.CONJUR_MAP_KEY {
 				if len(value) == 0 {
 					// Error messages returned from K8s should be printed only in debug mode
