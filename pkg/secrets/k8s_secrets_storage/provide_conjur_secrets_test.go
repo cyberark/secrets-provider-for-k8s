@@ -107,11 +107,14 @@ func TestProvideConjurSecrets(t *testing.T) {
 	})
 
 	Convey("RetrieveRequiredK8sSecrets", t, func() {
+		mocks.CanGetK8sSecrets = true
+
 		Convey("Given an existing k8s secret that is mapped to an existing conjur secret", func() {
 			prepareMockDBs()
 
 			addK8sSecretToMockDB("k8s_secret1", "conjur_variable1")
 			requiredSecrets := []string{"k8s_secret1"}
+
 
 			k8sSecretsMap, err := RetrieveRequiredK8sSecrets(mocks.RetrieveK8sSecret, "someNameSpace", requiredSecrets)
 
@@ -144,6 +147,8 @@ func TestProvideConjurSecrets(t *testing.T) {
 
 			addK8sSecretToMockDB("k8s_secret1", "conjur_variable1")
 			requiredSecrets := []string{"k8s_secret1"}
+
+			mocks.CanGetK8sSecrets = false
 
 			_, err := RetrieveRequiredK8sSecrets(mocks.RetrieveK8sSecret, "someNameSpace", requiredSecrets)
 
@@ -220,6 +225,8 @@ func TestProvideConjurSecrets(t *testing.T) {
 			addK8sSecretToMockDB("k8s_secret1", "conjur_variable1")
 			requiredSecrets := []string{"k8s_secret1"}
 
+			mocks.CanPatchK8sSecrets = false
+
 			k8sSecretsMap, err := RetrieveRequiredK8sSecrets(mocks.RetrieveK8sSecret, "someNameSpace", requiredSecrets)
 
 			Convey("Finishes without raising an error", func() {
@@ -236,6 +243,9 @@ func TestProvideConjurSecrets(t *testing.T) {
 
 	Convey("run", t, func() {
 		var mockAccessToken mocks.MockAccessToken
+
+		mocks.CanGetK8sSecrets = true
+		mocks.CanPatchK8sSecrets = true
 
 		Convey("Given 2 k8s secrets that only one is required by the pod", func() {
 			prepareMockDBs()

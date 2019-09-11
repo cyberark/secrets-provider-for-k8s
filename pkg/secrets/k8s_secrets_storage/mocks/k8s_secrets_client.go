@@ -6,13 +6,11 @@ import (
 	"github.com/cyberark/cyberark-secrets-provider-for-k8s/pkg/secrets/clients/k8s"
 )
 
-// Mocks a K8s secrets client. Uses a mock K8s database to retrieve & patch secrets.
-type MockK8sSecretsClient struct {
-	Permissions map[string]bool
-}
+var CanGetK8sSecrets bool
+var CanPatchK8sSecrets bool
 
-func (k8sSecretsClient MockK8sSecretsClient) RetrieveK8sSecret(_ string, secretName string) (k8s.K8sSecretInterface, error) {
-	if !k8sSecretsClient.Permissions["get"] {
+var RetrieveK8sSecret k8s.RetrieveK8sSecretFunc = func(_ string, secretName string) (map[string][]byte, error) {
+	if !CanGetK8sSecrets {
 		return nil, errors.New("custom error")
 	}
 
@@ -24,14 +22,14 @@ func (k8sSecretsClient MockK8sSecretsClient) RetrieveK8sSecret(_ string, secretN
 	return MockK8sDB[secretName], nil
 }
 
-func (k8sSecretsClient *MockK8sSecretsClient) PatchK8sSecret(_ string, secretName string, stringDataEntriesMap map[string][]byte) error {
-	if !k8sSecretsClient.Permissions["patch"] {
+var PatchK8sSecret k8s.PatchK8sSecretFunc = func(_ string, secretName string, stringDataEntriesMap map[string][]byte) error {
+	if !CanPatchK8sSecrets {
 		return errors.New("custom error")
 	}
 
 	secretToPatch := MockK8sDB[secretName]
 	for key, value := range stringDataEntriesMap {
-		secretToPatch.Data[key] = value
+		secretToPatch[key] = value
 	}
 
 	return nil
