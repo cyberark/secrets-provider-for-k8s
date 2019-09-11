@@ -11,7 +11,7 @@ import (
 	"github.com/cyberark/cyberark-secrets-provider-for-k8s/pkg/log/messages"
 	"github.com/cyberark/cyberark-secrets-provider-for-k8s/pkg/secrets/clients/conjur"
 	"github.com/cyberark/cyberark-secrets-provider-for-k8s/pkg/secrets/clients/k8s"
-	secretsConfig "github.com/cyberark/cyberark-secrets-provider-for-k8s/pkg/secrets/config"
+	"github.com/cyberark/cyberark-secrets-provider-for-k8s/pkg/secrets/config"
 )
 
 type K8sSecretsMap struct {
@@ -29,32 +29,22 @@ type K8sSecretsMap struct {
 }
 
 /*
-	This struct retrieves Conjur secrets that are required by the pod and pushes them into K8s secrets.
-*/
-type ProvideConjurSecretsToK8sSecrets struct {
-	AccessToken access_token.AccessToken
-	Config      secretsConfig.Config
-}
-
-func NewProvideConjurSecrets(secretsConfig secretsConfig.Config, AccessToken access_token.AccessToken) (ProvideConjurSecrets *ProvideConjurSecretsToK8sSecrets, err error) {
-	return &ProvideConjurSecretsToK8sSecrets{
-		AccessToken: AccessToken,
-		Config:      secretsConfig,
-	}, nil
-}
-
-/*
 	This method is implemented for implementing the ProvideConjurSecrets interface. All that is done here is to
 	initialize a K8sSecretsClient and use the internal `run` method.
 	That method receives different structs as inputs so they can be mocked.
 */
-func (provideConjurSecretsToK8sSecrets ProvideConjurSecretsToK8sSecrets) Run() error {
+func ProvideConjurSecretsToK8sSecrets(AccessToken access_token.AccessToken) error {
+	config, err := config.NewFromEnv()
+	if err != nil {
+		return err
+	}
+
 	return run(
 		k8s.RetrieveK8sSecret,
 		k8s.PatchK8sSecret,
-		provideConjurSecretsToK8sSecrets.Config.PodNamespace,
-		provideConjurSecretsToK8sSecrets.Config.RequiredK8sSecrets,
-		provideConjurSecretsToK8sSecrets.AccessToken,
+		config.PodNamespace,
+		config.RequiredK8sSecrets,
+		AccessToken,
 		conjur.RetrieveConjurSecrets,
 	)
 }
@@ -109,9 +99,9 @@ func RetrieveRequiredK8sSecrets(retrieveSecretFunc k8s.RetrieveK8sSecretFunc, na
 		}
 
 		// If K8s secret has no "conjur-map" data entry, return an error
-		if _, ok := k8sSecret[secretsConfig.CONJUR_MAP_KEY]; !ok {
+		if _, ok := k8sSecret[config.CONJUR_MAP_KEY]; !ok {
 			// Error messages returned from K8s should be printed only in debug mode
-			log.Debug(messages.CSPFK008D, secretName, secretsConfig.CONJUR_MAP_KEY)
+			log.Debug(messages.CSPFK008D, secretName, config.CONJUR_MAP_KEY)
 			return nil, log.RecordedError(messages.CSPFK028E, secretName)
 		}
 
@@ -120,22 +110,22 @@ func RetrieveRequiredK8sSecrets(retrieveSecretFunc k8s.RetrieveK8sSecretFunc, na
 		newDataEntriesMap := make(map[string][]byte)
 		conjurMap := make(map[string]string)
 		for key, value := range k8sSecret {
-			if key == secretsConfig.CONJUR_MAP_KEY {
+			if key == config.CONJUR_MAP_KEY {
 				if len(value) == 0 {
 					// Error messages returned from K8s should be printed only in debug mode
-					log.Debug(messages.CSPFK006D, secretName, secretsConfig.CONJUR_MAP_KEY)
+					log.Debug(messages.CSPFK006D, secretName, config.CONJUR_MAP_KEY)
 					return nil, log.RecordedError(messages.CSPFK028E, secretName)
 				}
 
-				log.Debug(messages.CSPFK009D, secretsConfig.CONJUR_MAP_KEY, secretName)
+				log.Debug(messages.CSPFK009D, config.CONJUR_MAP_KEY, secretName)
 				err := yaml.Unmarshal(value, &conjurMap)
 				if err != nil {
 					// Error messages returned from K8s should be printed only in debug mode
-					log.Debug(messages.CSPFK007D, secretName, secretsConfig.CONJUR_MAP_KEY, err.Error())
+					log.Debug(messages.CSPFK007D, secretName, config.CONJUR_MAP_KEY, err.Error())
 					return nil, log.RecordedError(messages.CSPFK028E, secretName)
 				} else if conjurMap == nil || len(conjurMap) == 0 {
 					// Error messages returned from K8s should be printed only in debug mode
-					log.Debug(messages.CSPFK007D, secretName, secretsConfig.CONJUR_MAP_KEY, "value is empty")
+					log.Debug(messages.CSPFK007D, secretName, config.CONJUR_MAP_KEY, "value is empty")
 					return nil, log.RecordedError(messages.CSPFK028E, secretName)
 				}
 

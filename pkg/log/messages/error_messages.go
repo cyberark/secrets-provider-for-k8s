@@ -29,10 +29,9 @@ const CSPFK010E string = "CSPFK010E Failed to authenticate"
 const CSPFK011E string = "CSPFK011E Failed to parse authentication response"
 
 // ProvideConjurSecrets
-const CSPFK014E string = "CSPFK014E Failed to instantiate ProvideConjurSecrets object"
+const CSPFK014E string = "CSPFK014E Failed to instantiate ProvideConjurSecrets function. Reason: %s"
 const CSPFK015E string = "CSPFK015E Failed to instantiate secrets config"
 const CSPFK016E string = "CSPFK016E Failed to provide Conjur secrets"
-const CSPFK017E string = "CSPFK017E Failed to create ProvideConjurSecretsToK8sSecrets object"
 
 // Kubernetes
 const CSPFK018E string = "CSPFK018E Failed to create Kubernetes client"

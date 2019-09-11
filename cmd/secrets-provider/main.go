@@ -12,6 +12,7 @@ import (
 
 	"github.com/cyberark/cyberark-secrets-provider-for-k8s/pkg/log"
 	"github.com/cyberark/cyberark-secrets-provider-for-k8s/pkg/log/messages"
+	"github.com/cyberark/cyberark-secrets-provider-for-k8s/pkg/secrets"
 	secretsConfigProvider "github.com/cyberark/cyberark-secrets-provider-for-k8s/pkg/secrets/config"
 	"github.com/cyberark/cyberark-secrets-provider-for-k8s/pkg/secrets/k8s_secrets_storage"
 )
@@ -32,18 +33,14 @@ func main() {
 		printErrorAndExit(messages.CSPFK015E)
 	}
 
-	if secretsConfig.StoreType == secretsConfigProvider.K8S && authnConfig.ContainerMode != "init" {
-		printErrorAndExit(messages.CSPFK007E)
+	provideConjurSecretsFunc, err := getProvideConjurSecretFunc(secretsConfig.StoreType, authnConfig.ContainerMode)
+	if err != nil {
+		printErrorAndExit(fmt.Sprintf(messages.CSPFK014E, err.Error()))
 	}
 
 	accessToken, err := memory.NewAccessToken()
 	if err != nil {
 		printErrorAndExit(messages.CSPFK001E)
-	}
-
-	provideConjurSecrets, err := k8s_secrets_storage.NewProvideConjurSecrets(*secretsConfig, accessToken)
-	if err != nil {
-		printErrorAndExit(messages.CSPFK014E)
 	}
 
 	authn, err := authenticator.NewWithAccessToken(*authnConfig, accessToken)
@@ -72,7 +69,7 @@ func main() {
 				return log.RecordedError(messages.CSPFK011E)
 			}
 
-			err = provideConjurSecrets.Run()
+			err = provideConjurSecretsFunc(accessToken)
 			if err != nil {
 				return log.RecordedError(messages.CSPFK016E)
 			}
@@ -122,4 +119,17 @@ func configureLogLevel() {
 		// In case "DEBUG" is configured with incorrect value
 		log.Warn(messages.CSPFK001W, val, validVal)
 	}
+}
+
+func getProvideConjurSecretFunc(storeType string, containerMode string) (secrets.ProvideConjurSecrets, error) {
+	var provideConjurSecretFunc secrets.ProvideConjurSecrets
+	if storeType == secretsConfigProvider.K8S {
+		if containerMode != "init" {
+			return nil, log.RecordedError(messages.CSPFK007E)
+		}
+
+		provideConjurSecretFunc = k8s_secrets_storage.ProvideConjurSecretsToK8sSecrets
+	}
+
+	return provideConjurSecretFunc, nil
 }

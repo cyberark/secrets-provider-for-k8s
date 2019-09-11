@@ -1,9 +1,5 @@
 package secrets
 
-/*
-	Structs implementing this interface provide Conjur secrets to a storage. For example, ProvideConjurSecretsToK8sSecrets
-	retrieves Conjur secrets that are required by the pod and pushes them into K8s secrets.
-*/
-type ProvideConjurSecrets interface {
-	Run() error
-}
+import "github.com/cyberark/conjur-authn-k8s-client/pkg/access_token"
+
+type ProvideConjurSecrets func(AccessToken access_token.AccessToken) error
