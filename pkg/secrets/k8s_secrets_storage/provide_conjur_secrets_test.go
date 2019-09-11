@@ -267,7 +267,7 @@ func TestProvideConjurSecrets(t *testing.T) {
 			addK8sSecretToMockDB("k8s_secret2", "conjur_variable2")
 			requiredSecrets := []string{"k8s_secret1"}
 
-			conjurSecretsPermissions(true)
+			mocks.ExecutePermission = true
 
 			err := run(
 				mockK8sSecretsClient,
@@ -298,7 +298,7 @@ func TestProvideConjurSecrets(t *testing.T) {
 			addK8sSecretToMockDB("k8s_secret2", "conjur_variable2")
 			requiredSecrets := []string{"k8s_secret1", "k8s_secret2"}
 
-			conjurSecretsPermissions(true)
+			mocks.ExecutePermission = true
 
 			err := run(
 				mockK8sSecretsClient,
@@ -325,7 +325,7 @@ func TestProvideConjurSecrets(t *testing.T) {
 			addK8sSecretToMockDB("k8s_secret2", "conjur_variable1")
 			requiredSecrets := []string{"k8s_secret1", "k8s_secret2"}
 
-			conjurSecretsPermissions(true)
+			mocks.ExecutePermission = true
 
 			err := run(
 				mockK8sSecretsClient,
@@ -351,7 +351,7 @@ func TestProvideConjurSecrets(t *testing.T) {
 			addK8sSecretToMockDB("k8s_secret1", "non_existing_conjur_variable")
 			requiredSecrets := []string{"k8s_secret1"}
 
-			conjurSecretsPermissions(true)
+			mocks.ExecutePermission = true
 
 			err := run(
 				mockK8sSecretsClient,
@@ -372,7 +372,7 @@ func TestProvideConjurSecrets(t *testing.T) {
 			addK8sSecretToMockDB("k8s_secret_with_empty_conjur_variable", "conjur_variable_empty_secret")
 			requiredSecrets := []string{"k8s_secret_with_empty_conjur_variable"}
 
-			conjurSecretsPermissions(true)
+			mocks.ExecutePermission = true
 
 			err := run(
 				mockK8sSecretsClient,
@@ -394,11 +394,11 @@ func TestProvideConjurSecrets(t *testing.T) {
 		Convey("Given no 'execute' permissions on the conjur secret", func() {
 			prepareMockDBs()
 
-			addK8sSecretToMockDB("k8s_secret4", "no_execute_permission_conjur_secret")
-			requiredSecrets := []string{"k8s_secret4"}
+			addK8sSecretToMockDB("k8s_secret_with_no_permission_conjur_variable", "no_execute_permission_conjur_secret")
+			requiredSecrets := []string{"k8s_secret_with_no_permission_conjur_variable"}
 
 			// no execute privileges on the conjur secret
-			conjurSecretsPermissions(false)
+			mocks.ExecutePermission = false
 
 			err := run(
 				mockK8sSecretsClient,
@@ -443,12 +443,4 @@ func k8sSecretsPermissions(getPermission bool, patchPermission bool) map[string]
 	permissions["patch"] = patchPermission
 
 	return permissions
-}
-
-func conjurSecretsPermissions(executePermission bool) map[string]bool {
-	mocks.MockPermissions = make(map[string]bool)
-	// determines execute permission on Conjur variables
-	mocks.MockPermissions["execute"] = executePermission
-
-	return mocks.MockPermissions
 }
