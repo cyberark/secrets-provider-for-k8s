@@ -55,9 +55,9 @@ func NewFromEnv() (*Config, error) {
 	}, nil
 }
 
-func getStoreType(envInput string) (string, error) {
+func getStoreType(secretsDestination string) (string, error) {
 	var storeType string
-	if envInput == K8S {
+	if secretsDestination == K8S {
 		storeType = K8S
 	} else {
 		// In case "SECRETS_DESTINATION" exists and is configured with incorrect value
