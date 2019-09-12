@@ -1,3 +1,3 @@
 package messages
 
-const CSPFK001W string = "CSPFK001W Provided incorrect value '%s' for enabling debug mode"
+const CSPFK001W string = "CSPFK001W Incorrect value '%s' provided for enabling debug mode. Allowed value: '%s'"
