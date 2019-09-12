@@ -14,7 +14,6 @@ import (
 	"github.com/cyberark/cyberark-secrets-provider-for-k8s/pkg/log/messages"
 	"github.com/cyberark/cyberark-secrets-provider-for-k8s/pkg/secrets"
 	secretsConfigProvider "github.com/cyberark/cyberark-secrets-provider-for-k8s/pkg/secrets/config"
-	"github.com/cyberark/cyberark-secrets-provider-for-k8s/pkg/secrets/k8s_secrets_storage"
 )
 
 func main() {
@@ -33,7 +32,12 @@ func main() {
 		printErrorAndExit(messages.CSPFK015E)
 	}
 
-	provideConjurSecretsFunc, err := getProvideConjurSecretFunc(secretsConfig.StoreType, authnConfig.ContainerMode)
+	// verify we don't run with a K8s secrets storage configuration in a side car
+	if secretsConfig.StoreType == secretsConfigProvider.K8S && authnConfig.ContainerMode != "init" {
+		printErrorAndExit(messages.CSPFK007E)
+	}
+
+	provideConjurSecrets, err := secrets.GetProvideConjurSecretFunc(secretsConfig.StoreType)
 	if err != nil {
 		printErrorAndExit(fmt.Sprintf(messages.CSPFK014E, err.Error()))
 	}
@@ -69,7 +73,7 @@ func main() {
 				return log.RecordedError(messages.CSPFK011E)
 			}
 
-			err = provideConjurSecretsFunc(accessToken)
+			err = provideConjurSecrets(accessToken)
 			if err != nil {
 				return log.RecordedError(messages.CSPFK016E)
 			}
@@ -119,17 +123,4 @@ func configureLogLevel() {
 		// In case "DEBUG" is configured with incorrect value
 		log.Warn(messages.CSPFK001W, val, validVal)
 	}
-}
-
-func getProvideConjurSecretFunc(storeType string, containerMode string) (secrets.ProvideConjurSecrets, error) {
-	var provideConjurSecretFunc secrets.ProvideConjurSecrets
-	if storeType == secretsConfigProvider.K8S {
-		if containerMode != "init" {
-			return nil, log.RecordedError(messages.CSPFK007E)
-		}
-
-		provideConjurSecretFunc = k8s_secrets_storage.ProvideConjurSecretsToK8sSecrets
-	}
-
-	return provideConjurSecretFunc, nil
 }
