@@ -6,7 +6,7 @@ set -euo pipefail
 announce "Creating Test App namespace."
 
 if [[ $PLATFORM == openshift ]]; then
-  oc login -u $OSHIFT_CLUSTER_ADMIN_USERNAME
+  oc login -u $OPENSHIFT_USERNAME
 fi
 
 set_namespace default
@@ -34,11 +34,11 @@ sed "s#{{ TEST_APP_NAMESPACE_NAME }}#$TEST_APP_NAMESPACE_NAME#g" ./k8s-config/te
 
 if [[ $PLATFORM == openshift ]]; then
   # add permissions for Conjur admin user
-  oc adm policy add-role-to-user system:registry $OSHIFT_CONJUR_ADMIN_USERNAME
-  oc adm policy add-role-to-user system:image-builder $OSHIFT_CONJUR_ADMIN_USERNAME
+  oc adm policy add-role-to-user system:registry $OPENSHIFT_USERNAME
+  oc adm policy add-role-to-user system:image-builder $OPENSHIFT_USERNAME
 
-  oc adm policy add-role-to-user admin $OSHIFT_CONJUR_ADMIN_USERNAME -n default
-  oc adm policy add-role-to-user admin $OSHIFT_CONJUR_ADMIN_USERNAME -n $TEST_APP_NAMESPACE_NAME
+  oc adm policy add-role-to-user admin $OPENSHIFT_USERNAME -n default
+  oc adm policy add-role-to-user admin $OPENSHIFT_USERNAME -n $TEST_APP_NAMESPACE_NAME
   echo "Logging in as Conjur Openshift admin. Provide password as needed."
-  oc login -u $OSHIFT_CONJUR_ADMIN_USERNAME
+  oc login -u $OPENSHIFT_USERNAME
 fi

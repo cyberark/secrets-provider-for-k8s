@@ -8,7 +8,7 @@ source bootstrap.env
 set_namespace default
 
 if [[ $PLATFORM == openshift ]]; then
-  oc login -u $OSHIFT_CLUSTER_ADMIN_USERNAME
+  oc login -u $OPENSHIFT_USERNAME
 fi
 
 if has_namespace $TEST_APP_NAMESPACE_NAME; then
