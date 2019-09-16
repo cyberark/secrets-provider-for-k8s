@@ -1,0 +1,138 @@
+---
+apiVersion: v1
+kind: DeploymentConfig
+metadata:
+  labels:
+    app: test-env
+  name: test-env
+spec:
+  replicas: 1
+  selector:
+    app: test-env
+  template:
+    metadata:
+      labels:
+        app: test-env
+    spec:
+      serviceAccountName: {{ TEST_APP_NAMESPACE_NAME }}-sa
+      containers:
+      - image: debian
+        name: test-app
+        command: ["printenv"]
+        args: ["TEST_SECRET"]
+        env:
+          - name: TEST_SECRET
+            valueFrom:
+              secretKeyRef:
+                name: test-k8s-secret
+                key: secret
+      initContainers:
+      - image: '{{ DOCKER_REGISTRY_PATH }}/{{ TEST_APP_NAMESPACE_NAME }}/secrets-provider:latest'
+        imagePullPolicy: Always
+        name: cyberark-secrets-provider
+        env:
+          - name: CONTAINER_MODE
+            value: init
+
+          - name: MY_POD_NAME
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.name
+
+          - name: MY_POD_NAMESPACE
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.namespace
+
+          - name: MY_POD_IP
+            valueFrom:
+              fieldRef:
+                fieldPath: status.podIP
+
+          - name: CONJUR_VERSION
+            value: '5'
+
+          - name: CONJUR_APPLIANCE_URL
+            value: >-
+              https://conjur-follower.{{ CONJUR_NAMESPACE_NAME }}.svc.cluster.local/api
+
+          - name: CONJUR_AUTHN_URL
+            value: >-
+              https://conjur-follower.{{ CONJUR_NAMESPACE_NAME }}.svc.cluster.local/api/authn-k8s/{{ AUTHENTICATOR_ID }}
+
+          - name: CONJUR_ACCOUNT
+            value: {{ CONJUR_ACCOUNT }}
+
+          - name: CONJUR_AUTHN_LOGIN
+            value: >-
+              host/conjur/authn-k8s/{{ AUTHENTICATOR_ID }}/apps/{{ TEST_APP_NAMESPACE_NAME }}/*/*
+
+          - name: CONJUR_SSL_CERTIFICATE
+            valueFrom:
+              configMapKeyRef:
+                name: conjur-master-ca-env
+                key: ssl-certificate
+
+          - name: K8S_SECRETS
+            value: test-k8s-secret
+
+          - name: SECRETS_DESTINATION
+            value: k8s_secrets
+
+      imagePullSecrets:
+        - name: dockerpullsecret
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: conjur-master-ca-env
+  label:
+    app: test-env
+data:
+  ssl-certificate: |
+    -----BEGIN CERTIFICATE-----
+    MIIDcjCCAlqgAwIBAgIVAJHUCbGNyRhm4f/aC6wj5DAVdZ8lMA0GCSqGSIb3DQEB
+    CwUAMD0xDzANBgNVBAoMBm9yZW5ibTESMBAGA1UECwwJQ29uanVyIENBMRYwFAYD
+    VQQDDA1jb25qdXItbWFzdGVyMB4XDTE5MDgyMDA3NDk0MloXDTI5MDgxNzA3NDk0
+    MlowGDEWMBQGA1UEAwwNY29uanVyLW1hc3RlcjCCASIwDQYJKoZIhvcNAQEBBQAD
+    ggEPADCCAQoCggEBAMn5Knx3Xk3mPEZGG5YAZYf02aQ7XEmkkJ/nf4nHZluTjRvK
+    8+JOgwWGh1XlFe4Pb4mTgLFVaCLIlZlK9wb+nYqI5IaAUcJG6aNxEhqzeME8jEEV
+    A9PRXSbze4YCocZ0smgyYFzgpHzkg0yEJDqc6ev9JnmIoI7FWCb05xoVTJUFmEIH
+    ez31g3L/7VrLFbdkrxX1iSyzBAjz9hqn6ehG7kCBcTWL+aA2NIrdo2EX68MxWqJr
+    n2dL1aHqwNEa7BRJMHlFcKKDbZJVBpCjG1ZBn0mv8B+UrcW9Jy67AVPf3lUPv8XZ
+    jXlfu671oZonIQ78Ik9pgmdF50lAghaW5RQATysCAwEAAaOBjTCBijAOBgNVHQ8B
+    Af8EBAMCBaAwHQYDVR0OBBYEFNo5o+5ea0sNMlW/75VgGJCv2AcJMFkGA1UdEQRS
+    MFCCDWNvbmp1ci1tYXN0ZXKCCWxvY2FsaG9zdII0Y29uanVyLW1hc3Rlci5jb25q
+    dXItZGVwbG95LW9yZW5ibS5zdmMuY2x1c3Rlci5sb2NhbDANBgkqhkiG9w0BAQsF
+    AAOCAQEAVyzR4BVYm7du6KDvgTUn0qQzq8u5GX+qMFcZmQQt6e0PN/CRQhMwOkUk
+    D6ccyDgzLFLPSnspe8AaCIu7sbf7qVS8SrOjlGX3S/HIrWnpNMFzu3qgCXurL/4P
+    hvHjio73b7EShp+kxGAK3T0/ZVinhorZkyKZEsvTGK2Zu+mcjBY/BgLQGU/nx5vM
+    C9psAWD28cXzQq3xIlfqnhw+yU1smZTN2PuKafmc4BDtpXPMHuGkDms2Ykdhx5l8
+    Emg5HnaNS2l8hho/+i5qI9d0wE091oT+9YDho/4o62fTd6bdELGX1nB88cFFKreV
+    941PHm1+q/DCCBiZWNWaMflYXEl2zw==
+    -----END CERTIFICATE-----
+    -----BEGIN CERTIFICATE-----
+    MIIDwjCCAqqgAwIBAgIUeaQ8+v4hvRN/ScbHdaPoSUnP+00wDQYJKoZIhvcNAQEL
+    BQAwPTEPMA0GA1UECgwGb3JlbmJtMRIwEAYDVQQLDAlDb25qdXIgQ0ExFjAUBgNV
+    BAMMDWNvbmp1ci1tYXN0ZXIwHhcNMTkwODIwMDc0OTQwWhcNMjkwODE3MDc0OTQw
+    WjA9MQ8wDQYDVQQKDAZvcmVuYm0xEjAQBgNVBAsMCUNvbmp1ciBDQTEWMBQGA1UE
+    AwwNY29uanVyLW1hc3RlcjCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEB
+    AMVRTKRhxS1gTY7zsO3MGuGTQJeZQA/20Qj8KDQU0RpUGa/PGmqxZ7WRtNGk5UnY
+    tGRGShubsWVdOH+dNPCzRDhuo+TPOtf4sXzJ7OyiPt9JsPIUjL8Ix9nSVOptUv9a
+    68pqpuzppMWAyWq7YY38YfqNId6Q9d4Cnj3ekCU/OR1H0rZYRtKUdDws3eAKi3MG
+    KosJggJXlXQdcMSwpQPRJzyXF2aTw9lUOiZOGML53qX4GTJQt6ZBTsu6N+Hu4MP1
+    ZTK5a/m7H60mx9ALJXHHVIDosWzHc2eC7XqNcso/QI0KxrE72iG+TWNzdrMKiuLl
+    4to9wqbtsC9DX8/fGTfXSEsCAwEAAaOBuTCBtjBZBgNVHREEUjBQgg1jb25qdXIt
+    bWFzdGVygglsb2NhbGhvc3SCNGNvbmp1ci1tYXN0ZXIuY29uanVyLWRlcGxveS1v
+    cmVuYm0uc3ZjLmNsdXN0ZXIubG9jYWwwHQYDVR0OBBYEFH/EQangd+/Q2fzWnXWV
+    Dkcgzs9RMB8GA1UdIwQYMBaAFH/EQangd+/Q2fzWnXWVDkcgzs9RMAwGA1UdEwQF
+    MAMBAf8wCwYDVR0PBAQDAgHmMA0GCSqGSIb3DQEBCwUAA4IBAQCNnP8sasd/i7cQ
+    +OY8n4Mb3D7XNTJ+BKV5nKbu5Q4kQ0BBnxbJVnFFRtzYahebnk5r6yePu80mBueH
+    RsWZvBeAB8kEXLqaMicCQyGhZ74A9T69OR7CWhGyoJrk6yM1S2INlTbLSCYbxBT8
+    zcaUcBTDTidxwkff1otDNDHbP8BUMdmzPhVKPrAYXqhCrbcLiBk9WAF40fYt4Uf1
+    9pJad5LxOsUOj+V1W8vXQZCaHHe30v4jDBFCseQ/zeapNOpEEKbgIRqRBl1BddM6
+    Ijhe2x7Q3ri5TU/SOZmEwvm9freLoo37uyk8Tux46j4vpY4NqCGVYE/I8S7f7bVi
+    Q3MsLCyV
+    -----END CERTIFICATE-----
