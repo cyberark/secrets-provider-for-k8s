@@ -23,6 +23,12 @@ pipeline {
       }
     }
 
+    stage('Run Integrations Tests') {
+      steps {
+        sh 'cd test && ./test'
+      }
+    }
+
     stage('Publish client Docker image') {
       when {
         branch 'master'
