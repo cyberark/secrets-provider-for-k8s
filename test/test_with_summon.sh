@@ -1,9 +1,7 @@
 #!/bin/bash
 set -xeuo pipefail
 
-source bootstrap.env
-
-./login_openshift.sh
+./platform_login.sh
 
 ./0_deploy_conjur_on_kubernetes.sh
 

@@ -20,4 +20,9 @@ check_env_var "DOCKER_REGISTRY_PATH"
 if [[ "$PLATFORM" == "openshift" ]]; then
   check_env_var "OPENSHIFT_USERNAME"
   check_env_var "OPENSHIFT_PASSWORD"
+elif [[ "$PLATFORM" = "kubernetes" ]]; then
+  check_env_var "GCLOUD_SERVICE_KEY"
+  check_env_var "GCLOUD_CLUSTER_NAME"
+  check_env_var "GCLOUD_ZONE"
+  check_env_var "GCLOUD_PROJECT_NAME"
 fi
