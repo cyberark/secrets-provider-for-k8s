@@ -5,7 +5,6 @@
 set_namespace $TEST_APP_NAMESPACE_NAME
 
 echo "Publish docker image"
-docker login -u _ -p "$($cli whoami -t)" ${DOCKER_REGISTRY_PATH}
 docker tag "cyberark-secrets-provider-for-k8s:dev" "${DOCKER_REGISTRY_PATH}/${TEST_APP_NAMESPACE_NAME}/secrets-provider"
 docker push "${DOCKER_REGISTRY_PATH}/${TEST_APP_NAMESPACE_NAME}/secrets-provider"
 
