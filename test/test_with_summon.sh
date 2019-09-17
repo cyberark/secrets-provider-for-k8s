@@ -3,8 +3,6 @@ set -xeuo pipefail
 
 ./platform_login.sh
 
-./0_deploy_conjur_on_kubernetes.sh
-
 ./1_check_dependencies.sh
 
 ./stop
@@ -32,7 +30,11 @@ for n in {1..5}; do
 done
 
 ./stop
-./kubernetes-conjur-deploy-"$UNIQUE_TEST_ID"/stop
-rm -rf "kubernetes-conjur-deploy-$UNIQUE_TEST_ID"
+../kubernetes-conjur-deploy-"$UNIQUE_TEST_ID"/stop
+rm -rf "../kubernetes-conjur-deploy-$UNIQUE_TEST_ID"
+
+if [[ "$exit_code" = 1 ]]; then
+  echo "Couldn't retrieve conjur secret in app container. It was not provided by the secrets-provider container"
+fi
 
 exit $exit_code

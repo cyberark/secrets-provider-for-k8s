@@ -25,7 +25,7 @@ pipeline {
 
     stage('Run Integrations Tests') {
       steps {
-        sh 'cd test && ./test'
+        sh 'cd test && ./test --docker'
       }
     }
 

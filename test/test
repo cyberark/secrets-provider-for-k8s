@@ -1,8 +1,24 @@
-#!/bin/bash
-set -xeuo pipefail
+#!/bin/bash -ex
 
 source bootstrap.env
 
 # summon environment variable
 export CONJUR_MAJOR_VERSION=4
-summon --environment $PLATFORM -f ./summon/secrets.yml ./test_with_summon.sh
+
+function runTestScriptWithSummon() {
+    summon --environment $PLATFORM -f ./summon/secrets.yml $1
+}
+
+RUN_IN_DOCKER=false
+while true ; do
+  case "$1" in
+    --docker ) RUN_IN_DOCKER=true ; shift ;;
+     * ) if [ -z "$1" ]; then break; else echo "$1 is not a valid option"; exit 1; fi;;
+  esac
+done
+
+if [[ $RUN_IN_DOCKER = true ]]; then
+  runTestScriptWithSummon ./test_in_docker.sh
+else
+  runTestScriptWithSummon ./test_local.sh
+fi
