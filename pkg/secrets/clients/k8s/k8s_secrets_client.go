@@ -13,14 +13,40 @@ import (
 	"github.com/cyberark/cyberark-secrets-provider-for-k8s/pkg/utils"
 )
 
-// This interface is used to mock a K8sSecretsClient struct
-type K8sSecretsClientInterface interface {
-	RetrieveK8sSecret(namespace string, secretName string) (K8sSecretInterface, error)
-	PatchK8sSecret(namespace string, secretName string, stringDataEntriesMap map[string][]byte) error
+type RetrieveK8sSecretFunc func(namespace string, secretName string) (map[string][]byte, error)
+type PatchK8sSecretFunc func(namespace string, secretName string, stringDataEntriesMap map[string][]byte) error
+
+func RetrieveK8sSecret(namespace string, secretName string) (map[string][]byte, error) {
+	// get K8s client object
+	kubeClient, _ := configK8sClient()
+	log.Info(messages.CSPFK005I, secretName, namespace)
+	k8sSecret, err := kubeClient.CoreV1().Secrets(namespace).Get(secretName, metav1.GetOptions{})
+	if err != nil {
+		return nil, err
+	}
+
+	return k8sSecret.Data, nil
 }
 
-// This empty struct represents a Kubernetes Secrets client. It is used to retrieve & patch k8s secrets.
-type K8sSecretsClient struct{}
+func PatchK8sSecret(namespace string, secretName string, stringDataEntriesMap map[string][]byte) error {
+	// get K8s client object
+	kubeClient, _ := configK8sClient()
+
+	stringDataEntry, err := generateStringDataEntry(stringDataEntriesMap)
+	if err != nil {
+		return log.RecordedError(messages.CSPFK024E)
+	}
+
+	log.Info(messages.CSPFK006I, secretName, namespace)
+	_, err = kubeClient.CoreV1().Secrets(namespace).Patch(secretName, types.StrategicMergePatchType, stringDataEntry)
+	// Clear secret from memory
+	stringDataEntry = nil
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
 
 func configK8sClient() (*kubernetes.Clientset, error) {
 	// Create the Kubernetes client
@@ -40,40 +66,6 @@ func configK8sClient() (*kubernetes.Clientset, error) {
 	}
 	// return a K8s client
 	return kubeClient, err
-}
-
-func (k8sSecretsClient K8sSecretsClient) RetrieveK8sSecret(namespace string, secretName string) (K8sSecretInterface, error) {
-	// get K8s client object
-	kubeClient, _ := configK8sClient()
-	log.Info(messages.CSPFK005I, secretName, namespace)
-	k8sSecret, err := kubeClient.CoreV1().Secrets(namespace).Get(secretName, metav1.GetOptions{})
-	if err != nil {
-		return nil, err
-	}
-
-	return &K8sSecret{
-		Secret: k8sSecret,
-	}, nil
-}
-
-func (k8sSecretsClient K8sSecretsClient) PatchK8sSecret(namespace string, secretName string, stringDataEntriesMap map[string][]byte) error {
-	// get K8s client object
-	kubeClient, _ := configK8sClient()
-
-	stringDataEntry, err := generateStringDataEntry(stringDataEntriesMap)
-	if err != nil {
-		return log.RecordedError(messages.CSPFK024E)
-	}
-
-	log.Info(messages.CSPFK006I, secretName, namespace)
-	_, err = kubeClient.CoreV1().Secrets(namespace).Patch(secretName, types.StrategicMergePatchType, stringDataEntry)
-	// Clear secret from memory
-	stringDataEntry = nil
-	if err != nil {
-		return err
-	}
-
-	return nil
 }
 
 /*

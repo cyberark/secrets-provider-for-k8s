@@ -13,10 +13,7 @@ import (
 */
 var CanExecuteConjurVar bool
 
-type MockConjurSecretsRetriever struct{}
-
-// Reads Conjur secrets from the mock DB and returns a map from variable IDs to the corresponding secrets.
-func (ConjurSecretsRetriever MockConjurSecretsRetriever) RetrieveConjurSecrets(accessToken []byte, variableIDs []string) (map[string][]byte, error) {
+func RetrieveConjurSecrets(_ []byte, variableIDs []string) (map[string][]byte, error) {
 	conjurSecrets := make(map[string][]byte)
 
 	if !CanExecuteConjurVar {

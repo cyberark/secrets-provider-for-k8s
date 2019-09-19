@@ -12,8 +12,8 @@ import (
 
 	"github.com/cyberark/cyberark-secrets-provider-for-k8s/pkg/log"
 	"github.com/cyberark/cyberark-secrets-provider-for-k8s/pkg/log/messages"
+	"github.com/cyberark/cyberark-secrets-provider-for-k8s/pkg/secrets"
 	secretsConfigProvider "github.com/cyberark/cyberark-secrets-provider-for-k8s/pkg/secrets/config"
-	"github.com/cyberark/cyberark-secrets-provider-for-k8s/pkg/secrets/k8s_secrets_storage"
 )
 
 func main() {
@@ -32,18 +32,19 @@ func main() {
 		printErrorAndExit(messages.CSPFK015E)
 	}
 
+	// verify we don't run with a K8s secrets storage configuration in a side car
 	if secretsConfig.StoreType == secretsConfigProvider.K8S && authnConfig.ContainerMode != "init" {
 		printErrorAndExit(messages.CSPFK007E)
+	}
+
+	provideConjurSecrets, err := secrets.GetProvideConjurSecretFunc(secretsConfig.StoreType)
+	if err != nil {
+		printErrorAndExit(fmt.Sprintf(messages.CSPFK014E, err.Error()))
 	}
 
 	accessToken, err := memory.NewAccessToken()
 	if err != nil {
 		printErrorAndExit(messages.CSPFK001E)
-	}
-
-	provideConjurSecrets, err := k8s_secrets_storage.NewProvideConjurSecrets(*secretsConfig, accessToken)
-	if err != nil {
-		printErrorAndExit(messages.CSPFK014E)
 	}
 
 	authn, err := authenticator.NewWithAccessToken(*authnConfig, accessToken)
@@ -72,7 +73,7 @@ func main() {
 				return log.RecordedError(messages.CSPFK011E)
 			}
 
-			err = provideConjurSecrets.Run()
+			err = provideConjurSecrets(accessToken)
 			if err != nil {
 				return log.RecordedError(messages.CSPFK016E)
 			}
