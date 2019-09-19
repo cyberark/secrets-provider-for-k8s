@@ -17,7 +17,7 @@ pipeline {
 
     stage('Run Unit Tests') {
       steps {
-        sh './bin/test'
+        sh './bin/test_unit'
         
         junit 'unit-test/junit.xml'
       }
