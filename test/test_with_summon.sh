@@ -29,12 +29,14 @@ for n in {1..5}; do
   fi
 done
 
-./stop
-../kubernetes-conjur-deploy-"$UNIQUE_TEST_ID"/stop
-rm -rf "../kubernetes-conjur-deploy-$UNIQUE_TEST_ID"
-
 if [[ "$exit_code" = 1 ]]; then
   echo "Couldn't retrieve conjur secret in app container. It was not provided by the secrets-provider container"
+  pod_name=$(oc get pods --namespace=$TEST_APP_NAMESPACE_NAME --selector app=test-env --no-headers | awk '{print $1}')
+  oc logs $pod_name -c cyberark-secrets-provider
+else
+  ./stop
+  ../kubernetes-conjur-deploy-"$UNIQUE_TEST_ID"/stop
+  rm -rf "../kubernetes-conjur-deploy-$UNIQUE_TEST_ID"
 fi
 
 exit $exit_code
