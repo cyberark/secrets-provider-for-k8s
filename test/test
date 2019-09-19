@@ -18,6 +18,7 @@ while true ; do
 done
 
 if [[ $RUN_IN_DOCKER = true ]]; then
+  # this option cannot run locally due to lack of docker credentials. It works only in the Jenkins pipeline
   runTestScriptWithSummon ./test_in_docker.sh
 else
   runTestScriptWithSummon ./test_local.sh

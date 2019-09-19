@@ -74,9 +74,8 @@ function runDockerCommand() {
     -e CONJUR_VERSION \
     -e CONJUR_VERSION \
     -v /var/run/docker.sock:/var/run/docker.sock \
-    -v /var/lib/jenkins/.config:/root/.config \
-    -v /var/lib/jenkins/.docker:/root/.docker \
     -v ~/.config:/root/.config \
+    -v ~/.docker:/root/.docker \
     -v "$PWD/..":/src \
     -w /src \
     $TEST_RUNNER_IMAGE:$CONJUR_NAMESPACE_NAME \
