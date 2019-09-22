@@ -14,9 +14,12 @@ if [[ "${DEPLOY_MASTER_CLUSTER}" = "true" ]]; then
   ./4_init_conjur_cert_authority.sh
 fi
 
-./5_build_cyberark_secrets_provider_image.sh
+  # build cyberark-secrets-provider image
+  pushd ..
+    ./bin/build
+  popd
 
-./6_deploy_test_env.sh
+./5_deploy_test_env.sh
 
 exit_code=1
 for n in {1..5}; do
