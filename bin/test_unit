@@ -2,10 +2,10 @@
 
 set -eox pipefail
 
-rm -rf test
-mkdir test
+rm -rf unit-test
+mkdir unit-test
 
-junit_output_file="test/junit.output"
+junit_output_file="unit-test/junit.output"
 
 rm -f "$junit_output_file"
 touch "$junit_output_file"
@@ -31,7 +31,7 @@ docker build -f Dockerfile.junit -t cyberark-secrets-provider-for-k8s-junit:late
 echo "Creating junit report..."
 
 docker run --rm \
-  -v $PWD/test:/test \
+  -v $PWD/unit-test:/test \
   cyberark-secrets-provider-for-k8s-junit:latest \
   bash -exc "
     cat ./junit.output | go-junit-report > ./junit.xml

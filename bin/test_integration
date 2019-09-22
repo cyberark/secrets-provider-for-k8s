@@ -1,0 +1,26 @@
+#!/bin/bash -ex
+
+source test/bootstrap.env
+
+# summon environment variable
+export CONJUR_MAJOR_VERSION=4
+
+function runTestScriptWithSummon() {
+    summon --environment $PLATFORM -f ./summon/secrets.yml $1
+}
+
+RUN_IN_DOCKER=false
+while true ; do
+  case "$1" in
+    --docker ) RUN_IN_DOCKER=true ; shift ;;
+     * ) if [ -z "$1" ]; then break; else echo "$1 is not a valid option"; exit 1; fi;;
+  esac
+done
+
+cd test
+if [[ $RUN_IN_DOCKER = true ]]; then
+  # this option cannot run locally due to lack of docker credentials. It works only in the Jenkins pipeline
+  runTestScriptWithSummon ./test_in_docker.sh
+else
+  runTestScriptWithSummon ./test_local.sh
+fi

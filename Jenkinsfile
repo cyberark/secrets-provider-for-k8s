@@ -15,11 +15,17 @@ pipeline {
       }
     }
 
-    stage('Run Tests') {
+    stage('Run Unit Tests') {
       steps {
-        sh './bin/test'
+        sh './bin/test_unit'
         
-        junit 'test/junit.xml'
+        junit 'unit-test/junit.xml'
+      }
+    }
+
+    stage('Run Integrations Tests') {
+      steps {
+        sh './bin/test_integration --docker'
       }
     }
 

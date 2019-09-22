@@ -1,0 +1,32 @@
+#!/bin/bash
+set -euo pipefail
+
+source bootstrap.env
+
+. utils.sh
+
+set_namespace default
+
+if [[ $PLATFORM == openshift ]]; then
+  oc login -u $OPENSHIFT_USERNAME
+fi
+
+if has_namespace $TEST_APP_NAMESPACE_NAME; then
+  $cli delete namespace $TEST_APP_NAMESPACE_NAME
+
+  printf "Waiting for $TEST_APP_NAMESPACE_NAME namespace deletion to complete"
+
+  while : ; do
+    printf "."
+
+    if has_namespace "$TEST_APP_NAMESPACE_NAME"; then
+      sleep 5
+    else
+      break
+    fi
+  done
+
+  echo ""
+fi
+
+echo "Test app environment purged."
