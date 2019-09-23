@@ -1,5 +1,4 @@
 #!/bin/bash
-
 set -eo pipefail
 
 if [ "$CONJUR_APPLIANCE_URL" != "" ]; then
@@ -20,6 +19,7 @@ readonly POLICY_FILES=(
   "$POLICY_DIR/generated/$TEST_APP_NAMESPACE_NAME.cluster-authn-svc.yml"
   "$POLICY_DIR/generated/$TEST_APP_NAMESPACE_NAME.app-identity.yml"
   "$POLICY_DIR/generated/$TEST_APP_NAMESPACE_NAME.conjur-secrets.yml"
+  "$POLICY_DIR/generated/$TEST_APP_NAMESPACE_NAME.conjur-pet-store-secrets.yml"
 )
 
 for policy_file in "${POLICY_FILES[@]}"; do
@@ -28,5 +28,7 @@ for policy_file in "${POLICY_FILES[@]}"; do
 done
 
 conjur variable values add secrets/test_secret "supersecret"
+conjur variable values add secrets/db_username "$POSTGRES_USERNAME"
+conjur variable values add secrets/db_password "$POSTGRES_PASSWORD"
 
 conjur authn logout

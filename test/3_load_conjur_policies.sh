@@ -21,6 +21,9 @@ pushd policy
   sed "s#{{ AUTHENTICATOR_ID }}#$AUTHENTICATOR_ID#g" ./templates/app-identity-def.template.yml |
    sed "s#{{ TEST_APP_NAMESPACE_NAME }}#$TEST_APP_NAMESPACE_NAME#g" > ./generated/$TEST_APP_NAMESPACE_NAME.app-identity.yml
 
+  sed "s#{{ TEST_APP_NAMESPACE_NAME }}#$TEST_APP_NAMESPACE_NAME#g; " ./templates/conjur-pet-store-secrets.yml |
+    sed "s#{{ AUTHENTICATOR_ID }}#$AUTHENTICATOR_ID#g;" > generated/$TEST_APP_NAMESPACE_NAME.conjur-pet-store-secrets.yml
+
 popd
 
 # Create the random database password
@@ -40,6 +43,8 @@ if [[ "${DEPLOY_MASTER_CLUSTER}" == "true" ]]; then
       CONJUR_ADMIN_PASSWORD=${CONJUR_ADMIN_PASSWORD} \
       TEST_APP_NAMESPACE_NAME=${TEST_APP_NAMESPACE_NAME} \
       CONJUR_VERSION=${CONJUR_VERSION} \
+      POSTGRES_USERNAME=${POSTGRES_USERNAME} \
+      POSTGRES_PASSWORD=${POSTGRES_PASSWORD} \
       /policy/load_policies.sh
     "
 
