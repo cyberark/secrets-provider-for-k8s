@@ -1,9 +1,23 @@
 #!/bin/bash -ex
 
-source test/bootstrap.env
+function print_help() {
+  cat << EOF
+Test the cyberark-secrets-provider-for-k8s image. This script sets up a Conjur cluster in k8s and deploys a k8s environment with an app
+container and a cyberark-secrets-provider-for-k8s init container. Finally it tests that the outcome is as expected (for example,
+in the vanilla flow it verifies that the Conjur secret was provided to the app container via the environment.
 
-# summon environment variable
-export CONJUR_MAJOR_VERSION=4
+Usage: ./bin/test_integation [options]
+    --docker      Run the integation test in a docker container. This is helpful when running the test in a machine that
+                  doesn't have "oc" or "kubectl" installed on it.
+
+    --demo        Run a full end-to-end demo with the pet-store demo. This demo deploys an environment with an app container
+                  that needs credentials to a DB from Conjur. After running "./bin/test_integation --demo" run "oc get routes"
+                  and go to "<the exposed route>/pets" in a browser. The entry "Mr. Sidecar" should be displayed on the screen.
+
+    -h, --help    Shows this help message.
+EOF
+  exit
+}
 
 function runScriptWithSummon() {
     summon --environment $PLATFORM -f ./summon/secrets.yml $1
@@ -15,9 +29,15 @@ while true ; do
   case "$1" in
     --docker ) RUN_IN_DOCKER=true ; shift ;;
     --demo ) DEMO=true ; shift ;;
+    -h | --help ) print_help ; shift ;;
      * ) if [ -z "$1" ]; then break; else echo "$1 is not a valid option"; exit 1; fi;;
   esac
 done
+
+source test/bootstrap.env
+
+# summon environment variable
+export CONJUR_MAJOR_VERSION=4
 
 cd test
 if [[ $DEMO = true ]]; then
