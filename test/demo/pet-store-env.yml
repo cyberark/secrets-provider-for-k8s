@@ -47,7 +47,7 @@ spec:
               - name: DB_PLATFORM
                 value: "postgres"
               - name: DB_URL
-                value: "postgresql://xapas-p2p.cupksrq0shff.us-east-1.rds.amazonaws.com:5432/xapas_p2p"
+                value: "postgresql://{{ POSTGRES_HOSTNAME }}:5432/{{ POSTGRES_DATABASE }}"
               - name: DB_USERNAME
                 valueFrom:
                   secretKeyRef:
