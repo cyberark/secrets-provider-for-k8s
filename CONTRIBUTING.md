@@ -1,0 +1,3 @@
+# Contributing to the CyberArk Secrets Provider for Kubernetes
+
+Thanks for your interest in the CyberArk Secrets Provider for Kubernetes. Before contributing, please take a moment to read and sign our [Contributor Agreement](Contributing_OSS/CyberArk_Open_Source_Contributor_Agreement.pdf). This provides patent protection for all Secretless Broker users and allows CyberArk to enforce its license terms. Please email a signed copy to oss@cyberark.com.
