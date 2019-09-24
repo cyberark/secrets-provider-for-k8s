@@ -1,3 +1,8 @@
+#!/bin/bash
+
+set -euo pipefail
+cat << EOL
+---
 - !policy
   id: secrets
   body:
@@ -7,5 +12,6 @@
 
 - !permit
   resources: *variables
-  role: !host conjur/authn-k8s/{{ AUTHENTICATOR_ID }}/apps/{{ TEST_APP_NAMESPACE_NAME }}/*/*
+  role: !host conjur/authn-k8s/${AUTHENTICATOR_ID}/apps/${TEST_APP_NAMESPACE_NAME}/*/*
   privileges: [ read, execute ]
+EOL

@@ -10,19 +10,15 @@ pushd policy
 
   # NOTE: generated files are prefixed with the test app namespace to allow for parallel CI
 
-  sed "s#{{ AUTHENTICATOR_ID }}#$AUTHENTICATOR_ID#g" ./templates/cluster-authn-svc-def.template.yml > ./generated/$TEST_APP_NAMESPACE_NAME.cluster-authn-svc.yml
+  ./templates/cluster-authn-svc-def.template.yml.sh > ./generated/$TEST_APP_NAMESPACE_NAME.cluster-authn-svc.yml
 
-  sed "s#{{ AUTHENTICATOR_ID }}#$AUTHENTICATOR_ID#g" ./templates/project-authn-def.template.yml |
-    sed "s#{{ TEST_APP_NAMESPACE_NAME }}#$TEST_APP_NAMESPACE_NAME#g" > ./generated/$TEST_APP_NAMESPACE_NAME.project-authn.yml
+  ./templates/project-authn-def.template.yml.sh > ./generated/$TEST_APP_NAMESPACE_NAME.project-authn.yml
 
-  sed "s#{{ AUTHENTICATOR_ID }}#$AUTHENTICATOR_ID#g" ./templates/conjur-secrets.template.yml |
-    sed "s#{{ TEST_APP_NAMESPACE_NAME }}#$TEST_APP_NAMESPACE_NAME#g" > ./generated/$TEST_APP_NAMESPACE_NAME.conjur-secrets.yml
+  ./templates/conjur-secrets.template.yml.sh > ./generated/$TEST_APP_NAMESPACE_NAME.conjur-secrets.yml
 
-  sed "s#{{ AUTHENTICATOR_ID }}#$AUTHENTICATOR_ID#g" ./templates/app-identity-def.template.yml |
-   sed "s#{{ TEST_APP_NAMESPACE_NAME }}#$TEST_APP_NAMESPACE_NAME#g" > ./generated/$TEST_APP_NAMESPACE_NAME.app-identity.yml
+  ./templates/app-identity-def.template.yml.sh > ./generated/$TEST_APP_NAMESPACE_NAME.app-identity.yml
 
-  sed "s#{{ TEST_APP_NAMESPACE_NAME }}#$TEST_APP_NAMESPACE_NAME#g; " ./templates/conjur-pet-store-secrets.yml |
-    sed "s#{{ AUTHENTICATOR_ID }}#$AUTHENTICATOR_ID#g;" > generated/$TEST_APP_NAMESPACE_NAME.conjur-pet-store-secrets.yml
+  ./templates/conjur-pet-store-secrets.yml.sh > generated/$TEST_APP_NAMESPACE_NAME.conjur-pet-store-secrets.yml
 
 popd
 

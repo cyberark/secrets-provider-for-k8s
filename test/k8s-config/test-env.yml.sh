@@ -1,3 +1,7 @@
+#!/bin/bash
+
+set -euo pipefail
+cat << EOL
 ---
 apiVersion: v1
 kind: DeploymentConfig
@@ -14,7 +18,7 @@ spec:
       labels:
         app: test-env
     spec:
-      serviceAccountName: {{ TEST_APP_NAMESPACE_NAME }}-sa
+      serviceAccountName: ${TEST_APP_NAMESPACE_NAME}-sa
       containers:
       - image: debian
         name: test-app
@@ -27,7 +31,7 @@ spec:
                 name: test-k8s-secret
                 key: secret
       initContainers:
-      - image: '{{ DOCKER_REGISTRY_PATH }}/{{ TEST_APP_NAMESPACE_NAME }}/secrets-provider:latest'
+      - image: '${DOCKER_REGISTRY_PATH}/${TEST_APP_NAMESPACE_NAME}/secrets-provider:latest'
         imagePullPolicy: Always
         name: cyberark-secrets-provider
         env:
@@ -56,18 +60,18 @@ spec:
 
           - name: CONJUR_APPLIANCE_URL
             value: >-
-              https://conjur-follower.{{ CONJUR_NAMESPACE_NAME }}.svc.cluster.local/api
+              https://conjur-follower.${CONJUR_NAMESPACE_NAME}.svc.cluster.local/api
 
           - name: CONJUR_AUTHN_URL
             value: >-
-              https://conjur-follower.{{ CONJUR_NAMESPACE_NAME }}.svc.cluster.local/api/authn-k8s/{{ AUTHENTICATOR_ID }}
+              https://conjur-follower.${CONJUR_NAMESPACE_NAME}.svc.cluster.local/api/authn-k8s/${AUTHENTICATOR_ID}
 
           - name: CONJUR_ACCOUNT
-            value: {{ CONJUR_ACCOUNT }}
+            value: ${CONJUR_ACCOUNT}
 
           - name: CONJUR_AUTHN_LOGIN
             value: >-
-              host/conjur/authn-k8s/{{ AUTHENTICATOR_ID }}/apps/{{ TEST_APP_NAMESPACE_NAME }}/*/*
+              host/conjur/authn-k8s/${AUTHENTICATOR_ID}/apps/${TEST_APP_NAMESPACE_NAME}/*/*
 
           - name: CONJUR_SSL_CERTIFICATE
             valueFrom:
@@ -95,4 +99,4 @@ metadata:
     app: test-env
 data:
   ssl-certificate: |
-    WILL BE INSERTED BY THE SCRIPT
+EOL

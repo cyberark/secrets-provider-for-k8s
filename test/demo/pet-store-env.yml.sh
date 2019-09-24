@@ -1,3 +1,7 @@
+#!/bin/bash
+
+set -euo pipefail
+cat << EOL
 ---
 apiVersion: v1
 kind: Service
@@ -29,9 +33,9 @@ spec:
       labels:
         app: pet-store-env
     spec:
-      serviceAccountName: {{ TEST_APP_NAMESPACE_NAME }}-sa
+      serviceAccountName: ${TEST_APP_NAMESPACE_NAME}-sa
       containers:
-          - image: '{{ DOCKER_REGISTRY_PATH }}/{{ TEST_APP_NAMESPACE_NAME }}/demo-app:latest'
+          - image: '${DOCKER_REGISTRY_PATH}/${TEST_APP_NAMESPACE_NAME}/demo-app:latest'
             imagePullPolicy: Always
             name: pet-store-env
             ports:
@@ -47,7 +51,7 @@ spec:
               - name: DB_PLATFORM
                 value: "postgres"
               - name: DB_URL
-                value: "postgresql://{{ POSTGRES_HOSTNAME }}:5432/{{ POSTGRES_DATABASE }}"
+                value: "postgresql://${POSTGRES_HOSTNAME}:5432/${POSTGRES_DATABASE}"
               - name: DB_USERNAME
                 valueFrom:
                   secretKeyRef:
@@ -59,7 +63,7 @@ spec:
                     name: db-credentials
                     key: password
       initContainers:
-        - image: '{{ DOCKER_REGISTRY_PATH }}/{{ TEST_APP_NAMESPACE_NAME }}/secrets-provider:latest'
+        - image: '${DOCKER_REGISTRY_PATH}/${TEST_APP_NAMESPACE_NAME}/secrets-provider:latest'
           imagePullPolicy: Always
           name: cyberark-secrets-provider
           env:
@@ -88,18 +92,18 @@ spec:
 
             - name: CONJUR_APPLIANCE_URL
               value: >-
-                https://conjur-follower.{{ CONJUR_NAMESPACE_NAME }}.svc.cluster.local/api
+                https://conjur-follower.${CONJUR_NAMESPACE_NAME}.svc.cluster.local/api
 
             - name: CONJUR_AUTHN_URL
               value: >-
-                https://conjur-follower.{{ CONJUR_NAMESPACE_NAME }}.svc.cluster.local/api/authn-k8s/{{ AUTHENTICATOR_ID }}
+                https://conjur-follower.${CONJUR_NAMESPACE_NAME}.svc.cluster.local/api/authn-k8s/${AUTHENTICATOR_ID}
 
             - name: CONJUR_ACCOUNT
-              value: {{ CONJUR_ACCOUNT }}
+              value: ${CONJUR_ACCOUNT}
 
             - name: CONJUR_AUTHN_LOGIN
               value: >-
-                host/conjur/authn-k8s/{{ AUTHENTICATOR_ID }}/apps/{{ TEST_APP_NAMESPACE_NAME }}/*/*
+                host/conjur/authn-k8s/${AUTHENTICATOR_ID}/apps/${TEST_APP_NAMESPACE_NAME}/*/*
 
             - name: CONJUR_SSL_CERTIFICATE
               valueFrom:
@@ -127,4 +131,4 @@ metadata:
     app: pet-store-env
 data:
   ssl-certificate: |
-    WILL BE INSERTED BY THE SCRIPT
+EOL
