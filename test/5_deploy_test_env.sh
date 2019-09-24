@@ -25,6 +25,7 @@ $cli create -f $K8S_CONFIG_DIR/secrets-access-role.yml
 
 ./$K8S_CONFIG_DIR/secrets-access-role-binding.yml.sh | $cli create -f -
 
+mkdir -p ./$K8S_CONFIG_DIR/generated
 ./$K8S_CONFIG_DIR/test-env.yml.sh > ./$K8S_CONFIG_DIR/generated/test-env.yml
 $cli exec "$($cli get pods --namespace $CONJUR_NAMESPACE_NAME | grep conjur-cluster -m 1 |  awk '{print $1}')" --namespace $CONJUR_NAMESPACE_NAME cat /opt/conjur/etc/ssl/conjur-master.pem  | while read i; do printf "    %19s\n" "$i"; done  >> $K8S_CONFIG_DIR/generated/test-env.yml
 $cli create -f $K8S_CONFIG_DIR/generated/test-env.yml
