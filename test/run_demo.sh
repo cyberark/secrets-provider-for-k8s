@@ -76,17 +76,18 @@ function enableImagePull() {
 
 function provideSecretAccessToServiceAccount() {
   $cli delete clusterrole secrets-access --ignore-not-found=true
-  $cli create -f "k8s-config/secrets-access-role.yml"
+  $cli create -f k8s-config/secrets-access-role.yml
 
   ./k8s-config/secrets-access-role-binding.yml.sh | $cli create -f -
 }
 
 function deployDemoEnv() {
-  mkdir -p ./demo/generated
-  ./demo/pet-store-env.yml.sh > ./demo/generated/pet-store-env.yml
-  $cli exec "$($cli get pods --namespace $CONJUR_NAMESPACE_NAME | grep conjur-cluster -m 1 |  awk '{print $1}')" --namespace $CONJUR_NAMESPACE_NAME cat /opt/conjur/etc/ssl/conjur-master.pem  | while read i; do printf "    %19s\n" "$i"; done  >> demo/generated/pet-store-env.yml
+  conjur_node_pod=$($cli get pod --namespace $CONJUR_NAMESPACE_NAME --selector=app=conjur-node -o=jsonpath='{.items[].metadata.name}')
 
-  $cli create -f demo/generated/pet-store-env.yml
+  # this variable is consumed in pet-store-env.yml.sh
+  export CONJUR_SSL_CERTIFICATE=$($cli exec --namespace $CONJUR_NAMESPACE_NAME "${conjur_node_pod}" cat /opt/conjur/etc/ssl/conjur-master.pem)
+
+  ./demo/pet-store-env.yml.sh | $cli create -f -
 }
 
 main

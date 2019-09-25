@@ -25,10 +25,11 @@ $cli create -f $K8S_CONFIG_DIR/secrets-access-role.yml
 
 ./$K8S_CONFIG_DIR/secrets-access-role-binding.yml.sh | $cli create -f -
 
-mkdir -p ./$K8S_CONFIG_DIR/generated
-./$K8S_CONFIG_DIR/test-env.yml.sh > ./$K8S_CONFIG_DIR/generated/test-env.yml
-$cli exec "$($cli get pods --namespace $CONJUR_NAMESPACE_NAME | grep conjur-cluster -m 1 |  awk '{print $1}')" --namespace $CONJUR_NAMESPACE_NAME cat /opt/conjur/etc/ssl/conjur-master.pem  | while read i; do printf "    %19s\n" "$i"; done  >> $K8S_CONFIG_DIR/generated/test-env.yml
-$cli create -f $K8S_CONFIG_DIR/generated/test-env.yml
+conjur_node_pod=$($cli get pod --namespace $CONJUR_NAMESPACE_NAME --selector=app=conjur-node -o=jsonpath='{.items[].metadata.name}')
+
+# this variable is consumed in test-env.yml.sh
+export CONJUR_SSL_CERTIFICATE=$($cli exec --namespace $CONJUR_NAMESPACE_NAME "${conjur_node_pod}" cat /opt/conjur/etc/ssl/conjur-master.pem)
+
+./$K8S_CONFIG_DIR/test-env.yml.sh | $cli create -f -
 
 $cli create -f $K8S_CONFIG_DIR/k8s-secret.yml
-

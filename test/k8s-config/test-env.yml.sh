@@ -99,4 +99,5 @@ metadata:
     app: test-env
 data:
   ssl-certificate: |
+$(echo "${CONJUR_SSL_CERTIFICATE}" | while read line; do printf "%20s%s\n" "" "$line"; done)
 EOL
