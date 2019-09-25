@@ -10,16 +10,15 @@ pushd policy
 
   # NOTE: generated files are prefixed with the test app namespace to allow for parallel CI
 
-  sed "s#{{ AUTHENTICATOR_ID }}#$AUTHENTICATOR_ID#g" ./templates/cluster-authn-svc-def.template.yml > ./generated/$TEST_APP_NAMESPACE_NAME.cluster-authn-svc.yml
+  ./templates/cluster-authn-svc-def.template.sh.yml > ./generated/$TEST_APP_NAMESPACE_NAME.cluster-authn-svc.yml
 
-  sed "s#{{ AUTHENTICATOR_ID }}#$AUTHENTICATOR_ID#g" ./templates/project-authn-def.template.yml |
-    sed "s#{{ TEST_APP_NAMESPACE_NAME }}#$TEST_APP_NAMESPACE_NAME#g" > ./generated/$TEST_APP_NAMESPACE_NAME.project-authn.yml
+  ./templates/project-authn-def.template.sh.yml > ./generated/$TEST_APP_NAMESPACE_NAME.project-authn.yml
 
-  sed "s#{{ AUTHENTICATOR_ID }}#$AUTHENTICATOR_ID#g" ./templates/conjur-secrets.template.yml |
-    sed "s#{{ TEST_APP_NAMESPACE_NAME }}#$TEST_APP_NAMESPACE_NAME#g" > ./generated/$TEST_APP_NAMESPACE_NAME.conjur-secrets.yml
+  ./templates/conjur-secrets.template.sh.yml > ./generated/$TEST_APP_NAMESPACE_NAME.conjur-secrets.yml
 
-  sed "s#{{ AUTHENTICATOR_ID }}#$AUTHENTICATOR_ID#g" ./templates/app-identity-def.template.yml |
-   sed "s#{{ TEST_APP_NAMESPACE_NAME }}#$TEST_APP_NAMESPACE_NAME#g" > ./generated/$TEST_APP_NAMESPACE_NAME.app-identity.yml
+  ./templates/app-identity-def.template.sh.yml > ./generated/$TEST_APP_NAMESPACE_NAME.app-identity.yml
+
+  ./templates/conjur-pet-store-secrets.sh.yml > generated/$TEST_APP_NAMESPACE_NAME.conjur-pet-store-secrets.yml
 
 popd
 
@@ -40,6 +39,8 @@ if [[ "${DEPLOY_MASTER_CLUSTER}" == "true" ]]; then
       CONJUR_ADMIN_PASSWORD=${CONJUR_ADMIN_PASSWORD} \
       TEST_APP_NAMESPACE_NAME=${TEST_APP_NAMESPACE_NAME} \
       CONJUR_VERSION=${CONJUR_VERSION} \
+      POSTGRES_USERNAME=${POSTGRES_USERNAME} \
+      POSTGRES_PASSWORD=${POSTGRES_PASSWORD} \
       /policy/load_policies.sh
     "
 

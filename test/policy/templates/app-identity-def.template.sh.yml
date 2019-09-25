@@ -1,3 +1,7 @@
+#!/bin/bash
+
+set -euo pipefail
+cat << EOL
 ---
 - !policy
   id: test-app
@@ -11,4 +15,5 @@
   - !grant
     role: !layer 
     members:
-    - !layer /conjur/authn-k8s/{{ AUTHENTICATOR_ID }}/apps
+    - !layer /conjur/authn-k8s/${AUTHENTICATOR_ID}/apps
+EOL

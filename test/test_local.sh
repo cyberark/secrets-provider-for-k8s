@@ -11,10 +11,11 @@ function main() {
 function deployConjur() {
   pushd ..
     git clone --single-branch --branch master git@github.com:cyberark/kubernetes-conjur-deploy kubernetes-conjur-deploy-$UNIQUE_TEST_ID
-  popd
 
-  cd ../kubernetes-conjur-deploy-$UNIQUE_TEST_ID && ./start
-  cd ../test
+    pushd kubernetes-conjur-deploy-$UNIQUE_TEST_ID
+      ./start
+    popd
+  popd
 }
 
 main

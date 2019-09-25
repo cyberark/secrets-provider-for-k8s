@@ -1,7 +1,11 @@
+#!/bin/bash
+
+set -euo pipefail
+cat << EOL
 ---
 # This policy defines an authn-k8s endpoint, CA creds and a layer for whitelisted identities permitted to authenticate to it
 - !policy
-  id: conjur/authn-k8s/{{ AUTHENTICATOR_ID }}
+  id: conjur/authn-k8s/${AUTHENTICATOR_ID}
   owner: !group cluster_admin
   annotations:
     description: Namespace defs for the Conjur cluster in dev
@@ -24,6 +28,7 @@
 
   # define layer of whitelisted authn ids permitted to call authn service
   - !permit
-    resource: !webservice 
+    resource: !webservice
     privilege: [ read, authenticate ]
-    role: !layer /conjur/authn-k8s/{{ AUTHENTICATOR_ID }}/apps
+    role: !layer /conjur/authn-k8s/${AUTHENTICATOR_ID}/apps
+EOL

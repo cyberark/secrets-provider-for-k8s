@@ -68,6 +68,10 @@ function runDockerCommand() {
     -e OPENSHIFT_URL \
     -e OPENSHIFT_USERNAME \
     -e OPENSHIFT_PASSWORD \
+    -e POSTGRES_DATABASE \
+    -e POSTGRES_HOSTNAME \
+    -e POSTGRES_USERNAME \
+    -e POSTGRES_PASSWORD \
     -e DOCKER_REGISTRY_PATH \
     -e MINIKUBE \
     -e MINISHIFT \
