@@ -23,13 +23,13 @@ readonly K8S_CONFIG_DIR="k8s-config"
 $cli delete clusterrole secrets-access --ignore-not-found=true
 $cli create -f $K8S_CONFIG_DIR/secrets-access-role.yml
 
-./$K8S_CONFIG_DIR/secrets-access-role-binding.yml.sh | $cli create -f -
+./$K8S_CONFIG_DIR/secrets-access-role-binding.sh.yml | $cli create -f -
 
 conjur_node_pod=$($cli get pod --namespace $CONJUR_NAMESPACE_NAME --selector=app=conjur-node -o=jsonpath='{.items[].metadata.name}')
 
-# this variable is consumed in test-env.yml.sh
+# this variable is consumed in test-env.sh.yml
 export CONJUR_SSL_CERTIFICATE=$($cli exec --namespace $CONJUR_NAMESPACE_NAME "${conjur_node_pod}" cat /opt/conjur/etc/ssl/conjur-master.pem)
 
-./$K8S_CONFIG_DIR/test-env.yml.sh | $cli create -f -
+./$K8S_CONFIG_DIR/test-env.sh.yml | $cli create -f -
 
 $cli create -f $K8S_CONFIG_DIR/k8s-secret.yml

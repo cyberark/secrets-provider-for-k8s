@@ -10,15 +10,15 @@ pushd policy
 
   # NOTE: generated files are prefixed with the test app namespace to allow for parallel CI
 
-  ./templates/cluster-authn-svc-def.template.yml.sh > ./generated/$TEST_APP_NAMESPACE_NAME.cluster-authn-svc.yml
+  ./templates/cluster-authn-svc-def.template.sh.yml > ./generated/$TEST_APP_NAMESPACE_NAME.cluster-authn-svc.yml
 
-  ./templates/project-authn-def.template.yml.sh > ./generated/$TEST_APP_NAMESPACE_NAME.project-authn.yml
+  ./templates/project-authn-def.template.sh.yml > ./generated/$TEST_APP_NAMESPACE_NAME.project-authn.yml
 
-  ./templates/conjur-secrets.template.yml.sh > ./generated/$TEST_APP_NAMESPACE_NAME.conjur-secrets.yml
+  ./templates/conjur-secrets.template.sh.yml > ./generated/$TEST_APP_NAMESPACE_NAME.conjur-secrets.yml
 
-  ./templates/app-identity-def.template.yml.sh > ./generated/$TEST_APP_NAMESPACE_NAME.app-identity.yml
+  ./templates/app-identity-def.template.sh.yml > ./generated/$TEST_APP_NAMESPACE_NAME.app-identity.yml
 
-  ./templates/conjur-pet-store-secrets.yml.sh > generated/$TEST_APP_NAMESPACE_NAME.conjur-pet-store-secrets.yml
+  ./templates/conjur-pet-store-secrets.sh.yml > generated/$TEST_APP_NAMESPACE_NAME.conjur-pet-store-secrets.yml
 
 popd
 

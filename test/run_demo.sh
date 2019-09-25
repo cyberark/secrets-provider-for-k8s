@@ -78,16 +78,16 @@ function provideSecretAccessToServiceAccount() {
   $cli delete clusterrole secrets-access --ignore-not-found=true
   $cli create -f k8s-config/secrets-access-role.yml
 
-  ./k8s-config/secrets-access-role-binding.yml.sh | $cli create -f -
+  ./k8s-config/secrets-access-role-binding.sh.yml | $cli create -f -
 }
 
 function deployDemoEnv() {
   conjur_node_pod=$($cli get pod --namespace $CONJUR_NAMESPACE_NAME --selector=app=conjur-node -o=jsonpath='{.items[].metadata.name}')
 
-  # this variable is consumed in pet-store-env.yml.sh
+  # this variable is consumed in pet-store-env.sh.yml
   export CONJUR_SSL_CERTIFICATE=$($cli exec --namespace $CONJUR_NAMESPACE_NAME "${conjur_node_pod}" cat /opt/conjur/etc/ssl/conjur-master.pem)
 
-  ./demo/pet-store-env.yml.sh | $cli create -f -
+  ./demo/pet-store-env.sh.yml | $cli create -f -
 }
 
 main
