@@ -30,12 +30,24 @@ pipeline {
     }
 
     stage('Publish client Docker image') {
-      when {
-        branch 'master'
-      }
-      steps {
-        sh './bin/publish'
-      }
+        steps {
+            withCredentials(
+                [
+                    usernamePassword(
+                        credentialsId: 'conjur-jenkins-api',
+                        usernameVariable: 'GIT_USER',
+                        passwordVariable: 'GIT_PASSWORD'
+                    )
+                ]
+            ) {
+                sh '''
+                    git config --local credential.helper '! echo username=${GIT_USER}; echo password=${GIT_PASSWORD}; echo > /dev/null'
+                    git fetch --tags
+                    export GIT_DESCRIPTION=$(git describe --tags)
+                    ./bin/publish
+                '''
+            }
+        }
     }
   }
 
