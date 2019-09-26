@@ -1,10 +1,39 @@
-#!/bin/bash -e
+#!/bin/bash
 
-DESTINATION_IMAGE='registry2.itci.conjur.net/cyberark-secrets-provider-for-k8s'
-VERSION_TAG="$(<VERSION)"
+set -e
 
-docker tag cyberark-secrets-provider-for-k8s:dev "$DESTINATION_IMAGE"
-docker tag cyberark-secrets-provider-for-k8s:dev "$DESTINATION_IMAGE:$VERSION_TAG"
+. bin/build_utils
 
-docker push $DESTINATION_IMAGE
-docker push "$DESTINATION_IMAGE:$VERSION_TAG"
+readonly VERSION="$(short_version_tag)"
+readonly FULL_VERSION_TAG="$(full_version_tag)"
+
+readonly INTERNAL_REGISTRY="registry2.itci.conjur.net"
+# for now, we push only to the internal registry. 
+# We still have the separation so when we move to a public registry it will be an easy fix
+readonly REGISTRY="${INTERNAL_REGISTRY}"
+
+readonly TAGS=(
+  "$VERSION"
+  "latest"
+)
+
+readonly IMAGE_NAME="cyberark-secrets-provider-for-k8s"
+
+# always push the tag with the commit hash to internal registry
+echo "Tagging $INTERNAL_REGISTRY/$IMAGE_NAME:${FULL_VERSION_TAG}"
+docker tag "$IMAGE_NAME:$FULL_VERSION_TAG" "$INTERNAL_REGISTRY/$IMAGE_NAME:$FULL_VERSION_TAG"
+echo "Pushing $INTERNAL_REGISTRY/$IMAGE_NAME:${FULL_VERSION_TAG}"
+docker push "$INTERNAL_REGISTRY/$IMAGE_NAME:$FULL_VERSION_TAG"
+
+# if the tag matches the VERSION, push VERSION and latest releases
+# and x and x.y releases
+if [ "$GIT_DESCRIPTION" = "v${VERSION}" ]; then
+  echo "Revision $GIT_DESCRIPTION matches version $VERSION exactly. Pushing to Dockerhub..."
+
+  for tag in "${TAGS[@]}" $(gen_versions "$VERSION"); do
+    echo "Tagging and pushing $REGISTRY/$IMAGE_NAME:$tag"
+
+    docker tag "$IMAGE_NAME:$FULL_VERSION_TAG" "$REGISTRY/$IMAGE_NAME:$tag"
+    docker push "$REGISTRY/$IMAGE_NAME:$tag"
+  done
+fi
