@@ -13,5 +13,5 @@ deploy_test_env
 
 echo "Expecting secrets provider to fail with error 'CSPFK005E Provided incorrect value for environment variable SECRETS_DESTINATION'"
 pod_name=$($cli get pods --namespace=$TEST_APP_NAMESPACE_NAME --selector app=test-env --no-headers | awk '{print $1}')
-wait_for_it 30 "$cli logs $pod_name -c cyberark-secrets-provider | grep 'CSPFK005E'"
+wait_for_it 600 "$cli logs $pod_name -c cyberark-secrets-provider | grep 'CSPFK005E'"
 

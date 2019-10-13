@@ -137,7 +137,7 @@ configure_cli_pod() {
 
 function deploy_test_env {
    echo "Verifying there are no (terminating) pods of type test-env"
-   wait_for_it 30 "oc get pods --namespace=$TEST_APP_NAMESPACE_NAME --selector app=test-env --no-headers | wc -l | tr -d ' ' | grep '^0$'"
+   wait_for_it 600 "oc get pods --namespace=$TEST_APP_NAMESPACE_NAME --selector app=test-env --no-headers | wc -l | tr -d ' ' | grep '^0$'"
 
    echo "Deploying test-env"
    $TEST_CASES_K8S_CONFIG_DIR/test-env.sh.yml | $cli create -f -
@@ -145,10 +145,10 @@ function deploy_test_env {
    expected_num_replicas=`$TEST_CASES_K8S_CONFIG_DIR/test-env.sh.yml |  awk '/replicas:/ {print $2}' `
 
    # deploying deploymentconfig might fail on error flows, even before creating the pods. If so, retry deploy again
-   wait_for_it 30 "oc get dc/test-env -o jsonpath={.status.replicas} | grep '^${expected_num_replicas}$'|| oc rollout latest dc/test-env"
+   wait_for_it 600 "oc get dc/test-env -o jsonpath={.status.replicas} | grep '^${expected_num_replicas}$'|| oc rollout latest dc/test-env"
 
    echo "Expecting for $expected_num_replicas deployed pods"
-   wait_for_it 30 "oc get pods --namespace=$TEST_APP_NAMESPACE_NAME --selector app=test-env --no-headers | wc -l | grep $expected_num_replicas"
+   wait_for_it 600 "oc get pods --namespace=$TEST_APP_NAMESPACE_NAME --selector app=test-env --no-headers | wc -l | grep $expected_num_replicas"
 }
 
 function create_secret_access_role () {
