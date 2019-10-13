@@ -1,6 +1,12 @@
 #!/bin/bash
-
 set -euo pipefail
+
+# Test cases can modify following variable from outside:
+SECRETS_DESTINATION_KEY_VALUE=${SECRETS_DESTINATION_KEY_VALUE:-"          - name: SECRETS_DESTINATION"$'\n'"            value: k8s_secrets"}
+CONTAINER_MODE_KEY_VALUE=${CONTAINER_MODE_KEY_VALUE:-"          - name: CONTAINER_MODE"$'\n'"            value: init"}
+K8S_SECRETS_KEY_VALUE=${K8S_SECRETS_KEY_VALUE:-"          - name: K8S_SECRETS"$'\n'"            value: test-k8s-secret"}
+
+
 cat << EOL
 ---
 apiVersion: v1
@@ -22,8 +28,8 @@ spec:
       containers:
       - image: debian
         name: test-app
-        command: ["printenv"]
-        args: ["TEST_SECRET"]
+        command: ["sleep"]
+        args: ["infinity"]
         env:
           - name: TEST_SECRET
             valueFrom:
@@ -35,9 +41,6 @@ spec:
         imagePullPolicy: Always
         name: cyberark-secrets-provider
         env:
-          - name: CONTAINER_MODE
-            value: init
-
           - name: MY_POD_NAME
             valueFrom:
               fieldRef:
@@ -78,15 +81,12 @@ spec:
               configMapKeyRef:
                 name: conjur-master-ca-env
                 key: ssl-certificate
-
-          - name: K8S_SECRETS
-            value: test-k8s-secret
-
+${K8S_SECRETS_KEY_VALUE}
+${CONTAINER_MODE_KEY_VALUE}
           - name: DEBUG
             value: "true"
 
-          - name: SECRETS_DESTINATION
-            value: k8s_secrets
+${SECRETS_DESTINATION_KEY_VALUE}
 
       imagePullSecrets:
         - name: dockerpullsecret

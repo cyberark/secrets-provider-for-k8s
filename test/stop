@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 
-source bootstrap.env
+#source bootstrap.env
 
 . utils.sh
 

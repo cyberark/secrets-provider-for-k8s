@@ -1,0 +1,17 @@
+#!/bin/bash
+set -euxo pipefail
+
+source $TEST_CASES_UTILS
+
+create_secret_access_role
+
+create_secret_access_role_binding
+
+echo "Deploying test_env without CONTAINER_MODE envrionment variable"
+export CONTAINER_MODE_KEY_VALUE=" "
+deploy_test_env
+
+echo "Expecting secrets provider to fail with error 'CSPFK007E Setting SECRETS_DESTINATION environment variable to 'k8s_secrets' must run as init container'"
+pod_name=$($cli get pods --namespace=$TEST_APP_NAMESPACE_NAME --selector app=test-env --no-headers | awk '{print $1}')
+wait_for_it 30 "$cli logs $pod_name -c cyberark-secrets-provider | grep 'CSPFK007E'"
+

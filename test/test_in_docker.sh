@@ -26,7 +26,7 @@ function deployConjur() {
 }
 
 function deployTest() {
-  runDockerCommand "cd test && ./test_with_summon.sh"
+runDockerCommand "cd test && ./test_with_summon.sh"
 }
 
 main

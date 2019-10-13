@@ -1,6 +1,8 @@
 #!/bin/bash
 set -xeuo pipefail
 
+. utils.sh
+
 ./platform_login.sh
 
 ./1_check_dependencies.sh
@@ -14,27 +16,25 @@ if [[ "${DEPLOY_MASTER_CLUSTER}" = "true" ]]; then
   ./4_init_conjur_cert_authority.sh
 fi
 
-./5_deploy_test_env.sh
+set_namespace $TEST_APP_NAMESPACE_NAME
 
-exit_code=1
-for n in {1..5}; do
-  pod_name=$(oc get pods --namespace=$TEST_APP_NAMESPACE_NAME --selector app=test-env --no-headers | awk '{print $1}')
-  if [[ "$(oc logs $pod_name)" == "supersecret" ]]; then
-    exit_code=0
-    break
-  else
-    sleep 5
-  fi
-done
+echo "Publish docker image"
+docker tag "cyberark-secrets-provider-for-k8s:dev" "${DOCKER_REGISTRY_PATH}/${TEST_APP_NAMESPACE_NAME}/secrets-provider"
+docker push "${DOCKER_REGISTRY_PATH}/${TEST_APP_NAMESPACE_NAME}/secrets-provider"
 
-if [[ "$exit_code" = 1 ]]; then
-  echo "Couldn't retrieve conjur secret in app container. It was not provided by the secrets-provider container"
-  pod_name=$(oc get pods --namespace=$TEST_APP_NAMESPACE_NAME --selector app=test-env --no-headers | awk '{print $1}')
-  oc logs $pod_name -c cyberark-secrets-provider
-else
-  ./stop
-  ../kubernetes-conjur-deploy-"$UNIQUE_TEST_ID"/stop
-  rm -rf "../kubernetes-conjur-deploy-$UNIQUE_TEST_ID"
-fi
+readonly K8S_CONFIG_DIR="k8s-config"
 
-exit $exit_code
+# this variable is consumed in test-env.sh.yml
+conjur_node_pod=$($cli get pod --namespace $CONJUR_NAMESPACE_NAME --selector=app=conjur-node -o=jsonpath='{.items[].metadata.name}')
+export CONJUR_SSL_CERTIFICATE=$($cli exec --namespace $CONJUR_NAMESPACE_NAME "${conjur_node_pod}" cat /opt/conjur/etc/ssl/conjur.pem)
+
+pushd . > /dev/null
+cd ./test_cases
+./run_tests.sh
+popd > /dev/null
+
+./stop
+../kubernetes-conjur-deploy-"$UNIQUE_TEST_ID"/stop
+rm -rf "../kubernetes-conjur-deploy-$UNIQUE_TEST_ID"
+
+exit 0
