@@ -19,14 +19,17 @@ function buildTestRunnerImage() {
 
 function deployConjur() {
   pushd ..
-    git clone --single-branch --branch master git@github.com:cyberark/kubernetes-conjur-deploy kubernetes-conjur-deploy-$UNIQUE_TEST_ID
+    git clone --single-branch \
+      --branch master \
+      git@github.com:cyberark/kubernetes-conjur-deploy \
+      kubernetes-conjur-deploy-$UNIQUE_TEST_ID
   popd
 
   runDockerCommand "cd kubernetes-conjur-deploy-$UNIQUE_TEST_ID && ./start"
 }
 
 function deployTest() {
-runDockerCommand "cd test && ./test_with_summon.sh"
+  runDockerCommand "cd test && ./test_with_summon.sh"
 }
 
 main

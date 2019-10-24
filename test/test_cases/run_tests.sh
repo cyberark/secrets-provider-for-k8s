@@ -4,17 +4,17 @@ set -euo pipefail
 # By default lookup for folders with specifics prefix of type 'test_'. Can be modified by passing argument.
 TEST_NAME_PREFIX=${1:-TEST_ID_}
 
-# Keep envrionment variables for debugging
+# Keep environment variables for debugging
 printenv > printenv.debug
 
 export TEST_CASES_K8S_CONFIG_DIR="$PWD/../k8s-config"
 export TEST_CASES_UTILS="$PWD/../utils.sh"
-TIMES=1
 
 ./test_case_teardown.sh
 
 source $TEST_CASES_UTILS
 
+TIMES=1
 for (( c=1; c<=$TIMES; c++ ))
 do
   for filename in ./$TEST_NAME_PREFIX*.sh; do (
@@ -27,5 +27,3 @@ do
 done
 
 rm printenv.debug
-
-

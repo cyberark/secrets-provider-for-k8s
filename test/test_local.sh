@@ -2,6 +2,7 @@
 set -xeuo pipefail
 
 . utils.sh
+printenv > /tmp/printenv_test_local.debug
 
 function main() {
   deployConjur
