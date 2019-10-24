@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 
 if [ $PLATFORM = 'kubernetes' ]; then
     cli=kubectl
@@ -171,3 +172,36 @@ function test_app_set_secret () {
   set_namespace $TEST_APP_NAMESPACE_NAME
 }
 
+export $KEY_VALUE_NOT_EXIST=" "
+yaml_print_key_name_value ()
+{
+  spaces=$1
+  key_name=${2:-""}
+  key_value=${3:-""}
+
+  if [ -z "$key_name" ]
+  then
+     echo ""
+  else
+    printf "$spaces- name: $key_name\n"
+    if [ -z "$key_value" ]
+    then
+       echo ""
+    else
+       echo "$spaces  value: $key_value"
+    fi
+  fi
+}
+
+cli_get_pods_test_env ()
+{
+  $cli get pods --namespace=$TEST_APP_NAMESPACE_NAME --selector app=test-env --no-headers
+}
+
+verify_secret_value_in_pod () {
+  pod_name=$1
+  secret_name=$2
+  expected_value=$3
+  wait_for_it 600 $cli exec -n "$TEST_APP_NAMESPACE_NAME ${pod_name} printenv
+     | grep $secret_name | cut -d '=' -f 2 | grep $expected_value"
+}
