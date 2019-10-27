@@ -22,17 +22,32 @@ from DAP.
 ## Supported services
 
 - Conjur 5.4.8+ (?)
-- DAP 11.1+ 
-- Kubernetes 1.9+ (?)
+- DAP 11.1+
 - Openshift 3.9 and 3.11
 
 # Releases
 
 ## Docker images
 
-The primary source of CyberArk Secrets Provider for Kubernetes releases can be found in our (?)
+The primary source of CyberArk Secrets Provider for Kubernetes releases is our Dockerhub (?).
 
 ## Github releases
+
+(?)
+
+## Stable release definition
+
+The CyberArk Secrets Provider for Kubernetes is considered stable when it meets the core acceptance criteria:
+
+- Documentation exists that clearly explains how to set up and use the provider as well as providing troubleshooting
+information for anticipated common failure cases.
+- A suite of tests exist that provides excellent code coverage and possible use cases.
+- The CyberArk Secrets Provider for Kubernetes has had a security review and all known high and critical issues have been addressed.
+Any low or medium issues that have not been addressed have been logged in the GitHub issue backlog with a label of the form `security/X`
+- The CyberArk Secrets Provider for Kubernetes is easy to setup.
+- The CyberArk Secrets Provider for Kubernetes is clear about known limitations and bugs if they exist.
+- Anything else we consider to be a prerequisite for stability (?)
+- Any more security standards? STRIDE threat modeling? (?)
 
 # Development
 
@@ -50,7 +65,7 @@ how to get started and descriptions of our development workflows, please see our
 
 [Moti Cohen](https://github.com/moticless)
  
-[Roee Refael](https://github.com/rrefael)
+[Dekel Asaf](https://github.com/tovli)
 
 # Community
 
