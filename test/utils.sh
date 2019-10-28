@@ -172,7 +172,7 @@ function test_app_set_secret () {
   set_namespace $TEST_APP_NAMESPACE_NAME
 }
 
-export $KEY_VALUE_NOT_EXIST=" "
+export KEY_VALUE_NOT_EXIST=" "
 yaml_print_key_name_value ()
 {
   spaces=$1
