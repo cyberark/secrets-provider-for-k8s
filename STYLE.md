@@ -1,5 +1,5 @@
-# Cyberark Secrets Provider for K8S Style Guide
-Use this guide to maintain consistent style across the Cyberark Secrets Provider for K8S project.
+# Cyberark Secrets Provider for Kubernetes Style Guide
+Use this guide to maintain consistent style across the Cyberark Secrets Provider for Kubernetes project.
 
 ## Be consistent
 > If you’re editing code, take a few minutes to look at the code around you and determine its style. If they use spaces around all their arithmetic operators, you should too. If their comments have little boxes of hash marks around them, make your comments have little boxes of hash marks around them too.
@@ -7,7 +7,7 @@ Use this guide to maintain consistent style across the Cyberark Secrets Provider
 > The point of having style guidelines is to have a common vocabulary of coding so people can concentrate on what you’re saying rather than on how you’re saying it. We present global style rules here so people know the vocabulary, but local style is also important. If code you add to a file looks drastically different from the existing code around it, it throws readers out of their rhythm when they go to read it. Avoid this.
 
 ## Prose
-Secretless Broker prose should be warm, direct, and clear about its intended audience. When editing copy, follow the [Chicago Manual of Style](chicagomanualofstyle.org/home.html).
+Cyberark Secrets Provider for Kubernetes prose should be warm, direct, and clear about its intended audience. When editing copy, follow the [Chicago Manual of Style](chicagomanualofstyle.org/home.html).
 
 ## Documentation
 Documentation is written to be familiar with the reader. Use you & your to refer to the reader, we us & our to refer to the contributors.
@@ -20,7 +20,7 @@ Give names to machines according to their function, eg `database-server`. Give n
 When writing tests, treat your descriptions as prose to be read and understood by humans.
 
 ## Code
-Cyberark Secrets Provider for K8S code favors readability over cleverness.
+Cyberark Secrets Provider for Kubernetes code favors readability over cleverness.
 
 ## Contributing
 If this guide is lacking, please feel free to open a pull request to include additional guidelines.

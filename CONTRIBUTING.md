@@ -14,7 +14,7 @@ Thanks for your interest in the CyberArk Secrets Provider for Kubernetes. Before
 
 ### Go version
 
-To work in this codebase, you will want to have at Go installed.
+To work in this codebase, you will want to have Go installed.
 
 ### Gitleaks
 
@@ -95,12 +95,13 @@ Cyberark Secrets Provider for Kubernetes documentation can be found in the Cyber
 
 ### Update the version and changelog
 
-1. Create a new branch for the version bump.
-2. Based on the unreleased content, determine the new version number and update the version.go file.
-3. Add to the already existing changelog the new changes that will be included in the release.
+1. Create a new branch from `master` for the version bump.
+2. Update the `version.go` file to the new version number.
+3. Add to the already existing `changelog.md` a description of the new changes that will be included in the release (Fixed, Added, Changed).
 4. Commit these changes - Bump version to x.y.z is an acceptable commit message - and open a PR for review.
-
-...
-
-TODO:
-Oren - how to tag commits to be the latest release. Like so? https://github.com/cyberark/secretless-broker/blob/master/CONTRIBUTING.md#add-a-git-tag. Build the release?
+5. Once the PR has been reviewed and merged by a Cyberark engineer, create a tag in Github.
+    
+    a. Go to "Release" -> "Draft a new release"
+    b. Add a tag version and a release title (both should be `v<number_of_version>`)
+    c. Add the contents of the changelog in the description
+    d. Publish the release
