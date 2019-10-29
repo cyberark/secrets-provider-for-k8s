@@ -27,13 +27,15 @@ from DAP.
 
 # Releases
 
-## Docker images
+The primary source of CyberArk Secrets Provider for Kubernetes releases is our Dockerhub.
 
-The primary source of CyberArk Secrets Provider for Kubernetes releases is our Dockerhub (?).
+Each time the `master` build is green, we push a `<version>-<git_version>` (i.e. `0.2.0-d9494c1`) image to our internal registry.
 
-## Github releases
-
-(?)
+When we are releasing a version, we push the following images to our registry and then to Dockerhub.
+1. Latest
+2. Major.Minor.Build
+3. Major.Minor
+4. Major
 
 ## Stable release definition
 
