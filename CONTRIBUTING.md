@@ -5,10 +5,12 @@ Thanks for your interest in the CyberArk Secrets Provider for Kubernetes. Before
 ## Table of Contents
 
 - [Prerequisites](#prerequisites)
-- [Pull Request Workflow](#pullrequestworkflow)
-- [Style guide](#styleguide)
+- [Pull Request Workflow](#pull-request-workflow)
+- [Style guide](#style-guide)
 - [Documentation](#documentation)
+    - [Get up and running](#get-up-and-running)
 - [Releasing](#releasing)
+    - [Update the version and changelog](#update-the-version-and-changelog)
 
 ## Prerequisites
 
@@ -18,12 +20,12 @@ To work in this codebase, you will want to have Go installed.
 
 ### Gitleaks
 
-We use [gitleaks](https://github.com/zricethezav/gitleaks) as a pre-push hook to ensure that all code pushed is checked for secrets.
+We use gitleaks as a pre-push hook to ensure that all code pushed is checked for secrets.
 This provides us with an extra safety net that alerts us if and when we accidentally attempt to push unencrypted secrets to our source code.
 
 Normally git hooks are per-clone, which makes configuring them a burden, however `core.hooksPath` lets us set a single location git will search for hooks.
 
-1. Install gitleaks
+1. Install [gitleaks](https://github.com/zricethezav/gitleaks)
 
 ```terminal
 brew install gitleaks
@@ -31,14 +33,14 @@ brew install gitleaks
 # OR go get -u github.com/zricethezav/gitleaks
 ```
 
-2. Configure hooksPath in user git configuration (~/.gitconfig)
+2. Configure hooksPath in user git configuration (`~/.gitconfig`)
 
 ```
 [core]
 hooksPath = ~/git-hooks
 ```
 
-3. Create ~/git-hooks/pre-push, make it executable and add the following:
+3. Create `~/git-hooks/pre-push`, make it executable and add the following:
 
 ```terminal
 #!/bin/bash -eu
@@ -89,7 +91,12 @@ Use [this guide](STYLE.md) to maintain consistent style across the Cyberark Secr
 
 ## Documentation
 
-Cyberark Secrets Provider for Kubernetes documentation can be found in the Cyberark docs <TODO: insert link when doc site is published>
+Cyberark Secrets Provider for Kubernetes documentation can be found [here](https://www.conjur.org/Latest/en/Content/Integrations/Kubernetes_deployApplicationsConjur-k8s-Secrets.htm)
+
+### Get up and running
+
+Before you can start contributing to the CyberArk Secrets Provider for Kubernetes project, you must first setup your environment. 
+See [here](https://www.conjur.org/Latest/en/Content/Integrations/Kubernetes_deployApplicationsConjur-k8s-Secrets.htm) for detailed directions on how to do so.
 
 ## Releasing
 
@@ -102,6 +109,9 @@ Cyberark Secrets Provider for Kubernetes documentation can be found in the Cyber
 5. Once the PR has been reviewed and merged by a Cyberark engineer, create a tag in Github.
     
     a. Go to "Release" -> "Draft a new release"
+    
     b. Add a tag version and a release title (both should be `v<number_of_version>`)
+    
     c. Add the contents of the changelog in the description
+    
     d. Publish the release
