@@ -1,82 +1,52 @@
 # Contributing to the CyberArk Secrets Provider for Kubernetes
 
-Thanks for your interest in the CyberArk Secrets Provider for Kubernetes. Before contributing, please take a moment to read and sign our [Contributor Agreement](Contributing_OSS/CyberArk_Open_Source_Contributor_Agreement.pdf). This provides patent protection for all Secretless Broker users and allows CyberArk to enforce its license terms. Please email a signed copy to oss@cyberark.com.
+Thanks for your interest in the CyberArk Secrets Provider for Kubernetes. We welcome contributions!
 
 ## Table of Contents
 
 - [Prerequisites](#prerequisites)
-- [Pull Request Workflow](#pull-request-workflow)
-- [Style guide](#style-guide)
 - [Documentation](#documentation)
     - [Get up and running](#get-up-and-running)
-- [Releasing](#releasing)
+- [Contributing](#contributing)
+    - [Style guide](#style-guide)
+    - [Pull Request Workflow](#pull-request-workflow)
+- [Releases](#releasing)
     - [Update the version and changelog](#update-the-version-and-changelog)
 
 ## Prerequisites
 
-### Go version
+### Go
 
 To work in this codebase, you will want to have Go installed.
 
-### Gitleaks
+## Documentation
 
-We use gitleaks as a pre-push hook to ensure that all code pushed is checked for secrets.
-This provides us with an extra safety net that alerts us if and when we accidentally attempt to push unencrypted secrets to our source code.
+Cyberark Secrets Provider for Kubernetes documentation can be found [here](https://www.docs.conjur.org/Latest/en/Content/Integrations/Kubernetes_deployApplicationsConjur-k8s-Secrets.htm)
 
-Normally git hooks are per-clone, which makes configuring them a burden, however `core.hooksPath` lets us set a single location git will search for hooks.
+### Get up and running
 
-1. Install [gitleaks](https://github.com/zricethezav/gitleaks)
+Before you can start contributing to the CyberArk Secrets Provider for Kubernetes project, you must first setup your environment. 
+See [here](https://www.docs.conjur.org/Latest/en/Content/Integrations/Kubernetes_deployApplicationsConjur-k8s-Secrets.htm) for detailed directions on how to do so.
 
-```terminal
-brew install gitleaks
-# OR docker pull zricethezav/gitleaks
-# OR go get -u github.com/zricethezav/gitleaks
-```
+## Contributing
 
-2. Configure hooksPath in user git configuration (`~/.gitconfig`)
+1. [Fork the project](https://help.github.com/en/github/getting-started-with-github/fork-a-repo)
 
-```
-[core]
-hooksPath = ~/git-hooks
-```
+2. [Clone your fork](https://help.github.com/en/github/creating-cloning-and-archiving-repositories/cloning-a-repository)
 
-3. Create `~/git-hooks/pre-push`, make it executable and add the following:
+3. Make local changes to your fork by editing files
 
-```terminal
-#!/bin/bash -eu
+4. [Commit your changes](https://help.github.com/en/github/managing-files-in-a-repository/adding-a-file-to-a-repository-using-the-command-line)
 
-set -o pipefail
+5. [Push your local changes to the remote server](https://help.github.com/en/github/using-git/pushing-commits-to-a-remote-repository)
 
-if ! command -v gitleaks &> /dev/null; then
-  echo "ERROR: Gitleaks not installed!"
-  exit 1
-fi
+6. [Create new Pull Request](https://help.github.com/en/github/collaborating-with-issues-and-pull-requests/creating-a-pull-request-from-a-fork)
 
-commits="$(git log origin/master..HEAD --oneline | wc -l | xargs)"
+### Style guide
 
-if [ "$commits" -eq 0 ]; then
-  echo "WARN: No commits different from origin/master - skipping gitleaks..."
-  exit 0
-fi
+Use [this guide](STYLE.md) to maintain consistent style across the Cyberark Secrets Provider for Kubernetes project.
 
-branch=$(git rev-parse --abbrev-ref HEAD)
-
-if grep -q whitelist .gitleaks.toml &> /dev/null; then
-  gitleaks -v \
-          --repo-path . \
-          --config .gitleaks.toml \
-          --branch "$branch" \
-          --depth "$commits"
-else
-  echo "WARN: Gitleaks config not found - using defaults..."
-  gitleaks -v \
-          --repo-path . \
-          --branch "$branch" \
-          --depth "$commits"
-  fi
-```
-
-## Pull Request Workflow
+### Pull Request Workflow
 
 1. Search the open issues in GitHub to find out what has been planned
 2. Select an existing issue or open an issue to propose changes or fixes
@@ -85,25 +55,14 @@ else
 5. Submit a pull request, linking the issue in the description (e.g. Connected to #123)
 6. Add the implemented label to the issue, and ask another contributor to review and merge your code
 
-## Style guide
+From here your pull request will be reviewed and once you've responded to all feedback it will be merged into the project. Congratulations, you're a contributor!
 
-Use [this guide](STYLE.md) to maintain consistent style across the Cyberark Secrets Provider for Kubernetes project.
-
-## Documentation
-
-Cyberark Secrets Provider for Kubernetes documentation can be found [here](https://www.conjur.org/Latest/en/Content/Integrations/Kubernetes_deployApplicationsConjur-k8s-Secrets.htm)
-
-### Get up and running
-
-Before you can start contributing to the CyberArk Secrets Provider for Kubernetes project, you must first setup your environment. 
-See [here](https://www.conjur.org/Latest/en/Content/Integrations/Kubernetes_deployApplicationsConjur-k8s-Secrets.htm) for detailed directions on how to do so.
-
-## Releasing
+## Releases
 
 ### Update the version and changelog
 
 1. Create a new branch from `master` for the version bump.
-2. Update the `version.go` file to the new version number.
+2. Update the [`version.go`](version.go) file to the new version number.
 3. Add to the already existing `changelog.md` a description of the new changes that will be included in the release (Fixed, Added, Changed).
 4. Commit these changes - Bump version to x.y.z is an acceptable commit message - and open a PR for review.
 5. Once the PR has been reviewed and merged by a Cyberark engineer, create a tag in Github.
