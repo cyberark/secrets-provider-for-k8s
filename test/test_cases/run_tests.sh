@@ -15,7 +15,8 @@ export TEST_CASES_UTILS="$PWD/../utils.sh"
 source $TEST_CASES_UTILS
 
 TIMES=1
-for (( c=1; c<=$TIMES; c++ ))
+
+for c in {1..$TIMES}
 do
   for filename in ./$TEST_NAME_PREFIX*.sh; do (
       announce "Running '$filename'."

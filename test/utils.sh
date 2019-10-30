@@ -1,6 +1,10 @@
 #!/bin/bash
 set -euo pipefail
 
+# lookup test-env.sh.yml for explanation.
+export KEY_VALUE_NOT_EXIST=" "
+
+
 if [ $PLATFORM = 'kubernetes' ]; then
     cli=kubectl
 elif [ $PLATFORM = 'openshift' ]; then
@@ -126,12 +130,7 @@ configure_cli_pod() {
 
   conjur_cli_pod=$(get_conjur_cli_pod_name)
 
-  if [ $CONJUR_VERSION = '4' ]; then
-    $cli exec $conjur_cli_pod -- bash -c "yes yes | conjur init -a $CONJUR_ACCOUNT -h $conjur_url"
-    $cli exec $conjur_cli_pod -- conjur plugin install policy
-  elif [ $CONJUR_VERSION = '5' ]; then
-    $cli exec $conjur_cli_pod -- bash -c "yes yes | conjur init -a $CONJUR_ACCOUNT -u $conjur_url"
-  fi
+  $cli exec $conjur_cli_pod -- bash -c "yes yes | conjur init -a $CONJUR_ACCOUNT -u $conjur_url"
 
   $cli exec $conjur_cli_pod -- conjur authn login -u admin -p $CONJUR_ADMIN_PASSWORD
 }
@@ -172,9 +171,7 @@ function test_app_set_secret () {
   set_namespace $TEST_APP_NAMESPACE_NAME
 }
 
-export KEY_VALUE_NOT_EXIST=" "
-yaml_print_key_name_value ()
-{
+yaml_print_key_name_value () {
   spaces=$1
   key_name=${2:-""}
   key_value=${3:-""}
@@ -193,8 +190,7 @@ yaml_print_key_name_value ()
   fi
 }
 
-cli_get_pods_test_env ()
-{
+cli_get_pods_test_env () {
   $cli get pods --namespace=$TEST_APP_NAMESPACE_NAME --selector app=test-env --no-headers
 }
 

@@ -3,7 +3,11 @@ set -euo pipefail
 
 source $TEST_CASES_UTILS
 
-# Test cases can modify following variable from outside:
+# Test cases can modify following variables from outside. Either by selecting
+# default valid input, by leaving it unmodified. Or setting a single key which
+# represent a key without a value. Or by setting it with invalid key or value.
+# Another option is to set it to $KEY_VALUE_NOT_EXIST which means to omit
+# related key-value from yaml file
 SECRETS_DESTINATION_KEY_VALUE=${SECRETS_DESTINATION_KEY_VALUE:-"SECRETS_DESTINATION k8s_secrets"}
 CONTAINER_MODE_KEY_VALUE=${CONTAINER_MODE_KEY_VALUE:-"CONTAINER_MODE init"}
 K8S_SECRETS_KEY_VALUE=${K8S_SECRETS_KEY_VALUE:-"K8S_SECRETS test-k8s-secret"}
