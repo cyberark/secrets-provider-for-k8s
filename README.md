@@ -21,7 +21,7 @@ from DAP.
 
 ## Supported services
 
-- Conjur 5.4.8+ (?)
+- Conjur 5.4.8+ (TODO: to be tested)
 - DAP 11.1+
 - Openshift 3.9 and 3.11
 

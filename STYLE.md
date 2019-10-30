@@ -29,12 +29,12 @@ Good guideline are:
 
 * Distinctive
 
-The reader can tell which part of the guide covers the project they're working on.
+    The reader can tell which part of the guide covers the project they're working on.
 
 * Definitive
 
-The readers can distinguish whether their work follows the guidelines or not.
+    The readers can distinguish whether their work follows the guidelines or not.
 
 * Actionable
 
-The reader has clear guidance on how to improve content that doesn't follow the style.
+    The reader has clear guidance on how to improve content that doesn't follow the style.
