@@ -1,7 +1,3 @@
-**Status**: GA
-
-The CyberArk Secrets Provider for Kubernetes is currently in GA
-
 # Table of Contents
 
 - [CyberArk Secrets Provider for Kubernetes](#cyberArk-secrets-provider-for-kubernetes)
@@ -21,7 +17,6 @@ from DAP.
 
 ## Supported services
 
-- Conjur 5.4.8+ (TODO: to be tested)
 - DAP 11.1+
 - Openshift 3.9 and 3.11
 
@@ -75,4 +70,4 @@ Interested in checking out more of our open source projects? See our [open sourc
 
 # License
 
-The Cyberark Secrets Provider for Kubernetes is licensed Apache License 2.0 - see [`LICENSE.md`](licenses/LICENSE.md) for more details.
+The Cyberark Secrets Provider for Kubernetes is licensed Apache License 2.0 - see [`LICENSE.md`](LICENSE) for more details.
