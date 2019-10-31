@@ -11,18 +11,20 @@
 # CyberArk Secrets Provider for Kubernetes
 
 The CyberArk Secrets Provider for Kubernetes enables you to use secrets stored and managed in the CyberArk Vault 
-using DAP and consume them in your Kubernetes application containers. To do so, the CyberArk Secrets 
+using DAP or Conjur and consume them in your Kubernetes application containers. To do so, the CyberArk Secrets 
 Provider for Kubernetes image runs as an init container and provides the Conjur secrets, required by the pod, 
-from DAP.
+from DAP or Conjur.
 
 ## Supported services
 
-- DAP 11.1+
 - Openshift 3.9 and 3.11
+- Kubernetes
+- DAP 11.1+
+- Conjur XXX+
 
 # Releases
 
-The primary source of CyberArk Secrets Provider for Kubernetes releases is our Dockerhub.
+The primary source of CyberArk Secrets Provider for Kubernetes releases is our Dockerhub (TODO: insert link).
 
 Each time the `master` build is green, we push a `<version>-<git_version>` (i.e. `0.2.0-d9494c1`) image to our internal registry.
 
@@ -64,10 +66,12 @@ how to get started and descriptions of our development workflows, please see our
  
 [Dekel Asaf](https://github.com/tovli)
 
+[Inbal Zilberman](https://github.com/InbalZilberman)
+
 # Community
 
 Interested in checking out more of our open source projects? See our [open source repository](https://github.com/cyberark/)!
 
 # License
 
-The Cyberark Secrets Provider for Kubernetes is licensed Apache License 2.0 - see [`LICENSE.md`](LICENSE) for more details.
+The Cyberark Secrets Provider for Kubernetes is licensed Apache License 2.0 - see [`LICENSE`](LICENSE) for more details.

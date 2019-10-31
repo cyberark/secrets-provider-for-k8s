@@ -62,7 +62,7 @@ From here your pull request will be reviewed and once you've responded to all fe
 ### Update the version and changelog
 
 1. Create a new branch from `master` for the version bump.
-2. Update the [`version.go`](version.go) file to the new version number.
+2. Update the [`version`](VERSION) file to the new version number.
 3. Add to the already existing `changelog.md` a description of the new changes that will be included in the release (Fixed, Added, Changed).
 4. Commit these changes - Bump version to x.y.z is an acceptable commit message - and open a PR for review.
 5. Once the PR has been reviewed and merged by a Cyberark engineer, create a tag in Github.
