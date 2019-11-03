@@ -18,7 +18,7 @@ from DAP or Conjur.
 ## Supported services
 
 - Openshift 3.9 and 3.11
-- Kubernetes
+- Kubernetes 1.11
 - DAP 11.1+
 - Conjur XXX+
 
@@ -26,13 +26,13 @@ from DAP or Conjur.
 
 The primary source of CyberArk Secrets Provider for Kubernetes releases is our Dockerhub (TODO: insert link).
 
-Each time the `master` build is green, we push a `<version>-<git_version>` (i.e. `0.2.0-d9494c1`) image to our internal registry.
+In addition, each time the `master` build is green, we push a `<version>-<git_version>` (i.e. `0.2.0-d9494c1`) image to Dockerhub.
 
-When we are releasing a version, we push the following images to our registry and then to Dockerhub.
+When we release a version, we push the following images to our to Dockerhub.
 1. Latest
-2. Major.Minor.Build
-3. Major.Minor
-4. Major
+1. Major.Minor.Build
+1. Major.Minor
+1. Major
 
 ## Stable release definition
 
@@ -45,8 +45,6 @@ information for anticipated common failure cases.
 Any low or medium issues that have not been addressed have been logged in the GitHub issue backlog with a label of the form `security/X`
 - The CyberArk Secrets Provider for Kubernetes is easy to setup.
 - The CyberArk Secrets Provider for Kubernetes is clear about known limitations and bugs if they exist.
-- Anything else we consider to be a prerequisite for stability (?)
-- Any more security standards? STRIDE threat modeling? (?)
 
 # Development
 
