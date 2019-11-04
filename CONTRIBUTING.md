@@ -21,26 +21,27 @@ To work in this codebase, you will want to have Go installed.
 
 ## Documentation
 
-Cyberark Secrets Provider for Kubernetes documentation can be found [here](https://www.docs.conjur.org/Latest/en/Content/Integrations/Kubernetes_deployApplicationsConjur-k8s-Secrets.htm)
+The full documentation for the Cyberark Secrets Provider for Kubernetes can be found [here](https://www.docs.conjur.org/Latest/en/Content/Integrations/Kubernetes_deployApplicationsConjur-k8s-Secrets.htm)
 
 ### Get up and running
 
 Before you can start contributing to the CyberArk Secrets Provider for Kubernetes project, you must first setup your environment. 
-See [here](https://www.docs.conjur.org/Latest/en/Content/Integrations/Kubernetes_deployApplicationsConjur-k8s-Secrets.htm) for detailed directions on how to do so.
+
+For detailed setup instructions, see [CyberArk Secrets Provider for Kubernetes Secrets](https://www.docs.conjur.org/Latest/en/Content/Integrations/Kubernetes_deployApplicationsConjur-k8s-Secrets.htm).
 
 ## Contributing
 
 ### Contributing workflow
 
-1. Search our [open issues](https://github.com/cyberark/cyberark-secrets-provider-for-k8s/issues) in GitHub to find out what has been planned
-1. Select an existing issue or open an issue to propose changes or fixes
-1. Add the `implementing` label to the issue as you begin to work on it
-1. Run [existing tests](#testing) and ensuring they pass
-1. Add your changes to your branch and ensure your additions are accompanied by appropriate tests and that they pass
-1. Submit a pull request, linking the issue in the description (e.g. Connected to #123)
-1. Add the `implemented` label to the issue, and ask a Cyberark engineer to review and merge your code
+1. Search our [open issues](https://github.com/cyberark/cyberark-secrets-provider-for-k8s/issues) in GitHub to see what features are planned.
+1. Select an existing issue or open a new issue to propose changes or fixes.
+1. Add the `implementing` label to the issue that you open or modify.
+1. Run [existing tests](#testing) locally and ensure they pass.
+1. Create a branch and add your changes. Include appropriate tests and ensure that they pass.
+1. Submit a pull request, linking the issue in the description (e.g. Connected to #123).
+1. Add the `implemented` label to the issue and request that a Cyberark engineer reviews and merges your code.
 
-From here your pull request will be reviewed and once you've responded to all feedback it will be merged into the project. Congratulations, you're a contributor!
+From here your pull request is reviewed. Once you have implemented all reviewer feedback, your code is merged into the project. Congratulations, you're a contributor!
 
 ### Testing
 
@@ -52,17 +53,14 @@ When contributing to the CyberArk Secrets Provider for Kubernetes project, be su
 already existing test files or create new ones.
 
 To follow [Go testing conventions](https://golang.org/pkg/cmd/go/internal/test/) when creating a new test file, perform the following:
-
 1. Create a new test file that matches the file naming pattern "*_test.go" in the proper `pkg` folder, close to the source code.
 1. Add the following to the import statement at the beginning of the file
-
-```go
-import (
-	"testing"
-	. "github.com/smartystreets/goconvey/convey"
-)
-```
-
+    ```go
+    import (
+        "testing"
+        . "github.com/smartystreets/goconvey/convey"
+    )
+    ```
 1. Create tests according to the [GoConvey](https://github.com/smartystreets/goconvey/wiki) formatting and styling guidelines 
 1. Run test suite, `./bin/test_unit`
   
@@ -72,7 +70,7 @@ import (
 
 1. Create a new branch from `master` for the version bump.
 1. Update the [`version`](pkg/secrets/version.go) file to the new version number.
-1. Add to the already existing `CHANGELOG.md` a description of the new changes that will be included in the release (Fixed, Added, Changed).
+1. Add a description to the already existing `CHANGELOG.md`of the new changes included in the release (Fixed, Added, Changed).
 1. Commit these changes - "Bump version to x.y.z" is an acceptable commit message - and open a PR for review.
 1. Once the PR has been reviewed and merged by a Cyberark engineer, create a tag in Github.
     

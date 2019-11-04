@@ -38,19 +38,17 @@ In addition, each time the `master` build is green, we push a `<version>-<git_ve
 
 The CyberArk Secrets Provider for Kubernetes is considered stable when it meets the core acceptance criteria:
 
-- Documentation exists that clearly explains how to set up and use the provider as well as providing troubleshooting
-information for anticipated common failure cases.
+- Documentation exists that clearly explains how to set up and use the provider and includes troubleshooting information to resolve common issues.
 - A suite of tests exist that provides excellent code coverage and possible use cases.
 - The CyberArk Secrets Provider for Kubernetes has had a security review and all known high and critical issues have been addressed.
 Any low or medium issues that have not been addressed have been logged in the GitHub issue backlog with a label of the form `security/X`
 - The CyberArk Secrets Provider for Kubernetes is easy to setup.
-- The CyberArk Secrets Provider for Kubernetes is clear about known limitations and bugs if they exist.
+- The CyberArk Secrets Provider for Kubernetes is clear about known limitations and bugs, if they exist.
 
 # Development
 
 We welcome contributions of all kinds to Cyberark Secrets Provider for Kubernetes. For instructions on
-how to get started and descriptions of our development workflows, please see our
-[contributing guide](CONTRIBUTING.md). 
+how to get started and descriptions of our development workflows, see our [contributing guide](CONTRIBUTING.md).
 
 # Maintainers
 
