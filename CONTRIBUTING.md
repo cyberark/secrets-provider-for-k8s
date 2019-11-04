@@ -38,7 +38,7 @@ See [here](https://www.docs.conjur.org/Latest/en/Content/Integrations/Kubernetes
 1. Run [existing tests](#testing) and ensuring they pass
 1. Add your changes to your branch and ensure your additions are accompanied by appropriate tests and that they pass
 1. Submit a pull request, linking the issue in the description (e.g. Connected to #123)
-1. Add the `implemented` label to the issue, and ask a [contributor](https://github.com/cyberark/cyberark-secrets-provider-for-k8s/graphs/contributors) to review and merge your code
+1. Add the `implemented` label to the issue, and ask a Cyberark engineer to review and merge your code
 
 From here your pull request will be reviewed and once you've responded to all feedback it will be merged into the project. Congratulations, you're a contributor!
 
