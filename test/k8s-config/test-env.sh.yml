@@ -1,8 +1,6 @@
 #!/bin/bash
 set -euo pipefail
 
-source $TEST_CASES_UTILS
-
 # Test cases can modify following variables from outside. Either by selecting
 # default valid input, by leaving it unmodified. Or setting a single key which
 # represent a key without a value. Or by setting it with invalid key or value.

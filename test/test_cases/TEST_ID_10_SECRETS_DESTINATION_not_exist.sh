@@ -1,8 +1,6 @@
 #!/bin/bash
 set -euxo pipefail
 
-source $TEST_CASES_UTILS
-
 create_secret_access_role
 
 create_secret_access_role_binding

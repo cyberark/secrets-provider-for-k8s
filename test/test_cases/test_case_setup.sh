@@ -1,9 +1,7 @@
 #!/bin/bash
 set -euxo pipefail
 
-source $TEST_CASES_UTILS
-
-# TODO: replace the following with `oc create secret`
+# TODO: replace the following with `$cli create secret`
 $cli secrets new-dockercfg dockerpullsecret \
       --docker-server=${DOCKER_REGISTRY_PATH} \
       --docker-username=_ \

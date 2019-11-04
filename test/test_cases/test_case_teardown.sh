@@ -1,8 +1,6 @@
 #!/bin/bash
 set -euxo pipefail
 
-source $TEST_CASES_UTILS
-
 # Restore secret to original value
 set_namespace $CONJUR_NAMESPACE_NAME
 

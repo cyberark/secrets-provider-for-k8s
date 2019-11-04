@@ -1,8 +1,6 @@
 #!/bin/bash
 set -euxo pipefail
 
-source $TEST_CASES_UTILS
-
 echo "Creating secrets access role"
 $TEST_CASES_K8S_CONFIG_DIR/secrets-access-role.sh.yml | $cli create -f -
 

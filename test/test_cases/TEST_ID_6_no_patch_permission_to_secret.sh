@@ -1,8 +1,6 @@
 #!/bin/bash
 set -euxo pipefail
 
-source $TEST_CASES_UTILS
-
 echo "Creating secrets access role without 'get' permission"
 export SECRET_CLUSTER_ROLE_VERBS_VALUE="[ \"get\" ]"
 create_secret_access_role

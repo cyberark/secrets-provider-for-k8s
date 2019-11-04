@@ -40,5 +40,3 @@ popd > /dev/null
 ./stop
 ../kubernetes-conjur-deploy-"$UNIQUE_TEST_ID"/stop
 rm -rf "../kubernetes-conjur-deploy-$UNIQUE_TEST_ID"
-
-exit 0
