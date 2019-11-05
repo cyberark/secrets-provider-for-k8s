@@ -26,7 +26,7 @@ from DAP or Conjur.
 
 The primary source of CyberArk Secrets Provider for Kubernetes releases is our [Dockerhub](https://hub.docker.com/u/cyberark).
 
-When we release a version, we push the following images to our to Dockerhub:
+When we release a version, we push the following images to Dockerhub:
 1. Latest
 1. Major.Minor.Build
 1. Major.Minor
@@ -70,4 +70,4 @@ Interested in checking out more of our open source projects? See our [open sourc
 
 # License
 
-The Cyberark Secrets Provider for Kubernetes is licensed Apache License 2.0 - see [`LICENSE`](LICENSE) for more details.
+The Cyberark Secrets Provider for Kubernetes is licensed under the Apache License 2.0 - see [`LICENSE`](LICENSE) for more details.

@@ -17,7 +17,7 @@ Thanks for your interest in the CyberArk Secrets Provider for Kubernetes. We wel
 
 ### Go
 
-To work in this codebase, you will want to have Go installed.
+To work in this codebase, you will want to have Go version 1.12 installed.
 
 ## Documentation
 
@@ -47,7 +47,7 @@ From here your pull request is reviewed. Once you have implemented all reviewer 
 
 For our Go testing, we use the [GoConvey](http://goconvey.co/) testing tool.  
 
-In order to run existing unit tests, run `./bin/test_unit`
+To run existing unit tests, run `./bin/test_unit`
 
 When contributing to the CyberArk Secrets Provider for Kubernetes project, be sure to add the appropriate unit tests to either
 already existing test files or create new ones.
@@ -70,7 +70,7 @@ To follow [Go testing conventions](https://golang.org/pkg/cmd/go/internal/test/)
 
 1. Create a new branch from `master` for the version bump.
 1. Update the [`version`](pkg/secrets/version.go) file to the new version number.
-1. Add a description to the already existing `CHANGELOG.md`of the new changes included in the release (Fixed, Added, Changed).
+1. Add a description to the already existing `CHANGELOG.md` of the new changes included in the release (Fixed, Added, Changed).
 1. Commit these changes - "Bump version to x.y.z" is an acceptable commit message - and open a PR for review.
 1. Once the PR has been reviewed and merged by a Cyberark engineer, create a tag in Github.
     
