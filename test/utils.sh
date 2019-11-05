@@ -1,4 +1,9 @@
 #!/bin/bash
+set -euo pipefail
+
+# lookup test-env.sh.yml for explanation.
+export KEY_VALUE_NOT_EXIST=" "
+
 
 if [ $PLATFORM = 'kubernetes' ]; then
     cli=kubectl
@@ -30,6 +35,35 @@ has_namespace() {
     false
   fi
 }
+
+wait_for_it() {
+  local timeout=$1
+  local spacer=2
+  shift
+
+  if ! [ $timeout = '-1' ]; then
+    local times_to_run=$((timeout / spacer))
+
+    echo "Waiting for '$@' up to $timeout s"
+    for i in $(seq $times_to_run); do
+      eval $@ > /dev/null && echo 'Success!' && return 0
+      echo -n .
+      sleep $spacer
+    done
+
+    # Last run evaluated. If this fails we return an error exit code to caller
+    eval $@
+  else
+    echo "Waiting for '$@' forever"
+
+    while ! eval $@ > /dev/null; do
+      echo -n .
+      sleep $spacer
+    done
+  echo 'Success!'
+  fi
+}
+
 
 set_namespace() {
   if [[ $# != 1 ]]; then
@@ -87,4 +121,83 @@ function runDockerCommand() {
       ./test/platform_login.sh
       $1
     "
+}
+
+configure_cli_pod() {
+  announce "Configuring Conjur CLI."
+
+  conjur_url="https://conjur-master.$CONJUR_NAMESPACE_NAME.svc.cluster.local"
+
+  conjur_cli_pod=$(get_conjur_cli_pod_name)
+
+  $cli exec $conjur_cli_pod -- bash -c "yes yes | conjur init -a $CONJUR_ACCOUNT -u $conjur_url"
+
+  $cli exec $conjur_cli_pod -- conjur authn login -u admin -p $CONJUR_ADMIN_PASSWORD
+}
+
+function deploy_test_env {
+   echo "Verifying there are no (terminating) pods of type test-env"
+   wait_for_it 600 "$cli get pods --namespace=$TEST_APP_NAMESPACE_NAME --selector app=test-env --no-headers | wc -l | tr -d ' ' | grep '^0$'"
+
+   echo "Deploying test-env"
+   $TEST_CASES_K8S_CONFIG_DIR/test-env.sh.yml | $cli create -f -
+
+   expected_num_replicas=`$TEST_CASES_K8S_CONFIG_DIR/test-env.sh.yml |  awk '/replicas:/ {print $2}' `
+
+   # deploying deploymentconfig might fail on error flows, even before creating the pods. If so, retry deploy again
+   wait_for_it 600 "$cli get dc/test-env -o jsonpath={.status.replicas} | grep '^${expected_num_replicas}$'|| oc rollout latest dc/test-env"
+
+   echo "Expecting for $expected_num_replicas deployed pods"
+   wait_for_it 600 "$cli get pods --namespace=$TEST_APP_NAMESPACE_NAME --selector app=test-env --no-headers | wc -l | grep $expected_num_replicas"
+}
+
+function create_secret_access_role () {
+  echo "Creating secrets access role"
+  $TEST_CASES_K8S_CONFIG_DIR/secrets-access-role.sh.yml | $cli create -f -
+}
+
+function create_secret_access_role_binding () {
+  echo "Creating secrets access role binding"
+  $TEST_CASES_K8S_CONFIG_DIR/secrets-access-role-binding.sh.yml | $cli create -f -
+}
+
+function test_app_set_secret () {
+  SECRET_NAME=$1
+  SECRET_VALUE=$2
+  echo "Set secret '$SECRET_NAME' to '$SECRET_VALUE'"
+  set_namespace "$CONJUR_NAMESPACE_NAME"
+  configure_cli_pod
+  $cli exec $(get_conjur_cli_pod_name) -- conjur variable values add $SECRET_NAME $SECRET_VALUE
+  set_namespace $TEST_APP_NAMESPACE_NAME
+}
+
+yaml_print_key_name_value () {
+  spaces=$1
+  key_name=${2:-""}
+  key_value=${3:-""}
+
+  if [ -z "$key_name" ]
+  then
+     echo ""
+  else
+    printf "$spaces- name: $key_name\n"
+    if [ -z "$key_value" ]
+    then
+       echo ""
+    else
+       echo "$spaces  value: $key_value"
+    fi
+  fi
+}
+
+cli_get_pods_test_env () {
+  $cli get pods --namespace=$TEST_APP_NAMESPACE_NAME --selector app=test-env --no-headers
+}
+
+verify_secret_value_in_pod () {
+  pod_name=$1
+  secret_name=$2
+  expected_value=$3
+  wait_for_it 600 $cli exec -n "$TEST_APP_NAMESPACE_NAME ${pod_name} printenv
+     | grep $secret_name | cut -d '=' -f 2 | grep $expected_value"
 }

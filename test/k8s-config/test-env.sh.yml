@@ -1,6 +1,15 @@
 #!/bin/bash
-
 set -euo pipefail
+
+# Test cases can modify following variables from outside. Either by selecting
+# default valid input, by leaving it unmodified. Or setting a single key which
+# represent a key without a value. Or by setting it with invalid key or value.
+# Another option is to set it to $KEY_VALUE_NOT_EXIST which means to omit
+# related key-value from yaml file
+SECRETS_DESTINATION_KEY_VALUE=${SECRETS_DESTINATION_KEY_VALUE:-"SECRETS_DESTINATION k8s_secrets"}
+CONTAINER_MODE_KEY_VALUE=${CONTAINER_MODE_KEY_VALUE:-"CONTAINER_MODE init"}
+K8S_SECRETS_KEY_VALUE=${K8S_SECRETS_KEY_VALUE:-"K8S_SECRETS test-k8s-secret"}
+
 cat << EOL
 ---
 apiVersion: v1
@@ -22,8 +31,8 @@ spec:
       containers:
       - image: debian
         name: test-app
-        command: ["printenv"]
-        args: ["TEST_SECRET"]
+        command: ["sleep"]
+        args: ["infinity"]
         env:
           - name: TEST_SECRET
             valueFrom:
@@ -35,9 +44,6 @@ spec:
         imagePullPolicy: Always
         name: cyberark-secrets-provider
         env:
-          - name: CONTAINER_MODE
-            value: init
-
           - name: MY_POD_NAME
             valueFrom:
               fieldRef:
@@ -78,15 +84,12 @@ spec:
               configMapKeyRef:
                 name: conjur-master-ca-env
                 key: ssl-certificate
-
-          - name: K8S_SECRETS
-            value: test-k8s-secret
-
           - name: DEBUG
             value: "true"
 
-          - name: SECRETS_DESTINATION
-            value: k8s_secrets
+`yaml_print_key_name_value "          " ${K8S_SECRETS_KEY_VALUE}`
+`yaml_print_key_name_value "          " ${CONTAINER_MODE_KEY_VALUE}`
+`yaml_print_key_name_value "          " ${SECRETS_DESTINATION_KEY_VALUE}`
 
       imagePullSecrets:
         - name: dockerpullsecret
