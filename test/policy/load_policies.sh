@@ -2,12 +2,14 @@
 set -eo pipefail
 
 if [ "$CONJUR_APPLIANCE_URL" != "" ]; then
+  echo "Running conjur init with $CONJUR_APPLIANCE_URL"
   conjur init -u $CONJUR_APPLIANCE_URL -a $CONJUR_ACCOUNT
 fi
 
 # check for unset vars after checking for appliance url
 set -u
 
+echo "Login to Conjur with the conjur-cli"
 conjur authn login -u admin -p $CONJUR_ADMIN_PASSWORD
 
 readonly POLICY_DIR="/policy"

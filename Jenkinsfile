@@ -23,9 +23,15 @@ pipeline {
       }
     }
 
-    stage('Run Integrations Tests') {
+    stage('Run Integrations Tests - OSS') {
       steps {
         sh './bin/test_integration --docker'
+      }
+    }
+
+    stage('Run Integrations Tests - DAP') {
+      steps {
+        sh './bin/test_integration --docker --dap'
       }
     }
 

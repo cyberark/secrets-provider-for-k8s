@@ -11,15 +11,14 @@ function main() {
 
 function deployConjur() {
   pushd ..
-     # taking v0.1 since latest kubernetes-conjur-deploy is not stable
-    git clone --single-branch \
-       --branch $KUBERNETES_CONJUR_DEPLOY_BRANCH \
-       https://github.com/cyberark/kubernetes-conjur-deploy.git \
-       kubernetes-conjur-deploy-$UNIQUE_TEST_ID
+    # TODO: change to master/v0.1 once it is merged
+    git clone --single-branch --branch deploy-oss git@github.com:cyberark/kubernetes-conjur-deploy kubernetes-conjur-deploy-$UNIQUE_TEST_ID
 
-    pushd kubernetes-conjur-deploy-$UNIQUE_TEST_ID
-      ./start
-    popd
+    cmd="./start"
+    if [ $CONJUR_DEPLOYMENT == "dap" ]; then
+        cmd="$cmd --dap"
+    fi
+    cd kubernetes-conjur-deploy-$UNIQUE_TEST_ID && $cmd
   popd
 }
 

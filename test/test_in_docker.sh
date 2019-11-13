@@ -19,14 +19,19 @@ function buildTestRunnerImage() {
 
 function deployConjur() {
   pushd ..
+    # TODO: change to master/v0.1 once deploy-oss is merged
     # taking v0.1 since latest kubernetes-conjur-deploy is not stable
     git clone --single-branch \
-      --branch $KUBERNETES_CONJUR_DEPLOY_BRANCH \
-      https://github.com/cyberark/kubernetes-conjur-deploy.git \
+      --branch deploy-oss \
+      git@github.com:cyberark/kubernetes-conjur-deploy \
       kubernetes-conjur-deploy-$UNIQUE_TEST_ID
   popd
 
-  runDockerCommand "cd kubernetes-conjur-deploy-$UNIQUE_TEST_ID && ./start"
+  cmd="./start"
+  if [ $CONJUR_DEPLOYMENT == "dap" ]; then
+      cmd="$cmd --dap"
+  fi
+  runDockerCommand "cd kubernetes-conjur-deploy-$UNIQUE_TEST_ID && $cmd"
 }
 
 function deployTest() {

@@ -65,12 +65,10 @@ spec:
             value: '5'
 
           - name: CONJUR_APPLIANCE_URL
-            value: >-
-              https://conjur-follower.${CONJUR_NAMESPACE_NAME}.svc.cluster.local/api
+            value: ${CONJUR_APPLIANCE_URL}
 
           - name: CONJUR_AUTHN_URL
-            value: >-
-              https://conjur-follower.${CONJUR_NAMESPACE_NAME}.svc.cluster.local/api/authn-k8s/${AUTHENTICATOR_ID}
+            value: ${CONJUR_AUTHN_URL}
 
           - name: CONJUR_ACCOUNT
             value: ${CONJUR_ACCOUNT}
@@ -84,6 +82,7 @@ spec:
               configMapKeyRef:
                 name: conjur-master-ca-env
                 key: ssl-certificate
+
           - name: DEBUG
             value: "true"
 

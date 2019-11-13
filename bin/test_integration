@@ -7,12 +7,14 @@ container and a cyberark-secrets-provider-for-k8s init container. Finally it tes
 in the vanilla flow it verifies that the Conjur secret was provided to the app container via the environment.
 
 Usage: ./bin/test_integation [options]
-    --docker      Run the integation test in a docker container. This is helpful when running the test in a machine that
+    --docker      Run the integation tests in a docker container. This is helpful when running the test in a machine that
                   doesn't have "oc" or "kubectl" installed on it.
 
     --demo        Run a full end-to-end demo with the pet-store demo. This demo deploys an environment with an app container
                   that needs credentials to a DB from Conjur. After running "./bin/test_integation --demo" run "oc get routes"
                   and go to "<the exposed route>/pets" in a browser. The entry "Mr. Sidecar" should be displayed on the screen.
+
+    --dap         Run the integation tests with a DAP Conjur deployment. By default the tests are run against a Conjur OSS deployment
 
     -h, --help    Shows this help message.
 EOF
@@ -25,14 +27,18 @@ function runScriptWithSummon() {
 
 RUN_IN_DOCKER=false
 DEMO=false
+CONJUR_DEPLOYMENT=oss
 while true ; do
   case "$1" in
     --docker ) RUN_IN_DOCKER=true ; shift ;;
     --demo ) DEMO=true ; shift ;;
+    --dap ) CONJUR_DEPLOYMENT=dap ; shift ;;
     -h | --help ) print_help ; shift ;;
      * ) if [ -z "$1" ]; then break; else echo "$1 is not a valid option"; exit 1; fi;;
   esac
 done
+
+export CONJUR_DEPLOYMENT
 
 source test/bootstrap.env
 
