@@ -3,8 +3,8 @@ package secrets
 import (
 	"github.com/cyberark/conjur-authn-k8s-client/pkg/access_token"
 
-	"github.com/cyberark/cyberark-secrets-provider-for-k8s/pkg/secrets/config"
-	"github.com/cyberark/cyberark-secrets-provider-for-k8s/pkg/secrets/k8s_secrets_storage"
+	"github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/config"
+	"github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/k8s_secrets_storage"
 )
 
 type ProvideConjurSecrets func(AccessToken access_token.AccessToken) error

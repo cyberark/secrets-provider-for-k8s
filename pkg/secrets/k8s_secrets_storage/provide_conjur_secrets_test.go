@@ -8,8 +8,8 @@ import (
 
 	. "github.com/smartystreets/goconvey/convey"
 
-	"github.com/cyberark/cyberark-secrets-provider-for-k8s/pkg/log/messages"
-	"github.com/cyberark/cyberark-secrets-provider-for-k8s/pkg/secrets/k8s_secrets_storage/mocks"
+	"github.com/cyberark/secrets-provider-for-k8s/pkg/log/messages"
+	"github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/k8s_secrets_storage/mocks"
 )
 
 func TestProvideConjurSecrets(t *testing.T) {

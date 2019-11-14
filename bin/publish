@@ -8,7 +8,7 @@ readonly VERSION="$(short_version_tag)"
 readonly FULL_VERSION_TAG="$(full_version_tag)"
 
 readonly INTERNAL_REGISTRY="registry2.itci.conjur.net"
-# for now, we push only to the internal registry. 
+# for now, we push only to the internal registry.
 # We still have the separation so when we move to a public registry it will be an easy fix
 readonly REGISTRY="${INTERNAL_REGISTRY}"
 
@@ -17,7 +17,7 @@ readonly TAGS=(
   "latest"
 )
 
-readonly IMAGE_NAME="cyberark-secrets-provider-for-k8s"
+readonly IMAGE_NAME="secrets-provider-for-k8s"
 
 # always push the tag with the commit hash to internal registry
 echo "Tagging $INTERNAL_REGISTRY/$IMAGE_NAME:${FULL_VERSION_TAG}"

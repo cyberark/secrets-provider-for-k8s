@@ -10,10 +10,10 @@ import (
 	"github.com/cyberark/conjur-authn-k8s-client/pkg/authenticator"
 	authnConfigProvider "github.com/cyberark/conjur-authn-k8s-client/pkg/authenticator/config"
 
-	"github.com/cyberark/cyberark-secrets-provider-for-k8s/pkg/log"
-	"github.com/cyberark/cyberark-secrets-provider-for-k8s/pkg/log/messages"
-	"github.com/cyberark/cyberark-secrets-provider-for-k8s/pkg/secrets"
-	secretsConfigProvider "github.com/cyberark/cyberark-secrets-provider-for-k8s/pkg/secrets/config"
+	"github.com/cyberark/secrets-provider-for-k8s/pkg/log"
+	"github.com/cyberark/secrets-provider-for-k8s/pkg/log/messages"
+	"github.com/cyberark/secrets-provider-for-k8s/pkg/secrets"
+	secretsConfigProvider "github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/config"
 )
 
 func main() {

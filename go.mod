@@ -1,4 +1,4 @@
-module github.com/cyberark/cyberark-secrets-provider-for-k8s
+module github.com/cyberark/secrets-provider-for-k8s
 
 go 1.12
 
@@ -59,7 +59,7 @@ require (
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/yaml.v2 v2.2.2
 	honnef.co/go/tools v0.0.1-2019.2.3 // indirect
-	k8s.io/api v0.0.0-20190313235455-40a48860b5ab
+	k8s.io/api v0.0.0-20190313235455-40a48860b5ab // indirect
 	k8s.io/apimachinery v0.0.0-20190313205120-d7deff9243b1
 	k8s.io/client-go v11.0.0+incompatible
 	k8s.io/gengo v0.0.0-20190826232639-a874a240740c // indirect

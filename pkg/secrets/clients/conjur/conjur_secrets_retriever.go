@@ -1,8 +1,8 @@
 package conjur
 
 import (
-	"github.com/cyberark/cyberark-secrets-provider-for-k8s/pkg/log"
-	"github.com/cyberark/cyberark-secrets-provider-for-k8s/pkg/log/messages"
+	"github.com/cyberark/secrets-provider-for-k8s/pkg/log"
+	"github.com/cyberark/secrets-provider-for-k8s/pkg/log/messages"
 )
 
 type RetrieveConjurSecretsFunc func(accessToken []byte, variableIDs []string) (map[string][]byte, error)

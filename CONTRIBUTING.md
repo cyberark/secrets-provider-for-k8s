@@ -33,7 +33,7 @@ For detailed setup instructions, see [CyberArk Secrets Provider for Kubernetes S
 
 ### Contributing workflow
 
-1. Search our [open issues](https://github.com/cyberark/cyberark-secrets-provider-for-k8s/issues) in GitHub to see what features are planned.
+1. Search our [open issues](https://github.com/cyberark/secrets-provider-for-k8s/issues) in GitHub to see what features are planned.
 1. Select an existing issue or open a new issue to propose changes or fixes.
 1. Add the `implementing` label to the issue that you open or modify.
 1. Run [existing tests](#testing) locally and ensure they pass.
