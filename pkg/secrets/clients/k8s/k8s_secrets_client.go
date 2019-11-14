@@ -8,9 +8,9 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
-	"github.com/cyberark/cyberark-secrets-provider-for-k8s/pkg/log"
-	"github.com/cyberark/cyberark-secrets-provider-for-k8s/pkg/log/messages"
-	"github.com/cyberark/cyberark-secrets-provider-for-k8s/pkg/utils"
+	"github.com/cyberark/secrets-provider-for-k8s/pkg/log"
+	"github.com/cyberark/secrets-provider-for-k8s/pkg/log/messages"
+	"github.com/cyberark/secrets-provider-for-k8s/pkg/utils"
 )
 
 type RetrieveK8sSecretFunc func(namespace string, secretName string) (map[string][]byte, error)

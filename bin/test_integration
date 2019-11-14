@@ -2,8 +2,8 @@
 
 function print_help() {
   cat << EOF
-Test the cyberark-secrets-provider-for-k8s image. This script sets up a Conjur cluster in k8s and deploys a k8s environment with an app
-container and a cyberark-secrets-provider-for-k8s init container. Finally it tests that the outcome is as expected (for example,
+Test the secrets-provider-for-k8s image. This script sets up a Conjur cluster in k8s and deploys a k8s environment with an app
+container and a secrets-provider-for-k8s init container. Finally it tests that the outcome is as expected (for example,
 in the vanilla flow it verifies that the Conjur secret was provided to the app container via the environment.
 
 Usage: ./bin/test_integation [options]

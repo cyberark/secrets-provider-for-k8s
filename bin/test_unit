@@ -11,11 +11,11 @@ rm -f "$junit_output_file"
 touch "$junit_output_file"
 
 echo "Building unit test image..."
-docker build -f Dockerfile.test -t cyberark-secrets-provider-for-k8s-test-runner:latest .
+docker build -f Dockerfile.test -t secrets-provider-for-k8s-test-runner:latest .
 
 echo "Running unit tests..."
 set +e
-  docker run --rm -t cyberark-secrets-provider-for-k8s-test-runner:latest \
+  docker run --rm -t secrets-provider-for-k8s-test-runner:latest \
              ./cmd/... \
              ./pkg/... \
              | tee -a "$junit_output_file"
@@ -26,13 +26,13 @@ rm -f junit.xml
 
 echo "Building junit image..."
 
-docker build -f Dockerfile.junit -t cyberark-secrets-provider-for-k8s-junit:latest .
+docker build -f Dockerfile.junit -t secrets-provider-for-k8s-junit:latest .
 
 echo "Creating junit report..."
 
 docker run --rm \
   -v $PWD/unit-test:/test \
-  cyberark-secrets-provider-for-k8s-junit:latest \
+  secrets-provider-for-k8s-junit:latest \
   bash -exc "
     cat ./junit.output | go-junit-report > ./junit.xml
   "

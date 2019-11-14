@@ -17,7 +17,7 @@ readonly TAGS=(
   "latest"
 )
 
-readonly IMAGE_NAME="cyberark-secrets-provider-for-k8s"
+readonly IMAGE_NAME="secrets-provider-for-k8s"
 
 # always push the tag with the commit hash to internal registry
 echo "Tagging $INTERNAL_REGISTRY/$IMAGE_NAME:${FULL_VERSION_TAG}"
