@@ -21,12 +21,12 @@ function main() {
      OPENSHIFT_URL="${OPENSHIFT_URL}:8443"
     fi
 
-    oc login "$OPENSHIFT_URL" \
+    $cli login "$OPENSHIFT_URL" \
       --username=$OPENSHIFT_USERNAME \
       --password=$OPENSHIFT_PASSWORD \
       --insecure-skip-tls-verify=true
     docker login \
-      -u _ -p "$(oc whoami -t)" \
+      -u _ -p "$($cliwhoami -t)" \
       $DOCKER_REGISTRY_PATH
   fi
 }

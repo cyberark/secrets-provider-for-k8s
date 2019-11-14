@@ -33,7 +33,7 @@ function main() {
 
   deployDemoEnv
 
-  oc expose service/pet-store-env
+  $cli expose service/pet-store-env
 }
 
 function CreatePetStoreApp() {
@@ -45,7 +45,7 @@ function CreatePetStoreApp() {
       readonly IMAGE_TAG="$(cat VERSION)"
     popd
 
-    oc new-project "${TEST_APP_NAMESPACE_NAME}"
+    $cli new-project "${TEST_APP_NAMESPACE_NAME}"
     docker tag "demo-app:${IMAGE_TAG}" "${DOCKER_REGISTRY_PATH}/${TEST_APP_NAMESPACE_NAME}/demo-app"
     docker push "${DOCKER_REGISTRY_PATH}/${TEST_APP_NAMESPACE_NAME}/demo-app"
 

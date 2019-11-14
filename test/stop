@@ -6,7 +6,7 @@ set -euo pipefail
 set_namespace default
 
 if [[ $PLATFORM == openshift ]]; then
-  oc login -u $OPENSHIFT_USERNAME
+  $cli login -u $OPENSHIFT_USERNAME
 fi
 
 if has_namespace $TEST_APP_NAMESPACE_NAME; then

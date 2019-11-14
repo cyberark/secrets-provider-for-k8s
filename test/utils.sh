@@ -74,8 +74,13 @@ set_namespace() {
   $cli config set-context "$($cli config current-context)" --namespace="$1" > /dev/null
 }
 
+# master - > oss project
 get_master_pod_name() {
-  pod_list=$($cli get pods --selector app=conjur-node,role=master --no-headers | awk '{ print $1 }')
+  app_name=conjur-cluster
+  if [ "$OSS_DEPLOYMENT" = "false" ]; then
+      app_name=conjur-node
+  fi
+  pod_list=$($cli get pods --selector app=$app_name,role=master --no-headers | awk '{ print $1 }')
   echo $pod_list | awk '{print $1}'
 }
 
@@ -124,13 +129,18 @@ function runDockerCommand() {
 }
 
 configure_cli_pod() {
-  announce "Configuring Conjur CLI."
+  conjur_node_name="conjur-cluster"
 
-  conjur_url="https://conjur-master.$CONJUR_NAMESPACE_NAME.svc.cluster.local"
+  announce "Configuring Conjur CLI."
+  if [ "$OSS_DEPLOYMENT" = "false" ]; then
+      conjur_node_name="conjur-master"
+  fi
+
+  conjur_url="https://$conjur_node_name.$CONJUR_NAMESPACE_NAME.svc.cluster.local"
 
   conjur_cli_pod=$(get_conjur_cli_pod_name)
 
-  $cli exec $conjur_cli_pod -- bash -c "yes yes | conjur init -a $CONJUR_ACCOUNT -u $conjur_url"
+  $cli exec $conjur_cli_pod -- bash -c "yes yes | conjur init -a $CONJUR_ACCOUNT -u https://$conjur_node_name.$CONJUR_NAMESPACE_NAME.svc.cluster.local"
 
   $cli exec $conjur_cli_pod -- conjur authn login -u admin -p $CONJUR_ADMIN_PASSWORD
 }
@@ -139,13 +149,20 @@ function deploy_test_env {
    echo "Verifying there are no (terminating) pods of type test-env"
    wait_for_it 600 "$cli get pods --namespace=$TEST_APP_NAMESPACE_NAME --selector app=test-env --no-headers | wc -l | tr -d ' ' | grep '^0$'"
 
+  if [ "$OSS_DEPLOYMENT" = "false" ]; then
+    # for DAP, both CONJUR_APPLIANCE_URL and CONJUR_AUTHN_URL need the /api endpoint
+    export CONJUR_APPLIANCE_URL=https://conjur-follower.${CONJUR_NAMESPACE_NAME}.svc.cluster.local/api
+    export CONJUR_AUTHN_URL=https://conjur-follower.${CONJUR_NAMESPACE_NAME}.svc.cluster.local/api/authn-k8s/${AUTHENTICATOR_ID}
+
+  fi
+
    echo "Deploying test-env"
    $TEST_CASES_K8S_CONFIG_DIR/test-env.sh.yml | $cli create -f -
 
    expected_num_replicas=`$TEST_CASES_K8S_CONFIG_DIR/test-env.sh.yml |  awk '/replicas:/ {print $2}' `
 
    # deploying deploymentconfig might fail on error flows, even before creating the pods. If so, retry deploy again
-   wait_for_it 600 "$cli get dc/test-env -o jsonpath={.status.replicas} | grep '^${expected_num_replicas}$'|| oc rollout latest dc/test-env"
+   wait_for_it 600 "$cli get dc/test-env -o jsonpath={.status.replicas} | grep '^${expected_num_replicas}$'|| $cli rollout latest dc/test-env"
 
    echo "Expecting for $expected_num_replicas deployed pods"
    wait_for_it 600 "$cli get pods --namespace=$TEST_APP_NAMESPACE_NAME --selector app=test-env --no-headers | wc -l | grep $expected_num_replicas"
