@@ -23,7 +23,7 @@ from DAP or Conjur.
 
 # Releases
 
-The primary source of CyberArk Secrets Provider for Kubernetes releases is our [Dockerhub](https://hub.docker.com/u/cyberark).
+The primary source of CyberArk Secrets Provider for Kubernetes releases is our [Dockerhub](https://hub.docker.com/repository/docker/cyberark/secrets-provider-for-k8s).
 
 When we release a version, we push the following images to Dockerhub:
 1. Latest
