@@ -18,9 +18,8 @@ from DAP or Conjur.
 ## Supported services
 
 - Openshift 3.9 and 3.11
-- Kubernetes 1.11
 - DAP 11.1+
-- Conjur XXX+
+- Conjur 5.5.0+
 
 # Releases
 

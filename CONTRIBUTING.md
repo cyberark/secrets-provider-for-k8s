@@ -45,7 +45,8 @@ From here your pull request is reviewed. Once you have implemented all reviewer 
 
 ### Testing
 
-For our Go testing, we use the [GoConvey](http://goconvey.co/) testing tool.  
+#### Unit testing
+For our Go unit testing, we use the [GoConvey](http://goconvey.co/) testing tool.  
 
 To run existing unit tests, run `./bin/test_unit`
 
@@ -64,6 +65,27 @@ To follow [Go testing conventions](https://golang.org/pkg/cmd/go/internal/test/)
 1. Create tests according to the [GoConvey](https://github.com/smartystreets/goconvey/wiki) formatting and styling guidelines 
 1. Run test suite, `./bin/test_unit`
   
+#### Unit testing
+
+You can run integrations in different environment- local, demo, docker with either OSS or DAP deployments. 
+All you need to do is run `./bin/test_integration` with the proper flags.
+
+Run on docker: `--docker`
+Run demo: `--demo`
+Run locally: no flag is supplied
+
+Additionally, concatenate `--dap` or `--oss` to the command according to the deployment you require.
+
+For example, to deploy OSS locally, run  `./bin/test_integration --oss` or on docker `./bin/test_integration --docker --oss`
+
+When contributing new intregration tests, perform the following:
+1. Navigate to the `test/test_case` folder
+1. Create a new test file with filename prefix `TEST_ID_<HIGHEST_NUMBER>_<TEST_NAME>`
+
+If your tests follow the above instructions, our scripts should grab your test additions and run it as our test suite. 
+
+That's it!
+
 ## Releases
 
 ### Update the version and changelog
