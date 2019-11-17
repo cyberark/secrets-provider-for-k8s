@@ -9,5 +9,5 @@ RUN go get -u github.com/jstemmer/go-junit-report && \
 ENV GOOS=linux
 ENV GOARCH=amd64
 
-WORKDIR /opt/cyberark-secrets-provider-for-k8s
+WORKDIR /opt/secrets-provider-for-k8s
 EXPOSE 8080

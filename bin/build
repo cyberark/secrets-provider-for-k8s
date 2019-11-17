@@ -11,18 +11,18 @@ function finish {
 }
 trap finish EXIT
 
-docker build --tag cyberark-secrets-provider-for-k8s-go:builder .
+docker build --tag secrets-provider-for-k8s-go:builder .
 
 docker run --rm \
-           -v $PWD:/opt/cyberark-secrets-provider-for-k8s \
-           cyberark-secrets-provider-for-k8s-go:builder env CGO_ENABLED=0 GOOS=linux \
+           -v $PWD:/opt/secrets-provider-for-k8s \
+           secrets-provider-for-k8s-go:builder env CGO_ENABLED=0 GOOS=linux \
                                               go build -a -installsuffix cgo -o secrets-provider ./cmd/secrets-provider
 
-echo "Building cyberark-secrets-provider-for-k8s:$FULL_VERSION_TAG Docker image"
+echo "Building secrets-provider-for-k8s:$FULL_VERSION_TAG Docker image"
 docker build -f Dockerfile.scratch \
-             --tag "cyberark-secrets-provider-for-k8s:dev" \
-             --tag "cyberark-secrets-provider-for-k8s:${FULL_VERSION_TAG}" \
-             --tag "cyberark-secrets-provider-for-k8s:latest" \
+             --tag "secrets-provider-for-k8s:dev" \
+             --tag "secrets-provider-for-k8s:${FULL_VERSION_TAG}" \
+             --tag "secrets-provider-for-k8s:latest" \
              .
 
 echo "---"

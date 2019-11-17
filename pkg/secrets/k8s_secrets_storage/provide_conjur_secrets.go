@@ -7,11 +7,11 @@ import (
 	"github.com/cyberark/conjur-authn-k8s-client/pkg/access_token"
 	"gopkg.in/yaml.v2"
 
-	"github.com/cyberark/cyberark-secrets-provider-for-k8s/pkg/log"
-	"github.com/cyberark/cyberark-secrets-provider-for-k8s/pkg/log/messages"
-	"github.com/cyberark/cyberark-secrets-provider-for-k8s/pkg/secrets/clients/conjur"
-	"github.com/cyberark/cyberark-secrets-provider-for-k8s/pkg/secrets/clients/k8s"
-	"github.com/cyberark/cyberark-secrets-provider-for-k8s/pkg/secrets/config"
+	"github.com/cyberark/secrets-provider-for-k8s/pkg/log"
+	"github.com/cyberark/secrets-provider-for-k8s/pkg/log/messages"
+	"github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/clients/conjur"
+	"github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/clients/k8s"
+	"github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/config"
 )
 
 type K8sSecretsMap struct {

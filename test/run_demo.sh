@@ -21,7 +21,7 @@ function main() {
     ./4_init_conjur_cert_authority.sh
   fi
 
-  docker tag "cyberark-secrets-provider-for-k8s:dev" "${DOCKER_REGISTRY_PATH}/${TEST_APP_NAMESPACE_NAME}/secrets-provider"
+  docker tag "secrets-provider-for-k8s:dev" "${DOCKER_REGISTRY_PATH}/${TEST_APP_NAMESPACE_NAME}/secrets-provider"
   docker push "${DOCKER_REGISTRY_PATH}/${TEST_APP_NAMESPACE_NAME}/secrets-provider"
 
   set_namespace $TEST_APP_NAMESPACE_NAME
