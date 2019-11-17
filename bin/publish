@@ -14,7 +14,7 @@ readonly TAGS=(
 
 readonly IMAGE_NAME="secrets-provider-for-k8s"
 
-registry='cyberark'
+readonly REGISTRY='cyberark'
 
 # if the tag matches the VERSION, push VERSION and latest releases
 # and x and x.y releases
@@ -22,9 +22,9 @@ if [ "$GIT_DESCRIPTION" = "v${VERSION}" ]; then
   echo "Revision $GIT_DESCRIPTION matches version $VERSION exactly. Pushing to Dockerhub..."
 
   for tag in "${TAGS[@]}" $(gen_versions "$VERSION"); do
-    echo "Tagging and pushing $registry/$IMAGE_NAME:$tag"
+    echo "Tagging and pushing $REGISTRY/$IMAGE_NAME:$tag"
 
-    docker tag "$IMAGE_NAME:$FULL_VERSION_TAG" "$registry/$IMAGE_NAME:$tag"
-    docker push "$registry/$IMAGE_NAME:$tag"
+    docker tag "$IMAGE_NAME:$FULL_VERSION_TAG" "$REGISTRY/$IMAGE_NAME:$tag"
+    docker push "$REGISTRY/$IMAGE_NAME:$tag"
   done
 fi
