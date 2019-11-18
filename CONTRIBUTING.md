@@ -21,7 +21,7 @@ To work in this codebase, you will want to have Go version 1.12+ installed.
 
 ## Documentation
 
-The full documentation for the Cyberark Secrets Provider for Kubernetes can be found [here](https://docs.conjur.org/Latest/en/Content/Integrations/Kubernetes_deployApplicationsConjur-k8s-Secrets.htm)
+The full documentation for the Cyberark Secrets Provider for Kubernetes can be found [here](https://docs.cyberark.com/Product-Doc/OnlineHelp/AAM-DAP/Latest/en/Content/Integrations/Kubernetes_deployApplicationsConjur-k8s-Secrets.htm) for DAP and [here](https://docs.conjur.org/Latest/en/Content/Integrations/Kubernetes_deployApplicationsConjur-k8s-Secrets.htm) for OSS.
 
 ### Get up and running
 
@@ -35,7 +35,7 @@ Before you can start contributing to the CyberArk Secrets Provider for Kubernete
 
 2. Setup the CyberArk Secrets Provider for Kubernetes
 
-    a. For detailed setup instructions for DAP, see [CyberArk Secrets Provider for Kubernetes for DAP](https://docs.conjur.org/Push-k8s-secrets/Content/Integrations/Kubernetes_deployApplicationsConjur-k8s-Secrets.htm).
+    a. For detailed setup instructions for DAP, see [CyberArk Secrets Provider for Kubernetes for DAP](https://docs.cyberark.com/Product-Doc/OnlineHelp/AAM-DAP/Latest/en/Content/Integrations/Kubernetes_deployApplicationsConjur-k8s-Secrets.htm).
     
     b. For detailed setup instructions for OSS, see [CyberArk Secrets Provider for Kubernetes for OSS](https://docs.conjur.org/Latest/en/Content/Integrations/Kubernetes_deployApplicationsConjur-k8s-Secrets.htm).
     
