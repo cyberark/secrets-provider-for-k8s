@@ -19,10 +19,8 @@ function buildTestRunnerImage() {
 
 function deployConjur() {
   pushd ..
-    # TODO: change to master/v0.1 once deploy-oss is merged
-    # taking v0.1 since latest kubernetes-conjur-deploy is not stable
     git clone --single-branch \
-      --branch deploy-oss \
+      --branch master \
       git@github.com:cyberark/kubernetes-conjur-deploy \
       kubernetes-conjur-deploy-$UNIQUE_TEST_ID
   popd

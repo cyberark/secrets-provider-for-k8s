@@ -11,8 +11,7 @@ function main() {
 
 function deployConjur() {
   pushd ..
-    # TODO: change to master/v0.1 once it is merged
-    git clone --single-branch --branch deploy-oss git@github.com:cyberark/kubernetes-conjur-deploy kubernetes-conjur-deploy-$UNIQUE_TEST_ID
+    git clone --single-branch --branch master git@github.com:cyberark/kubernetes-conjur-deploy kubernetes-conjur-deploy-$UNIQUE_TEST_ID
 
     cmd="./start"
     if [ $CONJUR_DEPLOYMENT == "dap" ]; then
