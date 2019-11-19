@@ -75,7 +75,11 @@ set_namespace() {
 }
 
 get_master_pod_name() {
-  pod_list=$($cli get pods --selector app=conjur-node,role=master --no-headers | awk '{ print $1 }')
+  app_name=conjur-cluster
+  if [ "$CONJUR_DEPLOYMENT" = "dap" ]; then
+      app_name=conjur-node
+  fi
+  pod_list=$($cli get pods --selector app=$app_name,role=master --no-headers | awk '{ print $1 }')
   echo $pod_list | awk '{print $1}'
 }
 
@@ -110,7 +114,7 @@ function runDockerCommand() {
     -e MINIKUBE \
     -e MINISHIFT \
     -e CONJUR_VERSION \
-    -e CONJUR_VERSION \
+    -e CONJUR_DEPLOYMENT \
     -v /var/run/docker.sock:/var/run/docker.sock \
     -v ~/.config:/root/.config \
     -v ~/.docker:/root/.docker \
@@ -126,7 +130,11 @@ function runDockerCommand() {
 configure_cli_pod() {
   announce "Configuring Conjur CLI."
 
-  conjur_url="https://conjur-master.$CONJUR_NAMESPACE_NAME.svc.cluster.local"
+  conjur_node_name="conjur-cluster"
+  if [ "$CONJUR_DEPLOYMENT" = "dap" ]; then
+      conjur_node_name="conjur-master"
+  fi
+  conjur_url="https://$conjur_node_name.$CONJUR_NAMESPACE_NAME.svc.cluster.local"
 
   conjur_cli_pod=$(get_conjur_cli_pod_name)
 
@@ -138,6 +146,19 @@ configure_cli_pod() {
 function deploy_test_env {
    echo "Verifying there are no (terminating) pods of type test-env"
    wait_for_it 600 "$cli get pods --namespace=$TEST_APP_NAMESPACE_NAME --selector app=test-env --no-headers | wc -l | tr -d ' ' | grep '^0$'"
+
+  conjur_node_name="conjur-cluster"
+  if [ "$CONJUR_DEPLOYMENT" = "dap" ]; then
+      conjur_node_name="conjur-follower"
+  fi
+  conjur_appliance_url=https://$conjur_node_name.$CONJUR_NAMESPACE_NAME.svc.cluster.local
+  if [ "$CONJUR_DEPLOYMENT" = "dap" ]; then
+    conjur_appliance_url="$conjur_appliance_url/api"
+  fi
+  conjur_authenticator_url=$conjur_appliance_url/authn-k8s/$AUTHENTICATOR_ID
+
+  export CONJUR_APPLIANCE_URL=$conjur_appliance_url
+  export CONJUR_AUTHN_URL=$conjur_authenticator_url
 
    echo "Deploying test-env"
    $TEST_CASES_K8S_CONFIG_DIR/test-env.sh.yml | $cli create -f -
