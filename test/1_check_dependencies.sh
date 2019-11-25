@@ -26,3 +26,11 @@ elif [[ "$PLATFORM" = "kubernetes" ]]; then
   check_env_var "GCLOUD_ZONE"
   check_env_var "GCLOUD_PROJECT_NAME"
 fi
+
+if [[ "$PLATFORM" == "kubernetes" ]] && ! is_minienv; then
+  check_env_var "DOCKER_REGISTRY_URL"
+fi
+
+if ! ( [[ "$PLATFORM" == "kubernetes" ]] && is_minienv ); then
+  check_env_var "DOCKER_REGISTRY_PATH"
+fi
