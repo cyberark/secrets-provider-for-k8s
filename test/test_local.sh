@@ -5,7 +5,7 @@ set -xeuo pipefail
 printenv > /tmp/printenv_test_local.debug
 
 function main() {
-#  deployConjur
+  deployConjur
   ./test_with_summon.sh
 }
 

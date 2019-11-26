@@ -160,16 +160,20 @@ function deploy_test_env {
   export CONJUR_APPLIANCE_URL=$conjur_appliance_url
   export CONJUR_AUTHN_URL=$conjur_authenticator_url
 
-   echo "Deploying test-env"
-   $TEST_CASES_K8S_CONFIG_DIR/test-env.sh.yml | $cli create -f -
+  echo "Deploying test-env"
+  $TEST_CASES_K8S_CONFIG_DIR/test-env.sh.yml | $cli create -f -
 
-   expected_num_replicas=`$TEST_CASES_K8S_CONFIG_DIR/test-env.sh.yml |  awk '/replicas:/ {print $2}' `
+  expected_num_replicas=`$TEST_CASES_K8S_CONFIG_DIR/test-env.sh.yml |  awk '/replicas:/ {print $2}' `
 
-   # deploying deploymentconfig might fail on error flows, even before creating the pods. If so, retry deploy again
-   wait_for_it 600 "$cli get deployment test-env -o jsonpath={.status.replicas} | grep '^${expected_num_replicas}$'|| kubectl rollout latest deployment test-env"
+  # deploying deploymentconfig might fail on error flows, even before creating the pods. If so, retry deploy again
+  if [[ "$PLATFORM" = "kubernetes" ]]; then
+      wait_for_it 600 "$cli get deployment test-env -o jsonpath={.status.replicas} | grep '^${expected_num_replicas}$'|| kubectl rollout latest deployment test-env"
+  elif [[ "$PLATFORM" = "openshift" ]]; then
+      wait_for_it 600 "$cli get dc/test-env -o jsonpath={.status.replicas} | grep '^${expected_num_replicas}$'|| oc rollout latest dc/test-env"
+  fi
 
-   echo "Expecting for $expected_num_replicas deployed pods"
-   wait_for_it 600 "$cli get pods --namespace=$TEST_APP_NAMESPACE_NAME --selector app=test-env --no-headers | wc -l | grep $expected_num_replicas"
+  echo "Expecting for $expected_num_replicas deployed pods"
+  wait_for_it 600 "$cli get pods --namespace=$TEST_APP_NAMESPACE_NAME --selector app=test-env --no-headers | wc -l | grep $expected_num_replicas"
 }
 
 function create_secret_access_role () {

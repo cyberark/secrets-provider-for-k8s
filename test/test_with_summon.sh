@@ -11,10 +11,10 @@ set -xeuo pipefail
 
 ./2_create_test_app_namespace.sh
 
-#if [[ "${DEPLOY_MASTER_CLUSTER}" = "true" ]]; then
-#  ./3_load_conjur_policies.sh
-#  ./4_init_conjur_cert_authority.sh
-#fi
+if [[ "${DEPLOY_MASTER_CLUSTER}" = "true" ]]; then
+  ./3_load_conjur_policies.sh
+  ./4_init_conjur_cert_authority.sh
+fi
 
 set_namespace $TEST_APP_NAMESPACE_NAME
 
