@@ -19,6 +19,10 @@ $cli delete serviceaccount ${TEST_APP_NAMESPACE_NAME}-sa --ignore-not-found=true
 
 $cli delete rolebinding secrets-access-role-binding --ignore-not-found=true
 
-$cli delete deployment test-env --ignore-not-found=true
+if [ "${PLATFORM}" = "kubernetes" ]; then
+  $cli delete deployment test-env --ignore-not-found=true
+elif [ "${PLATFORM}" = "openshift" ]; then
+  $cli delete deploymentconfig test-env --ignore-not-found=true
+fi
 
 $cli delete configmap conjur-master-ca-env --ignore-not-found=true

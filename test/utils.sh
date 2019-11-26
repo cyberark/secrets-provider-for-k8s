@@ -111,10 +111,16 @@ function runDockerCommand() {
     -e POSTGRES_USERNAME \
     -e POSTGRES_PASSWORD \
     -e DOCKER_REGISTRY_PATH \
+    -e DOCKER_REGISTRY_URL \
+    -e GCLOUD_CLUSTER_NAME \
+    -e GCLOUD_ZONE \
+    -e GCLOUD_PROJECT_NAME \
+    -e GCLOUD_SERVICE_KEY=/tmp$GCLOUD_SERVICE_KEY \
     -e MINIKUBE \
     -e MINISHIFT \
     -e CONJUR_VERSION \
     -e CONJUR_DEPLOYMENT \
+    -v $GCLOUD_SERVICE_KEY:/tmp$GCLOUD_SERVICE_KEY \
     -v /var/run/docker.sock:/var/run/docker.sock \
     -v ~/.config:/root/.config \
     -v ~/.docker:/root/.docker \

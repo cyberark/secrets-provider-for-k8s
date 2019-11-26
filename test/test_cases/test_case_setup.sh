@@ -8,8 +8,8 @@ if [[ "${PLATFORM}" == "kubernetes" ]]; then
 
      $cli create secret docker-registry dockerpullsecret \
       --docker-server=$DOCKER_REGISTRY_URL \
-      --docker-username=$DOCKER_USERNAME \
-      --docker-password=$DOCKER_PASSWORD \
+      --docker-username=_ \
+      --docker-password=_ \
       --docker-email=_
 
 elif [[ "$PLATFORM" == "openshift" ]]; then
