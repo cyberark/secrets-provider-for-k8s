@@ -167,9 +167,9 @@ function deploy_test_env {
   export CONJUR_AUTHN_URL=$conjur_authenticator_url
 
   echo "Deploying test-env"
-  $TEST_CASES_K8S_CONFIG_DIR/test-env.sh.yml | $cli create -f -
+  $TEST_CASES_DIR/test-env.sh.yml | $cli create -f -
 
-  expected_num_replicas=`$TEST_CASES_K8S_CONFIG_DIR/test-env.sh.yml |  awk '/replicas:/ {print $2}' `
+  expected_num_replicas=`$TEST_CASES_DIR/test-env.sh.yml |  awk '/replicas:/ {print $2}' `
 
   # deploying deploymentconfig might fail on error flows, even before creating the pods. If so, retry deploy again
   if [[ "$PLATFORM" = "kubernetes" ]]; then
@@ -184,12 +184,12 @@ function deploy_test_env {
 
 function create_secret_access_role () {
   echo "Creating secrets access role"
-  $TEST_CASES_K8S_CONFIG_DIR/secrets-access-role.sh.yml | $cli create -f -
+  $TEST_CASES_DIR/secrets-access-role.sh.yml | $cli create -f -
 }
 
 function create_secret_access_role_binding () {
   echo "Creating secrets access role binding"
-  $TEST_CASES_K8S_CONFIG_DIR/secrets-access-role-binding.sh.yml | $cli create -f -
+  $TEST_CASES_DIR/secrets-access-role-binding.sh.yml | $cli create -f -
 }
 
 function test_app_set_secret () {

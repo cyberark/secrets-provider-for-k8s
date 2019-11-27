@@ -45,5 +45,5 @@ pushd test_cases > /dev/null
 popd > /dev/null
 
 ./stop
-../kubernetes-conjur-deploy-"d025879f-1"/stop
-rm -rf "../kubernetes-conjur-deploy-d025879f-1"
+../kubernetes-conjur-deploy-"$UNIQUE_TEST_ID"/stop
+rm -rf "../kubernetes-conjur-deploy-$UNIQUE_TEST_ID"

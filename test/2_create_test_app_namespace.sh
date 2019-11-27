@@ -28,7 +28,12 @@ fi
 
 $cli delete --ignore-not-found rolebinding test-app-conjur-authenticator-role-binding-$CONJUR_NAMESPACE_NAME
 
-./k8s-config/test-app-conjur-authenticator-role-binding.sh.yml | $cli create -f -
+export TEST_DIR="k8s-config"
+if [[ "$PLATFORM" = "openshift" ]]; then
+    export TEST_DIR="openshift-config"
+fi
+
+./$TEST_DIR/test-app-conjur-authenticator-role-binding.sh.yml | $cli create -f -
 
 if [[ $PLATFORM == openshift ]]; then
   # add permissions for Conjur admin user

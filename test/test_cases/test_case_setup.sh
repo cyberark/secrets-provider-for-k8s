@@ -28,4 +28,4 @@ elif [[ "$PLATFORM" == "openshift" ]]; then
     echo "Create secret k8s-secret"
 fi
 
-$cli create -f $TEST_CASES_K8S_CONFIG_DIR/k8s-secret.yml
+$cli create -f $TEST_CASES_DIR/k8s-secret.yml

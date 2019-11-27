@@ -76,9 +76,9 @@ function enableImagePull() {
 
 function provideSecretAccessToServiceAccount() {
   $cli delete clusterrole secrets-access --ignore-not-found=true
-  ./k8s-config/secrets-access-role.sh.yml | $cli create -f -
+  ./$TEST_CASES_DIR/secrets-access-role.sh.yml | $cli create -f -
 
-  ./k8s-config/secrets-access-role-binding.sh.yml | $cli create -f -
+  ./$TEST_CASES_DIR/secrets-access-role-binding.sh.yml | $cli create -f -
 }
 
 function deployDemoEnv() {

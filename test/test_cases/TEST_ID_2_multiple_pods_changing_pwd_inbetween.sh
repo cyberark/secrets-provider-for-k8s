@@ -2,10 +2,10 @@
 set -euxo pipefail
 
 echo "Creating secrets access role"
-$TEST_CASES_K8S_CONFIG_DIR/secrets-access-role.sh.yml | $cli create -f -
+$TEST_CASES_DIR/secrets-access-role.sh.yml | $cli create -f -
 
 echo "Creating secrets access role binding"
-$TEST_CASES_K8S_CONFIG_DIR/secrets-access-role-binding.sh.yml | $cli create -f -
+$TEST_CASES_DIR/secrets-access-role-binding.sh.yml | $cli create -f -
 
 deploy_test_env
 
