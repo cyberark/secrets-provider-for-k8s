@@ -23,15 +23,53 @@ pipeline {
       }
     }
 
-    stage('Run Integrations Tests - OSS') {
-      steps {
-        sh './bin/test_integration --docker'
+    stage('Run Integration Tests with OSS') {
+      parallel {
+        stage('Kubernetes GKE') {
+          steps {
+            sh './bin/test_integration --docker --gke'
+          }
+        }
+        stage('Openshift v3.11') {
+          steps {
+            sh './bin/test_integration --docker --oc311'
+          }
+        }
+        stage('Openshift v3.10') {
+          steps {
+            sh './bin/test_integration --docker --oc310'
+          }
+        }
+        stage('Openshift v3.9') {
+          steps {
+            sh './bin/test_integration --docker --oc39'
+          }
+        }
       }
     }
 
-    stage('Run Integrations Tests - DAP') {
-      steps {
-        sh './bin/test_integration --docker --dap'
+    stage('Run Integration Tests with DAP') {
+      parallel {
+        stage('Kubernetes GKE') {
+          steps {
+            sh './bin/test_integration --docker --dap --gke'
+          }
+        }
+        stage('Openshift v3.11') {
+          steps {
+            sh './bin/test_integration --docker --dap --oc311'
+          }
+        }
+        stage('Openshift v3.10') {
+          steps {
+            sh './bin/test_integration --docker --dap --oc310'
+          }
+        }
+        stage('Openshift v3.9') {
+          steps {
+            sh './bin/test_integration --docker --dap --oc39'
+          }
+        }
       }
     }
 

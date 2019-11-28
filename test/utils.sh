@@ -4,7 +4,6 @@ set -euo pipefail
 # lookup test-env.sh.yml for explanation.
 export KEY_VALUE_NOT_EXIST=" "
 
-
 if [ $PLATFORM = 'kubernetes' ]; then
     cli=kubectl
 elif [ $PLATFORM = 'openshift' ]; then

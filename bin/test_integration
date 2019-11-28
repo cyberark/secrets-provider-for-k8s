@@ -14,7 +14,15 @@ Usage: ./bin/test_integation [options]
                   that needs credentials to a DB from Conjur. After running "./bin/test_integation --demo" run "oc get routes"
                   and go to "<the exposed route>/pets" in a browser. The entry "Mr. Sidecar" should be displayed on the screen.
 
-    --dap         Run the integation tests with a DAP Conjur deployment. By default the tests are run against a Conjur OSS deployment
+    --dap         Run the integration tests with a DAP Conjur deployment. By default the tests are run against a Conjur OSS deployment.
+
+    --gke         Run the integration tests on GKE. By default the tests are run on GKE.
+
+    --oc311       Run the integration tests on Openshift v3.11. By default the tests are run on GKE.
+
+    --oc310       Run the integration tests on Openshift v3.10. By default the tests are run on GKE.
+
+    --oc39        Run the integration tests on Openshift v3.9. By default the tests are run on GKE.
 
     -h, --help    Shows this help message.
 EOF
@@ -22,17 +30,23 @@ EOF
 }
 
 function runScriptWithSummon() {
-    summon --environment $PLATFORM -f ./summon/secrets.yml $1
+    summon --environment $SUMMON_ENV -f ./summon/secrets.yml $1
 }
 
 RUN_IN_DOCKER=false
 DEMO=false
 CONJUR_DEPLOYMENT=oss
+SUMMON_ENV=gke
+
 while true ; do
   case "$1" in
     --docker ) RUN_IN_DOCKER=true ; shift ;;
     --demo ) DEMO=true ; shift ;;
     --dap ) CONJUR_DEPLOYMENT=dap ; shift ;;
+    --gke ) SUMMON_ENV=gke ; shift ;;
+    --oc311 ) SUMMON_ENV=oc311 ; shift ;;
+    --oc310 ) SUMMON_ENV=oc310 ; shift ;;
+    --oc39 ) SUMMON_ENV=oc39 ; shift ;;
     -h | --help ) print_help ; shift ;;
      * ) if [ -z "$1" ]; then break; else echo "$1 is not a valid option"; exit 1; fi;;
   esac
