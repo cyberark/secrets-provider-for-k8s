@@ -23,51 +23,24 @@ pipeline {
       }
     }
 
-    stage('Run Integration Tests with OSS') {
-      parallel {
-        stage('Kubernetes GKE') {
-          steps {
-            sh './bin/test_integration --docker --gke'
-          }
-        }
-        stage('Openshift v3.11') {
-          steps {
-            sh './bin/test_integration --docker --oc311'
-          }
-        }
-        stage('Openshift v3.10') {
-          steps {
-            sh './bin/test_integration --docker --oc310'
-          }
-        }
-        stage('Openshift v3.9') {
-          steps {
-            sh './bin/test_integration --docker --oc39'
-          }
-        }
-      }
-    }
-
-    stage('Run Integration Tests with DAP') {
-      parallel {
-        stage('Kubernetes GKE') {
-          steps {
-            sh './bin/test_integration --docker --dap --gke'
-          }
-        }
-        stage('Openshift v3.11') {
-          steps {
-            sh './bin/test_integration --docker --dap --oc311'
-          }
-        }
-        stage('Openshift v3.10') {
-          steps {
-            sh './bin/test_integration --docker --dap --oc310'
-          }
-        }
-        stage('Openshift v3.9') {
-          steps {
-            sh './bin/test_integration --docker --dap --oc39'
+    stage ("Run Integration Tests") {
+      steps {
+        script {
+          ["oss", "dap"].each { deployment ->
+            stage ("Run Integration Tests with ${deployment} deployment") {
+              parallel "Kubernetes GKE, ${deployment}": {
+                sh "./bin/test_integration --docker --${deployment} --gke"
+              },
+              "Openshift v3.11 ${deployment}": {
+                sh "./bin/test_integration --docker --${deployment} --oc311"
+              },
+              "Openshift v3.10 ${deployment}": {
+                sh "./bin/test_integration --docker --${deployment} --oc310"
+              },
+              "Openshift v3.9 ${deployment}": {
+                sh "./bin/test_integration --docker --${deployment} --oc39"
+              }
+            }
           }
         }
       }

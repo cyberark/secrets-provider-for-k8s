@@ -31,6 +31,7 @@ elif [ $PLATFORM = "openshift" ]; then
     test_app_set_secret secrets/test_secret secret2
 
     $cli delete pod $pod_name1
+
 fi
 
 pod_name2=$(cli_get_pods_test_env | awk '{print $1}')
