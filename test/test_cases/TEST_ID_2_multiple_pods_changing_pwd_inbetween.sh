@@ -27,7 +27,7 @@ if [[ "$PLATFORM" = "kubernetes" ]]; then
     test_app_set_secret secrets/test_secret secret2
 
     $cli scale deployment test-env --replicas=1
-elif [ $PLATFORM = 'openshift' ]; then
+elif [ $PLATFORM = "openshift" ]; then
     test_app_set_secret secrets/test_secret secret2
 
     $cli delete pod $pod_name1
@@ -42,7 +42,7 @@ test_app_set_secret secrets/test_secret secret3
 if [[ "$PLATFORM" = "kubernetes" ]]; then
     echo "Setting deployment test-env to replicas"
     $cli scale deployment test-env --replicas=3
-elif [ $PLATFORM = 'openshift' ]; then
+elif [ $PLATFORM = "openshift" ]; then
     echo "Setting deploymentconfig test-env to replicas"
     $cli scale dc test-env --replicas=3
 fi

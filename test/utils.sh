@@ -4,9 +4,9 @@ set -euo pipefail
 # lookup test-env.sh.yml for explanation.
 export KEY_VALUE_NOT_EXIST=" "
 
-if [ $PLATFORM = 'kubernetes' ]; then
+if [ $PLATFORM = "kubernetes" ]; then
     cli=kubectl
-elif [ $PLATFORM = 'openshift' ]; then
+elif [ $PLATFORM = "openshift" ]; then
     cli=oc
 fi
 
@@ -170,7 +170,7 @@ function deploy_test_env {
 
   expected_num_replicas=`$TEST_CASES_DIR/test-env.sh.yml |  awk '/replicas:/ {print $2}' `
 
-  # deploying deploymentconfig might fail on error flows, even before creating the pods. If so, retry deploy again
+  # Deployment (Deployment for k8s and DeploymentConfig for Openshift) might fail on error flows, even before creating the pods. If so, re-deploy.
   if [[ "$PLATFORM" = "kubernetes" ]]; then
       wait_for_it 600 "$cli get deployment test-env -o jsonpath={.status.replicas} | grep '^${expected_num_replicas}$'|| kubectl rollout latest deployment test-env"
   elif [[ "$PLATFORM" = "openshift" ]]; then

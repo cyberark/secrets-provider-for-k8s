@@ -11,9 +11,7 @@ if [[ "${PLATFORM}" == "kubernetes" ]]; then
       --docker-username=_ \
       --docker-password=_ \
       --docker-email=_
-
 elif [[ "$PLATFORM" == "openshift" ]]; then
-
     $cli delete --ignore-not-found secrets dockerpullsecret
 
     # TODO: replace the following with `$cli create secret`
@@ -24,8 +22,7 @@ elif [[ "$PLATFORM" == "openshift" ]]; then
           --docker-email=_
 
     $cli secrets add serviceaccount/default secrets/dockerpullsecret --for=pull
-
-    echo "Create secret k8s-secret"
 fi
 
+echo "Create secret k8s-secret"
 $cli create -f $TEST_CASES_DIR/k8s-secret.yml

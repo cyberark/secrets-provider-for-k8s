@@ -23,8 +23,6 @@ docker tag "secrets-provider-for-k8s:dev" \
          "${DOCKER_REGISTRY_PATH}/${TEST_APP_NAMESPACE_NAME}/secrets-provider"
 docker push "${DOCKER_REGISTRY_PATH}/${TEST_APP_NAMESPACE_NAME}/secrets-provider"
 
-readonly K8S_CONFIG_DIR="k8s-config"
-
 selector="role=follower"
 cert_location="/opt/conjur/etc/ssl/conjur.pem"
 if [ "$CONJUR_DEPLOYMENT" = "oss" ]; then
@@ -38,7 +36,6 @@ conjur_pod_name=$($cli get pods \
 ssl_cert=$($cli exec "${conjur_pod_name}" --namespace $CONJUR_NAMESPACE_NAME cat $cert_location)
 
 export CONJUR_SSL_CERTIFICATE=$ssl_cert
-
 
 pushd test_cases > /dev/null
   ./run_tests.sh
