@@ -1,0 +1,44 @@
+#!/bin/bash
+
+### This policy is defined to verify that hosts can authenticate with Conjur
+### from anywhere in the policy branch, to retrieve secrets for k8s
+
+set -euo pipefail
+cat << EOL
+---
+# Define a policy and add a host to it
+- !policy
+  id: some-apps
+  owner: !group devops
+  annotations:
+    description: Identities permitted to authenticate
+  body:
+  - !layer
+    annotations:
+      description: Layer of authenticator identities permitted to call authn svc
+  - &hosts
+    - !host
+      id: ${TEST_APP_NAMESPACE_NAME}/*/*
+      annotations:
+        kubernetes/authentication-container-name: cyberark-secrets-provider
+        openshift: "true"
+
+  - !grant
+    role: !layer
+    members: *hosts
+
+# Allow the host to retrieve the required secrets
+- !grant
+  role: !layer secrets/users
+  members: !layer some-apps
+
+# Inherit test-app's permissions
+- !grant
+  role: !layer test-app
+  members: !layer some-apps
+
+# Allow the host to authenticate with the authn-k8s authenticator
+- !grant
+  role: !layer conjur/authn-k8s/${AUTHENTICATOR_ID}/users
+  members: !layer some-apps
+EOL

@@ -22,6 +22,7 @@ readonly POLICY_FILES=(
   "$POLICY_DIR/generated/$TEST_APP_NAMESPACE_NAME.app-identity.yml"
   "$POLICY_DIR/generated/$TEST_APP_NAMESPACE_NAME.conjur-secrets.yml"
   "$POLICY_DIR/generated/$TEST_APP_NAMESPACE_NAME.conjur-pet-store-secrets.yml"
+  "$POLICY_DIR/generated/$TEST_APP_NAMESPACE_NAME.authn-any-policy-branch.yml"
 )
 
 for policy_file in "${POLICY_FILES[@]}"; do

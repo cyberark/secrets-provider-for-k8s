@@ -27,8 +27,15 @@ cat << EOL
         description: CA key for Kubernetes Pods.
 
   # define layer of whitelisted authn ids permitted to call authn service
+  - !layer users
+
   - !permit
     resource: !webservice
     privilege: [ read, authenticate ]
-    role: !layer /conjur/authn-k8s/${AUTHENTICATOR_ID}/apps
+    role: !layer users
+
+- !grant
+  role: !layer conjur/authn-k8s/${AUTHENTICATOR_ID}/users
+  members:
+    - !layer conjur/authn-k8s/${AUTHENTICATOR_ID}/apps
 EOL
