@@ -75,7 +75,7 @@ function enableImagePull() {
 }
 
 function provideSecretAccessToServiceAccount() {
-  $cli delete clusterrole secrets-access --ignore-not-found=true
+  $cli delete clusterrole secrets-access-${UNIQUE_TEST_ID} --ignore-not-found=true
   ./$TEST_CASES_DIR/secrets-access-role.sh.yml | $cli create -f -
 
   ./$TEST_CASES_DIR/secrets-access-role-binding.sh.yml | $cli create -f -
