@@ -35,14 +35,14 @@ function runScriptWithSummon() {
     summon --environment $SUMMON_ENV -f ./summon/secrets.yml $1
 }
 
-RUN_IN_DOCKER=false
+export RUN_IN_DOCKER=false
 DEMO=false
 CONJUR_DEPLOYMENT=oss
 SUMMON_ENV=gke
 
 while true ; do
   case "$1" in
-    --docker ) RUN_IN_DOCKER=true ; shift ;;
+    --docker ) export RUN_IN_DOCKER=true ; shift ;;
     --demo ) DEMO=true ; shift ;;
     --oss ) CONJUR_DEPLOYMENT=oss ; shift ;;
     --dap ) CONJUR_DEPLOYMENT=dap ; shift ;;

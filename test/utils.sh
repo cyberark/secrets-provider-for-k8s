@@ -119,6 +119,7 @@ function runDockerCommand() {
     -e MINISHIFT \
     -e CONJUR_VERSION \
     -e CONJUR_DEPLOYMENT \
+    -e RUN_IN_DOCKER \
     -v $GCLOUD_SERVICE_KEY:/tmp$GCLOUD_SERVICE_KEY \
     -v /var/run/docker.sock:/var/run/docker.sock \
     -v ~/.config:/root/.config \
