@@ -35,13 +35,6 @@ pipeline {
             tasks["Openshift v3.11, ${deployment}"] = {
                 sh "./bin/test_integration --docker --${deployment} --oc311"
             }
-
-            tasks["Openshift v3.10, ${deployment}"] = {
-                sh "./bin/test_integration --docker --${deployment} --oc310"
-            }
-            tasks["Openshift v3.9, ${deployment}"] = {
-                sh "./bin/test_integration --docker --${deployment} --oc39"
-            }
           }
           parallel tasks
         }
