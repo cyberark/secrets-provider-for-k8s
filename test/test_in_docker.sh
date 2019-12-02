@@ -33,7 +33,7 @@ function buildTestRunnerImage() {
 function deployConjur() {
   pushd ..
     git clone --single-branch \
-      --branch deploy-oss-by-default \
+      --branch deploy-oss-by-default-debug \
       git@github.com:cyberark/kubernetes-conjur-deploy \
       kubernetes-conjur-deploy-$UNIQUE_TEST_ID
   popd
@@ -42,7 +42,7 @@ function deployConjur() {
   if [ $CONJUR_DEPLOYMENT == "dap" ]; then
       cmd="$cmd --dap"
   fi
-  runDockerCommand "cd kubernetes-conjur-deploy-$UNIQUE_TEST_ID && $cmd"
+  runDockerCommand "cd kubernetes-conjur-deploy-$UNIQUE_TEST_ID && DEBUG=true $cmd"
 }
 
 function deployTest() {

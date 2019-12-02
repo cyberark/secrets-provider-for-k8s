@@ -55,7 +55,7 @@ function CreatePetStoreApp() {
 
 function deployConjur() {
   pushd ..
-    git clone --single-branch --branch deploy-oss-by-default git@github.com:cyberark/kubernetes-conjur-deploy kubernetes-conjur-deploy-$UNIQUE_TEST_ID
+    git clone --single-branch --branch deploy-oss-by-default-debug git@github.com:cyberark/kubernetes-conjur-deploy kubernetes-conjur-deploy-$UNIQUE_TEST_ID
 
     pushd kubernetes-conjur-deploy-$UNIQUE_TEST_ID
       ./start
