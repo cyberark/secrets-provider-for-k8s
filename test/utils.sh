@@ -4,10 +4,9 @@ set -euo pipefail
 # lookup test-env.sh.yml for explanation.
 export KEY_VALUE_NOT_EXIST=" "
 
-
-if [ $PLATFORM = 'kubernetes' ]; then
+if [ $PLATFORM = "kubernetes" ]; then
     cli=kubectl
-elif [ $PLATFORM = 'openshift' ]; then
+elif [ $PLATFORM = "openshift" ]; then
     cli=oc
 fi
 
@@ -111,10 +110,17 @@ function runDockerCommand() {
     -e POSTGRES_USERNAME \
     -e POSTGRES_PASSWORD \
     -e DOCKER_REGISTRY_PATH \
+    -e DOCKER_REGISTRY_URL \
+    -e GCLOUD_CLUSTER_NAME \
+    -e GCLOUD_ZONE \
+    -e GCLOUD_PROJECT_NAME \
+    -e GCLOUD_SERVICE_KEY=/tmp$GCLOUD_SERVICE_KEY \
     -e MINIKUBE \
     -e MINISHIFT \
     -e CONJUR_VERSION \
     -e CONJUR_DEPLOYMENT \
+    -e RUN_IN_DOCKER \
+    -v $GCLOUD_SERVICE_KEY:/tmp$GCLOUD_SERVICE_KEY \
     -v /var/run/docker.sock:/var/run/docker.sock \
     -v ~/.config:/root/.config \
     -v ~/.docker:/root/.docker \
@@ -160,26 +166,30 @@ function deploy_test_env {
   export CONJUR_APPLIANCE_URL=$conjur_appliance_url
   export CONJUR_AUTHN_URL=$conjur_authenticator_url
 
-   echo "Deploying test-env"
-   $TEST_CASES_K8S_CONFIG_DIR/test-env.sh.yml | $cli create -f -
+  echo "Deploying test-env"
+  $TEST_CASES_DIR/test-env.sh.yml | $cli create -f -
 
-   expected_num_replicas=`$TEST_CASES_K8S_CONFIG_DIR/test-env.sh.yml |  awk '/replicas:/ {print $2}' `
+  expected_num_replicas=`$TEST_CASES_DIR/test-env.sh.yml |  awk '/replicas:/ {print $2}' `
 
-   # deploying deploymentconfig might fail on error flows, even before creating the pods. If so, retry deploy again
-   wait_for_it 600 "$cli get dc/test-env -o jsonpath={.status.replicas} | grep '^${expected_num_replicas}$'|| oc rollout latest dc/test-env"
+  # Deployment (Deployment for k8s and DeploymentConfig for Openshift) might fail on error flows, even before creating the pods. If so, re-deploy.
+  if [[ "$PLATFORM" = "kubernetes" ]]; then
+      wait_for_it 600 "$cli get deployment test-env -o jsonpath={.status.replicas} | grep '^${expected_num_replicas}$'|| kubectl rollout latest deployment test-env"
+  elif [[ "$PLATFORM" = "openshift" ]]; then
+      wait_for_it 600 "$cli get dc/test-env -o jsonpath={.status.replicas} | grep '^${expected_num_replicas}$'|| oc rollout latest dc/test-env"
+  fi
 
-   echo "Expecting for $expected_num_replicas deployed pods"
-   wait_for_it 600 "$cli get pods --namespace=$TEST_APP_NAMESPACE_NAME --selector app=test-env --no-headers | wc -l | grep $expected_num_replicas"
+  echo "Expecting for $expected_num_replicas deployed pods"
+  wait_for_it 600 "$cli get pods --namespace=$TEST_APP_NAMESPACE_NAME --selector app=test-env --no-headers | wc -l | grep $expected_num_replicas"
 }
 
 function create_secret_access_role () {
   echo "Creating secrets access role"
-  $TEST_CASES_K8S_CONFIG_DIR/secrets-access-role.sh.yml | $cli create -f -
+  $TEST_CASES_DIR/secrets-access-role.sh.yml | $cli create -f -
 }
 
 function create_secret_access_role_binding () {
   echo "Creating secrets access role binding"
-  $TEST_CASES_K8S_CONFIG_DIR/secrets-access-role-binding.sh.yml | $cli create -f -
+  $TEST_CASES_DIR/secrets-access-role-binding.sh.yml | $cli create -f -
 }
 
 function test_app_set_secret () {

@@ -25,4 +25,5 @@ elif [[ "$PLATFORM" = "kubernetes" ]]; then
   check_env_var "GCLOUD_CLUSTER_NAME"
   check_env_var "GCLOUD_ZONE"
   check_env_var "GCLOUD_PROJECT_NAME"
+  check_env_var "DOCKER_REGISTRY_URL"
 fi
