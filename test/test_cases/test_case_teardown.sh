@@ -11,7 +11,7 @@ set_namespace $TEST_APP_NAMESPACE_NAME
 
 $cli delete secret dockerpullsecret --ignore-not-found=true
 
-$cli delete clusterrole secrets-access --ignore-not-found=true
+$cli delete clusterrole secrets-access-${UNIQUE_TEST_ID} --ignore-not-found=true
 
 $cli delete secret test-k8s-secret --ignore-not-found=true
 

@@ -55,7 +55,7 @@ function CreatePetStoreApp() {
 
 function deployConjur() {
   pushd ..
-    git clone --single-branch --branch deploy-oss-by-default git@github.com:cyberark/kubernetes-conjur-deploy kubernetes-conjur-deploy-$UNIQUE_TEST_ID
+    git clone --single-branch --branch deploy-oss-by-default-debug git@github.com:cyberark/kubernetes-conjur-deploy kubernetes-conjur-deploy-$UNIQUE_TEST_ID
 
     pushd kubernetes-conjur-deploy-$UNIQUE_TEST_ID
       ./start
@@ -75,10 +75,10 @@ function enableImagePull() {
 }
 
 function provideSecretAccessToServiceAccount() {
-  $cli delete clusterrole secrets-access --ignore-not-found=true
-  ./k8s-config/secrets-access-role.sh.yml | $cli create -f -
+  $cli delete clusterrole secrets-access-${UNIQUE_TEST_ID} --ignore-not-found=true
+  ./$TEST_CASES_DIR/secrets-access-role.sh.yml | $cli create -f -
 
-  ./k8s-config/secrets-access-role-binding.sh.yml | $cli create -f -
+  ./$TEST_CASES_DIR/secrets-access-role-binding.sh.yml | $cli create -f -
 }
 
 function deployDemoEnv() {

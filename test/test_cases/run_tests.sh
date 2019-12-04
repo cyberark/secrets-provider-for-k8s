@@ -32,4 +32,7 @@ do
   done
 done
 
-rm printenv.debug
+ENV_FILE=printenv.debug
+if [[ -f "$ENV_FILE" ]]; then
+    rm $ENV_FILE
+fi
