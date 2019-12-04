@@ -150,9 +150,6 @@ configure_cli_pod() {
 }
 
 function deploy_test_env {
-   echo "Verifying there are no (terminating) pods of type test-env"
-   wait_for_it 600 "$cli get pods --namespace=$TEST_APP_NAMESPACE_NAME --selector app=test-env --no-headers | wc -l | tr -d ' ' | grep '^0$'"
-
   conjur_node_name="conjur-cluster"
   if [ "$CONJUR_DEPLOYMENT" = "dap" ]; then
       conjur_node_name="conjur-follower"
