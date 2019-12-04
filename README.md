@@ -17,7 +17,7 @@ from DAP or Conjur.
 
 ## Supported services
 
-- Openshift 3.9 and 3.11
+- Openshift 3.9, 3.10, and 3.11
 - DAP 11.1+
 - Conjur 5.5.0+
 
@@ -69,4 +69,4 @@ Interested in checking out more of our open source projects? See our [open sourc
 
 # License
 
-The Cyberark Secrets Provider for Kubernetes is licensed under the Apache License 2.0 - see [`LICENSE`](LICENSE) for more details.
+The Cyberark Secrets Provider for Kubernetes is licensed under the Apache License 2.0 - see [`LICENSE`](LICENSE.md) for more details.
