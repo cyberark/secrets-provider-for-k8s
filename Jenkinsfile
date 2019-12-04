@@ -28,17 +28,19 @@ pipeline {
         script {
           def tasks = [:]
           ["oss", "dap"].each { deployment ->
-            stage( "Kubernetes GKE, ${deployment}") {
-              sh "./bin/test_integration --docker --${deployment} --gke"
-            }
-            stage("Openshift v3.11, ${deployment}") {
-              sh "./bin/test_integration --docker --${deployment} --oc311"
-            }
-            stage("Openshift v3.10, ${deployment}") {
-              sh "./bin/test_integration --docker --${deployment} --oc310"
-            }
-            stage("Openshift v3.9, ${deployment}") {
-              sh "./bin/test_integration --docker --${deployment} --oc39"
+            stage("Run Integration Tests with ${deployment} deployment") {
+              parallel "Kubernetes GKE, ${deployment}": {
+                sh "./bin/test_integration --docker --${deployment} --gke"
+              },
+              "Openshift v3.11, ${deployment}": {
+                sh "./bin/test_integration --docker --${deployment} --oc311"
+              },
+              "Openshift v3.10, ${deployment}": {
+                sh "./bin/test_integration --docker --${deployment} --oc310"
+              },
+              "Openshift v3.9, ${deployment}": {
+                sh "./bin/test_integration --docker --${deployment} --oc39"
+              }
             }
           }
         }
