@@ -26,3 +26,6 @@ elif [ "${PLATFORM}" = "openshift" ]; then
 fi
 
 $cli delete configmap conjur-master-ca-env --ignore-not-found=true
+
+ echo "Verifying there are no (terminating) pods of type test-env"
+ wait_for_it 600 "$cli get pods --namespace=$TEST_APP_NAMESPACE_NAME --selector app=test-env --no-headers | wc -l | tr -d ' ' | grep '^0$'"
