@@ -17,9 +17,9 @@ if has_namespace "$TEST_APP_NAMESPACE_NAME"; then
 else
   echo "Creating '$TEST_APP_NAMESPACE_NAME' namespace."
 
-  if [ $PLATFORM = 'kubernetes' ]; then
+  if [ $PLATFORM = "kubernetes" ]; then
     $cli create namespace $TEST_APP_NAMESPACE_NAME
-  elif [ $PLATFORM = 'openshift' ]; then
+  elif [ $PLATFORM = "openshift" ]; then
     $cli new-project $TEST_APP_NAMESPACE_NAME
   fi
 
@@ -28,7 +28,12 @@ fi
 
 $cli delete --ignore-not-found rolebinding test-app-conjur-authenticator-role-binding-$CONJUR_NAMESPACE_NAME
 
-./k8s-config/test-app-conjur-authenticator-role-binding.sh.yml | $cli create -f -
+TEST_DIR="config/k8s"
+if [[ "$PLATFORM" = "openshift" ]]; then
+    TEST_DIR="config/openshift"
+fi
+
+./$TEST_DIR/test-app-conjur-authenticator-role-binding.sh.yml | $cli create -f -
 
 if [[ $PLATFORM == openshift ]]; then
   # add permissions for Conjur admin user

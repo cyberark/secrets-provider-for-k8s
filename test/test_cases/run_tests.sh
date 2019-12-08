@@ -7,7 +7,10 @@ TEST_NAME_PREFIX=${1:-TEST_ID_}
 # Keep environment variables for debugging
 printenv > printenv.debug
 
-export TEST_CASES_K8S_CONFIG_DIR="$PWD/../k8s-config"
+export TEST_CASES_DIR="$PWD/../config/k8s"
+if [[ "$PLATFORM" = "openshift" ]]; then
+    export TEST_CASES_DIR="$PWD/../config/openshift"
+fi
 
 # export all utils.sh functions to be available for all tests
 set -a
@@ -29,4 +32,7 @@ do
   done
 done
 
-rm printenv.debug
+ENV_FILE=printenv.debug
+if [[ -f "$ENV_FILE" ]]; then
+    rm $ENV_FILE
+fi

@@ -23,15 +23,23 @@ pipeline {
       }
     }
 
-    stage('Run Integrations Tests - OSS') {
+    stage ("Run Integration Tests") {
       steps {
-        sh './bin/test_integration --docker'
-      }
-    }
-
-    stage('Run Integrations Tests - DAP') {
-      steps {
-        sh './bin/test_integration --docker --dap'
+        script {
+          def tasks = [:]
+          ["oss", "dap"].each { deployment ->
+            tasks["Kubernetes GKE, ${deployment}"] = {
+                sh "./bin/test_integration --docker --${deployment} --gke"
+            }
+            tasks["Openshift v3.11, ${deployment}"] = {
+                sh "./bin/test_integration --docker --${deployment} --oc311"
+            }
+            tasks["Openshift v3.10, ${deployment}"] = {
+                sh "./bin/test_integration --docker --${deployment} --oc310"
+            }
+          }
+          parallel tasks
+        }
       }
     }
 
