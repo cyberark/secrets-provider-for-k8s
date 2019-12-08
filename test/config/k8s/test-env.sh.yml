@@ -9,6 +9,7 @@ set -euo pipefail
 SECRETS_DESTINATION_KEY_VALUE=${SECRETS_DESTINATION_KEY_VALUE:-"SECRETS_DESTINATION k8s_secrets"}
 CONTAINER_MODE_KEY_VALUE=${CONTAINER_MODE_KEY_VALUE:-"CONTAINER_MODE init"}
 K8S_SECRETS_KEY_VALUE=${K8S_SECRETS_KEY_VALUE:-"K8S_SECRETS test-k8s-secret"}
+CONJUR_AUTHN_LOGIN_KEY_VALUE=${CONJUR_AUTHN_LOGIN_KEY_VALUE:-"CONJUR_AUTHN_LOGIN host/conjur/authn-k8s/${AUTHENTICATOR_ID}/apps/${TEST_APP_NAMESPACE_NAME}/*/*"}
 
 cat << EOL
 ---
@@ -74,10 +75,6 @@ spec:
           - name: CONJUR_ACCOUNT
             value: ${CONJUR_ACCOUNT}
 
-          - name: CONJUR_AUTHN_LOGIN
-            value: >-
-              host/conjur/authn-k8s/${AUTHENTICATOR_ID}/apps/${TEST_APP_NAMESPACE_NAME}/*/*
-
           - name: CONJUR_SSL_CERTIFICATE
             valueFrom:
               configMapKeyRef:
@@ -90,6 +87,7 @@ spec:
 `yaml_print_key_name_value "          " ${K8S_SECRETS_KEY_VALUE}`
 `yaml_print_key_name_value "          " ${CONTAINER_MODE_KEY_VALUE}`
 `yaml_print_key_name_value "          " ${SECRETS_DESTINATION_KEY_VALUE}`
+`yaml_print_key_name_value "          " ${CONJUR_AUTHN_LOGIN_KEY_VALUE}`
 
       imagePullSecrets:
         - name: dockerpullsecret
