@@ -5,7 +5,7 @@ create_secret_access_role
 
 create_secret_access_role_binding
 
-export CONJUR_AUTHN_LOGIN_KEY_VALUE="CONJUR_AUTHN_LOGIN host/some-policy/non-existing-namespace/*/*"
+export CONJUR_AUTHN_LOGIN="host/some-policy/non-existing-namespace/*/*"
 
 deploy_test_env
 

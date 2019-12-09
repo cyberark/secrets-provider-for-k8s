@@ -5,7 +5,7 @@ create_secret_access_role
 
 create_secret_access_role_binding
 
-export CONJUR_AUTHN_LOGIN_KEY_VALUE="CONJUR_AUTHN_LOGIN host/conjur/authn-k8s/${AUTHENTICATOR_ID}/apps/${TEST_APP_NAMESPACE_NAME}/service_account/${TEST_APP_NAMESPACE_NAME}-sa"
+export CONJUR_AUTHN_LOGIN="host/conjur/authn-k8s/${AUTHENTICATOR_ID}/apps/${TEST_APP_NAMESPACE_NAME}/service_account/${TEST_APP_NAMESPACE_NAME}-sa"
 
 deploy_test_env
 
