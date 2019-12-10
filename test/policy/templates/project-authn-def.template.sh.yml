@@ -18,14 +18,12 @@ cat << EOL
       id: ${TEST_APP_NAMESPACE_NAME}/*/*
       annotations:
         kubernetes/authentication-container-name: cyberark-secrets-provider
-        openshift: "true"
 
     # this host will not have permissions on Conjur secrets to test this use-case
     - !host
       id: ${TEST_APP_NAMESPACE_NAME}/service_account/${TEST_APP_NAMESPACE_NAME}-sa
       annotations:
         kubernetes/authentication-container-name: cyberark-secrets-provider
-        openshift: "true"
 
   - !grant
     role: !layer
