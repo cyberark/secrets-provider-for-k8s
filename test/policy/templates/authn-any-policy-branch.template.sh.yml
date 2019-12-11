@@ -21,11 +21,21 @@ cat << EOL
       id: ${TEST_APP_NAMESPACE_NAME}/*/*
       annotations:
         kubernetes/authentication-container-name: cyberark-secrets-provider
-        openshift: "true"
 
   - !grant
     role: !layer
     members: *hosts
+
+# Define host under root
+- !host
+  id: ${TEST_APP_NAMESPACE_NAME}/*/*
+  annotations:
+    kubernetes/authentication-container-name: cyberark-secrets-provider
+
+# Add the root based host to the "some-apps" layer so we can give it permissions easily
+- !grant
+  role: !layer some-apps
+  members: !host ${TEST_APP_NAMESPACE_NAME}/*/*
 
 # Allow the host to retrieve the required secrets
 - !grant
