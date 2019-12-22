@@ -24,6 +24,8 @@ Usage: ./bin/test_integation [options]
 
     --oc310       Run the integration tests on Openshift v3.10. By default the tests are run on GKE.
 
+    --oc410       Run the integration tests on Openshift v4.10. By default the tests are run on GKE.
+
     -h, --help    Shows this help message.
 EOF
   exit
@@ -47,6 +49,7 @@ while true ; do
     --gke ) SUMMON_ENV=gke ; shift ;;
     --oc311 ) SUMMON_ENV=oc311 ; shift ;;
     --oc310 ) SUMMON_ENV=oc310 ; shift ;;
+    --oc410 ) SUMMON_ENV=oc410 ; shift ;;
     -h | --help ) print_help ; shift ;;
      * ) if [ -z "$1" ]; then break; else echo "$1 is not a valid option"; exit 1; fi;;
   esac
