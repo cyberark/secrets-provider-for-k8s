@@ -26,15 +26,6 @@ else
   set_namespace $TEST_APP_NAMESPACE_NAME
 fi
 
-$cli delete --ignore-not-found rolebinding test-app-conjur-authenticator-role-binding-$CONJUR_NAMESPACE_NAME
-
-TEST_DIR="config/k8s"
-if [[ "$PLATFORM" = "openshift" ]]; then
-    TEST_DIR="config/openshift"
-fi
-
-./$TEST_DIR/test-app-conjur-authenticator-role-binding.sh.yml | $cli create -f -
-
 if [[ $PLATFORM == openshift ]]; then
   # add permissions for Conjur admin user
   oc adm policy add-role-to-user system:registry $OPENSHIFT_USERNAME
