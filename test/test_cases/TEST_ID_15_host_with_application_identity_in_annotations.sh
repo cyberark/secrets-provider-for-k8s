@@ -5,7 +5,7 @@ create_secret_access_role
 
 create_secret_access_role_binding
 
-export CONJUR_AUTHN_LOGIN_KEY_VALUE="CONJUR_AUTHN_LOGIN host/some-apps/annotations-app"
+export CONJUR_AUTHN_LOGIN="host/some-apps/annotations-app"
 
 deploy_test_env
 
