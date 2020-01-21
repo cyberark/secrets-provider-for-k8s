@@ -5,8 +5,8 @@ github.com/cenkalti/backoff v2.2.1+incompatible h1:tNowT99t7UNflLxfYYSlKYsBpXdEe
 github.com/cenkalti/backoff v2.2.1+incompatible/go.mod h1:90ReRw6GdpyfrHakVjL/QHaoyV4aDUVVkXQJJJ3NXXM=
 github.com/cyberark/conjur-api-go v0.6.0 h1:QQYmFRhcCvmtZ9oSRoXCxWb7uRjppfu5lcEwo4HEjtg=
 github.com/cyberark/conjur-api-go v0.6.0/go.mod h1:uM96pLpckwYYAWRSbrsw+TT0y3kg49QCEGpdpa9dJ34=
-github.com/cyberark/conjur-authn-k8s-client v0.15.0 h1:HFSkyKtaWkxhOc+Whh2CV3x1HWsYWXu8yR4w6RS3umw=
-github.com/cyberark/conjur-authn-k8s-client v0.15.0/go.mod h1:qacUJXCppU1Rg/C+br9B1jBitTq4yG04oc4a+cfI200=
+github.com/cyberark/conjur-authn-k8s-client v0.16.0 h1:qQEpaa3Yq+wao0tj+mk6jMG/XX6sM8cOyzq3GBQplPg=
+github.com/cyberark/conjur-authn-k8s-client v0.16.0/go.mod h1:qacUJXCppU1Rg/C+br9B1jBitTq4yG04oc4a+cfI200=
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
