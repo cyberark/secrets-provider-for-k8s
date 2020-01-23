@@ -6,7 +6,7 @@
 set -euo pipefail
 cat << EOL
 ---
-# Define a policy and add a host to it
+# Define a policy and add hosts to it
 - !policy
   id: some-apps
   owner: !group devops
@@ -21,6 +21,13 @@ cat << EOL
       id: ${TEST_APP_NAMESPACE_NAME}/*/*
       annotations:
         kubernetes/authentication-container-name: cyberark-secrets-provider
+
+    # This host tests the ability to authenticate hosts with application identity in annotations
+    - !host
+      id: annotations-app
+      annotations:
+        authn-k8s/namespace: ${TEST_APP_NAMESPACE_NAME}
+        authn-k8s/authentication-container-name: cyberark-secrets-provider
 
   - !grant
     role: !layer
