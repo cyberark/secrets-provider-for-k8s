@@ -6,6 +6,12 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [0.4.0] - 2020-01-23
+
+### Changed
+  - Using a new conjur-authn-k8s-client version that enables authentication of
+    hosts that have their application identity defined in annotations.
+    
 ## [0.3.0] - 2019-12-26
 
 ### Changed
