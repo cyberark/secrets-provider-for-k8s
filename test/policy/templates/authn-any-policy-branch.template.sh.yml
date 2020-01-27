@@ -27,6 +27,7 @@ cat << EOL
       id: annotations-app
       annotations:
         authn-k8s/namespace: ${TEST_APP_NAMESPACE_NAME}
+        authn-k8s/service-account: ${TEST_APP_NAMESPACE_NAME}-sa
         authn-k8s/authentication-container-name: cyberark-secrets-provider
 
   - !grant
