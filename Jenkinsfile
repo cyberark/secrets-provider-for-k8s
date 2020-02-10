@@ -66,8 +66,11 @@ pipeline {
   }
 
   post {
-    always {
+    success {
       cleanupAndNotify(currentBuild.currentResult)
+    }
+    unsuccessful {
+      cleanupAndNotify(currentBuild.currentResult, "#development", "@secrets-provider-for-k8s-owners")
     }
   }
 }
