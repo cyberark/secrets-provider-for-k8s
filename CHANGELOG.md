@@ -6,6 +6,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Changed
+  - Bumped the authn-k8s client version to 0.16.1
+    (cyberark/conjur-authn-k8s-client#70)
+
 ## [0.4.0] - 2020-01-23
 
 ### Changed
