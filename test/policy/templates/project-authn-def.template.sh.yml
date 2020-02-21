@@ -25,6 +25,11 @@ cat << EOL
       annotations:
         kubernetes/authentication-container-name: cyberark-secrets-provider
 
+    - !host
+      id: ${TEST_APP_NAMESPACE_NAME}/deployment/test-env
+      annotations:
+        kubernetes/authentication-container-name: cyberark-secrets-provider
+
   - !grant
     role: !layer
     members: *hosts
