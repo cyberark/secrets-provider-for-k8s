@@ -9,6 +9,14 @@ pipeline {
   }
 
   stages {
+    stage('Validate') {
+      parallel {
+        stage('Changelog') {
+          steps { sh './bin/parse-changelog.sh' }
+        }
+      }
+    }
+
     stage('Build client Docker image') {
       steps {
         sh './bin/build'
@@ -18,7 +26,7 @@ pipeline {
     stage('Run Unit Tests') {
       steps {
         sh './bin/test_unit'
-        
+
         junit 'unit-test/junit.xml'
       }
     }
