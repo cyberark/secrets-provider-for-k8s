@@ -13,7 +13,7 @@ CONJUR_AUTHN_LOGIN=${CONJUR_AUTHN_LOGIN:-"host/conjur/authn-k8s/${AUTHENTICATOR_
 
 cat << EOL
 ---
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   labels:
