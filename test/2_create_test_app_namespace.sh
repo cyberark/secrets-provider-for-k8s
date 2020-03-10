@@ -18,9 +18,9 @@ else
   echo "Creating '$TEST_APP_NAMESPACE_NAME' namespace."
 
   if [ $PLATFORM = "kubernetes" ]; then
-    $cli create namespace $TEST_APP_NAMESPACE_NAME
+    $cli "create namespace $TEST_APP_NAMESPACE_NAME"
   elif [ $PLATFORM = "openshift" ]; then
-    $cli new-project $TEST_APP_NAMESPACE_NAME
+    $cli "new-project $TEST_APP_NAMESPACE_NAME"
   fi
 
   set_namespace $TEST_APP_NAMESPACE_NAME
@@ -33,7 +33,7 @@ if [[ "$PLATFORM" = "openshift" ]]; then
     TEST_DIR="config/openshift"
 fi
 
-./$TEST_DIR/test-app-conjur-authenticator-role-binding.sh.yml | $cli create -f -
+./$TEST_DIR/test-app-conjur-authenticator-role-binding.sh.yml | $cli "create -f -"
 
 if [[ $PLATFORM == openshift ]]; then
   # add permissions for Conjur admin user

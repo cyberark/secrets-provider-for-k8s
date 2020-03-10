@@ -11,4 +11,4 @@ deploy_test_env
 
 echo "Expecting secrets provider to fail with error CSPFK034E Failed to retrieve Conjur secrets"
 pod_name=$(cli_get_pods_test_env | awk '{print $1}')
-wait_for_it 600 "$cli logs $pod_name -c cyberark-secrets-provider | grep 'CSPFK034E'"
+$cli "logs $pod_name -c cyberark-secrets-provider | grep CSPFK034E"

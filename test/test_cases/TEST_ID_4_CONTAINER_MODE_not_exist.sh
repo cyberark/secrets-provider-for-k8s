@@ -11,4 +11,4 @@ deploy_test_env
 
 echo "Expecting secrets provider to fail with error 'CSPFK007E Setting SECRETS_DESTINATION environment variable to 'k8s_secrets' must run as init container'"
 pod_name=$(cli_get_pods_test_env | awk '{print $1}')
-wait_for_it 600 "$cli logs $pod_name -c cyberark-secrets-provider | grep 'CSPFK007E'"
+$cli "logs $pod_name -c cyberark-secrets-provider | grep CSPFK007E"

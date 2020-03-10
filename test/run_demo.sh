@@ -69,7 +69,7 @@ function enableImagePull() {
   $cli secrets new-dockercfg dockerpullsecret \
         --docker-server=${DOCKER_REGISTRY_PATH} \
         --docker-username=_ \
-        --docker-password=$($cli whoami -t) \
+        --docker-password=$($cli_no_timeout  whoami -t) \
         --docker-email=_
   $cli secrets add serviceaccount/default secrets/dockerpullsecret --for=pull
 }
@@ -82,10 +82,10 @@ function provideSecretAccessToServiceAccount() {
 }
 
 function deployDemoEnv() {
-  conjur_node_pod=$($cli get pod --namespace $CONJUR_NAMESPACE_NAME --selector=app=conjur-node -o=jsonpath='{.items[].metadata.name}')
+  conjur_node_pod=$($cli_no_timeout  get pod --namespace $CONJUR_NAMESPACE_NAME --selector=app=conjur-node -o=jsonpath='{.items[].metadata.name}')
 
   # this variable is consumed in pet-store-env.sh.yml
-  export CONJUR_SSL_CERTIFICATE=$($cli exec --namespace $CONJUR_NAMESPACE_NAME "${conjur_node_pod}" cat /opt/conjur/etc/ssl/conjur-master.pem)
+  export CONJUR_SSL_CERTIFICATE=$($cli_no_timeout  exec --namespace $CONJUR_NAMESPACE_NAME "${conjur_node_pod}" cat /opt/conjur/etc/ssl/conjur-master.pem)
 
   ./demo/pet-store-env.sh.yml | $cli create -f -
 }
