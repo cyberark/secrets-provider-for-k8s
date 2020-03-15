@@ -170,9 +170,9 @@ function deploy_test_env {
 
   # Deployment (Deployment for k8s and DeploymentConfig for Openshift) might fail on error flows, even before creating the pods. If so, re-deploy.
   if [[ "$PLATFORM" = "kubernetes" ]]; then
-      $cli_with_timeout "get deployment test-env -o jsonpath={.status.replicas} | grep '^${expected_num_replicas}$'|| $cli_with_timeout rollout latest deployment test-env"
+      $cli_with_timeout "get deployment test-env -o jsonpath={.status.replicas} | grep '^${expected_num_replicas}$'|| $cli_without_timeout rollout latest deployment test-env"
   elif [[ "$PLATFORM" = "openshift" ]]; then
-      $cli_with_timeout "get dc/test-env -o jsonpath={.status.replicas} | grep '^${expected_num_replicas}$'|| $cli_with_timeout rollout latest dc/test-env"
+      $cli_with_timeout "get dc/test-env -o jsonpath={.status.replicas} | grep '^${expected_num_replicas}$'|| $cli_without_timeout rollout latest dc/test-env"
   fi
 
   echo "Expecting for $expected_num_replicas deployed pods"
