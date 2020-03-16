@@ -6,11 +6,11 @@ set -euo pipefail
 set_namespace default
 
 if [[ $PLATFORM == openshift ]]; then
-  oc login -u $OPENSHIFT_USERNAME
+  $cli_with_timeout login -u $OPENSHIFT_USERNAME
 fi
 
 if has_namespace $TEST_APP_NAMESPACE_NAME; then
-  $cli delete namespace $TEST_APP_NAMESPACE_NAME
+  $cli_with_timeout delete namespace $TEST_APP_NAMESPACE_NAME
 
   printf "Waiting for $TEST_APP_NAMESPACE_NAME namespace deletion to complete"
 

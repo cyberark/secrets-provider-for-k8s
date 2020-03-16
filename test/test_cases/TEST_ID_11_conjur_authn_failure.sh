@@ -11,4 +11,4 @@ deploy_test_env
 
 echo "Expecting secrets provider to fail with error CAKC015E Login failed"
 pod_name=$(cli_get_pods_test_env | awk '{print $1}')
-wait_for_it 600 "$cli logs $pod_name -c cyberark-secrets-provider | grep 'CAKC015E'"
+$cli_with_timeout "logs $pod_name -c cyberark-secrets-provider | grep CAKC015E"

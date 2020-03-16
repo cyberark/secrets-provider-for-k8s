@@ -29,7 +29,7 @@ function main() {
 
   provideSecretAccessToServiceAccount
 
-  $cli create -f demo/k8s-secret.yml
+  $cli_without_timeout create -f demo/k8s-secret.yml
 
   deployDemoEnv
 
@@ -64,30 +64,30 @@ function deployConjur() {
 }
 
 function enableImagePull() {
-  $cli delete secret dockerpullsecret --ignore-not-found=true
+  $cli_without_timeout delete secret dockerpullsecret --ignore-not-found=true
   # TODO: replace the following with `oc create secret`
-  $cli secrets new-dockercfg dockerpullsecret \
+  $cli_without_timeout secrets new-dockercfg dockerpullsecret \
         --docker-server=${DOCKER_REGISTRY_PATH} \
         --docker-username=_ \
-        --docker-password=$($cli whoami -t) \
+        --docker-password=$($cli_without_timeout  whoami -t) \
         --docker-email=_
-  $cli secrets add serviceaccount/default secrets/dockerpullsecret --for=pull
+  $cli_without_timeout secrets add serviceaccount/default secrets/dockerpullsecret --for=pull
 }
 
 function provideSecretAccessToServiceAccount() {
-  $cli delete clusterrole secrets-access-${UNIQUE_TEST_ID} --ignore-not-found=true
-  ./$TEST_CASES_DIR/secrets-access-role.sh.yml | $cli create -f -
+  $cli_without_timeout delete clusterrole secrets-access-${UNIQUE_TEST_ID} --ignore-not-found=true
+  ./$TEST_CASES_DIR/secrets-access-role.sh.yml | $cli_without_timeout create -f -
 
-  ./$TEST_CASES_DIR/secrets-access-role-binding.sh.yml | $cli create -f -
+  ./$TEST_CASES_DIR/secrets-access-role-binding.sh.yml | $cli_without_timeout create -f -
 }
 
 function deployDemoEnv() {
-  conjur_node_pod=$($cli get pod --namespace $CONJUR_NAMESPACE_NAME --selector=app=conjur-node -o=jsonpath='{.items[].metadata.name}')
+  conjur_node_pod=$($cli_without_timeout  get pod --namespace $CONJUR_NAMESPACE_NAME --selector=app=conjur-node -o=jsonpath='{.items[].metadata.name}')
 
   # this variable is consumed in pet-store-env.sh.yml
-  export CONJUR_SSL_CERTIFICATE=$($cli exec --namespace $CONJUR_NAMESPACE_NAME "${conjur_node_pod}" cat /opt/conjur/etc/ssl/conjur-master.pem)
+  export CONJUR_SSL_CERTIFICATE=$($cli_without_timeout  exec --namespace $CONJUR_NAMESPACE_NAME "${conjur_node_pod}" cat /opt/conjur/etc/ssl/conjur-master.pem)
 
-  ./demo/pet-store-env.sh.yml | $cli create -f -
+  ./demo/pet-store-env.sh.yml | $cli_with_timeout create -f -
 }
 
 main
