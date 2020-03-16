@@ -5,8 +5,9 @@ pipeline {
 
   options {
     timestamps()
-    /* we want to avoid running in parallel otherwise we can get gcloud crashed : database is locked
-       working with same environment in parallel */
+    // We want to avoid running in parallel.
+    // When we have 2 build running on the same environment (gke env only) in parallel,
+    // we get the error "gcloud crashed : database is locked"
     disableConcurrentBuilds()
     buildDiscarder(logRotator(numToKeepStr: '30'))
   }
@@ -34,8 +35,9 @@ pipeline {
       }
     }
 
-    /* we want to avoid running in parallel otherwise we can get gcloud crashed : database is locked
-       working with same environment in parallel */
+    // We want to avoid running in parallel.
+    // When we have 2 build running on the same environment (gke env only) in parallel,
+    // we get the error "gcloud crashed : database is locked"
    stage ("Run Integration Tests on oss") {
       steps {
         script {
@@ -54,17 +56,17 @@ pipeline {
       }
     }
 
-    stage ("Run Integration Tests on dap") {
+    stage ("Run Integration Tests on DAP") {
           steps {
             script {
               def tasks = [:]
-                tasks["Kubernetes GKE, dap"] = {
+                tasks["Kubernetes GKE, DAP"] = {
                     sh "./bin/test_integration --docker --dap --gke"
                 }
-                tasks["Openshift v3.11, dap"] = {
+                tasks["Openshift v3.11, DAP"] = {
                     sh "./bin/test_integration --docker --dap --oc311"
                 }
-                tasks["Openshift v3.10, dap"] = {
+                tasks["Openshift v3.10, DAP"] = {
                     sh "./bin/test_integration --docker --dap --oc310"
                 }
               parallel tasks
