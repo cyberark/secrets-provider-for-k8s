@@ -33,20 +33,20 @@ if [[ "${DEPLOY_MASTER_CLUSTER}" == "true" ]]; then
 
   set_namespace "$CONJUR_NAMESPACE_NAME"
   conjur_cli_pod=$(get_conjur_cli_pod_name)
-  $cli exec $conjur_cli_pod -- rm -rf /policy
-  $cli cp ./policy $conjur_cli_pod:/policy
+  $cli_with_timeout "exec $conjur_cli_pod -- rm -rf /policy"
+  $cli_with_timeout "cp ./policy $conjur_cli_pod:/policy"
 
-  $cli exec $conjur_cli_pod -- \
-    bash -c "
+  $cli_with_timeout "exec $conjur_cli_pod -- \
+    bash -c \"
       CONJUR_ADMIN_PASSWORD=${CONJUR_ADMIN_PASSWORD} \
       TEST_APP_NAMESPACE_NAME=${TEST_APP_NAMESPACE_NAME} \
       CONJUR_VERSION=${CONJUR_VERSION} \
       POSTGRES_USERNAME=${POSTGRES_USERNAME} \
       POSTGRES_PASSWORD=${POSTGRES_PASSWORD} \
       /policy/load_policies.sh
-    "
+    \""
 
-  $cli exec $conjur_cli_pod -- rm -rf ./policy
+  $cli_with_timeout "exec $conjur_cli_pod -- rm -rf ./policy"
 
   echo "Conjur policy loaded."
 fi

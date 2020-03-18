@@ -1,13 +1,41 @@
 #!/bin/bash
-set -euo pipefail
+set -xeuo pipefail
 
 # lookup test-env.sh.yml for explanation.
 export KEY_VALUE_NOT_EXIST=" "
 
+wait_for_it() {
+  local timeout=$1
+  local spacer=2
+  shift
+
+  if ! [ $timeout = '-1' ]; then
+    local times_to_run=$((timeout / spacer))
+
+    #echo "Waiting for '$@' up to $timeout s"
+    for i in $(seq $times_to_run); do
+      eval $*  && return 0
+      sleep $spacer
+    done
+
+    # Last run evaluated. If this fails we return an error exit code to caller
+    eval $*
+  else
+    echo "Waiting for '$*' forever"
+
+    while ! eval $* > /dev/null; do
+      sleep $spacer
+    done
+  echo 'Success!'
+  fi
+}
+
 if [ $PLATFORM = "kubernetes" ]; then
-    cli=kubectl
+    cli_with_timeout="wait_for_it 600 kubectl"
+    cli_without_timeout=kubectl
 elif [ $PLATFORM = "openshift" ]; then
-    cli=oc
+    cli_with_timeout="wait_for_it 600 oc"
+    cli_without_timeout=oc
 fi
 
 check_env_var() {
@@ -28,49 +56,21 @@ announce() {
 }
 
 has_namespace() {
-  if $cli get namespace  "$1" > /dev/null; then
+  # We don't need a timeout here as false is a valid output.
+  # Running with a timeout will run this command repeatedly for no reason, ending with the same result
+  if $cli_without_timeout get namespace  "$1" > /dev/null; then
     true
   else
     false
   fi
 }
 
-wait_for_it() {
-  local timeout=$1
-  local spacer=2
-  shift
-
-  if ! [ $timeout = '-1' ]; then
-    local times_to_run=$((timeout / spacer))
-
-    echo "Waiting for '$@' up to $timeout s"
-    for i in $(seq $times_to_run); do
-      eval $@ > /dev/null && echo 'Success!' && return 0
-      echo -n .
-      sleep $spacer
-    done
-
-    # Last run evaluated. If this fails we return an error exit code to caller
-    eval $@
-  else
-    echo "Waiting for '$@' forever"
-
-    while ! eval $@ > /dev/null; do
-      echo -n .
-      sleep $spacer
-    done
-  echo 'Success!'
-  fi
-}
-
-
 set_namespace() {
   if [[ $# != 1 ]]; then
     printf "Error in %s/%s - expecting 1 arg.\n" "$(pwd)" $0
     exit 1
   fi
-
-  $cli config set-context "$($cli config current-context)" --namespace="$1" > /dev/null
+  $cli_with_timeout config set-context "$($cli_with_timeout config current-context)" --namespace="$1" > /dev/null
 }
 
 get_master_pod_name() {
@@ -78,12 +78,12 @@ get_master_pod_name() {
   if [ "$CONJUR_DEPLOYMENT" = "dap" ]; then
       app_name=conjur-node
   fi
-  pod_list=$($cli get pods --selector app=$app_name,role=master --no-headers | awk '{ print $1 }')
+  pod_list=$($cli_with_timeout get pods --selector app=$app_name,role=master --no-headers | awk '{ print $1 }')
   echo $pod_list | awk '{print $1}'
 }
 
 get_conjur_cli_pod_name() {
-  pod_list=$($cli get pods --selector app=conjur-cli --no-headers | awk '{ print $1 }')
+  pod_list=$($cli_with_timeout get pods --selector app=conjur-cli --no-headers | awk '{ print $1 }')
   echo $pod_list | awk '{print $1}'
 }
 
@@ -144,9 +144,9 @@ configure_cli_pod() {
 
   conjur_cli_pod=$(get_conjur_cli_pod_name)
 
-  $cli exec $conjur_cli_pod -- bash -c "yes yes | conjur init -a $CONJUR_ACCOUNT -u $conjur_url"
+  $cli_with_timeout "exec $conjur_cli_pod -- bash -c \"yes yes | conjur init -a $CONJUR_ACCOUNT -u $conjur_url\""
 
-  $cli exec $conjur_cli_pod -- conjur authn login -u admin -p $CONJUR_ADMIN_PASSWORD
+  $cli_with_timeout exec $conjur_cli_pod -- conjur authn login -u admin -p $CONJUR_ADMIN_PASSWORD
 }
 
 function deploy_test_env {
@@ -164,29 +164,29 @@ function deploy_test_env {
   export CONJUR_AUTHN_URL=$conjur_authenticator_url
 
   echo "Deploying test-env"
-  $TEST_CASES_DIR/test-env.sh.yml | $cli create -f -
+  $TEST_CASES_DIR/test-env.sh.yml | $cli_with_timeout create -f -
 
   expected_num_replicas=`$TEST_CASES_DIR/test-env.sh.yml |  awk '/replicas:/ {print $2}' `
 
   # Deployment (Deployment for k8s and DeploymentConfig for Openshift) might fail on error flows, even before creating the pods. If so, re-deploy.
   if [[ "$PLATFORM" = "kubernetes" ]]; then
-      wait_for_it 600 "$cli get deployment test-env -o jsonpath={.status.replicas} | grep '^${expected_num_replicas}$'|| kubectl rollout latest deployment test-env"
+      $cli_with_timeout "get deployment test-env -o jsonpath={.status.replicas} | grep '^${expected_num_replicas}$'|| $cli_without_timeout rollout latest deployment test-env"
   elif [[ "$PLATFORM" = "openshift" ]]; then
-      wait_for_it 600 "$cli get dc/test-env -o jsonpath={.status.replicas} | grep '^${expected_num_replicas}$'|| oc rollout latest dc/test-env"
+      $cli_with_timeout "get dc/test-env -o jsonpath={.status.replicas} | grep '^${expected_num_replicas}$'|| $cli_without_timeout rollout latest dc/test-env"
   fi
 
   echo "Expecting for $expected_num_replicas deployed pods"
-  wait_for_it 600 "$cli get pods --namespace=$TEST_APP_NAMESPACE_NAME --selector app=test-env --no-headers | wc -l | grep $expected_num_replicas"
+  $cli_with_timeout "get pods --namespace=$TEST_APP_NAMESPACE_NAME --selector app=test-env --no-headers | wc -l | grep $expected_num_replicas"
 }
 
 function create_secret_access_role () {
   echo "Creating secrets access role"
-  $TEST_CASES_DIR/secrets-access-role.sh.yml | $cli create -f -
+  $TEST_CASES_DIR/secrets-access-role.sh.yml | $cli_with_timeout create -f -
 }
 
 function create_secret_access_role_binding () {
   echo "Creating secrets access role binding"
-  $TEST_CASES_DIR/secrets-access-role-binding.sh.yml | $cli create -f -
+  $TEST_CASES_DIR/secrets-access-role-binding.sh.yml | $cli_with_timeout create -f -
 }
 
 function test_app_set_secret () {
@@ -195,7 +195,7 @@ function test_app_set_secret () {
   echo "Set secret '$SECRET_NAME' to '$SECRET_VALUE'"
   set_namespace "$CONJUR_NAMESPACE_NAME"
   configure_cli_pod
-  $cli exec $(get_conjur_cli_pod_name) -- conjur variable values add $SECRET_NAME $SECRET_VALUE
+  $cli_with_timeout "exec $(get_conjur_cli_pod_name) -- conjur variable values add $SECRET_NAME $SECRET_VALUE"
   set_namespace $TEST_APP_NAMESPACE_NAME
 }
 
@@ -219,13 +219,12 @@ yaml_print_key_name_value () {
 }
 
 cli_get_pods_test_env () {
-  $cli get pods --namespace=$TEST_APP_NAMESPACE_NAME --selector app=test-env --no-headers
+  $cli_with_timeout "get pods --namespace=$TEST_APP_NAMESPACE_NAME --selector app=test-env --no-headers"
 }
 
 verify_secret_value_in_pod () {
   pod_name=$1
   secret_name=$2
   expected_value=$3
-  wait_for_it 600 $cli exec -n "$TEST_APP_NAMESPACE_NAME ${pod_name} printenv
-     | grep $secret_name | cut -d '=' -f 2 | grep $expected_value"
+  $cli_with_timeout "exec -n $TEST_APP_NAMESPACE_NAME ${pod_name} printenv| grep $secret_name | cut -d '=' -f 2 | grep $expected_value"
 }

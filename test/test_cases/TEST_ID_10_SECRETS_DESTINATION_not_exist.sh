@@ -12,4 +12,4 @@ deploy_test_env
 pod_name=$(cli_get_pods_test_env | awk '{print $1}')
 
 echo "Expecting secrets provider to fail with error 'CSPFK004E Environment variable 'SECRETS_DESTINATION' must be provided'"
-wait_for_it 600 "$cli logs $pod_name -c cyberark-secrets-provider | grep 'CSPFK004E'"
+$cli_with_timeout "logs $pod_name -c cyberark-secrets-provider | grep CSPFK004E"
