@@ -15,8 +15,8 @@ docker build --tag secrets-provider-for-k8s-go:builder .
 
 docker run --rm \
            -v $PWD:/opt/secrets-provider-for-k8s \
-           secrets-provider-for-k8s-go:builder env CGO_ENABLED=0 GOOS=linux \
-                                              go build -a -installsuffix cgo -o secrets-provider ./cmd/secrets-provider
+           secrets-provider-for-k8s-go:builder env CGO_ENABLED=1 GOOS=linux \
+                                              /bin/bash -c "go build -a -installsuffix cgo -o secrets-provider ./cmd/secrets-provider && go tool nm secrets-provider"
 
 echo "Building secrets-provider-for-k8s:$FULL_VERSION_TAG Docker image"
 docker build -f Dockerfile.scratch \
