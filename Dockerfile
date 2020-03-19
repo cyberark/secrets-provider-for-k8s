@@ -1,4 +1,4 @@
-FROM goboring/golang:1.12.17b4
+FROM golang:1.12
 MAINTAINER Conjur Inc
 
 RUN apt-get update && apt-get install -y jq
