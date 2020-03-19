@@ -164,7 +164,7 @@ function deploy_test_env {
   export CONJUR_AUTHN_URL=$conjur_authenticator_url
 
   echo "Deploying test-env"
-  $TEST_CASES_DIR/test-env.sh.yml | $cli_with_timeout create -f -
+  wait_for_it 600 "$TEST_CASES_DIR/test-env.sh.yml | $cli_without_timeout create -f -"
 
   expected_num_replicas=`$TEST_CASES_DIR/test-env.sh.yml |  awk '/replicas:/ {print $2}' `
 
@@ -181,12 +181,12 @@ function deploy_test_env {
 
 function create_secret_access_role () {
   echo "Creating secrets access role"
-  $TEST_CASES_DIR/secrets-access-role.sh.yml | $cli_with_timeout create -f -
+  wait_for_it 600  "$TEST_CASES_DIR/secrets-access-role.sh.yml | $cli_without_timeout create -f -"
 }
 
 function create_secret_access_role_binding () {
   echo "Creating secrets access role binding"
-  $TEST_CASES_DIR/secrets-access-role-binding.sh.yml | $cli_with_timeout create -f -
+  wait_for_it 600  "$TEST_CASES_DIR/secrets-access-role-binding.sh.yml | $cli_without_timeout create -f -"
 }
 
 function test_app_set_secret () {
