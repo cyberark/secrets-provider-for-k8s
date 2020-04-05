@@ -2,12 +2,13 @@ package mocks
 
 import (
 	"errors"
+	v1 "k8s.io/api/core/v1"
 )
 
 var CanGetK8sSecrets bool
-var CanPatchK8sSecrets bool
+var CanUpdateK8sSecrets bool
 
-func RetrieveK8sSecret(_ string, secretName string) (map[string][]byte, error) {
+func RetrieveK8sSecret(_ string, secretName string) (*v1.Secret, error) {
 	if !CanGetK8sSecrets {
 		return nil, errors.New("custom error")
 	}
@@ -17,17 +18,19 @@ func RetrieveK8sSecret(_ string, secretName string) (map[string][]byte, error) {
 		return nil, errors.New("custom error")
 	}
 
-	return MockK8sDB[secretName], nil
+	return &v1.Secret{
+		Data: MockK8sDB[secretName],
+	}, nil
 }
 
-func PatchK8sSecret(_ string, secretName string, stringDataEntriesMap map[string][]byte) error {
-	if !CanPatchK8sSecrets {
+func UpdateK8sSecret(_ string, secretName string, originalK8sSecret *v1.Secret, stringDataEntriesMap map[string][]byte) error {
+	if !CanUpdateK8sSecrets {
 		return errors.New("custom error")
 	}
 
-	secretToPatch := MockK8sDB[secretName]
+	secretToUpdate := MockK8sDB[secretName]
 	for key, value := range stringDataEntriesMap {
-		secretToPatch[key] = value
+		secretToUpdate[key] = value
 	}
 
 	return nil
