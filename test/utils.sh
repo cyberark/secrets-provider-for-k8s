@@ -226,5 +226,5 @@ verify_secret_value_in_pod () {
   pod_name=$1
   secret_name=$2
   expected_value=$3
-  $cli_with_timeout "exec -n $TEST_APP_NAMESPACE_NAME ${pod_name} printenv| grep $secret_name | cut -d '=' -f 2 | grep $expected_value"
+  $cli_with_timeout "exec -n $TEST_APP_NAMESPACE_NAME ${pod_name} printenv | grep $secret_name | cut -d '=' -f 2- | grep $expected_value"
 }
