@@ -7,14 +7,17 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ## [Unreleased]
 
 ### Changed
-  - Bumped the authn-k8s client version to 0.16.1
-    (cyberark/conjur-authn-k8s-client#70)
+- Bumped the authn-k8s client version to 0.16.1
+  (cyberark/conjur-authn-k8s-client#70)
+
+### Fixed
+- Fixed issue with providing complex Conjur secrets (#77)
 
 ## [0.4.0] - 2020-01-23
 
 ### Changed
 - Using a new conjur-authn-k8s-client version that enables authentication of
-    hosts that have their application identity defined in annotations.
+  hosts that have their application identity defined in annotations.
 
 ## [0.3.0] - 2019-12-26
 ### Changed
