@@ -2,11 +2,13 @@ package k8s_secrets_storage
 
 import (
 	"fmt"
-	v1 "k8s.io/api/core/v1"
 	"strings"
 
-	"github.com/cyberark/conjur-authn-k8s-client/pkg/access_token"
+	v1 "k8s.io/api/core/v1"
+
 	"gopkg.in/yaml.v2"
+
+	"github.com/cyberark/conjur-authn-k8s-client/pkg/access_token"
 
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/log"
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/log/messages"
