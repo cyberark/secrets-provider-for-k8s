@@ -2,7 +2,7 @@
 set -euxo pipefail
 
 echo "Creating secrets access role without 'get' permission"
-export SECRET_CLUSTER_ROLE_VERBS_VALUE="[ \"patch\" ]"
+export SECRET_CLUSTER_ROLE_VERBS_VALUE="[ \"update\" ]"
 create_secret_access_role
 
 create_secret_access_role_binding
