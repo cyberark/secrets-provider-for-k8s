@@ -33,7 +33,7 @@ function buildTestRunnerImage() {
 function deployConjur() {
   pushd ..
     git clone --single-branch \
-      --branch deploy-oss-tag \
+      --branch wait-before-conjur-init \
       git@github.com:cyberark/kubernetes-conjur-deploy \
       kubernetes-conjur-deploy-$UNIQUE_TEST_ID
   popd
