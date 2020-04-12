@@ -117,7 +117,6 @@ function runDockerCommand() {
     -e GCLOUD_SERVICE_KEY=/tmp$GCLOUD_SERVICE_KEY \
     -e MINIKUBE \
     -e MINISHIFT \
-    -e CONJUR_VERSION \
     -e CONJUR_DEPLOYMENT \
     -e RUN_IN_DOCKER \
     -v $GCLOUD_SERVICE_KEY:/tmp$GCLOUD_SERVICE_KEY \
