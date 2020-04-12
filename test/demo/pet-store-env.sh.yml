@@ -87,9 +87,6 @@ spec:
                 fieldRef:
                   fieldPath: status.podIP
 
-            - name: CONJUR_VERSION
-              value: '5'
-
             - name: CONJUR_APPLIANCE_URL
               value: >-
                 https://conjur-follower.${CONJUR_NAMESPACE_NAME}.svc.cluster.local/api
