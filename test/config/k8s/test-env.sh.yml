@@ -41,6 +41,11 @@ spec:
               secretKeyRef:
                 name: test-k8s-secret
                 key: secret
+          - name: NON_CONJUR_SECRET
+            valueFrom:
+              secretKeyRef:
+                name: test-k8s-secret
+                key: non-conjur-key
       initContainers:
       - image: '${DOCKER_REGISTRY_PATH}/${TEST_APP_NAMESPACE_NAME}/secrets-provider:latest'
         imagePullPolicy: Always
