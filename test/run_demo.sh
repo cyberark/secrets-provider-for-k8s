@@ -57,9 +57,11 @@ function deployConjur() {
   pushd ..
     git clone --single-branch --branch deploy-oss-tag git@github.com:cyberark/kubernetes-conjur-deploy kubernetes-conjur-deploy-$UNIQUE_TEST_ID
 
-    pushd kubernetes-conjur-deploy-$UNIQUE_TEST_ID
-      ./start
-    popd
+    cmd="./start"
+    if [ $CONJUR_DEPLOYMENT == "dap" ]; then
+        cmd="$cmd --dap"
+    fi
+    cd kubernetes-conjur-deploy-$UNIQUE_TEST_ID && $cmd
   popd
 }
 
@@ -75,19 +77,33 @@ function enableImagePull() {
 }
 
 function provideSecretAccessToServiceAccount() {
-  $cli_without_timeout delete clusterrole secrets-access-${UNIQUE_TEST_ID} --ignore-not-found=true
-  ./$TEST_CASES_DIR/secrets-access-role.sh.yml | $cli_without_timeout create -f -
+  export TEST_CASES_DIR="$PWD/config/openshift"
 
-  ./$TEST_CASES_DIR/secrets-access-role-binding.sh.yml | $cli_without_timeout create -f -
+  $cli_without_timeout delete clusterrole secrets-access-${UNIQUE_TEST_ID} --ignore-not-found=true
+
+  pushd $TEST_CASES_DIR
+    mkdir -p ./generated
+  popd
+
+  $TEST_CASES_DIR/secrets-access-role.sh.yml >  $TEST_CASES_DIR/generated/secrets-access-role.yml
+  oc create -f $TEST_CASES_DIR/generated/secrets-access-role.yml
+
+  $TEST_CASES_DIR/secrets-access-role-binding.sh.yml > $TEST_CASES_DIR/generated/secrets-access-role-binding.yml
+  oc create -f $TEST_CASES_DIR/generated/secrets-access-role-binding.yml
 }
 
 function deployDemoEnv() {
-  conjur_node_pod=$($cli_without_timeout  get pod --namespace $CONJUR_NAMESPACE_NAME --selector=app=conjur-node -o=jsonpath='{.items[].metadata.name}')
+  conjur_node_pod=$($cli_without_timeout get pod --namespace $CONJUR_NAMESPACE_NAME --selector=app=conjur-node -o=jsonpath='{.items[].metadata.name}')
 
   # this variable is consumed in pet-store-env.sh.yml
-  export CONJUR_SSL_CERTIFICATE=$($cli_without_timeout  exec --namespace $CONJUR_NAMESPACE_NAME "${conjur_node_pod}" cat /opt/conjur/etc/ssl/conjur-master.pem)
+  export CONJUR_SSL_CERTIFICATE=$($cli_without_timeout  exec --namespace $CONJUR_NAMESPACE_NAME "${conjur_node_pod}" cat /opt/conjur/etc/ssl/conjur.pem)
 
-  ./demo/pet-store-env.sh.yml | $cli_with_timeout create -f -
+  pushd demo
+    mkdir -p ./generated
+  popd
+
+  demo/pet-store-env.sh.yml > demo/generated/pet-store-env.yml
+  oc create -f demo/generated/pet-store-env.yml
 }
 
 main
