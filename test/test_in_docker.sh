@@ -39,8 +39,8 @@ function deployConjur() {
   popd
 
   cmd="./start"
-  if [ $CONJUR_DEPLOYMENT == "dap" ]; then
-      cmd="$cmd --dap"
+  if [ $CONJUR_DEPLOYMENT == "oss" ]; then
+      cmd="$cmd --oss"
   fi
   runDockerCommand "cd kubernetes-conjur-deploy-$UNIQUE_TEST_ID && DEBUG=true $cmd"
 }
