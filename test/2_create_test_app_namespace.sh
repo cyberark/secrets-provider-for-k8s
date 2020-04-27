@@ -33,7 +33,7 @@ if [[ "$PLATFORM" = "openshift" ]]; then
     TEST_DIR="config/openshift"
 fi
 
-wait_for_it 600  "./$TEST_DIR/test-app-conjur-authenticator-role-binding.sh.yml | $cli_without_timeout create -f -"
+wait_for_it 600  "./$TEST_DIR/test-app-conjur-authenticator-role-binding.sh.yml | $cli_without_timeout apply -f -"
 
 if [[ $PLATFORM == openshift ]]; then
   # add permissions for Conjur admin user
