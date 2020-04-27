@@ -5,7 +5,6 @@ set -eo pipefail
 
 check_env_var "UNIQUE_TEST_ID"
 
-check_env_var "CONJUR_VERSION"
 check_env_var "CONJUR_APPLIANCE_IMAGE"
 check_env_var "CONJUR_FOLLOWER_COUNT"
 check_env_var "CONJUR_ACCOUNT"
