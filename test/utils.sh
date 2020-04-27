@@ -91,7 +91,6 @@ function runDockerCommand() {
   docker run --rm \
     -i \
     -e UNIQUE_TEST_ID \
-    -e CONJUR_VERSION \
     -e CONJUR_APPLIANCE_IMAGE \
     -e CONJUR_FOLLOWER_COUNT \
     -e CONJUR_ACCOUNT \
