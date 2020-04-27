@@ -1,4 +1,4 @@
-FROM golang:1.12
+FROM golang:1.13
 MAINTAINER Conjur Inc
 
 RUN apt-get update && apt-get install -y jq
