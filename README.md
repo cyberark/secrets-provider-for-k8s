@@ -19,7 +19,7 @@ from DAP or Conjur.
 
 - Openshift 3.9, 3.10, and 3.11
 - DAP 11.1+
-- Conjur 5.5.0+
+- Conjur OSS v1.4.2+
 
 # Releases
 
