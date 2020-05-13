@@ -67,9 +67,6 @@ spec:
               fieldRef:
                 fieldPath: status.podIP
 
-          - name: CONJUR_APPLIANCE_URL
-            value: ${CONJUR_APPLIANCE_URL}
-
           - name: CONJUR_AUTHN_URL
             value: ${CONJUR_AUTHN_URL}
 

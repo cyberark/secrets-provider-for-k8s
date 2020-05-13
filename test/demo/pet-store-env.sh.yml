@@ -87,10 +87,6 @@ spec:
                 fieldRef:
                   fieldPath: status.podIP
 
-            - name: CONJUR_APPLIANCE_URL
-              value: >-
-                https://conjur-follower.${CONJUR_NAMESPACE_NAME}.svc.cluster.local/api
-
             - name: CONJUR_AUTHN_URL
               value: >-
                 https://conjur-follower.${CONJUR_NAMESPACE_NAME}.svc.cluster.local/api/authn-k8s/${AUTHENTICATOR_ID}
