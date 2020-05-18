@@ -51,17 +51,20 @@ spec:
               - name: DB_PLATFORM
                 value: "postgres"
               - name: DB_URL
-                value: "postgresql://${POSTGRES_HOSTNAME}:5432/${POSTGRES_DATABASE}"
+                valueFrom:
+                  secretKeyRef:
+                    name: db-credentials
+                    key: url
               - name: DB_USERNAME
                 valueFrom:
                   secretKeyRef:
                     name: db-credentials
-                    key: username
+                    key: db_username
               - name: DB_PASSWORD
                 valueFrom:
                   secretKeyRef:
                     name: db-credentials
-                    key: password
+                    key: db_password
       initContainers:
         - image: '${DOCKER_REGISTRY_PATH}/${TEST_APP_NAMESPACE_NAME}/secrets-provider:latest'
           imagePullPolicy: Always

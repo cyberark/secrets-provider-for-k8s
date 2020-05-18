@@ -243,3 +243,13 @@ verify_secret_value_in_pod () {
   $cli_with_timeout "exec -n $TEST_APP_NAMESPACE_NAME ${pod_name} -- \
     printenv | grep $secret_name | cut -d '=' -f 2- | grep $expected_value"
 }
+
+platform_image() {
+  if [ $PLATFORM = "openshift" ]; then
+    echo "$DOCKER_REGISTRY_PATH/$CONJUR_NAMESPACE_NAME/$1:$CONJUR_NAMESPACE_NAME"
+  elif [ $MINIKUBE != true ]; then
+    echo "$DOCKER_REGISTRY_PATH/$1:$CONJUR_NAMESPACE_NAME"
+  else
+    echo "$1:$CONJUR_NAMESPACE_NAME"
+  fi
+}

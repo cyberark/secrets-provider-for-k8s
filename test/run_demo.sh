@@ -4,9 +4,9 @@ set -xeuo pipefail
 . utils.sh
 
 function main() {
-  ./1_check_dependencies.sh
+#  ./1_check_dependencies.sh
 
-  deployConjur
+#  deployConjur
 
   CreatePetStoreApp
 
@@ -45,7 +45,8 @@ function CreatePetStoreApp() {
       readonly IMAGE_TAG="$(cat VERSION)"
     popd
 
-    oc new-project "${TEST_APP_NAMESPACE_NAME}"
+    oc create namespace "${TEST_APP_NAMESPACE_NAME}"
+
     docker tag "demo-app:${IMAGE_TAG}" "${DOCKER_REGISTRY_PATH}/${TEST_APP_NAMESPACE_NAME}/demo-app"
     docker push "${DOCKER_REGISTRY_PATH}/${TEST_APP_NAMESPACE_NAME}/demo-app"
 
@@ -53,25 +54,37 @@ function CreatePetStoreApp() {
   popd
 }
 
-function deployConjur() {
-  pushd ..
-    git clone --single-branch --branch deploy-oss-tag git@github.com:cyberark/kubernetes-conjur-deploy kubernetes-conjur-deploy-$UNIQUE_TEST_ID
+function CreatePetStoreDB() {
+  announce "Building and pushing demo app images."
 
-    cmd="./start"
-    if [ $CONJUR_DEPLOYMENT == "dap" ]; then
-        cmd="$cmd --dap"
-    fi
-    cd kubernetes-conjur-deploy-$UNIQUE_TEST_ID && $cmd
+  pushd pg
+    docker build -t demo-app-pg:TEST_APP_NAMESPACE_NAME .
+    docker tag demo-app-pg:TEST_APP_NAMESPACE_NAME "${DOCKER_REGISTRY_PATH}/${TEST_APP_NAMESPACE_NAME}/demo-app-pg"
+    docker push "${DOCKER_REGISTRY_PATH}/${TEST_APP_NAMESPACE_NAME}/demo-app-pg"
   popd
 }
 
+function deployDB() {
+  echo "Deploying demo Postgres DB"
+
+  oc delete --ignore-not-found \
+    service/demo-app-backend \
+    statefulset/pg
+
+  demo_app_pg_image=$(platform_image demo-app-pg)
+
+  sed -e "s#{{ DEMO_APP_PG_DOCKER_IMAGE }}#$demo_app_pg_image#g" ./config/k8s/postgres.yml | oc create -f -
+}
+
 function enableImagePull() {
+  announce "Creating image pull secret."
+
   $cli_without_timeout delete secret dockerpullsecret --ignore-not-found=true
-  # TODO: replace the following with `oc create secret`
+
   $cli_without_timeout secrets new-dockercfg dockerpullsecret \
         --docker-server=${DOCKER_REGISTRY_PATH} \
         --docker-username=_ \
-        --docker-password=$($cli_without_timeout  whoami -t) \
+        --docker-password=$($cli_without_timeout whoami -t) \
         --docker-email=_
   $cli_without_timeout secrets add serviceaccount/default secrets/dockerpullsecret --for=pull
 }

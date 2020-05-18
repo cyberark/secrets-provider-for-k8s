@@ -1,0 +1,40 @@
+#!/bin/bash
+set -euo pipefail
+
+cat << EOL
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: demo-app-backend
+spec:
+  selector:
+    app: demo-app-backend
+  ports:
+    - port: 5432
+      targetPort: 5432
+
+---
+apiVersion: apps/v1beta1
+kind: StatefulSet
+metadata:
+  name: pg
+  labels:
+    app: demo-app-backend
+spec:
+  serviceName: demo-app-backend
+  selector:
+    matchLabels:
+      app: demo-app-backend
+  template:
+    metadata:
+      labels:
+        app: demo-app-backend
+    spec:
+      containers:
+        - name: demo-app-backend
+          image: {{ DEMO_APP_PG_DOCKER_IMAGE }}
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 5432
+EOL

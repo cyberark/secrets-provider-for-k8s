@@ -24,9 +24,6 @@ pushd policy
 
 popd
 
-# Create the random database password
-password=$(openssl rand -hex 12)
-
 if [[ "${DEPLOY_MASTER_CLUSTER}" == "true" ]]; then
 
   announce "Loading Conjur policy."
@@ -50,4 +47,22 @@ if [[ "${DEPLOY_MASTER_CLUSTER}" == "true" ]]; then
   echo "Conjur policy loaded."
 fi
 
+
+# Create the random database password
+password=$(openssl rand -hex 12)
+
+oc exec $conjur_cli_pod -- conjur authn login -u admin -p $CONJUR_ADMIN_PASSWORD
+
+oc exec $conjur_cli_pod -- conjur variable values add "secrets/db_password" "$password"
+oc exec $conjur_cli_pod -- conjur variable values add "secrets/url" "postgresql://demo-app-backend.$TEST_APP_NAMESPACE_NAME.svc.cluster.local:5432/postgres"
+oc exec $conjur_cli_pod -- conjur variable values add "secrets/db_username" "demo_app"
+
+# Set DB password in DB schema
+pushd pg
+  sed "s#{{ DEMO_APP_DB_PASSWORD }}#$password#g" ./schema.template.sql > ./schema.sql
+popd
+
+ announce "Added DB password value: $password"
+
 announce "Ended load conjur policies"
+
