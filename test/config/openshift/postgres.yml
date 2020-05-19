@@ -1,7 +1,3 @@
-#!/bin/bash
-set -euo pipefail
-
-cat << EOL
 ---
 kind: Service
 apiVersion: v1
@@ -13,7 +9,6 @@ spec:
   ports:
     - port: 5432
       targetPort: 5432
-
 ---
 apiVersion: apps/v1beta1
 kind: StatefulSet
@@ -37,4 +32,3 @@ spec:
           imagePullPolicy: Always
           ports:
             - containerPort: 5432
-EOL

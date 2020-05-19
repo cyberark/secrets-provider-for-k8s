@@ -4,15 +4,19 @@ set -xeuo pipefail
 . utils.sh
 
 function main() {
-#  ./1_check_dependencies.sh
+  ./1_check_dependencies.sh
 
-#  deployConjur
+  deployConjur
 
   CreatePetStoreApp
 
   ./platform_login.sh
 
-  ./stop
+  #  ./stop
+
+  CreatePetStoreDB
+
+  deployPetStoreDB
 
   ./2_create_test_app_namespace.sh
 
@@ -34,7 +38,22 @@ function main() {
   deployDemoEnv
 
   oc expose service/pet-store-env
+
+  ./5_verify_success.sh
 }
+
+function deployConjur() {
+  pushd ..
+    git clone --single-branch --branch deploy-oss-tag git@github.com:cyberark/kubernetes-conjur-deploy kubernetes-conjur-deploy-$UNIQUE_TEST_ID
+
+    cmd="./start"
+    if [ $CONJUR_DEPLOYMENT == "dap" ]; then
+        cmd="$cmd --dap"
+    fi
+    cd kubernetes-conjur-deploy-$UNIQUE_TEST_ID && $cmd
+  popd
+}
+
 
 function CreatePetStoreApp() {
   pushd .
@@ -58,22 +77,24 @@ function CreatePetStoreDB() {
   announce "Building and pushing demo app images."
 
   pushd pg
-    docker build -t demo-app-pg:TEST_APP_NAMESPACE_NAME .
-    docker tag demo-app-pg:TEST_APP_NAMESPACE_NAME "${DOCKER_REGISTRY_PATH}/${TEST_APP_NAMESPACE_NAME}/demo-app-pg"
-    docker push "${DOCKER_REGISTRY_PATH}/${TEST_APP_NAMESPACE_NAME}/demo-app-pg"
+    docker build -t demo-app-pg:$CONJUR_NAMESPACE_NAME .
+    docker tag demo-app-pg:$CONJUR_NAMESPACE_NAME "${DOCKER_REGISTRY_PATH}/${CONJUR_NAMESPACE_NAME}/demo-app-pg"
+    docker push "${DOCKER_REGISTRY_PATH}/${CONJUR_NAMESPACE_NAME}/demo-app-pg"
   popd
 }
 
-function deployDB() {
+function deployPetStoreDB() {
   echo "Deploying demo Postgres DB"
+
+  oc adm policy add-scc-to-user anyuid -z default
 
   oc delete --ignore-not-found \
     service/demo-app-backend \
     statefulset/pg
 
-  demo_app_pg_image=$(platform_image demo-app-pg)
-
-  sed -e "s#{{ DEMO_APP_PG_DOCKER_IMAGE }}#$demo_app_pg_image#g" ./config/k8s/postgres.yml | oc create -f -
+  demo_app_pg_image="${DOCKER_REGISTRY_PATH}/${CONJUR_NAMESPACE_NAME}/demo-app-pg"
+  sed -e "s#{{ DEMO_APP_PG_DOCKER_IMAGE }}#$demo_app_pg_image#g" ./config/openshift/postgres.yml |
+    oc create -f -
 }
 
 function enableImagePull() {
@@ -90,9 +111,12 @@ function enableImagePull() {
 }
 
 function provideSecretAccessToServiceAccount() {
-  export TEST_CASES_DIR="$PWD/config/openshift"
+    oc delete --ignore-not-found \
+    serviceaccount "${TEST_APP_NAMESPACE_NAME}-sa" \
+    clusterrole secrets-access-${UNIQUE_TEST_ID} \
+    rolebinding secrets-access-role-binding
 
-  $cli_without_timeout delete clusterrole secrets-access-${UNIQUE_TEST_ID} --ignore-not-found=true
+  export TEST_CASES_DIR="$PWD/config/openshift"
 
   pushd $TEST_CASES_DIR
     mkdir -p ./generated
