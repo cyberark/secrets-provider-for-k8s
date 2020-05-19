@@ -4,14 +4,20 @@ Thanks for your interest in the CyberArk Secrets Provider for Kubernetes. We wel
 
 ## Table of Contents
 
-- [Prerequisites](#prerequisites)
-- [Documentation](#documentation)
-    - [Get up and running](#get-up-and-running)
-- [Contributing](#contributing)
-    - [Contributing workflow](#contributing-workflow)
-    - [Testing](#testing)
-- [Releases](#releases)
-    - [Update the version and changelog](#update-the-version-and-changelog)
+- [Contributing to the CyberArk Secrets Provider for Kubernetes](#contributing-to-the-cyberark-secrets-provider-for-kubernetes)
+  * [Prerequisites](#prerequisites)
+    + [Go](#go)
+  * [Documentation](#documentation)
+    + [Get up and running](#get-up-and-running)
+  * [Contributing](#contributing)
+    + [Contributing workflow](#contributing-workflow)
+    + [Testing](#testing)
+      - [Unit testing](#unit-testing)
+      - [Integration testing](#integration-testing)
+  * [Releases](#releases)
+    + [Update the version, changelog, and notices](#update-the-version--changelog--and-notices)
+    + [Add a git tag](#add-a-git-tag)
+    + [Publish the git release](#publish-the-git-release)
 
 ## Prerequisites
 
