@@ -8,13 +8,13 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [1.0.0] - 2020-05-19
 ### Changed
-- Bumped the authn-k8s client version to 0.16.1
-  (cyberark/conjur-authn-k8s-client#70)
+- Bumped the authn-k8s client version to 0.16.1 
+  [cyberark/conjur-authn-k8s-client#70](https://github.com/cyberark/conjur-authn-k8s-client/issues/70)
 
 ### Fixed
-- Fixed issue with providing complex Conjur secrets (#77). The secrets-provider
+- Fixed issue with providing complex Conjur secrets. The secrets-provider
   now updates k8s secrets using `update` instead of `patch` so the service-account
-  needs to have that permission.
+  needs to have that permission [cyberark/secrets-provider-for-k8s#79](https://github.com/cyberark/secrets-provider-for-k8s/issues/79)
 
 ## [0.4.0] - 2020-01-23
 
