@@ -4,14 +4,20 @@ Thanks for your interest in the CyberArk Secrets Provider for Kubernetes. We wel
 
 ## Table of Contents
 
-- [Prerequisites](#prerequisites)
-- [Documentation](#documentation)
-    - [Get up and running](#get-up-and-running)
-- [Contributing](#contributing)
-    - [Contributing workflow](#contributing-workflow)
-    - [Testing](#testing)
-- [Releases](#releases)
-    - [Update the version and changelog](#update-the-version-and-changelog)
+- [Contributing to the CyberArk Secrets Provider for Kubernetes](#contributing-to-the-cyberark-secrets-provider-for-kubernetes)
+  * [Prerequisites](#prerequisites)
+    + [Go](#go)
+  * [Documentation](#documentation)
+    + [Get up and running](#get-up-and-running)
+  * [Contributing](#contributing)
+    + [Contributing workflow](#contributing-workflow)
+    + [Testing](#testing)
+      - [Unit testing](#unit-testing)
+      - [Integration testing](#integration-testing)
+  * [Releases](#releases)
+    + [Update the version, changelog, and notices](#update-the-version--changelog--and-notices)
+    + [Add a git tag](#add-a-git-tag)
+    + [Publish the git release](#publish-the-git-release)
 
 ## Prerequisites
 
@@ -111,22 +117,30 @@ That's it!
 
 ## Releases
 
-### Update the version and changelog
+Releases should be created by maintainers only. To create a tag and release,
+follow the instructions in this section.
 
-1. Create a new branch from `master` for the version bump.
+### Update the version, changelog, and notices
+1. Create a new branch for the version bump.
+1. Based on the unreleased content, determine the new version number and update
+   the [version](pkg/secrets/version.go) file.
+1. Review the git log and ensure the [changelog](CHANGELOG.md) contains all
+   relevant recent changes with references to GitHub issues or PRs, if possible.
+1. Review the changes since the last tag, and if the dependencies have changed
+   revise the [NOTICES](NOTICES.txt) to correctly capture the included
+   dependencies and their licenses / copyrights.
+1. Commit these changes - `Bump version to x.y.z` is an acceptable commit
+   message - and open a PR for review.
+   
+### Add a git tag
+1. Once your changes have been reviewed and merged into master, tag the version
+   using `git tag -s v0.1.1`. Note this requires you to be able to sign releases.
+   Consult the [github documentation on signing commits](https://help.github.com/articles/signing-commits-with-gpg/)
+   on how to set this up. `vx.y.z` is an acceptable tag message.
+1. Push the tag: `git push vx.y.z` (or `git push origin vx.y.z` if you are working
+   from your local machine).
 
-1. Update the [`version`](pkg/secrets/version.go) file to the new version number.
-
-1. Add a description to the already existing `CHANGELOG.md` of the new changes included in the release (Fixed, Added, Changed).
-
-1. Commit these changes - "Bump version to x.y.z" is an acceptable commit message - and open a PR for review.
-
-1. Once the PR has been reviewed and merged by a Cyberark engineer, create a tag in Github.
-    
-    a. Go to "Release" -> "Draft a new release"
-    
-    b. Add a tag version and a release title (both should be `v<number_of_version>`, i.e `v1.2.3`)
-    
-    c. Add the contents of the changelog in the description
-    
-    d. Publish the release
+### Publish the git release
+1. In the GitHub UI, create a release from the new tag and copy the change log
+   for the new version into the GitHub release description.
+   
