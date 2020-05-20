@@ -19,6 +19,8 @@ import (
 func main() {
 	var err error
 
+	log.Info(messages.CSPFK008I, secrets.FullVersionName)
+
 	configureLogLevel()
 
 	// Initialize configurations
