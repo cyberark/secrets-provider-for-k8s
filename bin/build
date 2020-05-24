@@ -6,23 +6,15 @@ set -e
 
 FULL_VERSION_TAG="$(full_version_tag)"
 
-function finish {
-    rm -f secrets-provider
-}
-trap finish EXIT
+echo "---"
 
-docker build --tag secrets-provider-for-k8s-go:builder .
+echo "Building secrets-provider-for-k8s Docker image"
 
-docker run --rm \
-           -v $PWD:/opt/secrets-provider-for-k8s \
-           secrets-provider-for-k8s-go:builder env CGO_ENABLED=0 GOOS=linux \
-                                              go build -a -installsuffix cgo -o secrets-provider ./cmd/secrets-provider
-
-echo "Building secrets-provider-for-k8s:$FULL_VERSION_TAG Docker image"
-docker build -f Dockerfile.scratch \
-             --tag "secrets-provider-for-k8s:dev" \
-             --tag "secrets-provider-for-k8s:${FULL_VERSION_TAG}" \
-             --tag "secrets-provider-for-k8s:latest" \
-             .
+docker build \
+  --tag "secrets-provider-for-k8s:dev" \
+  --tag "secrets-provider-for-k8s:${FULL_VERSION_TAG}" \
+  --tag "secrets-provider-for-k8s:latest" \
+  --target "secrets-provider" \
+  .
 
 echo "---"
