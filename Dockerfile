@@ -1,5 +1,5 @@
 FROM golang:1.13 as secrets-provider-builder
-MAINTAINER Conjur Inc
+MAINTAINER CyberArk Software, Ltd.
 
 ENV GOOS=linux \
     GOARCH=amd64 \
@@ -24,7 +24,7 @@ FROM busybox
 
 # =================== MAIN CONTAINER ===================
 FROM scratch as secrets-provider
-MAINTAINER CyberArk Software, Inc.
+MAINTAINER CyberArk Software, Ltd.
 
 # copy a few commands from busybox
 COPY --from=busybox /bin/tar /bin/tar
