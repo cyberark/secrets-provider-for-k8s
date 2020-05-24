@@ -101,7 +101,13 @@ pipeline {
       cleanupAndNotify(currentBuild.currentResult)
     }
     unsuccessful {
-      cleanupAndNotify(currentBuild.currentResult, "#development", "@secrets-provider-for-k8s-owners")
+        script {
+            if (env.BRANCH_NAME == 'master') {
+              cleanupAndNotify(currentBuild.currentResult, "#development", "@secrets-provider-for-k8s-owners")
+            } else {
+              cleanupAndNotify(currentBuild.currentResult, "#development")
+            }
+        }
     }
   }
 }
