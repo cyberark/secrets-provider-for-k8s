@@ -17,4 +17,11 @@ docker build \
   --target "secrets-provider" \
   .
 
+echo "Building secrets-provider-for-k8s-redhat:$FULL_VERSION_TAG Docker image"
+
+docker build --tag "secrets-provider-for-k8s-redhat:${FULL_VERSION_TAG}" \
+   --build-arg VERSION="$FULL_VERSION_TAG" \
+   --target "secrets-provider-for-k8s-redhat" \
+   .
+
 echo "---"
