@@ -75,8 +75,8 @@ LABEL vendor="CyberArk"
 LABEL version="$VERSION"
 LABEL release="$VERSION"
 LABEL summary="Store secrets in Conjur or DAP and consume them in your Kubernetes / Openshift application containers"
-LABEL description="The Cyberark Secrets Provider for Kubernetes runs as an init container and fetches \
-secrets that pods require from DAP or Conjur"
+LABEL description="To retrieve the secrets from Conjur or DAP, the CyberArk Secrets Provider for Kubernetes runs as an \
+ init container and fetches the secrets that the pods require"
 
 # Add limited user
 RUN groupadd -r secrets-provider \

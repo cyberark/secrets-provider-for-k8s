@@ -6,6 +6,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Added
+- Red Hat certified version of the secrets-provider-for-k8s image ([cyberark/secrets-provider-for-k8s#93](https://github.com/cyberark/secrets-provider-for-k8s/pull/93))
+
 ### Changed
 - The secrets-provider-for-k8s now runs as a limited user in the Docker image 
   instead of as root. This is considered a best security practice because it abides by the principle of least privilege

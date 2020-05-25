@@ -143,4 +143,3 @@ follow the instructions in this section.
 ### Publish the git release
 1. In the GitHub UI, create a release from the new tag and copy the change log
    for the new version into the GitHub release description.
-   

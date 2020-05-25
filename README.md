@@ -13,10 +13,10 @@
 
 # CyberArk Secrets Provider for Kubernetes
 
-The CyberArk Secrets Provider for Kubernetes enables you to use secrets stored and managed in the CyberArk Vault 
-using DAP or Conjur and consume them in your Openshift application containers. To do so, the Secrets Provider for 
-Kubernetes runs as an init container and fetches secrets that pods require from DAP or Conjur.
-
+The CyberArk Secrets Provider for Kubernetes enables DAP to retrieve secrets stored and managed in the CyberArk Vault. The
+ secrets can be consumed by your Kubernetes or Openshift application containers. To retrieve the secrets from Conjur or DAP, 
+ the CyberArk Secrets Provider for Kubernetes runs as an init container and fetches the secrets that the pods require. 
+ 
 ## Supported services
 
 - Openshift 3.9, 3.10, and 3.11
@@ -32,8 +32,6 @@ When we release a version, we push the following images to Dockerhub:
 1. Major.Minor.Build
 1. Major.Minor
 1. Major
-
-In addition, each time the `master` build is green, we push a `<version>-<git_version>` (i.e. `0.2.0-d9494c1`) image to our internal repo.
 
 ## Stable release definition
 
