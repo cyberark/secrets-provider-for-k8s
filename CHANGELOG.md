@@ -6,6 +6,11 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Changed
+- The secrets-provider-for-k8s now runs as a limited user in the Docker image 
+  instead of as root. This is considered a best security practice because it abides by the principle of least privilege
+  [cyberark/secrets-provider-for-k8s#95](https://github.com/cyberark/secrets-provider-for-k8s/pull/95) 
+
 ## [1.0.0] - 2020-05-19
 ### Changed
 - Bumped the authn-k8s client version to 0.16.1 

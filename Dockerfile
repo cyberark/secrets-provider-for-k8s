@@ -1,5 +1,5 @@
 FROM golang:1.13 as secrets-provider-builder
-MAINTAINER CyberArk Software, Ltd.
+MAINTAINER CyberArk Software Ltd.
 
 ENV GOOS=linux \
     GOARCH=amd64 \
@@ -23,8 +23,8 @@ RUN go build -a -installsuffix cgo -o secrets-provider ./cmd/secrets-provider
 FROM busybox
 
 # =================== MAIN CONTAINER ===================
-FROM scratch as secrets-provider
-MAINTAINER CyberArk Software, Ltd.
+FROM alpine:3.11 as secrets-provider
+MAINTAINER CyberArk Software Ltd.
 
 # copy a few commands from busybox
 COPY --from=busybox /bin/tar /bin/tar
@@ -37,9 +37,30 @@ COPY --from=busybox /bin/mkdir /bin/mkdir
 COPY --from=busybox /bin/chmod /bin/chmod
 COPY --from=busybox /bin/cat /bin/cat
 
-# allow anyone to write to this dir, container may not run as root
-RUN mkdir -p /etc/conjur/ssl && chmod 777 /etc/conjur/ssl
+RUN apk add -u shadow libc6-compat && \
+    # Add limited user
+    groupadd -r secrets-provider \
+             -g 777 && \
+    useradd -c "secrets-provider runner account" \
+            -g secrets-provider \
+            -u 777 \
+            -m \
+            -r \
+            secrets-provider && \
+    # Ensure plugin dir is owned by secrets-provider user
+    mkdir -p /usr/local/lib/secrets-provider /etc/conjur/ssl /run/conjur && \
+    # Use GID of 0 since that is what OpenShift will want to be able to read things
+    chown secrets-provider:0 /usr/local/lib/secrets-provider \
+                           /etc/conjur/ssl \
+                           /run/conjur && \
+    # We need open group permissions in these directories since OpenShift won't
+    # match our UID when we try to write files to them
+    chmod 770 /etc/conjur/ssl \
+              /run/conjur
 
-COPY --from=secrets-provider-builder /opt/secrets-provider-for-k8s/secrets-provider /bin
+USER secrets-provider
 
-CMD ["secrets-provider"]
+COPY --from=secrets-provider-builder /opt/secrets-provider-for-k8s/secrets-provider /usr/local/bin/
+
+ENTRYPOINT [ "/usr/local/bin/secrets-provider"]
+
