@@ -137,8 +137,6 @@ func RetrieveRequiredK8sSecrets(retrieveSecretFunc k8s.RetrieveK8sSecretFunc, na
 				}
 
 				for k8sSecretKey, conjurVariableId := range conjurMap {
-					newDataEntriesMap[k8sSecretKey] = []byte(conjurVariableId)
-
 					// This map will help us later to swap the variable id with the secret value
 					pathMap[conjurVariableId] = append(pathMap[conjurVariableId], fmt.Sprintf("%s:%s", secretName, k8sSecretKey))
 				}
