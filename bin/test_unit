@@ -15,7 +15,10 @@ docker build -f Dockerfile.test -t secrets-provider-for-k8s-test-runner:latest .
 
 echo "Running unit tests..."
 set +e
-  docker run --rm -t secrets-provider-for-k8s-test-runner:latest \
+  docker run -t \
+             --volume "$PWD"/:/secrets-provider-for-k8s/test/ \
+             secrets-provider-for-k8s-test-runner:latest \
+             -coverprofile="./test/c.out" \
              ./cmd/... \
              ./pkg/... \
              | tee -a "$junit_output_file"
@@ -35,4 +38,12 @@ docker run --rm \
   secrets-provider-for-k8s-junit:latest \
   bash -exc "
     cat ./junit.output | go-junit-report > ./junit.xml
+  "
+
+# format coverage output XML
+docker run --rm \
+  -v $PWD/:/test \
+  secrets-provider-for-k8s-junit:latest \
+  bash -exc "
+    gocov convert ./c.out | gocov-xml > ./coverage.xml
   "
