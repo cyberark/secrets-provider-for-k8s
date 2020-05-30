@@ -2,20 +2,17 @@
 
 set -eox pipefail
 
-rm -rf unit-test
-mkdir unit-test
-
-junit_output_file="unit-test/junit.output"
-
-rm -f "$junit_output_file"
-touch "$junit_output_file"
+junit_output_file="./junit.output"
 
 echo "Building unit test image..."
 docker build -f Dockerfile.test -t secrets-provider-for-k8s-test-runner:latest .
 
 echo "Running unit tests..."
 set +e
-  docker run --rm -t secrets-provider-for-k8s-test-runner:latest \
+  docker run --rm -t \
+             --volume "$PWD"/:/secrets-provider-for-k8s/test/ \
+             secrets-provider-for-k8s-test-runner:latest \
+             -coverprofile="./test/c.out" \
              ./cmd/... \
              ./pkg/... \
              | tee -a "$junit_output_file"
@@ -28,11 +25,12 @@ echo "Building junit image..."
 
 docker build -f Dockerfile.junit -t secrets-provider-for-k8s-junit:latest .
 
-echo "Creating junit report..."
+echo "Creating junit report and coverage output XML"
 
 docker run --rm \
-  -v $PWD/unit-test:/test \
+  -v $PWD/:/test \
   secrets-provider-for-k8s-junit:latest \
   bash -exc "
-    cat ./junit.output | go-junit-report > ./junit.xml
+    cat ./junit.output | go-junit-report > ./junit.xml ;
+    gocov convert ./c.out | gocov-xml > ./coverage.xml
   "
