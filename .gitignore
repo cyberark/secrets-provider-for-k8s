@@ -1,2 +1,10 @@
 .idea/
 *.iml
+
+# Ignore test coverage files
+c.out
+coverage.xml
+
+#ignore junit files
+junit.output
+junit.xml
