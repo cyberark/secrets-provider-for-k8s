@@ -53,7 +53,7 @@ We welcome contributions of all kinds to Cyberark Secrets Provider for Kubernete
 how to get started and descriptions of our development workflows, see our [contributing guide](CONTRIBUTING.md).
 
 # Documentation
-You can find official documentation on [our site](https://docs.conjur.org/Latest/en/Content/Integrations/Kubernetes_deployApplicationsConjur-k8s-Secrets.htm)
+You can find official documentation on [our site](https://docs.conjur.org/Latest/en/Content/Integrations/Kubernetes_deployApplicationsConjur-k8s-Secrets.htm).
 
 # Maintainers
 
