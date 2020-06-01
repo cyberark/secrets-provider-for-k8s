@@ -1,9 +1,12 @@
 # Table of Contents
 
-- [CyberArk Secrets Provider for Kubernetes](#cyberArk-secrets-provider-for-kubernetes)
-    - [Supported services](#supported-services)
+- [Table of Contents](#table-of-contents)
+- [CyberArk Secrets Provider for Kubernetes](#cyberark-secrets-provider-for-kubernetes)
+  - [Supported services](#supported-services)
 - [Releases](#releases)
+  - [Stable release definition](#stable-release-definition)
 - [Development](#development)
+- [Documentation](#documentation)
 - [Maintainers](#maintainers)
 - [Community](#community)
 - [License](#license)
@@ -48,6 +51,9 @@ Any low or medium issues that have not been addressed have been logged in the Gi
 
 We welcome contributions of all kinds to Cyberark Secrets Provider for Kubernetes. For instructions on
 how to get started and descriptions of our development workflows, see our [contributing guide](CONTRIBUTING.md).
+
+# Documentation
+You can find official documentation on [our site](https://docs.conjur.org/Latest/en/Content/Integrations/Kubernetes_deployApplicationsConjur-k8s-Secrets.htm).
 
 # Maintainers
 
