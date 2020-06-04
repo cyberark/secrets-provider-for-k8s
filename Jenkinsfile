@@ -91,7 +91,7 @@ pipeline {
                 git config --local credential.helper '! echo username=${GIT_USER}; echo password=${GIT_PASSWORD}; echo > /dev/null'
                 git fetch --tags
                 export GIT_DESCRIPTION=$(git describe --tags)
-                ./bin/publish
+                summon ./bin/publish
             '''
         }
       }

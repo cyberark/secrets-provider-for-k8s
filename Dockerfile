@@ -64,3 +64,45 @@ COPY --from=secrets-provider-builder /opt/secrets-provider-for-k8s/secrets-provi
 
 ENTRYPOINT [ "/usr/local/bin/secrets-provider"]
 
+# =================== MAIN CONTAINER (REDHAT) ===================
+FROM registry.access.redhat.com/rhel as secrets-provider-for-k8s-redhat
+MAINTAINER CyberArk Software Ltd.
+
+ARG VERSION
+
+LABEL name="secrets-provider-for-k8s"
+LABEL vendor="CyberArk"
+LABEL version="$VERSION"
+LABEL release="$VERSION"
+LABEL summary="Store secrets in Conjur or DAP and consume them in your Kubernetes / Openshift application containers"
+LABEL description="To retrieve the secrets from Conjur or DAP, the CyberArk Secrets Provider for Kubernetes runs as an \
+ init container and fetches the secrets that the pods require"
+
+# Add limited user
+RUN groupadd -r secrets-provider \
+             -g 777 && \
+    useradd -c "secrets-provider runner account" \
+            -g secrets-provider \
+            -u 777 \
+            -m \
+            -r \
+            secrets-provider && \
+    # Ensure plugin dir is owned by secrets-provider user
+    mkdir -p /usr/local/lib/secrets-provider /etc/conjur/ssl /run/conjur /licenses && \
+    # Use GID of 0 since that is what OpenShift will want to be able to read things
+    chown secrets-provider:0 /usr/local/lib/secrets-provider \
+                           /etc/conjur/ssl \
+                           /run/conjur && \
+    # We need open group permissions in these directories since OpenShift won't
+    # match our UID when we try to write files to them
+    chmod 770 /etc/conjur/ssl \
+              /run/conjur
+
+COPY --from=secrets-provider-builder /opt/secrets-provider-for-k8s/secrets-provider /usr/local/bin/
+
+COPY LICENSE.md /licenses
+
+USER secrets-provider
+
+ENTRYPOINT [ "/usr/local/bin/secrets-provider"]
+
