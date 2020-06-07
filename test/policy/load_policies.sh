@@ -27,10 +27,16 @@ readonly POLICY_FILES=(
 
 for policy_file in "${POLICY_FILES[@]}"; do
   echo "Loading policy $policy_file..."
-  conjur policy load root $policy_file
+  conjur policy load root "$policy_file"
 done
 
-conjur variable values add secrets/test_secret "supersecret"
+# the values of these secrets aren't important as we populate the secret that we
+# are testing in each test. We need them to have some value as both are required
+# in the pod
+conjur variable values add secrets/test_secret "some-secret"
+conjur variable values add "secrets/var with spaces" "some-secret"
+
+# populate Conjur secrets for the demo
 conjur variable values add secrets/db_username "$POSTGRES_USERNAME"
 conjur variable values add secrets/db_password "$POSTGRES_PASSWORD"
 

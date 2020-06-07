@@ -41,6 +41,11 @@ spec:
               secretKeyRef:
                 name: test-k8s-secret
                 key: secret
+          - name: VARIABLE_WITH_SPACES_SECRET
+            valueFrom:
+              secretKeyRef:
+                name: test-k8s-secret
+                key: var_with_spaces
           - name: NON_CONJUR_SECRET
             valueFrom:
               secretKeyRef:
