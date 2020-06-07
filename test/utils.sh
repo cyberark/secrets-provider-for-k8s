@@ -222,24 +222,26 @@ cli_get_pods_test_env () {
 
 test_secret_is_provided () {
   secret_value=$1
+  variable_name="${2:-secrets/test_secret}"
+  environment_variable_name="${3:-TEST_SECRET}"
 
   set_namespace "$CONJUR_NAMESPACE_NAME"
   conjur_cli_pod=$(get_conjur_cli_pod_name)
-  $cli_with_timeout "exec $conjur_cli_pod -- conjur variable values add secrets/test_secret $secret_value"
+  $cli_with_timeout "exec $conjur_cli_pod -- conjur variable values add \"$variable_name\" $secret_value"
 
   set_namespace "$TEST_APP_NAMESPACE_NAME"
   deploy_test_env
 
-  echo "Verifying pod test_env has environment variable 'TEST_SECRET' with value '$secret_value'"
+  echo "Verifying pod test_env has environment variable '$environment_variable_name' with value '$secret_value'"
   pod_name=$(cli_get_pods_test_env | awk '{print $1}')
-  verify_secret_value_in_pod "$pod_name" TEST_SECRET "$secret_value"
+  verify_secret_value_in_pod "$pod_name" "$environment_variable_name" "$secret_value"
 }
 
 verify_secret_value_in_pod () {
   pod_name=$1
-  secret_name=$2
+  environment_variable_name=$2
   expected_value=$3
 
   $cli_with_timeout "exec -n $TEST_APP_NAMESPACE_NAME ${pod_name} -- \
-    printenv | grep $secret_name | cut -d '=' -f 2- | grep $expected_value"
+    printenv | grep $environment_variable_name | cut -d '=' -f 2- | grep $expected_value"
 }
