@@ -35,6 +35,7 @@ done
 # in the pod
 conjur variable values add secrets/test_secret "some-secret"
 conjur variable values add "secrets/var with spaces" "some-secret"
+conjur variable values add "secrets/var+with+pluses" "some-secret"
 
 # populate Conjur secrets for the demo
 conjur variable values add secrets/db_username "$POSTGRES_USERNAME"
