@@ -10,6 +10,7 @@ pipeline {
     // we get the error "gcloud crashed : database is locked"
     disableConcurrentBuilds()
     buildDiscarder(logRotator(numToKeepStr: '30'))
+    timeout(time: 2, unit: 'HOURS')
   }
 
   stages {
