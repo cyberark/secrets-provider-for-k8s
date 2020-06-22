@@ -3,7 +3,7 @@ set -euo pipefail
 
 . utils.sh
 
-announce "Creating Test App namespace."
+announce "Creating Application namespace."
 
 if [[ $PLATFORM == openshift ]]; then
   $cli_with_timeout "login -u $OPENSHIFT_USERNAME"
@@ -11,19 +11,19 @@ fi
 
 set_namespace default
 
-if has_namespace "$TEST_APP_NAMESPACE_NAME"; then
-  echo "Namespace '$TEST_APP_NAMESPACE_NAME' exists, not going to create it."
-  set_namespace $TEST_APP_NAMESPACE_NAME
+if has_namespace "$APP_NAMESPACE_NAME"; then
+  echo "Namespace '$APP_NAMESPACE_NAME' exists, not going to create it."
+  set_namespace $APP_NAMESPACE_NAME
 else
-  echo "Creating '$TEST_APP_NAMESPACE_NAME' namespace."
+  echo "Creating '$APP_NAMESPACE_NAME' namespace."
 
   if [ $PLATFORM = "kubernetes" ]; then
-    $cli_with_timeout "create namespace $TEST_APP_NAMESPACE_NAME"
+    $cli_with_timeout "create namespace $APP_NAMESPACE_NAME"
   elif [ $PLATFORM = "openshift" ]; then
-    $cli_with_timeout "new-project $TEST_APP_NAMESPACE_NAME"
+    $cli_with_timeout "new-project $APP_NAMESPACE_NAME"
   fi
 
-  set_namespace $TEST_APP_NAMESPACE_NAME
+  set_namespace $APP_NAMESPACE_NAME
 fi
 
 $cli_with_timeout delete --ignore-not-found rolebinding test-app-conjur-authenticator-role-binding-$CONJUR_NAMESPACE_NAME
@@ -41,7 +41,7 @@ if [[ $PLATFORM == openshift ]]; then
   $cli_with_timeout "adm policy add-role-to-user system:image-builder $OPENSHIFT_USERNAME"
 
   $cli_with_timeout "adm policy add-role-to-user admin $OPENSHIFT_USERNAME -n default"
-  $cli_with_timeout "adm policy add-role-to-user admin $OPENSHIFT_USERNAME -n $TEST_APP_NAMESPACE_NAME"
+  $cli_with_timeout "adm policy add-role-to-user admin $OPENSHIFT_USERNAME -n $APP_NAMESPACE_NAME"
   echo "Logging in as Conjur Openshift admin. Provide password as needed."
   $cli_with_timeout "login -u $OPENSHIFT_USERNAME"
 fi
