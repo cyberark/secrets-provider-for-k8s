@@ -100,7 +100,7 @@ function runDockerCommand() {
     -e CONJUR_NAMESPACE_NAME \
     -e PLATFORM \
     -e LOCAL_AUTHENTICATOR \
-    -e TEST_APP_NAMESPACE_NAME \
+    -e APP_NAMESPACE_NAME \
     -e OPENSHIFT_URL \
     -e OPENSHIFT_USERNAME \
     -e OPENSHIFT_PASSWORD \
@@ -174,7 +174,7 @@ function deploy_test_env {
   fi
 
   echo "Expecting for $expected_num_replicas deployed pods"
-  $cli_with_timeout "get pods --namespace=$TEST_APP_NAMESPACE_NAME --selector app=test-env --no-headers | wc -l | grep $expected_num_replicas"
+  $cli_with_timeout "get pods --namespace=$APP_NAMESPACE_NAME --selector app=test-env --no-headers | wc -l | grep $expected_num_replicas"
 }
 
 function create_secret_access_role () {
@@ -194,7 +194,7 @@ function test_app_set_secret () {
   set_namespace "$CONJUR_NAMESPACE_NAME"
   configure_cli_pod
   $cli_with_timeout "exec $(get_conjur_cli_pod_name) -- conjur variable values add $SECRET_NAME $SECRET_VALUE"
-  set_namespace $TEST_APP_NAMESPACE_NAME
+  set_namespace $APP_NAMESPACE_NAME
 }
 
 yaml_print_key_name_value () {
@@ -217,7 +217,7 @@ yaml_print_key_name_value () {
 }
 
 cli_get_pods_test_env () {
-  $cli_with_timeout "get pods --namespace=$TEST_APP_NAMESPACE_NAME --selector app=test-env --no-headers"
+  $cli_with_timeout "get pods --namespace=$APP_NAMESPACE_NAME --selector app=test-env --no-headers"
 }
 
 test_secret_is_provided () {
@@ -229,7 +229,7 @@ test_secret_is_provided () {
   conjur_cli_pod=$(get_conjur_cli_pod_name)
   $cli_with_timeout "exec $conjur_cli_pod -- conjur variable values add \"$variable_name\" $secret_value"
 
-  set_namespace "$TEST_APP_NAMESPACE_NAME"
+  set_namespace "$APP_NAMESPACE_NAME"
   deploy_test_env
 
   echo "Verifying pod test_env has environment variable '$environment_variable_name' with value '$secret_value'"
@@ -242,6 +242,6 @@ verify_secret_value_in_pod () {
   environment_variable_name=$2
   expected_value=$3
 
-  $cli_with_timeout "exec -n $TEST_APP_NAMESPACE_NAME ${pod_name} -- \
+  $cli_with_timeout "exec -n $APP_NAMESPACE_NAME ${pod_name} -- \
     printenv | grep $environment_variable_name | cut -d '=' -f 2- | grep $expected_value"
 }

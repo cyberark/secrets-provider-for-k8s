@@ -21,10 +21,10 @@ function main() {
     ./4_init_conjur_cert_authority.sh
   fi
 
-  docker tag "secrets-provider-for-k8s:dev" "${DOCKER_REGISTRY_PATH}/${TEST_APP_NAMESPACE_NAME}/secrets-provider"
-  docker push "${DOCKER_REGISTRY_PATH}/${TEST_APP_NAMESPACE_NAME}/secrets-provider"
+  docker tag "secrets-provider-for-k8s:dev" "${DOCKER_REGISTRY_PATH}/${APP_NAMESPACE_NAME}/secrets-provider"
+  docker push "${DOCKER_REGISTRY_PATH}/${APP_NAMESPACE_NAME}/secrets-provider"
 
-  set_namespace $TEST_APP_NAMESPACE_NAME
+  set_namespace $APP_NAMESPACE_NAME
   enableImagePull
 
   provideSecretAccessToServiceAccount
@@ -45,9 +45,9 @@ function CreatePetStoreApp() {
       readonly IMAGE_TAG="$(cat VERSION)"
     popd
 
-    oc new-project "${TEST_APP_NAMESPACE_NAME}"
-    docker tag "demo-app:${IMAGE_TAG}" "${DOCKER_REGISTRY_PATH}/${TEST_APP_NAMESPACE_NAME}/demo-app"
-    docker push "${DOCKER_REGISTRY_PATH}/${TEST_APP_NAMESPACE_NAME}/demo-app"
+    oc new-project "${APP_NAMESPACE_NAME}"
+    docker tag "demo-app:${IMAGE_TAG}" "${DOCKER_REGISTRY_PATH}/${APP_NAMESPACE_NAME}/demo-app"
+    docker push "${DOCKER_REGISTRY_PATH}/${APP_NAMESPACE_NAME}/demo-app"
 
     rm -rf pet-store-demo-$UNIQUE_TEST_ID
   popd

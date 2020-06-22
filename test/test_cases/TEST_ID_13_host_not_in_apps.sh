@@ -5,7 +5,7 @@ create_secret_access_role
 
 create_secret_access_role_binding
 
-export CONJUR_AUTHN_LOGIN="host/some-apps/${TEST_APP_NAMESPACE_NAME}/*/*"
+export CONJUR_AUTHN_LOGIN="host/some-apps/${APP_NAMESPACE_NAME}/*/*"
 
 deploy_test_env
 

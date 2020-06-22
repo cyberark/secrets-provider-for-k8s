@@ -18,7 +18,7 @@ cat << EOL
       description: Layer of authenticator identities permitted to call authn svc
   - &hosts
     - !host
-      id: ${TEST_APP_NAMESPACE_NAME}/*/*
+      id: ${APP_NAMESPACE_NAME}/*/*
       annotations:
         kubernetes/authentication-container-name: cyberark-secrets-provider
 
@@ -26,8 +26,8 @@ cat << EOL
     - !host
       id: annotations-app
       annotations:
-        authn-k8s/namespace: ${TEST_APP_NAMESPACE_NAME}
-        authn-k8s/service-account: ${TEST_APP_NAMESPACE_NAME}-sa
+        authn-k8s/namespace: ${APP_NAMESPACE_NAME}
+        authn-k8s/service-account: ${APP_NAMESPACE_NAME}-sa
         authn-k8s/authentication-container-name: cyberark-secrets-provider
 
   - !grant
@@ -36,14 +36,14 @@ cat << EOL
 
 # Define host under root
 - !host
-  id: ${TEST_APP_NAMESPACE_NAME}/*/*
+  id: ${APP_NAMESPACE_NAME}/*/*
   annotations:
     kubernetes/authentication-container-name: cyberark-secrets-provider
 
 # Add the root based host to the "some-apps" layer so we can give it permissions easily
 - !grant
   role: !layer some-apps
-  members: !host ${TEST_APP_NAMESPACE_NAME}/*/*
+  members: !host ${APP_NAMESPACE_NAME}/*/*
 
 # Allow the host to retrieve the required secrets
 - !grant

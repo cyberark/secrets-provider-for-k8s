@@ -22,7 +22,7 @@ if [[ "$PLATFORM" = "kubernetes" ]]; then
     $cli_with_timeout "scale deployment test-env --replicas=0"
 
     # Waiting until pod is successfully removed from the namespace before advancing.
-    $cli_with_timeout "get pods --namespace=$TEST_APP_NAMESPACE_NAME --selector app=test-env --no-headers | wc -l | tr -d ' ' | grep '^0$'"
+    $cli_with_timeout "get pods --namespace=$APP_NAMESPACE_NAME --selector app=test-env --no-headers | wc -l | tr -d ' ' | grep '^0$'"
 
     test_app_set_secret secrets/test_secret secret2
 

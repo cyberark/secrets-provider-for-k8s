@@ -32,12 +32,12 @@ if [[ "${DEPLOY_MASTER_CLUSTER}" = "true" ]]; then
   ./4_init_conjur_cert_authority.sh
 fi
 
-set_namespace $TEST_APP_NAMESPACE_NAME
+set_namespace $APP_NAMESPACE_NAME
 
 echo "Publish docker image"
 docker tag "secrets-provider-for-k8s:dev" \
-         "${DOCKER_REGISTRY_PATH}/${TEST_APP_NAMESPACE_NAME}/secrets-provider"
-docker push "${DOCKER_REGISTRY_PATH}/${TEST_APP_NAMESPACE_NAME}/secrets-provider"
+         "${DOCKER_REGISTRY_PATH}/${APP_NAMESPACE_NAME}/secrets-provider"
+docker push "${DOCKER_REGISTRY_PATH}/${APP_NAMESPACE_NAME}/secrets-provider"
 
 selector="role=follower"
 cert_location="/opt/conjur/etc/ssl/conjur.pem"

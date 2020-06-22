@@ -9,7 +9,7 @@ set -euo pipefail
 SECRETS_DESTINATION_KEY_VALUE=${SECRETS_DESTINATION_KEY_VALUE:-"SECRETS_DESTINATION k8s_secrets"}
 CONTAINER_MODE_KEY_VALUE=${CONTAINER_MODE_KEY_VALUE:-"CONTAINER_MODE init"}
 K8S_SECRETS_KEY_VALUE=${K8S_SECRETS_KEY_VALUE:-"K8S_SECRETS test-k8s-secret"}
-CONJUR_AUTHN_LOGIN=${CONJUR_AUTHN_LOGIN:-"host/conjur/authn-k8s/${AUTHENTICATOR_ID}/apps/${TEST_APP_NAMESPACE_NAME}/*/*"}
+CONJUR_AUTHN_LOGIN=${CONJUR_AUTHN_LOGIN:-"host/conjur/authn-k8s/${AUTHENTICATOR_ID}/apps/${APP_NAMESPACE_NAME}/*/*"}
 
 cat << EOL
 ---
@@ -28,7 +28,7 @@ spec:
       labels:
         app: test-env
     spec:
-      serviceAccountName: ${TEST_APP_NAMESPACE_NAME}-sa
+      serviceAccountName: ${APP_NAMESPACE_NAME}-sa
       containers:
       - image: debian
         name: test-app
@@ -56,7 +56,7 @@ spec:
                 name: test-k8s-secret
                 key: non-conjur-key
       initContainers:
-      - image: '${DOCKER_REGISTRY_PATH}/${TEST_APP_NAMESPACE_NAME}/secrets-provider:latest'
+      - image: '${DOCKER_REGISTRY_PATH}/${APP_NAMESPACE_NAME}/secrets-provider:latest'
         imagePullPolicy: Always
         name: cyberark-secrets-provider
         env:
