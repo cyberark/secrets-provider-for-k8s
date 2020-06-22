@@ -66,6 +66,12 @@ Before you can start contributing to the CyberArk Secrets Provider for Kubernete
 
 From here your pull request is reviewed. Once you have implemented all reviewer feedback, your code is merged into the project. Congratulations, you're a contributor!
 
+### Development
+
+To spin up a development environment, run `./bin/start --dev` and concatenate the environment (--dap / --oss) and 
+platform flag (--gke / --oc311 / oc310) of your choice. By default, the script deploys OSS to GKE, so no extra 
+flags would be needed.
+
 ### Testing
 
 #### Unit testing
@@ -94,7 +100,7 @@ To follow [Go testing conventions](https://golang.org/pkg/cmd/go/internal/test/)
 #### Integration testing
 
 You can run integrations in different environment- local, demo, docker with either OSS or DAP deployments. 
-All you need to do is run `./bin/test_integration` with the proper flags.
+All you need to do is run `./bin/start` with the proper flags.
 
 Run on docker: `--docker`
 
@@ -104,7 +110,7 @@ Run locally: no flag is supplied
 
 Additionally, concatenate `--dap` to the command to deploy DAP. By default, the integration tests run OSS, so no flag is needed.
 
-For example, to deploy DAP locally, run  `./bin/test_integration --dap` or on docker `./bin/test_integration --docker --dap`
+For example, to deploy DAP locally, run  `./bin/start --dap` or on docker `./bin/start --docker --dap`
 
 When contributing new intregration tests, perform the following:
 1. Navigate to the `test/test_case` folder
