@@ -1,7 +1,7 @@
 #!/bin/bash
 set -xeuo pipefail
 
-# lookup test-env.sh.yml for explanation.
+# lookup app-env.sh.yml for explanation.
 export KEY_VALUE_NOT_EXIST=" "
 
 wait_for_it() {
@@ -87,51 +87,6 @@ get_conjur_cli_pod_name() {
   echo $pod_list | awk '{print $1}'
 }
 
-function runDockerCommand() {
-  docker run --rm \
-    -i \
-    -e UNIQUE_TEST_ID \
-    -e CONJUR_APPLIANCE_IMAGE \
-    -e CONJUR_FOLLOWER_COUNT \
-    -e CONJUR_ACCOUNT \
-    -e AUTHENTICATOR_ID \
-    -e CONJUR_ADMIN_PASSWORD \
-    -e DEPLOY_MASTER_CLUSTER \
-    -e CONJUR_NAMESPACE_NAME \
-    -e PLATFORM \
-    -e LOCAL_AUTHENTICATOR \
-    -e APP_NAMESPACE_NAME \
-    -e OPENSHIFT_URL \
-    -e OPENSHIFT_USERNAME \
-    -e OPENSHIFT_PASSWORD \
-    -e POSTGRES_DATABASE \
-    -e POSTGRES_HOSTNAME \
-    -e POSTGRES_USERNAME \
-    -e POSTGRES_PASSWORD \
-    -e DOCKER_REGISTRY_PATH \
-    -e DOCKER_REGISTRY_URL \
-    -e GCLOUD_CLUSTER_NAME \
-    -e GCLOUD_ZONE \
-    -e GCLOUD_PROJECT_NAME \
-    -e GCLOUD_SERVICE_KEY=/tmp$GCLOUD_SERVICE_KEY \
-    -e MINIKUBE \
-    -e MINISHIFT \
-    -e CONJUR_DEPLOYMENT \
-    -e ENV_CONFIG \
-    -e RUN_IN_DOCKER \
-    -v $GCLOUD_SERVICE_KEY:/tmp$GCLOUD_SERVICE_KEY \
-    -v /var/run/docker.sock:/var/run/docker.sock \
-    -v ~/.config:/root/.config \
-    -v ~/.docker:/root/.docker \
-    -v "$PWD/..":/src \
-    -w /src \
-    $TEST_RUNNER_IMAGE:$CONJUR_NAMESPACE_NAME \
-    bash -c "
-      ./test/platform_login.sh
-      $1
-    "
-}
-
 configure_cli_pod() {
   announce "Configuring Conjur CLI."
 
@@ -148,7 +103,7 @@ configure_cli_pod() {
   $cli_with_timeout exec $conjur_cli_pod -- conjur authn login -u admin -p $CONJUR_ADMIN_PASSWORD
 }
 
-function deploy_test_env {
+function deploy_env {
   conjur_node_name="conjur-cluster"
   if [ "$CONJUR_DEPLOYMENT" = "dap" ]; then
       conjur_node_name="conjur-follower"
@@ -162,33 +117,23 @@ function deploy_test_env {
   export CONJUR_APPLIANCE_URL=$conjur_appliance_url
   export CONJUR_AUTHN_URL=$conjur_authenticator_url
 
-  echo "Deploying test-env"
-  wait_for_it 600 "$TEST_CASES_DIR/test-env.sh.yml | $cli_without_timeout apply -f -"
+  echo "Running Deployment Manifest"
+  wait_for_it 600 "$ENV_DIR/app-env.sh.yml | $cli_without_timeout apply -f -"
 
-  expected_num_replicas=`$TEST_CASES_DIR/test-env.sh.yml |  awk '/replicas:/ {print $2}' `
-
-  # Deployment (Deployment for k8s and DeploymentConfig for Openshift) might fail on error flows, even before creating the pods. If so, re-deploy.
-  if [[ "$PLATFORM" = "kubernetes" ]]; then
-      $cli_with_timeout "get deployment test-env -o jsonpath={.status.replicas} | grep '^${expected_num_replicas}$'|| $cli_without_timeout rollout latest deployment test-env"
-  elif [[ "$PLATFORM" = "openshift" ]]; then
-      $cli_with_timeout "get dc/test-env -o jsonpath={.status.replicas} | grep '^${expected_num_replicas}$'|| $cli_without_timeout rollout latest dc/test-env"
-  fi
-
-  echo "Expecting for $expected_num_replicas deployed pods"
-  $cli_with_timeout "get pods --namespace=$APP_NAMESPACE_NAME --selector app=test-env --no-headers | wc -l | grep $expected_num_replicas"
+  $cli_with_timeout "get pods --namespace=$APP_NAMESPACE_NAME --selector app=test-app --no-headers | wc -l"
 }
 
 function create_secret_access_role () {
   echo "Creating secrets access role"
-  wait_for_it 600  "$TEST_CASES_DIR/secrets-access-role.sh.yml | $cli_without_timeout apply -f -"
+  wait_for_it 600  "$ENV_DIR/secrets-access-role.sh.yml | $cli_without_timeout apply -f -"
 }
 
 function create_secret_access_role_binding () {
   echo "Creating secrets access role binding"
-  wait_for_it 600  "$TEST_CASES_DIR/secrets-access-role-binding.sh.yml | $cli_without_timeout apply -f -"
+  wait_for_it 600  "$ENV_DIR/secrets-access-role-binding.sh.yml | $cli_without_timeout apply -f -"
 }
 
-function test_app_set_secret () {
+function set_secret () {
   SECRET_NAME=$1
   SECRET_VALUE=$2
   echo "Set secret '$SECRET_NAME' to '$SECRET_VALUE'"
@@ -223,26 +168,15 @@ cli_get_pods_test_env () {
 
 test_secret_is_provided () {
   secret_value=$1
-  variable_name="${2:-secrets/test_secret}"
-  environment_variable_name="${3:-TEST_SECRET}"
 
   set_namespace "$CONJUR_NAMESPACE_NAME"
   conjur_cli_pod=$(get_conjur_cli_pod_name)
-  $cli_with_timeout "exec $conjur_cli_pod -- conjur variable values add \"$variable_name\" $secret_value"
+  $cli_with_timeout "exec $conjur_cli_pod -- conjur variable values add secrets/test_secret $secret_value"
 
   set_namespace "$APP_NAMESPACE_NAME"
   deploy_test_env
 
-  echo "Verifying pod test_env has environment variable '$environment_variable_name' with value '$secret_value'"
+  echo "Verifying pod test_env has environment variable 'TEST_SECRET' with value '$secret_value'"
   pod_name=$(cli_get_pods_test_env | awk '{print $1}')
-  verify_secret_value_in_pod "$pod_name" "$environment_variable_name" "$secret_value"
-}
-
-verify_secret_value_in_pod () {
-  pod_name=$1
-  environment_variable_name=$2
-  expected_value=$3
-
-  $cli_with_timeout "exec -n $APP_NAMESPACE_NAME ${pod_name} -- \
-    printenv | grep $environment_variable_name | cut -d '=' -f 2- | grep $expected_value"
+  verify_secret_value_in_pod "$pod_name" TEST_SECRET "$secret_value"
 }

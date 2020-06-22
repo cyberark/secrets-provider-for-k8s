@@ -46,13 +46,13 @@ pipeline {
         script {
           def tasks = [:]
             tasks["Kubernetes GKE, oss"] = {
-              sh "./bin/test_integration --docker --oss --gke"
+              sh "./bin/start --docker --oss --gke"
             }
             tasks["Openshift v3.11, oss"] = {
-              sh "./bin/test_integration --docker --oss --oc311"
+              sh "./bin/start --docker --oss --oc311"
             }
             tasks["Openshift v3.10, oss"] = {
-              sh "./bin/test_integration --docker --oss --oc310"
+              sh "./bin/start --docker --oss --oc310"
             }
           parallel tasks
         }
@@ -64,13 +64,13 @@ pipeline {
         script {
           def tasks = [:]
             tasks["Kubernetes GKE, DAP"] = {
-              sh "./bin/test_integration --docker --dap --gke"
+              sh "./bin/start --docker --dap --gke"
             }
             tasks["Openshift v3.11, DAP"] = {
-              sh "./bin/test_integration --docker --dap --oc311"
+              sh "./bin/start --docker --dap --oc311"
             }
             tasks["Openshift v3.10, DAP"] = {
-              sh "./bin/test_integration --docker --dap --oc310"
+              sh "./bin/start --docker --dap --oc310"
             }
           parallel tasks
         }
