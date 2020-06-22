@@ -9,10 +9,10 @@ function finish {
 
   # Stop the running processes
   runDockerCommand "
-    cd test && ./stop && cd ../kubernetes-conjur-deploy-$UNIQUE_TEST_ID && ./stop
+    ./stop && cd kubernetes-conjur-deploy-$UNIQUE_TEST_ID && ./stop
   "
   # Remove the deploy directory
-  rm -rf "../kubernetes-conjur-deploy-$UNIQUE_TEST_ID"
+  rm -rf "kubernetes-conjur-deploy-$UNIQUE_TEST_ID"
 }
 trap finish EXIT
 
