@@ -10,7 +10,7 @@ function finish {
   # There is a TRAP in test_in_docker.sh to account for Docker deployments so we do not need to add another one here
   # Stop the running processes
   if [[ $RUN_IN_DOCKER = false ]]; then
-    ./stop
+    ../stop
     ../kubernetes-conjur-deploy-"$UNIQUE_TEST_ID"/stop
     # Remove the deploy directory
     rm -rf "../kubernetes-conjur-deploy-$UNIQUE_TEST_ID"
@@ -19,17 +19,17 @@ function finish {
 }
 trap finish EXIT
 
-./platform_login.sh
+../platform_login.sh
 
-./1_check_dependencies.sh
+../1_check_dependencies.sh
 
-./stop
+../stop
 
-./2_create_test_app_namespace.sh
+../2_create_app_namespace.sh
 
 if [[ "${DEPLOY_MASTER_CLUSTER}" = "true" ]]; then
-  ./3_load_conjur_policies.sh
-  ./4_init_conjur_cert_authority.sh
+  ../3_load_conjur_policies.sh
+  ../4_init_conjur_cert_authority.sh
 fi
 
 set_namespace $APP_NAMESPACE_NAME

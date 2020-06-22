@@ -8,27 +8,26 @@ announce "Generating Conjur policy."
 pushd policy
   mkdir -p ./generated
 
-  # NOTE: generated files are prefixed with the test app namespace to allow for parallel CI
+  # NOTE: generated files are prefixed with the APP_NAMESPACE to allow for parallel CI
+  ./templates/cluster-authn-svc-def.template.sh.yml > ./generated/$APP_NAMESPACE_NAME.cluster-authn-svc.yml
 
-  ./templates/cluster-authn-svc-def.template.sh.yml > ./generated/$TEST_APP_NAMESPACE_NAME.cluster-authn-svc.yml
+  ./templates/project-authn-def.template.sh.yml > ./generated/$APP_NAMESPACE_NAME.project-authn.yml
 
-  ./templates/project-authn-def.template.sh.yml > ./generated/$TEST_APP_NAMESPACE_NAME.project-authn.yml
+  ./templates/conjur-secrets.template.sh.yml > ./generated/$APP_NAMESPACE_NAME.conjur-secrets.yml
 
-  ./templates/conjur-secrets.template.sh.yml > ./generated/$TEST_APP_NAMESPACE_NAME.conjur-secrets.yml
+  if [[ "$ENV_CONFIG" == "test" ]]; then
+    ./templates/app-identity-def.template.sh.yml > ./generated/$APP_NAMESPACE_NAME.app-identity.yml
 
-  ./templates/app-identity-def.template.sh.yml > ./generated/$TEST_APP_NAMESPACE_NAME.app-identity.yml
+    ./templates/conjur-pet-store-secrets.template.sh.yml > generated/$APP_NAMESPACE_NAME.conjur-pet-store-secrets.yml
 
-  ./templates/conjur-pet-store-secrets.template.sh.yml > generated/$TEST_APP_NAMESPACE_NAME.conjur-pet-store-secrets.yml
-
-  ./templates/authn-any-policy-branch.template.sh.yml > generated/$TEST_APP_NAMESPACE_NAME.authn-any-policy-branch.yml
-
+    ./templates/authn-any-policy-branch.template.sh.yml > generated/$APP_NAMESPACE_NAME.authn-any-policy-branch.yml
+  fi
 popd
 
 # Create the random database password
 password=$(openssl rand -hex 12)
 
 if [[ "${DEPLOY_MASTER_CLUSTER}" == "true" ]]; then
-
   announce "Loading Conjur policy."
 
   set_namespace "$CONJUR_NAMESPACE_NAME"
@@ -39,11 +38,27 @@ if [[ "${DEPLOY_MASTER_CLUSTER}" == "true" ]]; then
   $cli_with_timeout "exec $conjur_cli_pod -- \
     bash -c \"
       CONJUR_ADMIN_PASSWORD=${CONJUR_ADMIN_PASSWORD} \
-      TEST_APP_NAMESPACE_NAME=${TEST_APP_NAMESPACE_NAME} \
-      POSTGRES_USERNAME=${POSTGRES_USERNAME} \
-      POSTGRES_PASSWORD=${POSTGRES_PASSWORD} \
+      APP_NAMESPACE_NAME=${APP_NAMESPACE_NAME} \
       /policy/load_policies.sh
     \""
+
+  if [[ "$ENV_CONFIG" == "dev" ]]; then
+    $cli_with_timeout "exec $conjur_cli_pod -- \
+      bash -c \"
+        CONJUR_ADMIN_PASSWORD=${CONJUR_ADMIN_PASSWORD} \
+        APP_NAMESPACE_NAME=${APP_NAMESPACE_NAME} \
+        /policy/load_policies.sh
+       \""
+  else
+    $cli_with_timeout "exec $conjur_cli_pod -- \
+      bash -c \"
+        CONJUR_ADMIN_PASSWORD=${CONJUR_ADMIN_PASSWORD} \
+        APP_NAMESPACE_NAME=${APP_NAMESPACE_NAME} \
+        POSTGRES_USERNAME=${POSTGRES_USERNAME} \
+        POSTGRES_PASSWORD=${POSTGRES_PASSWORD} \
+        /policy/load_policies.sh
+      \""
+  fi
 
   $cli_with_timeout "exec $conjur_cli_pod -- rm -rf ./policy"
 
