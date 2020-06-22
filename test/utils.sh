@@ -127,7 +127,7 @@ function runDockerCommand() {
     -w /src \
     $TEST_RUNNER_IMAGE:$CONJUR_NAMESPACE_NAME \
     bash -c "
-      ./test/platform_login.sh
+      ./platform_login.sh
       $1
     "
 }

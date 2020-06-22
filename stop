@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 
-. utils.sh
+. "$(git rev-parse --show-toplevel)/test/utils.sh"
 
 set_namespace default
 
@@ -9,15 +9,15 @@ if [[ $PLATFORM == openshift ]]; then
   $cli_with_timeout login -u $OPENSHIFT_USERNAME
 fi
 
-if has_namespace $TEST_APP_NAMESPACE_NAME; then
-  $cli_with_timeout delete namespace $TEST_APP_NAMESPACE_NAME
+if has_namespace $APP_NAMESPACE_NAME; then
+  $cli_with_timeout delete namespace $APP_NAMESPACE_NAME
 
-  printf "Waiting for $TEST_APP_NAMESPACE_NAME namespace deletion to complete"
+  printf "Waiting for $APP_NAMESPACE_NAME namespace deletion to complete"
 
   while : ; do
     printf "."
 
-    if has_namespace "$TEST_APP_NAMESPACE_NAME"; then
+    if has_namespace "$APP_NAMESPACE_NAME"; then
       sleep 5
     else
       break
@@ -27,4 +27,4 @@ if has_namespace $TEST_APP_NAMESPACE_NAME; then
   echo ""
 fi
 
-echo "Test app environment purged."
+echo "App environment purged."
