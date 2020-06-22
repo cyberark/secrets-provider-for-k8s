@@ -33,9 +33,9 @@ spec:
       labels:
         app: pet-store-env
     spec:
-      serviceAccountName: ${TEST_APP_NAMESPACE_NAME}-sa
+      serviceAccountName: ${APP_NAMESPACE_NAME}-sa
       containers:
-          - image: '${DOCKER_REGISTRY_PATH}/${TEST_APP_NAMESPACE_NAME}/demo-app:latest'
+          - image: '${DOCKER_REGISTRY_PATH}/${APP_NAMESPACE_NAME}/demo-app:latest'
             imagePullPolicy: Always
             name: pet-store-env
             ports:
@@ -63,7 +63,7 @@ spec:
                     name: db-credentials
                     key: password
       initContainers:
-        - image: '${DOCKER_REGISTRY_PATH}/${TEST_APP_NAMESPACE_NAME}/secrets-provider:latest'
+        - image: '${DOCKER_REGISTRY_PATH}/${APP_NAMESPACE_NAME}/secrets-provider:latest'
           imagePullPolicy: Always
           name: cyberark-secrets-provider
           env:
@@ -95,7 +95,7 @@ spec:
 
             - name: CONJUR_AUTHN_LOGIN
               value: >-
-                host/conjur/authn-k8s/${AUTHENTICATOR_ID}/apps/${TEST_APP_NAMESPACE_NAME}/*/*
+                host/conjur/authn-k8s/${AUTHENTICATOR_ID}/apps/${APP_NAMESPACE_NAME}/*/*
 
             - name: CONJUR_SSL_CERTIFICATE
               valueFrom:

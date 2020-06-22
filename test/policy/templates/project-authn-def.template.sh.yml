@@ -4,9 +4,9 @@ set -euo pipefail
 cat << EOL
 ---
 # This policy defines a layer of whitelisted identities permitted to authenticate to the authn-k8s endpoint.
+# TODO add hosts with different granularities but in different files
 - !policy
   id: conjur/authn-k8s/${AUTHENTICATOR_ID}/apps
-  owner: !group devops
   annotations:
     description: Identities permitted to authenticate
   body:
@@ -15,13 +15,13 @@ cat << EOL
       description: Layer of authenticator identities permitted to call authn svc
   - &hosts
     - !host
-      id: ${TEST_APP_NAMESPACE_NAME}/*/*
+      id: ${APP_NAMESPACE_NAME}/*/*
       annotations:
         kubernetes/authentication-container-name: cyberark-secrets-provider
 
     # this host will not have permissions on Conjur secrets to test this use-case
     - !host
-      id: ${TEST_APP_NAMESPACE_NAME}/service_account/${TEST_APP_NAMESPACE_NAME}-sa
+      id: ${APP_NAMESPACE_NAME}/service_account/${APP_NAMESPACE_NAME}-sa
       annotations:
         kubernetes/authentication-container-name: cyberark-secrets-provider
 
