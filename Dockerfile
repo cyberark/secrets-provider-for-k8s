@@ -56,7 +56,11 @@ RUN apk add -u shadow libc6-compat && \
     # We need open group permissions in these directories since OpenShift won't
     # match our UID when we try to write files to them
     chmod 770 /etc/conjur/ssl \
-              /run/conjur
+              /run/conjur && \
+    mkdir -p /opt/spire/bin
+
+COPY ./test/spire_poc/spire-agent /opt/spire/bin/spire-agent
+# ADD curl -L https://github.com/spiffe/spire/releases/download/v0.10.0/spire-0.10.0-linux-x86_64-glibc.tar.gz /opt/spire/stam
 
 USER secrets-provider
 
@@ -96,7 +100,11 @@ RUN groupadd -r secrets-provider \
     # We need open group permissions in these directories since OpenShift won't
     # match our UID when we try to write files to them
     chmod 770 /etc/conjur/ssl \
-              /run/conjur
+              /run/conjur && \
+    mkdir -p /opt/spire/bin
+
+COPY ./test/spire_poc/spire-agent /opt/spire/bin/spire-agent
+#ADD curl -L https://github.com/spiffe/spire/releases/download/v0.10.0/spire-0.10.0-linux-x86_64-glibc.tar.gz /opt/spire/stam
 
 COPY --from=secrets-provider-builder /opt/secrets-provider-for-k8s/secrets-provider /usr/local/bin/
 

@@ -164,6 +164,8 @@ function deploy_test_env {
   echo "Deploying test-env"
   wait_for_it 600 "$TEST_CASES_DIR/test-env.sh.yml | $cli_without_timeout apply -f -"
 
+  sleep 99999
+
   expected_num_replicas=`$TEST_CASES_DIR/test-env.sh.yml |  awk '/replicas:/ {print $2}' `
 
   # Deployment (Deployment for k8s and DeploymentConfig for Openshift) might fail on error flows, even before creating the pods. If so, re-deploy.

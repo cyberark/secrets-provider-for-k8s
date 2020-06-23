@@ -31,35 +31,13 @@ spec:
     spec:
       serviceAccountName: ${TEST_APP_NAMESPACE_NAME}-sa
       containers:
-      - image: debian
-        name: test-app
-        command: ["sleep"]
-        args: ["infinity"]
-        env:
-          - name: TEST_SECRET
-            valueFrom:
-              secretKeyRef:
-                name: test-k8s-secret
-                key: secret
-          - name: VARIABLE_WITH_SPACES_SECRET
-            valueFrom:
-              secretKeyRef:
-                name: test-k8s-secret
-                key: var_with_spaces
-          - name: VARIABLE_WITH_PLUSES_SECRET
-            valueFrom:
-              secretKeyRef:
-                name: test-k8s-secret
-                key: var_with_pluses
-          - name: NON_CONJUR_SECRET
-            valueFrom:
-              secretKeyRef:
-                name: test-k8s-secret
-                key: non-conjur-key
-      initContainers:
       - image: '${DOCKER_REGISTRY_PATH}/${TEST_APP_NAMESPACE_NAME}/secrets-provider:latest'
         imagePullPolicy: Always
         name: cyberark-secrets-provider
+        volumeMounts:
+            - name: spire-agent-socket
+              mountPath: /run/spire/sockets
+              readOnly: true
         env:
           - name: MY_POD_NAME
             valueFrom:
@@ -102,6 +80,12 @@ spec:
 `yaml_print_key_name_value "          " ${K8S_SECRETS_KEY_VALUE}`
 `yaml_print_key_name_value "          " ${CONTAINER_MODE_KEY_VALUE}`
 `yaml_print_key_name_value "          " ${SECRETS_DESTINATION_KEY_VALUE}`
+
+      volumes:
+        - name: spire-agent-socket
+          hostPath:
+            path: /run/spire/sockets
+            type: Directory
 
       imagePullSecrets:
         - name: dockerpullsecret

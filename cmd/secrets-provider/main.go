@@ -86,6 +86,7 @@ func main() {
 			}
 
 			if authnConfig.ContainerMode == "init" {
+			    time.Sleep(999999 * time.Second)
 				os.Exit(0)
 			}
 
