@@ -7,16 +7,16 @@ apiVersion: v1
 kind: DeploymentConfig
 metadata:
   labels:
-    app: test-env
-  name: test-env
+    app: test-env-app
+  name:  test-env-app
 spec:
   replicas: 1
   selector:
-    app: test-env
+    app:  test-env-app
   template:
     metadata:
       labels:
-        app: test-env
+        app:  test-env-app
     spec:
       serviceAccountName: ${APP_NAMESPACE_NAME}-sa
       containers:
@@ -35,68 +35,5 @@ spec:
               secretKeyRef:
                 name: test-k8s-secret
                 key: non-conjur-key
-      initContainers:
-      - image: '${DOCKER_REGISTRY_PATH}/${APP_NAMESPACE_NAME}/secrets-provider:latest'
-        imagePullPolicy: Always
-        name: cyberark-secrets-provider
-        env:
-          - name: CONTAINER_MODE
-            value: init
-
-          - name: MY_POD_NAME
-            valueFrom:
-              fieldRef:
-                apiVersion: v1
-                fieldPath: metadata.name
-
-          - name: MY_POD_NAMESPACE
-            valueFrom:
-              fieldRef:
-                apiVersion: v1
-                fieldPath: metadata.namespace
-
-          - name: MY_POD_IP
-            valueFrom:
-              fieldRef:
-                fieldPath: status.podIP
-
-          - name: CONJUR_APPLIANCE_URL
-            value: ${CONJUR_APPLIANCE_URL}
-
-          - name: CONJUR_AUTHN_URL
-            value: ${CONJUR_AUTHN_URL}
-
-          - name: CONJUR_ACCOUNT
-            value: ${CONJUR_ACCOUNT}
-
-          - name: CONJUR_SSL_CERTIFICATE
-            valueFrom:
-              configMapKeyRef:
-                name: conjur-master-ca-env
-                key: ssl-certificate
-
-          - name: K8S_SECRETS
-            value: test-k8s-secret
-
-          - name: SECRETS_DESTINATION
-            value: k8s_secrets
-
-          - name: DEBUG
-            value: "true"
-
-          - name: CONJUR_AUTHN_LOGIN
-            value: "host/conjur/authn-k8s/${AUTHENTICATOR_ID}/apps/${APP_NAMESPACE_NAME}/*/*"
-
-      imagePullSecrets:
-        - name: dockerpullsecret
----
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: conjur-master-ca-env
-  label:
-    app: test-env
-data:
-  ssl-certificate: |
-$(echo "${CONJUR_SSL_CERTIFICATE}" | while read line; do printf "%20s%s\n" "" "$line"; done)
 EOL
+

@@ -120,6 +120,9 @@ function deploy_env {
   echo "Running Deployment Manifest"
   wait_for_it 600 "$ENV_DIR/app-env.sh.yml | $cli_without_timeout apply -f -"
 
+  echo "Running App deployment Manifest"
+  wait_for_it 600 "$ENV_DIR/separate-pod-env.sh.yml | $cli_without_timeout apply -f -"
+
   $cli_with_timeout "get pods --namespace=$APP_NAMESPACE_NAME --selector app=test-app --no-headers | wc -l"
 }
 
