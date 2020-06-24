@@ -36,11 +36,21 @@
 
 
 
+## Glossary
+
+| **Term**   | **Description**                                              |
+| ---------- | ------------------------------------------------------------ |
+| Job        | Task that creates one or more pods that exits once task is successful |
+| Deployment | Controllers for managing pods that ensures that its pods are always running. If a pod fails, the controller restarts it |
+
+## Useful links
+
 | Name                | Link                                                         |
 | ------------------- | ------------------------------------------------------------ |
 | Phase 2 Feature Doc | https://github.com/cyberark/secrets-provider-for-k8s/issues/102 |
 
 ## Background
+
 The Cyberark Secrets Provider for K8s enables customers to use secrets stored and managed in Conjur/DAP vault and consume them as K8s Secrets for their application containers. During Phase 1, an *init* container was deployed in the same Pod as the customer's applications and populate the K8s secrets defined in the customer's manifest. 
 
 ### Motivation
@@ -63,7 +73,9 @@ This solution will be divided into milestones.
 - Milestone 4: Listen for K8s Secret creation
 - Milestone 5: Trigger K8s Secret update on Conjur secret value update
 
-For the purposes of this document, we will *only* addressing the first Milestone.
+For the purposes of this document, we will *only* be addressing the first Milestone.
+
+
 
 ### Milestone 1: Serve Multiple Apps
 
@@ -73,12 +85,16 @@ The Secrets Provider for K8s will no longer run as an *init* container attached 
 
 |      | Deployment                  | Elaboration                                                  | Pros                                                         | Cons                                                         |
 | ---- | --------------------------- | ------------------------------------------------------------ | ------------------------------------------------------------ | ------------------------------------------------------------ |
-| 1    | Run as Job                  | Run as a K8s Job that deploys a Pod that terminates after task completion | - Minimal resources usage<br />- Minimal code changes<br />- Explicit user experience (user expects Job to run to completion quickly) | - "Job" is not an existing application identity granularities. Adding it can take low priority since customers can run the Job using Namespace / Service Account granularities<br /><br />- Deployment will need to be changed (from Job → Pod) for Milestone 2 (support secrets rotation) |
+| 1    | Run as Job                  | Run as a K8s Job that deploys a Pod that terminates after task completion | - Minimal resources usage<br />- Minimal code changes<br />- Explicit user experience (user expects Job to run to completion quickly) | - "Job" is not an existing application identity granularity. <br /><br />- Deployment will need to be changed (from Job → Deployment) for Milestone 2 (support secrets rotation) |
 | 2    | Run as non-terminating  Pod | Run as a Pod that does not terminate automatically after task completion | - Simple to below<br />                                      | - Wastes resources because we aren't updating K8s secrets and up all the time<br /><br />- For **deployment**, **deploymentConfig** and **statefulSet** segregation of duties, this solution is not interchangeable with our other secrets retrieval solutions without policy changes. (e.g. secrets provider as init-container, conjur authn k8s secrets, any of our clients or Conjur REST API) |
 
 **Decision:** Run as a Job
 
-We decided to run as a Job instead of a Pod because for Milestone 1 we are concerned with delivering Conjur values only once. At this time we are not supporting updating K8s Secrets with Conjur secret across multiple runs so deploying a Pod that will run continuously in the environment of a customer is a waste of their resources. Especially because the process of retrieving secrets will only happen once, at the inital spin up of the Secrets Provider.
+At current, a "Job" is not an existing application identity granularity. In terms of granularities, a "Job" is at the same level as "Deployment". From our understanding customers do not regularly use "Deployment" as their chose granularity and tend to use "Service Account" / "Namespace". Because of this, support for a "Job" granularity might not provide value when customers can still use "Service Account" / "Namespace".
+
+We decided to run as a Job instead of Deployment because for Milestone 1 we are concerned with delivering Conjur values only once. At this time we are not supporting updating K8s Secrets with Conjur secret across multiple runs so deploying a Pod that will run continuously in the environment of a customer is a waste of their resources. Especially because the process of retrieving secrets will only happen once, at the inital spin up of the Secrets Provider.
+
+Additionally, when using Deployment to spin up a pod and the task finishes, the will container exit and be deleted. Now that the Secrets Provider needs to sit separately, when that container exists so to will the pod. Therefore, when using Deployment, Kuberentes will try to restart the Pod. After a few attempted restarts, the pod will error in a BackOff state. Because of this, we are unable to use Deployment to spin up a pod and must use a Job.
 
 #### Flow
 
@@ -90,9 +106,9 @@ The flow for Milestone 1 is similar to the user experience from Phase 1. For eac
 
 2. Create Service Account for Secrets Provider 
 
-3. Create Role / ClusterRole for the Service Accounts with **get**/**update** privileges
+3. Create Role for the Service Accounts with **get**/**update** and also **list** privileges on K8s Secrets resources ***(Milestone 1)***
 
-4. Create RoleBinding / ClusterRoleBinding and bind the Service Accounts to the role from previous step
+4. Create RoleBinding and bind the Service Accounts to the role from previous step
 
 5. Create/Deploy Secrets Providers as Jobs in deployment manifest(s) ***(Milestone 1)***
    - If label filtering is defined, add "K8S_SECRET_LABEL" in the Secrets Provider manifest(s) ***(Milestone 1)***
@@ -142,10 +158,10 @@ spec:
       - image: secrets-provider:latest
         name: cyberark-secrets-provider-1
 
-// Rest of environment variables for Pod to run 
+# Rest of environment variables for Pod to run 
 ```
 
-
+We recommend that the admin will define "Role" instead of "ClusterRole" to follow the principle of least privilege on resources.
 
 #### Code changes
 
@@ -158,15 +174,31 @@ To authenticate to Conjur, the Secrets Provider application identity (or Resourc
 
 *Enhance Batch retrieval*
 
-At current, the Secrets Provider code looks at the "K8S_SECRET" environment variable in each of the Pods and preforms a batch retrieval against the Conjur API to get the relevant Conjur Secrets. If there is a failure in retrieving one of the secrets, the request fails and no secrets are returned to the request Pod.
+At current, the Secrets Provider code looks at the "K8S_SECRET" environment variable in each of the Pods and preforms a batch retrieval against the Conjur API to get the relevant Conjur Secrets. If there is a failure in retrieving one of the secrets, the request fails and no secrets are returned to the request Pod. 
 
-This is problematic for us at this stage because now the Secrets Provider is sitting separately and will need to perform a batch retrieval of all the secrets in the namespace. In other words, if the Secrets Provider fails to fetch one Conjur secret, the whole request will fail and applications will not get their secrets. To avoid this, we will update the code so that if a failure takes place, it will be noted in the logs and a new request will be made, skipping over the Conjur secret that caused the error.
+This is problematic for us at this stage because now the Secrets Provider is sitting separately and will need to perform a batch retrieval of all the secrets in the namespace. In other words, if the Secrets Provider fails to fetch one Conjur secret, the whole request will fail and applications will not get their secrets. To avoid this, we will parse over each K8s Secret and perform a batch retrieval request. That way, if there is a failure in retrieving a Conjur secret (permissioning for example), it will be contained to that secret and not impact all the secrets in the namespace.
+
+Each API call to Conjur creates an entry in Audit. Now that the Secrets Provider is a separate entity from the application pods, all API calls will come the Secrets Provider and not from the the application Pod. Therefore, if we perform a single batch retrieval call, the Audit will be hard to follow as it will include all Conjur secrets fetched in a single audit entry. This solution will create separate Batch retrieval calls to Conjur for *each* K8s Secret, making the Audit more clear in terms of the behavior of the process.
 
 ```pseudocode
 for each k8s-secret
-  variable-ids = k8s-secret.parseConjurMap() # paths of key in ConjurMap
+  variable-ids = k8s-secret.parseConjurMap() # list of paths of key in ConjurMap
   GET /secrets{?variable-ids}
   # Log failure or success
+```
+
+Variable IDs will resemble the following:
+
+```
+apiVersion: v1
+kind: Secret
+metadata:
+  name: db-credentials
+type: Opaque
+stringData:
+  conjur-map: |-
+    username: secrets/db_username # the value is one element in the variable-ids list
+    password: secrets/db_password # the value is one element in the variable-ids list
 ```
 
 
@@ -194,18 +226,18 @@ kind: Secret
 metadata:
   name: db-secret
   labels:
-    conjur-secret: env-prod # label name must be 'conjur-secret'; value is supplied by the customer
+    configurable-key: env-prod # label name can be configurable
   type: Opaque
 stringData:
   conjur-map: |-
     username: secrets/my_username
 ```
 
-These labels do not have to be Conjur-specific and the customer would decide which label they would like to put in the K8s secrets. They would define which secrets to iterate over by "K8S_SECRET_LABEL" env variable in their Secrets Provider manifest. The Secrets Provider will perform a search for secrets with that label against the [K8s](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.18/#secret-v1-core)/[OC](https://docs.openshift.com/container-platform/4.4/rest_api/index.html#secret-v1-core) API and search for the "conjur_map" on the results.
+These labels do not have to be Conjur-specific and the customer would decide which label they would like to put in the K8s secrets. They would define which secrets to iterate over by "K8S_SECRET_LABEL" env variable in their Secrets Provider manifest. The Secrets Provider will perform a search for secrets with that label key against the [K8s](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.18/#secret-v1-core)/[OC](https://docs.openshift.com/container-platform/4.4/rest_api/index.html#secret-v1-core) API and search for the "conjur_map" on the results.
 
 Note that just because the customer added a label for us to filter over doesn't mean that all secret entries in the K8s Secret are stored in Conjur but it gives us a way to perform a more focused search for "conjur-map" in the K8s Secrets.
 
-Secrets Provider Manifest with K8S_SECRET_LABEL environment variable
+Secrets Provider Manifest with the K8S_SECRET_LABEL environment variable:
 
 ```yaml
 apiVersion: apps/v1
@@ -226,7 +258,53 @@ spec:
           value: env-prod,env-test
 ```
 
-These labels will have an OR relationship not an AND relationship. In other words, a K8s Secret can either have a CONJUR label or PROD label. A customer can also write '*' to imply all K8s secrets in the namespace. If 'K8S_SECRET_LABELS' is not supplied, by default, the Secrets Provider will fetch all K8s Secrets in the namespace.
+These labels will have an OR inclusive relationship not an AND relationship. In other words, a K8s Secret can either have a CONJUR label or PROD label (or both). A customer can also write '*' to imply all K8s secrets in the namespace. If 'K8S_SECRET_LABELS' is not supplied, by default, the Secrets Provider will fetch all K8s Secrets in the namespace.
+
+To read the labels set on K8s Secrets, the Service Account used for the Secrets Provider will need "list" privileges on K8s Secrets resources.
+
+The Service Account / Role / RoleBinding will be defined as the following:
+
+```yaml
+# Service Account definition 
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: conjur-sa-1
+
+# Role definition
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  namespace: app-namespace
+  name: secrets-access
+rules:
+- apiGroups: [""]
+  resources: ["secrets"]
+  verbs: ["get", "update", "list"] # new privilege here
+
+# RoleBinding definition to associate the SA with the Role
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: secrets-access-binding
+  namespace: app-namespace
+subjects:
+  - kind: ServiceAccount
+    name: conjur-sa-1
+    apiGroup: rbac.authorization.k8s.io
+roleRef:
+  kind: Role
+  name: secrets-access
+  apiGroup: rbac.authorization.k8s.io
+```
+
+
+
+#### Code changes
+
+Although we will now offer "K8S_SECRET_LABELS" for easy filtering on K8s Secrets, we will still support the "K8S_SECRET" environment variable if the customer prefers to list the K8s Secrets they need values for from Conjur. 
+
+
 
 Decision: **Solution #1, Read all K8s Secrets that are marked with labels**
 
@@ -235,8 +313,6 @@ We decided against listing K8s Secrets as configuration in the ENV of the Secret
 
 
 ### Order of Deployment
-
-##### Milestone 1
 
 To ensure that on first run our Secrets Provider runs first, we will request from the customer follow the following setup order:
 
