@@ -52,16 +52,20 @@ The current implementation makes the deployment of the Secrets Provider does not
 The solution should support the following capabilities:
 
 1. Deployment, deploy as separate Conjur entity; serve K8s Secrets to many Applications
-2. Rotation, update K8s Secret with Conjur secret values
-3. Support removal of deployment
+2. Support removal of deployment
 
 ## Solution
 This solution will be divided into milestones.
 
-- Milestone 1: Deployment, deploy as as separate entity
+- Milestone 1: Serve multiple applications, deploy as as separate entity
 - Milestone 2: Handle rotation, updating K8s Secrets with Conjur secret value
+- Milestone 3: Support reading secrets from files
+- Milestone 4: Listen for K8s Secret creation
+- Milestone 5: Trigger K8s Secret update on Conjur secret value update
 
-### Milestone 1: Deployment
+For the purposes of this document, we will *only* addressing the first Milestone.
+
+### Milestone 1: Serve Multiple Apps
 
 #### Design
 
@@ -160,8 +164,9 @@ This is problematic for us at this stage because now the Secrets Provider is sit
 
 ```pseudocode
 for each k8s-secret
-  variable-ids = k8s-secret.parseConjurMap()
+  variable-ids = k8s-secret.parseConjurMap() # paths of key in ConjurMap
   GET /secrets{?variable-ids}
+  # Log failure or success
 ```
 
 
@@ -229,78 +234,9 @@ We decided against listing K8s Secrets as configuration in the ENV of the Secret
 
 
 
-### Milestone 2: Update K8s secret with Conjur secret
-
-#### Design
-
-Once a secret has been updated in Conjur, this will trigger an update in K8s Secrets values. For Milestone 2, we are building ontop of Milestone 1, **not** in-place of.  The Secrets Provider deployment will need to be a Pod that does not terminate (instead of a Job). Every change in Conjur secret, will trigger an event to update the K8s Secret. 
-
-Note that we are not introducing a breaking change between Milestones. If a customer does not want to upgrade to Milestone 2, they are not required to. If they do, the image they will use will be the same one used in Milestone 1.
-
-|      | Trigger for Secret Rotation                                  | Elaboration                                                  | Pros                                                         | Cons                                                         |
-| ---- | ------------------------------------------------------------ | ------------------------------------------------------------ | ------------------------------------------------------------ | ------------------------------------------------------------ |
-| 1    | *Every 5 minutes,* retrieve secrets every constant, configurable amount of time. Possible options:<br /><br />a. Run constantly and wake up when time is right <br />b. Spin-up every 5 minutes, run using [cron job](https://kubernetes.io/docs/concepts/workloads/controllers/cron-jobs/) based on K8s secrets update (Get trigger upon secret change) | *Flow*<br />1. Every 5 minutes, Secrets Provider checks if a change/a new K8s Secret was created <br />2. If so, update Secrets Provider local cache of state for K8s | - Easily integrate with current solution since retry mechanism already exists<br />- No need to change anything in Conjur | -  Polling is a bad way for changes notification mechanism.<br />- Option (a) is inefficient management of resources.<br />- Option (b) is supported only since K8s version 1.18 and is currently in beta. |
-| 2    | *Outside trigger,* register to 3rd party pub/sub message handler to be notified of secrets change.<br />Ex: <br />- ZMQ (no agent)<br />- RabbitMQ |                                                              | - Do the job only when really needed - very efficient<br />- Immediate update of K8s Secret on secret change in Conjur<br />- Integrated option for registration only on relevant changes | - Need development in Conjur side to update the 3rd party component with changes<br />- Requires another component to deploy and maintain (if not ZMQ) |
-| 3    | *Outside trigger,* retrieve secrets when notified from Follower by webhook registered API | *Concern*<br />Follower does not save state and cannot save the webhook URL | - Efficient because only do the job when really needed<br />- Immediate update of K8s Secret on secret change in Conjur | - Need development in Conjur side to support notification mechanism to notify only necessary secrets providers<br />- Follower may not be able to reach secrets provider (need to save URL in Master Database)<br />- Significant development required because it requires a new event mechanism on server |
-| 4    | *Outside trigger,* retrieve secrets when notified by websocket connection | Websocket connection is opened and when there is a change on the server, it will send update | - Efficient because only do the job when really needed<br />- Immediate update of K8s Secret on secret change in Conjur | - Need development in Conjur side to support notification mechanism to notify only necessary secrets providers<br />- Very expensive to hold a socket open just for few rare notifications<br />- Significant development required because it requires a new event mechanism on server |
-
-Decision: **Solution #2, Outside trigger using pub/sub message
-**
-
-The Pub/Sub pattern is a pattern where senders publish messages without knowing who is subscribing to those messages. Once an event is emitted or a message is published, all receivers that subscribe to that event will get a notification. For our purposes, we propose to use a 3rd party pub/sub message handlers, ZMQ, the publisher, that will trigger an event whenever a Conjur secret has been updated. The Secrets Provider, the subscriber, will listen on a port for these events/messages. Once a message is received this will prompt the Secrets Provider to update the K8s Secrets with the updated Conjur Secrets.
-
-We chose to use the pub/sub pattern over waiting for a configurable amount of time because this delivers a nicer customer experience. The customer's K8s Secrets will be updated immediately which in turn avoids situations where customer applications fail to connect to their endpoints. 
-
-#### Flow
-
-1. Configure K8s Secrets with ***conjur-map\*** metadata defined 
-
-   - *Optional:* add label to K8s Secret 
-
-2. Create Service Account for Secrets Provider 
-
-3. Create Role / ClusterRole for the Service Accounts with **get**/**update** privileges
-
-4. Create RoleBinding / ClusterRoleBinding and bind the Service Accounts to the role from previous step
-
-5. Create/Deploy Secrets Providers as Pods in deployment manifest(s) **(\*Milestone 2)\***
-
-6. - If label filtering is defined, add "K8S_SECRET_LABEL" in the Secrets Provider manifest(s)
-
-7. When the Secrets Provider receives a message that Conjur secrets have changed, the process of fetching and updating the K8s Secret(s) repeats
-
-
-
-#### Customer experience
-
-Because the Secrets Provider needs to now update K8s Secrets with Conjur Secrets continuously, it can no longer run as a Job and will require that the customer deploy the Secrets Provider as a Pod (kind: Pod instead of kind: Job)
-
-```yaml
-apiVersion: app/v1
-kind: Pod
-metadata:
-  name: secrets-provider
-spec:
-  template:
-    spec:
-      serviceAccountName: prod-sa
-      containers:
-      - image: secrets-provider:latest
-        name: cyberark-secrets-provider-1
-....
-```
-
-
-
-#### Code changes
-
-Add publishing mechanism to Conjur server. Work TBD.
-
-
-
 ### Order of Deployment
 
-##### Milestone 1 and 2 
+##### Milestone 1
 
 To ensure that on first run our Secrets Provider runs first, we will request from the customer follow the following setup order:
 
@@ -314,37 +250,17 @@ To ensure that on first run our Secrets Provider runs first, we will request fro
 
 ### Lifecycle/Deletion
 
-##### Milestone 1
-
 The lifecycle of the Job is the length of the process. In other words, the time it takes to retrieve the Conjur secrets value and update them in the K8s Secrets. The customer can configure the Job to stay "alive" by adding **ttlSecondsAfterFinished**, with the desired about of seconds, to their Secrets Provider yaml. Because of the nature of a Job, a manual delete is not necessary.
-
-##### Milestone 2
-
-Because we are upgrading to a Pod that does not terminate upon task completion in Milestone 2, if the customer wants to stop the Secrets Provider process, they will need to delete the pod.
-
-API endpoint for deleting Pod:
-
-```yaml
-delete /api/v1/namespaces/{namespace}/pods/{name}
-```
 
 ### Backwards compatibility
 
-Milestone 2 will be built ontop of Milestone 1, **not** in-place of. If a customer wants to stay with the Milestone 1 capability they can do so. If a customer wants to upgrade to Milestone 2 they will be able to use the same image they used for Milestone 1.
+Milestone 1 of Phase 2 will be built ontop of the current init container solution. We will delivery the same image and will not be erasing code and any current functionality.
 
 ### Performance
-##### Milestone 1 and 2 
-
 We will test and document how many secrets can be updated in 5 minutes on average where a secret should be either extreme long password or one vault account which is 5 vars username address port password dns
 
 ### Affected Components
-##### Milestone 1
-
 - Conjur/DAP: Adding support for Job application identity granularity 
-
-##### Milestone 2
-
-- Conjur/DAP: Adding publishing messaging ability upon Conjur secret change
 
 ## Security
 [//]: # "Are there any security issues with your solution? Even if you mentioned them somewhere in the doc it may be convenient for the security architect review to have them centralized here"
