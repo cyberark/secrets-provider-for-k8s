@@ -115,13 +115,10 @@ $cli exec -n spire spire-server-0 -- \
 # allocate to the workload:
 $cli exec -n spire spire-server-0 -- \
     /opt/spire/bin/spire-server entry create \
-    -spiffeID spiffe://example.org/ns/default/sa/default \
+    -spiffeID spiffe://example.org/ns/$TEST_APP_NAMESPACE_NAME/sa/default \
     -parentID spiffe://example.org/ns/spire/sa/spire-agent \
-    -selector k8s:ns:default \
-    -selector k8s:sa:default
+    -selector k8s:ns:$TEST_APP_NAMESPACE_NAME
 
-
-### Configure a Workload Container to Access SPIRE ###
 
 # In this step, you configure a workload container to access SPIRE. Specifically,
 # you are configuring the workload container to access the Workload API UNIX domain socket.
@@ -129,5 +126,7 @@ $cli exec -n spire spire-server-0 -- \
 # Configure a Workload Container to Access SPIRE
 $cli apply -f client-deployment.yaml
 
-client_pod=$(kubectl get pods | awk '{print $1;}' | grep client-)
-$cli exec -it $client_pod /bin/sh
+# Now lets retrieve SVID
+client_pod=$(kubectl get pods -n $TEST_APP_NAMESPACE_NAME | awk '{print $1;}' )
+kubectl exec -it -n $TEST_APP_NAMESPACE_NAME  $client_pod -- /opt/spire/bin/spire-agent api fetch x509 -socketPath /run/spire/sockets/agent.sock
+
