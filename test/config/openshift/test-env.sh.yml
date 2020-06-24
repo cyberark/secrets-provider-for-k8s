@@ -72,11 +72,6 @@ spec:
                 apiVersion: v1
                 fieldPath: metadata.namespace
 
-          - name: MY_POD_IP
-            valueFrom:
-              fieldRef:
-                fieldPath: status.podIP
-
           - name: CONJUR_APPLIANCE_URL
             value: ${CONJUR_APPLIANCE_URL}
 
