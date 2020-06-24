@@ -77,7 +77,7 @@ For the purposes of this document, we will *only* be addressing the first Milest
 
 
 
-### Milestone 1: Serve Multiple Apps
+### Milestone 1: Serve Multiple Applications
 
 #### Design
 
@@ -303,6 +303,8 @@ roleRef:
 
 Although we will now offer "K8S_SECRET_LABELS" for easy filtering on K8s Secrets, we will still support the "K8S_SECRET" environment variable if the customer prefers to list the K8s Secrets they need values for from Conjur. 
 
+
+
 Decision: **Solution #1, Read all K8s Secrets that are marked with labels**
 
 We decided against listing K8s Secrets as configuration in the ENV of the Secrets Provider manifest because that is not a scalable solution, especially for customers with hundreds of K8s Secrets. Customers might already use labels for grouping related K8s Secrets so we will benefit by integrating more with a customer environment and utilizing that.
@@ -344,16 +346,17 @@ We will test and document how many secrets can be updated in 5 minutes on averag
 |           |           |          |          |             |
 
 ## Logs
-[//]: # "Fill in the table below to depict the log messages that can enhance the supportability of your solution"
-[//]: # "You can use this tool to generate a table - https://www.tablesgenerator.com/markdown_tables#"
-
-| **Scenario** | **Log message** |
-|--------------|-----------------|
-|              |                 |
-|              |                 |
+| **Scenario**                                                 | **Log message**                                              | Type  |
+| ------------------------------------------------------------ | ------------------------------------------------------------ | ----- |
+| Job spins up                                                 | Kubernetes Secrets Provider v\*%s\* starting up... (Already exists) | Info  |
+| Job has completed and is terminating                         | Kubernetes Secrets Provider v\*%s\* has finished task and is terminating… | Info  |
+| Admin does not provide K8S_SECRET_LABELS and does not provide K8S_SECRETS environment variables | Fetching all k8s secrets in namespace…                       | Warn  |
+| Admin uses K8S_SECRETS                                       | Warning: K8S_SECRETS is deprecated. Consider using K8S_SECRETS_LABELS... | Warn  |
+| Admin provides label that returns no K8s Secrets             | Failed to retrieve k8s secrets (Already exists)              | Error |
+| Secrets Provider was unable to provide K8s secret with Conjur value | Failed to retrieve Conjur secrets. Reason: %s (Already exists) | Error |
 
 ### Audit 
-[//]: # "Does this solution require additional audit messages?"
+As mentioned previously, because the Secrets Provider is a separate entity, all API calls will originate from the Secrets Provider and not the application Pod. Therefore Audit entries may be unclear for heavier processes such as batch retrieval. Making batch retrieval API calls for each K8s Secret will help assuage this concern.
 
 ## Documentation
 [//]: # "Add notes on what should be documented in this solution. Elaborate on where this should be documented. If the change is in open-source projects, we may need to update the docs in github too. If it's in Conjur and/or DAP mention which products are affected by it"
