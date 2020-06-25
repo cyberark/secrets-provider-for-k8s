@@ -13,19 +13,10 @@
     + [Code changes](#code-changes)
     + [Fetching Relevant K8s Secrets](#fetching-relevant-k8s-secrets)
       - [**Customer Experience**](#--customer-experience--)
-  * [Milestone 2: Update K8s secret with Conjur secret](#milestone-2--update-k8s-secret-with-conjur-secret)
-    + [Design](#design-1)
-    + [Flow](#flow-1)
-    + [Customer experience](#customer-experience)
-    + [Code changes](#code-changes-1)
   * [Order of Deployment](#order-of-deployment)
-      - [Milestone 1 and 2](#milestone-1-and-2)
   * [Backwards compatibility](#backwards-compatibility)
-      - [Milestone 1 and 2](#milestone-1-and-2-1)
   * [Performance](#performance)
   * [Affected Components](#affected-components)
-      - [Milestone 1](#milestone-1)
-      - [Milestone 2](#milestone-2)
 - [Security](#security)
 - [Test Plan](#test-plan)
 - [Logs](#logs)
@@ -337,9 +328,6 @@ We will test and document how many secrets can be updated in 5 minutes on averag
 [//]: # "Are there any security issues with your solution? Even if you mentioned them somewhere in the doc it may be convenient for the security architect review to have them centralized here"
 
 ## Test Plan
-[//]: # "Fill in the table below to depict the tests that should run to validate your solution"
-[//]: # "You can use this tool to generate a table - https://www.tablesgenerator.com/markdown_tables#"
-
 | **Title** | **Given** | **When** | **Then** | **Comment** |
 |-----------|-----------|----------|----------|-------------|
 |           |           |          |          |             |
