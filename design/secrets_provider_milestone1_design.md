@@ -29,10 +29,10 @@
 
 ## Glossary
 
-| **Term**   | **Description**                                              |
-| ---------- | ------------------------------------------------------------ |
-| Job        | Task that creates one or more pods that exits once task is successful |
-| Deployment | Controllers for managing pods that ensures that its pods are always running. If a pod fails, the controller restarts it |
+| **Term**                                                     | **Description**                                              |
+| ------------------------------------------------------------ | ------------------------------------------------------------ |
+| [Job](https://kubernetes.io/docs/concepts/workloads/controllers/job/) | K8s entity that runs a pod for one-time operation. Once the pod exists, the Job terminates. |
+| [Deployment](https://kubernetes.io/docs/concepts/workloads/controllers/deployment/) | K8s entity that ensures multiple replications of a pod are running all the time. If a pod terminates, another one will be created. |
 
 ## Useful links
 
@@ -42,54 +42,103 @@
 
 ## Background
 
-The Cyberark Secrets Provider for K8s enables customers to use secrets stored and managed in Conjur/DAP vault and consume them as K8s Secrets for their application containers. During Phase 1, an *init* container was deployed in the same Pod as the customer's applications and populate the K8s secrets defined in the customer's manifest. 
+The Cyberark Secrets Provider for K8s enables customers to use secrets stored and managed in Conjur/DAP vault and consume them as K8s Secrets for their application containers.
+During Phase 1, an *init container* was deployed in the same Pod as the customer's applications and populate the K8s secrets defined in the customer's manifest.
 
 ### Motivation
 
-The current implementation makes the deployment of the Secrets Provider does not support secret rotation and makes the deployment of the Secrets Provider deeply coupled to the customer's applications which not all customers want.
+The current implementation of the Secrets Provider only supports one app and makes the deployment of the Secrets Provider deeply coupled to the customer's applications.
+Also, it launches once and does not support secret value rotation while the app is running.
 
-### Requirement
+### Requirements
 
 The solution should support the following capabilities:
 
-1. Deployment, deploy as separate Conjur entity; serve K8s Secrets to many Applications
-2. Support removal of deployment
+Milestone 1
+
+- Secrets Provider runs and deployed without affecting the app deployment or app life cycle
+- Secrets Provider can serve many apps
+
+Milestone 2
+
+- Secrets Provider support rotations
+
+### Future requirements
+
+The solution should consider the following future requirements that may arise:
+
+* Support other **targets** for the secrets besides K8s Secrets, such as files
+* Support other **sources** for secrets paths besides conjur-map in K8s Secrets
+* Support **sources** varying while Secrets Provider runs
 
 ## Solution
-This solution will be divided into milestones.
+The solution is to allow different deployments and behave differently based on the deployment chosen.
 
-- Milestone 1: Serve multiple applications, deploy as as separate entity
-- Milestone 2: Handle rotation, updating K8s Secrets with Conjur secret value
-- Milestone 3: Support reading secrets from files
-- Milestone 4: Listen for K8s Secret creation
-- Milestone 5: Trigger K8s Secret update on Conjur secret value update
+The following image shows the desicion flow chart that the customer will use to determine how to configure Secrets Provider depends on the value he wants to get:
 
-For the purposes of this document, we will *only* be addressing the first Milestone.
+![Secrets Provider flavors desicion flow chart](https://user-images.githubusercontent.com/31179631/85747023-975bf500-b70f-11ea-8e26-1134068fe655.png)
 
+This flow chart shows 6 different variations of Secrets Provider:
 
+| Secrets Provider variation                            | Business value                                               | Implementation status |
+| ----------------------------------------------------- | ------------------------------------------------------------ | --------------------- |
+| Run as **Init Container** and sync to **K8s Secrets** | Supply secrets on application load, based on K8s secrets     | Implemented           |
+| Run as **Job** and sync to **K8s Secrets**            | Supply secrets once for many applications, based on K8s secrets | Milestone 1           |
+| Run as **Deployment** and sync to **K8s Secrets**     | Supply secrets for many applications and support rotation, based on K8s secrets | Future (Milestone 2)  |
+| Run as **Sidecar** and sync to **K8s Secrets**        | Support secrets rotation, based on K8s secrets               | Future (Milestone 2)  |
+| Run as **Init Container** and sync to **files**       | Supply secrets on application load, pushed as files to shared volume | Future (Milestone 3)  |
+| Run as **Sidecar** and sync to **files**              | Supply secrets for one application and support rotation, pushed as files to shared volume | Future (Milestone 3)  |
 
-### Milestone 1: Serve Multiple Applications
+All these variations will be supported using the same Secrets Provider image, and the behavior will vary dynamically depends on the chosen deployment.
+
+In this document we will show the detailed solution for **Milestone 1** only.
+
+### Milestone 1: Serve Multiple Applications once (no rotation)
 
 #### Design
 
-The Secrets Provider for K8s will no longer run as an *init* container attached to the application pod, rather run as a separate single Job in a namespace. A Job creates a Pod to perform a task and terminates upon completion. Once the Pod is spun up, it will authenticate to Conjur/DAP in the same way it does today, via authn-k8s. The Pod will then fetch the K8s secret denoted with a label and update them with the Conjur secrets they require.
+Run Secrets Provider as a **Job** using the same solution for init container.
 
-|      | Deployment                  | Elaboration                                                  | Pros                                                         | Cons                                                         |
-| ---- | --------------------------- | ------------------------------------------------------------ | ------------------------------------------------------------ | ------------------------------------------------------------ |
-| 1    | Run as Job                  | Run as a K8s Job that deploys a Pod that terminates after task completion | - Minimal resources usage<br />- Minimal code changes<br />- Explicit user experience (user expects Job to run to completion quickly) | - "Job" is not an existing application identity granularity. <br /><br />- Deployment will need to be changed (from Job → Deployment) for Milestone 2 (support secrets rotation)<br /><br />- For **deployment**, **deploymentConfig** and **statefulSet** segregation of duties, this solution is not interchangeable with our other secrets retrieval solutions without policy changes. (e.g. secrets provider as init-container, conjur authn k8s secrets, any of our clients or Conjur REST API) |
-| 2    | Run as non-terminating  Pod | Run as a Pod that does not terminate automatically after task completion | - Simple to deploy<br />                                     | - Wastes resources because we aren't updating K8s secrets and up all the time<br /><br />- For **deployment**, **deploymentConfig** and **statefulSet** segregation of duties, this solution is not interchangeable with our other secrets retrieval solutions without policy changes. (e.g. secrets provider as init-container, conjur authn k8s secrets, any of our clients or Conjur REST API) |
+###### How this answers the requirements?
 
-**Decision:** Run as a Job
+For Milestone 1, running as a **Job** allows separation from apps deployment and serve multiple apps at once.
+When Secrets Provider finishes updating the K8s secrets, the **Job** completes successfully.
 
-At current, a "Job" is not an existing application identity granularity. In terms of granularities, a "Job" is at the same level as "Deployment". From our understanding customers do not regularly use "Deployment" as their chose granularity and tend to use "Service Account" / "Namespace". Because of this, support for a "Job" granularity might not provide value when customers can still use "Service Account" / "Namespace".
+For Milestone 2, running continuously as a **Deployment** or **Sidecar** allows listening on changes and handling them accordingly.
 
-We decided to run as a Job instead of Deployment because for Milestone 1 we are concerned with delivering Conjur values only once. At this time we are not supporting updating K8s Secrets with Conjur secret across multiple runs so deploying a Pod that will run continuously in the environment of a customer is a waste of their resources. Especially because the process of retrieving secrets will only happen once, at the inital spin up of the Secrets Provider.
+For Milestone 3, running by the app as **Init Container** or **Sidecar** allows writing and updating the secrets to files in a shared volume with the app.
 
-Additionally, when using Deployment to spin up a pod and the task finishes, the will container exit and be deleted. Now that the Secrets Provider needs to sit separately, when that container exists so too will the pod. Therefore, when using Deployment, Kuberentes will try to restart the Pod. After a few attempted restarts, the pod will error in a BackOff state. Because of this, we are unable to use Deployment to spin up a pod and must use a Job.
+###### What benefits does this solution provide?
+
+1. **Clarity**
+   Allowing customer to select the deployment to get the desired value
+2. **Maintainability**
+   Using one image for all variations simplifies code maintenance 
+3. **Reusability**
+   Using one image for all variations allows reuse of existing code across all variations
+4. **Extensibility**
+   Supporting various flows using the same solution opens the door for more secrets sources and targets
+
+###### What drawbacks does this solution have?
+
+**Job** is not an existing application identity granularity.
+As a result, one can define the host representing the Secrets Provider in Conjur policy using only **namepsace** and/or **service account** granularities.
+
+###### How the drawbacks can be handled?
+
+To handle the missing **Job** granularity there are 2 options:
+
+|      | Solution                                                     | Pros                                                         | Cons                                                         | Cost Estimation |
+| ---- | ------------------------------------------------------------ | ------------------------------------------------------------ | ------------------------------------------------------------ | --------------- |
+| 1    | Keep using only **namepsace** and/or **service account** granularities. | - Since Secrets Provider runs as a separate entity, we suggest  creating service account dedicated for Secrets Provider.<br />Then, **service account** granularity serves exact match and **Job** granularity is redundant<br />- No code changes | - Service account might be reused, which allows other apps to authenticate using Secrets Provider host | Free            |
+| 2    | Run as non-terminating  Pod                                  | - Allows specific identification of the Secrets Provider **Job**, which enhances security | - Costly; requires code changes, verify compatibility, tests, docs<br />- Redundant if **service account** serves only the Secrets Provider | 10 days         |
+
+*Decision*: Solution no. 1, use **namepsace** and **service account** to define the Secrets Provider host in Conjur policy.
+Recommend to the customer to create a dedicated service account for Secrets Provider.
 
 #### Flow
 
-The flow for Milestone 1 is similar to the user experience from Phase 1. For each step, we will go into more detail below.
+The flow for Milestone 1 is similar to the existing user experience. For each step, we will go into more detail below.
 
 1. Configure K8s Secrets with ***conjur-map\*** metadata defined 
 
@@ -159,8 +208,9 @@ We recommend that the admin will define "Role" instead of "ClusterRole" to follo
 
 #### Code changes
 
-1. Support Job application identity 
-2. Enhance Batch retrieval
+In the current solution, there are behaviors that need to be changed:
+
+1. Enhance Batch retrieval
 
 *Support Job application identity*
 
