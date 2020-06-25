@@ -15,6 +15,7 @@ $cli_with_timeout "delete secret dockerpullsecret --ignore-not-found=true"
 $cli_with_timeout "delete clusterrole secrets-access-${UNIQUE_TEST_ID} --ignore-not-found=true"
 
 $cli_with_timeout "delete secret test-k8s-secret --ignore-not-found=true"
+$cli_with_timeout "delete secret sigal-secret --ignore-not-found=true"
 
 $cli_with_timeout "delete serviceaccount ${APP_NAMESPACE_NAME}-sa --ignore-not-found=true"
 

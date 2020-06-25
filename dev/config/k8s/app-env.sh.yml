@@ -77,7 +77,7 @@ spec:
                 key: ssl-certificate
 
           - name: K8S_SECRETS
-            value: test-k8s-secret
+            value: test-k8s-secret,sigal-secret
 
           - name: SECRETS_DESTINATION
             value: k8s_secrets
