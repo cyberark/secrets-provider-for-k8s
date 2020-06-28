@@ -33,6 +33,8 @@ When we release a version, we push the following images to Dockerhub:
 1. Major.Minor
 1. Major
 
+We also push the Major.Minor.Build image to our Red Hat registry.
+
 ## Stable release definition
 
 The CyberArk Secrets Provider for Kubernetes is considered stable when it meets the core acceptance criteria:
