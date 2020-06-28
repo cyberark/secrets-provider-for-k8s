@@ -56,6 +56,8 @@ function configure_secret() {
   echo "Create secret k8s-secret"
   $cli_with_timeout create -f $ENV_DIR/k8s-secret-sigal.yml
 
+  $cli_with_timeout create -f $ENV_DIR/k8s-secret-sigal3.yml
+
   create_secret_access_role
 
   create_secret_access_role_binding
@@ -63,7 +65,7 @@ function configure_secret() {
   set_namespace $CONJUR_NAMESPACE_NAME
 
   set_secret "secrets/test_secret" "supersecret"
-  set_secret "secrets/sigal_secret" "sigalsecret"
+#  set_secret "secrets/sigal_secret" "sigalsecret"
 }
 
 function verify_secret_in_env() {

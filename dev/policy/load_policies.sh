@@ -28,6 +28,7 @@ for policy_file in "${POLICY_FILES[@]}"; do
 done
 
 conjur variable values add secrets/test_secret "supersecret"
-conjur variable values add secrets/sigal_secret "sigalsecret"
+#conjur variable values add secrets/sigal_secret "sigalsecret"
+#conjur variable values add secrets/sigal_secret_3 "sigalsecret_3"
 
 conjur authn logout
