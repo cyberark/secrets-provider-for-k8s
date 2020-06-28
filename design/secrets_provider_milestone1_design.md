@@ -93,20 +93,18 @@ All these variations will be supported using the same Secrets Provider image, an
 
 In this document we will show the detailed solution for **Milestone 1** only.
 
-### Milestone 1: Serve Multiple Applications once (no rotation)
+### Milestone 1: Serve K8s secrets to multiple applications once (no rotation)
 
 #### Design
 
-Run Secrets Provider as a **Job** using the same solution for init container.
+Run Secrets Provider as a **Job**.
+Once the Job's pod is spun up, it will authenticate to Conjur/DAP via authn-k8s.
+It will then fetch all the K8s secrets denoted with a specific label and update them with the Conjur secrets they require.
 
 ###### How this answers the requirements?
 
-For Milestone 1, running as a **Job** allows separation from apps deployment and serve multiple apps at once.
+Running as a **Job** allows separation from apps deployment and serve multiple apps at once.
 When Secrets Provider finishes updating the K8s secrets, the **Job** completes successfully.
-
-For Milestone 2, running continuously as a **Deployment** or **Sidecar** allows listening on changes and handling them accordingly.
-
-For Milestone 3, running by the app as **Init Container** or **Sidecar** allows writing and updating the secrets to files in a shared volume with the app.
 
 ###### What benefits does this solution provide?
 
@@ -122,43 +120,35 @@ For Milestone 3, running by the app as **Init Container** or **Sidecar** allows 
 ###### What drawbacks does this solution have?
 
 **Job** is not an existing application identity granularity.
+
 As a result, one can define the host representing the Secrets Provider in Conjur policy using only **namepsace** and/or **service account** granularities.
 
 ###### How the drawbacks can be handled?
 
 To handle the missing **Job** granularity there are 2 options:
 
-|      | Solution                                                     | Pros                                                         | Cons                                                         | Cost Estimation |
-| ---- | ------------------------------------------------------------ | ------------------------------------------------------------ | ------------------------------------------------------------ | --------------- |
-| 1    | Keep using only **namepsace** and/or **service account** granularities. | - Since Secrets Provider runs as a separate entity, we suggest  creating service account dedicated for Secrets Provider.<br />Then, **service account** granularity serves exact match and **Job** granularity is redundant<br />- No code changes | - Service account might be reused, which allows other apps to authenticate using Secrets Provider host | Free            |
-| 2    | Run as non-terminating  Pod                                  | - Allows specific identification of the Secrets Provider **Job**, which enhances security | - Costly; requires code changes, verify compatibility, tests, docs<br />- Redundant if **service account** serves only the Secrets Provider | 10 days         |
+|      | Solution                                                     | Pros                                                         | Cons                                                         | Effort Estimation |
+| ---- | ------------------------------------------------------------ | ------------------------------------------------------------ | ------------------------------------------------------------ | ----------------- |
+| 1    | Keep using only **namepsace** and/or **service account** granularities. | - Since Secrets Provider runs as a separate entity, we suggest  creating service account dedicated for Secrets Provider.<br />Then, **service account** granularity serves exact match and **Job** granularity is redundant<br />- No code changes | - Service account might be reused, which allows other apps to authenticate using Secrets Provider host | Free              |
+| 2    | Add support for **Job** granularity in Conjur                | - Allows specific identification of the Secrets Provider **Job**, which enhances security | - Costly; requires code changes, verify compatibility, tests, docs<br />- Redundant if **service account** serves only the Secrets Provider | 10 days           |
 
 *Decision*: Solution no. 1, use **namepsace** and **service account** to define the Secrets Provider host in Conjur policy.
 Recommend to the customer to create a dedicated service account for Secrets Provider.
 
-#### Flow
-
-The flow for Milestone 1 is similar to the existing user experience. For each step, we will go into more detail below.
+#### Customer Experience
 
 1. Configure K8s Secrets with ***conjur-map\*** metadata defined 
 
-   - *Optional:* add label to K8s Secret ***(Milestone 1)***
+   - *Optional:* add label to K8s Secret
 
 2. Create Service Account for Secrets Provider 
 
-3. Create Role for the Service Accounts with **get**/**update** and also **list** privileges on K8s Secrets resources ***(Milestone 1)***
+3. Create Role for the Service Accounts with **get**/**update** and also **list** privileges on K8s Secrets resources
 
 4. Create RoleBinding and bind the Service Accounts to the role from previous step
 
-5. Create/Deploy Secrets Providers as Jobs in deployment manifest(s) ***(Milestone 1)***
-   - If label filtering is defined, add "K8S_SECRET_LABEL" in the Secrets Provider manifest(s) ***(Milestone 1)***
-
-#### Customer Experience
-
-In order to preserve restrictions on Conjur secrets, a customer can decide to either:
-
-1. Deploy 1 Secrets Provider per namespace, giving the Secrets Provider access to all secrets
-2. Deploy 1 Secrets Provider per app / (group of apps), giving the Secrets Provider only access to the secrets they have been given access to in Conjur. Should the user require further separation of duties on Conjur secrets, they will need to deploy another Secrets Provider
+5. Create/Deploy Secrets Providers as Jobs in deployment manifest(s)
+   - If label filtering is defined, add "K8S_SECRET_LABEL" in the Secrets Provider manifest(s)
 
 The Secrets Provider host will resemble the following:
 
@@ -204,19 +194,13 @@ spec:
 # Rest of environment variables for Pod to run 
 ```
 
-We recommend that the admin will define "Role" instead of "ClusterRole" to follow the principle of least privilege on resources.
+We recommend that the admin will define `Role` and not `ClusterRole` to follow the principle of least privilege on resources.
 
 #### Code changes
 
 In the current solution, there are behaviors that need to be changed:
 
-1. Enhance Batch retrieval
-
-*Support Job application identity*
-
-To authenticate to Conjur, the Secrets Provider application identity (or Resource Restrictions) will be the characteristics of the Pod that it is running in. Currently, we do not have a "Job" application identity granularity so to allow the Secrets Provider the ability authenticate to Conjur, the customer will need to choose between the Namespace or Service Account granularities. If there is a requirement to support a "Job" granularity this can be done by adding code to the authenticator in Conjur.
-
-*Enhance Batch retrieval*
+**Enhance Batch retrieval**
 
 At current, the Secrets Provider code looks at the "K8S_SECRET" environment variable in each of the Pods and preforms a batch retrieval against the Conjur API to get the relevant Conjur Secrets. If there is a failure in retrieving one of the secrets, the request fails and no secrets are returned to the request Pod. 
 
@@ -231,7 +215,7 @@ for each k8s-secret
 
 Variable IDs will resemble the following:
 
-```
+```yaml
 apiVersion: v1
 kind: Secret
 metadata:
@@ -247,10 +231,10 @@ stringData:
 
 With the decoupling of Secrets Provider and application pod, we can know what types of K8s Secrets the pod requires by either of the following ways: 
 
-|      | Fetch/Update K8s Secret                                      | Elaboration                                                  | Pros                                                         | Cons                                        |
-| ---- | ------------------------------------------------------------ | ------------------------------------------------------------ | ------------------------------------------------------------ | ------------------------------------------- |
-| 1    | Read all K8s Secrets that are marked with labels and update them with Conjur secrets |                                                              | - Scalable <br /><br />- Less intervention on our part as a customer can define which types of secrets we should parse<br /><br />- K8s native, as-is solution | - Not generalized so we are still K8s bound |
-| 2    | Get K8s secrets name by configuration in Secrets Provider    | Define K8S_SECRETS in `cyberark-secrets-provider` manifest<br />` name: K8S_SECRET` | - No code changes<br /><br />- Backwards compatible          | - Repetitive work<br /><br />- Not scalable |
+|      | Fetch/Update K8s Secret                                      | Pros                                                         | Cons                                        | Effort estimation |
+| ---- | ------------------------------------------------------------ | ------------------------------------------------------------ | ------------------------------------------- | ----------------- |
+| 1    | Read all K8s Secrets that are marked with labels specified in K8S_SECRETS_LABEL env var | - Scalable <br /><br />- Less intervention on our part as a customer can define which types of secrets we should parse<br /><br />- K8s native, as-is solution | - Not generalized so we are still K8s bound | 3 days            |
+| 2    | Get K8s secrets with the names specified in K8S_SECRETS      | - No code changes<br /><br />- Backwards compatible          | - Repetitive work<br /><br />- Not scalable | Free              |
 
 To know which K8s Secrets the apps in the namespace need we chose the first solution, Read all K8s Secrets that are marked with labels. It would be the most K8s native and avoids the repetitive work of having to list all the K8s Secrets each app needs.
 
@@ -347,6 +331,44 @@ Decision: **Solution #1, Read all K8s Secrets that are marked with labels**
 
 We decided against listing K8s Secrets as configuration in the ENV of the Secrets Provider manifest because that is not a scalable solution, especially for customers with hundreds of K8s Secrets. Customers might already use labels for grouping related K8s Secrets so we will benefit by integrating more with a customer environment and utilizing that.
 
+### Enhancements
+
+As an optional yet important enhancements, we want to suggest the following:
+
+1. #### Differenciate between deployment types using K8s API
+
+   **Current solution**: Customer supplies this value in `CONTAINER_MODE` env var to Secrets Provider.
+
+   **Enhanced solution**: Use K8s API `GET namespaces/{namespace}/pods/{pod}` to get the pod's manifest and derive the deployment used for Secrets Provider.
+
+   **Motivation**: better UX, no need to maintain another env var. Also, ensures correct value and prevent mistakes.
+   **Requirements**: Add `get` rights for `pods` to Secrets Provider's service account in K8s.
+
+2. #### Get pod's name and namespace
+
+   **Current solution**: Customer supplies these values using [Downward API](https://kubernetes.io/docs/tasks/inject-data-application/downward-api-volume-expose-pod-information/) into`MY_POD_NAME` and `MY_POD_NAMESPACE` env vars to Secrets Provider.
+
+   **Enhanced solution**: Get pod's namespace from `/var/run/secrets/kubernetes.io/serviceaccount/namespace` file inside the container.
+   Get pod's name from `HOSTNAME` env var (as documented in [K8s docs](https://kubernetes.io/docs/concepts/containers/container-environment/#container-information)) 
+
+   **Motivation**: better UX, no need to maintain another env vars.
+
+   **Limitation**: `HOSTNAME` is the pod's name only if customer didn't [supply a hostname explicitly](https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pod-s-hostname-and-subdomain-fields).
+
+   **Solution**: Use `HOSTNAME` if `MY_POD_NAME` is not supplied.
+
+3. #### Do not update K8s secret with the same value
+
+   **Current solution**: For each K8s secret, pull its values from Conjur and write them into the K8s secret.
+
+   **Enhanced solution**: Before writing the K8s secret, compare it with the existing value. If the value is the same, skip its writing.
+
+   **Motivation**:
+
+   1. Less stress on K8s API in case of many k8s secrets that are already updated.
+   2. Remove redundant notifications because every change to K8s resource sends a notification to all watchers.
+   3. Improved performance due to less API calls
+
 ### Order of Deployment
 
 To ensure that on first run our Secrets Provider runs first, we will request from the customer follow the following setup order:
@@ -363,7 +385,7 @@ The lifecycle of the Job is the length of the process. In other words, the time 
 
 ### Backwards compatibility
 
-Milestone 1 of Phase 2 will be built ontop of the current init container solution. We will delivery the same image and will not be erasing code and any current functionality.
+Milestone 1 of Phase 2 will be built ontop of the current init container solution. We will deliver the same image and will not break current functionality.
 
 ### Performance
 We will test and document how many secrets can be updated in 5 minutes on average where a secret should be either extreme long password or one vault account which is 5 vars username address port password dns
