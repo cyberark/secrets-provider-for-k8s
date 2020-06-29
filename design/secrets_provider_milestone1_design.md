@@ -1,29 +1,35 @@
 # Secrets Provider - Phase 2
 
 ## Table of Contents
-- [Useful links](#useful-links)
-- [Background](#background)
-  * [Motivation](#motivation)
-  * [Requirement](#requirement)
-- [Solution](#solution)
-  * [Milestone 1: Deployment](#milestone-1--deployment)
-    + [Design](#design)
-    + [Flow](#flow)
-    + [Customer Experience](#customer-experience)
-    + [Code changes](#code-changes)
-    + [Fetching Relevant K8s Secrets](#fetching-relevant-k8s-secrets)
-      - [**Customer Experience**](#--customer-experience--)
-  * [Order of Deployment](#order-of-deployment)
-  * [Backwards compatibility](#backwards-compatibility)
-  * [Performance](#performance)
-  * [Affected Components](#affected-components)
-- [Security](#security)
-- [Test Plan](#test-plan)
-- [Logs](#logs)
-  * [Audit](#audit)
-- [Documentation](#documentation)
-- [Open questions](#open-questions)
-- [Implementation plan](#implementation-plan)
+* [Glossary](#glossary)
+  * [Useful links](#useful-links)
+  * [Background](#background)
+    + [Motivation](#motivation)
+    + [Requirements](#requirements)
+    + [Future requirements](#future-requirements)
+  * [Solution](#solution)
+    + [Milestone 1: Serve K8s secrets to multiple applications once (no rotation)](#milestone-1--serve-k8s-secrets-to-multiple-applications-once--no-rotation-)
+      - [Design](#design)
+      - [Customer Experience](#customer-experience)
+      - [Code changes](#code-changes)
+      - [Fetching Relevant K8s Secrets](#fetching-relevant-k8s-secrets)
+        * [**Customer Experience**](#--customer-experience--)
+      - [Code changes](#code-changes-1)
+    + [Enhancements](#enhancements)
+    + [Order of Deployment](#order-of-deployment)
+    + [Lifecycle/Deletion](#lifecycle-deletion)
+    + [Backwards compatibility](#backwards-compatibility)
+    + [Performance](#performance)
+    + [Affected Components](#affected-components)
+  * [Security](#security)
+  * [Test Plan](#test-plan)
+    + [Performance](#performance-1)
+  * [Logs](#logs)
+    + [Audit](#audit)
+  * [Documentation](#documentation)
+  * [Open questions](#open-questions)
+  * [Implementation plan](#implementation-plan)
+    + [Delivery plan](#delivery-plan)
 
 ## Glossary
 
@@ -101,7 +107,7 @@ These variations will be supported using the same Secrets Provider image, but th
 
 Run Secrets Provider as a **Job**.
 Once the Job's pod is spun up, it will authenticate to Conjur/DAP via authn-k8s.
-It will then fetch all the K8s secrets denoted with a specific label and update them with the Conjur secrets they require and upon completion, terminate.
+It will then fetch all the K8s secrets denoted with a specific label and update them with the Conjur secrets they require and terminate upon completion.
 
 ###### How does a Job answer the requirements?
 
@@ -131,7 +137,7 @@ To handle the missing **Job** granularity there are 2 options:
 
 |      | Solution                                                     | Pros                                                         | Cons                                                         | Effort Estimation |
 | ---- | ------------------------------------------------------------ | ------------------------------------------------------------ | ------------------------------------------------------------ | ----------------- |
-| 1    | Keep using only **namespace** and/or **service account** granularities. | - Since Secrets Provider runs as a separate entity, we suggest  creating service account dedicated for Secrets Provider.<br />Then, **service account** granularity serves exact match and **Job** granularity is redundant<br />- No code changes | - Service account might be reused, which allows other apps to authenticate using Secrets Provider host | Free              |
+| 1    | Keep using only **namespace** and/or **service account** granularities. | - Since Secrets Provider runs as a separate entity, we suggest  creating service account dedicated for Secrets Provider.<br />Then, **service account** granularity serves exact match and **Job** granularity is redundant<br />- No code changes | - Service account might be reused, which allows other apps to authenticate using Secrets Provider host<br />- Break application identity convention | Free              |
 | 2    | Add support for **Job** granularity in Conjur                | - Allows specific identification of the Secrets Provider **Job**, which enhances security | - Costly; requires code changes, verify compatibility, tests, docs<br />- Redundant if **service account** serves only the Secrets Provider | 10 days           |
 
 *Decision*: Solution #1, use **namespace** and **service account** to define the Secrets Provider host in Conjur policy.
@@ -142,15 +148,11 @@ Recommend to the customer to create a dedicated service account for Secrets Prov
 1. Configure K8s Secrets with ***conjur-map\*** metadata defined 
 
    - *Optional:* add label to K8s Secret
-
-2. Create Service Account for Secrets Provider 
-
+2. Create Service Account for Secrets Provider Job
 3. Create Role for the Service Accounts with **get**/**update** and also **list** privileges on K8s Secrets resources
-
 4. Create RoleBinding and bind the Service Accounts to the Role from previous step
-
 5. Create/Deploy Secrets Providers as Jobs in deployment manifest(s)
-   - If label filtering is defined, add "K8S_SECRET_LABEL" in the Secrets Provider manifest(s)
+6. If [label filtering](#fetching-relevant-k8s-secrets) is defined, add `K8S_SECRET_LABEL` in the Secrets Provider manifest(s)
 
 The Secrets Provider host will resemble the following:
 
@@ -162,7 +164,7 @@ The Secrets Provider host will resemble the following:
     id: secrets-provider-1
     annotations:
       authn-k8s/namespace: prod-namespace
-      authn-k8s/service-account: prod-sa
+      authn-k8s/service-account: secret-provider-sa
       authn-k8s/authentication-container-name: cyberark-secrets-provider
 
   - !group 
@@ -185,10 +187,11 @@ apiVersion: batch/v1
 kind: Job
 metadata:
   name: secrets-provider-job
+  namespace: my-namespace
 spec:
   template:
     spec:
-      serviceAccountName: prod-sa
+      serviceAccountName: secret-provider-sa
       containers:
       - image: secrets-provider:latest
         name: cyberark-secrets-provider-1
@@ -196,7 +199,7 @@ spec:
 # Rest of environment variables for Pod to run 
 ```
 
-We recommend that the admin will define `Role` and not `ClusterRole` to follow the principle of least privilege on resources.
+We recommend that the admin will define `Role` and not `ClusterRole` to follow the principle of least privilege on resources (manifests are documented below).
 
 #### Code changes
 
@@ -246,14 +249,6 @@ Listing each K8s Secret in the ENV of the Secrets Provider manifest is not a sca
 
 Even with this new addition, for backwards compatibility, we will still be supporting customers using `K8S_SECRETS`. The flow for this addition will be as follows
 
-```pseudocode
-K8S_SECRETS exists in manifest?
-  YES? Fetch k8s secrets defined under K8S_SECRETS
-  NO? K8S_SECRETS_LABEL exists?
-    YES? Fetch k8s secrets with label defined under K8S_SECRETS_LABEL
-    NO? Log failure
-```
-
 ##### **Customer Experience**
 
 K8s offers the option of adding labels on K8s secrets. A customer would add a label on a K8s Secret like so:
@@ -278,22 +273,23 @@ Note that just because the customer added a label for us to filter over doesn't 
 Secrets Provider Manifest with the `K8S_SECRET_LABEL` environment variable:
 
 ```yaml
-apiVersion: apps/v1
-kind: Deployment
+apiVersion: batch/v1
+kind: Job
 metadata:
-  name: secrets-provider-deployment
+  name: secrets-provider-job
 spec:
-  replicas: 1
   template:
     spec:
-      serviceAccountName: sa-1
+      serviceAccountName: secret-provider-sa
       containers:
       - image: secrets-provider:latest
-        name: cyberark-secrets-provider
+        name: cyberark-secrets-provider-1
    ...
       env:
         - name: K8S_SECRET_LABELS
           value: 'configurable-key:env-prod,environment:prod'
+          
+# Rest of environment variables for Pod to run    
 ```
 
 These labels will have an OR inclusive relationship, not an AND relationship. A customer can also write '*' to imply fetching all K8s secrets in the namespace. If K8S_SECRET_LABELS is not supplied, by default, the Secrets Provider will fetch all K8s Secrets in the namespace.
@@ -307,7 +303,7 @@ The Service Account / Role / RoleBinding will be defined as the following:
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: conjur-sa-1
+  name: secret-provider-sa
 
 # Role definition
 apiVersion: rbac.authorization.k8s.io/v1
@@ -328,7 +324,7 @@ metadata:
   namespace: app-namespace
 subjects:
   - kind: ServiceAccount
-    name: conjur-sa-1
+    name: secret-provider-sa
     apiGroup: rbac.authorization.k8s.io
 roleRef:
   kind: Role
@@ -339,6 +335,21 @@ roleRef:
 #### Code changes
 
 Although we will now offer "K8S_SECRET_LABELS" for easy filtering on K8s Secrets, we will still support the "K8S_SECRET" environment variable if the customer prefers to list the K8s Secrets they need values for from Conjur. 
+
+Customers will be able to use a combination of `K8S_SECRETS` and `K8S_SECRET_LABELS` if there are K8s Secrets without existing labels on them. 
+
+Changes will take place in `config.go` of codebase where we will check for the existance of either `K8S_SECRETS` or `K8S_SECRETS_LABEL`. If `K8S_SECRETS_LABEL`, we will make an additional request to the K8s API to fetch all K8s Secrets with the defined labels. The K8s Secrets we get back will be used to fill the `requiredK8sSecret` field in the Config object.
+
+The flow is as follows:
+
+```pseudocode
+K8S_SECRETS exists in manifest?
+	YES? K8S_SECRETS_LABEL exists in manifest?
+    YES? Fetch k8s secrets defined under K8S_SECRETS
+         Fetch k8s secrets with label defined under K8S_SECRETS_LABEL
+    NO? Fetch k8s secrets defined under K8S_SECRETS
+  NO? Log failure and exit
+```
 
 ### Enhancements
 
@@ -355,13 +366,13 @@ As optional (yet important) enhancements, we suggest the following:
 
    **Backwards compatibility:** 
 
-   ```
+   ```pseudocode
    CONTAINER_MODE exists?
    	YES? Set authnConfig.ContainerMode from environment variable
    	NO? 
    	  Service account has "get" privileges on Pods? 
    	  	YES? Set authnConfig.Mode from API
-   	  	NO? Log failure	  
+   	  	NO? Log failure and exit
    ```
 
    
@@ -393,13 +404,13 @@ As optional (yet important) enhancements, we suggest the following:
 
 ### Order of Deployment
 
-To ensure that on first run our Secrets Provider runs first, we will request from the customer follow the following setup order:
+Steps to follow for successful deployment
 
 1. Add all necessary K8s Secrets and their labels to the Secrets Provider manifest
+2. Run the Secrets Provider Job**
+3. Run application pods**
 
-2. Run the Secrets Provider Job
-
-3. Run application pods
+**The order at which the Secrets Provider and application pod are deployed does not matter because the [application pod will not start](https://kubernetes.io/docs/concepts/configuration/secret/#details) until it has received the K8s Secrets it references (secretKeyRef). 
 
 ### Lifecycle/Deletion
 
@@ -411,36 +422,41 @@ Milestone 1 of Phase 2 will be built ontop of the current init container solutio
 
 *K8S_SECRETS_LABELS*
 
-Although we will now offer "K8S_SECRET_LABELS" for easy filtering on K8s Secrets, we will still support the "K8S_SECRET" environment variable if the customer prefers to list the K8s Secrets they need values for from Conjur. If so, they will not need to add "list" permissions on their Service Account.
+Although we will now offer `K8S_SECRET_LABELS` for easy filtering on K8s Secrets, we will still support the `K8S_SECRET` environment variable if the customer prefers to list the K8s Secrets they need values for from Conjur. If so, they will not need to add "list" permissions on their Service Account. 
+
+Customers will be able to use a combination of `K8S_SECRET` and `K8S_SECRET_LABELS` if there are K8s Secrets without existing labels on them. 
 
 ### Performance
-We will test and document how many secrets can be updated in 5 minutes on average where a secret should be either extreme long password or one vault account which is 5 vars username address port password dns
+*See performance tests.* 
+
+We will test and document how many K8s Secrets can be updated in 5 minutes on average. A secret should be either extreme long password.
 
 ### Affected Components
 
-## Security
-[//]: # "Are there any security issues with your solution? Even if you mentioned them somewhere in the doc it may be convenient for the security architect review to have them centralized here"
+- K8s authenticator client (`CONTAINER_MODE` enhancement)
 
+## Security
 ## Test Plan
-|      | **Title**                                                    | **Given**                                                    | **When**                                           | **Then**                                                     | **Comment**                                |
-| ---- | ------------------------------------------------------------ | ------------------------------------------------------------ | -------------------------------------------------- | ------------------------------------------------------------ | ------------------------------------------ |
-| 1    | *Vanilla flow*, Secret Provider Job successfully updates K8s Secrets | - Conjur is running<br />- Authenticator is defined<br />- Secrets defined in Conjur and K8s Secrets are configured<br />- Service Account has correct permissions (get/update/list) <br />- Secrets Provider Job manifest is defined<br />- K8S_SECRETS_LABEL env variable is configured | Secrets Provider runs as a Job                     | - Secrets Provider pod authenticates and fetches Conjur secrets successfully<br />- All K8s Secrets with label(s) defined in K8S_SECRETS_LABEL are updated with most recent Conjur value <br />- App pods requesting with access to K8s secrets receive updated Conjur secret values as environment variables<br />- Secrets Provider Job terminates on completion of task<br />- Verify logs |                                            |
-| 2    | Secret Provider Job updates all K8s Secrets                  | - Without K8S_SECRETS_LABEL env variable configured<br />- Without K8S_SECRET env variable configured in Job manifest | Secrets Provider runs as a Job                     | Failure on missing environment variable. Either K8S_SECRETS_LABEL or K8S_SECRET must be provided<br />- Failure is logged |                                            |
-| 2.1  | Empty K8S_SECRETS_LABEL value list                           | - K8S_SECRETS_LABEL env variable configured but the list is empty<br />Ex: <br />`key: K8S_SECRETS_LABEL<br />value:`<br />- Without K8S_SECRET env variable | Secrets Provider runs as a Job                     | All K8s Secrets in the namespace will be fetched and updated with most recent Conjur value<br /><br />- Verify logs |                                            |
-| 2.2  | K8S_SECRETS ***backwards compatibility***                    | - K8S_SECRET env variable configured<br />- K8S_SECRETS_LABEL env variable configured | Secrets Provider runs as a Job                     | - All K8s Secrets defined under K8S_SECRETS environment variable in Job manifest will be updated<br />- Verify logs |                                            |
-| 3    | Secret Provider Service Account has insuffient privileges ("list") | - Service Account lacks "list" permissions on K8s Secrets<br />- K8S_SECRETS_LABEL env variable configured<br />and K8S_SECRETS is *not* | Secrets Provider runs as a Job                     | - Failure on retrieving K8s Secret due to incorrect permissions given to Service Account<br />- Failure is logged |                                            |
-| 3.1  | Service Account with insuffient privileges ("list")          | - Service Account lacks "list" permissions on K8s Secrets<br />- K8S_SECRETS_LABEL env variable is *not* configured<br />and K8S_SECRETS is | Secrets Provider runs as a Job                     | - All K8s Secrets defined under K8S_SECRETS environment variable in Job manifest will be updated<br />- Verify logs |                                            |
-| 4    | Batch retrieval failure                                      | - Service Account has correct permissions (get/update/list)<br />- K8S_SECRETS_LABEL env variable or K8S_SECRETS is configured | Secrets Provider runs as a Job                     | - Failure to fetch *specific* K8s Secret without harming  batch retrieval for rest of K8s Secret API calls <br />- Failure is logged defining which K8s Secret(s) failed |                                            |
-| 5    | *Vanilla flow*, non-conflicting Secrets Provider<br />       | Two Secrets Providers have access to different Conjur secret | 2 Secrets Provider runs as a Job in same namespace | - All relevant K8s secrets are updated<br />- Verify logs    |                                            |
-| 6    | Non-conflicting Secrets Provider 1 namespace same K8s Secret | Two Secrets Providers have access to same  secret            | 2 Secrets Provider runs as a Job in same namespace | - No race condition and Secrets Providers will not  override each other<br />- Verify logs |                                            |
-| 8    | *Regression tests*                                           |                                                              |                                                    | All regression tests should pass                             | All init container tests should still pass |
+|      | **Title**                                                    | **Given**                                                    | **When**                                                     | **Then**                                                     | **Comment**                                |
+| ---- | ------------------------------------------------------------ | ------------------------------------------------------------ | ------------------------------------------------------------ | ------------------------------------------------------------ | ------------------------------------------ |
+| 1    | *Vanilla flow*, Secret Provider Job successfully updates K8s Secrets | - Conjur is running<br />- Authenticator is defined<br />- Secrets defined in Conjur and K8s Secrets are configured<br />- Service Account has correct permissions (get/update/list) <br />- Secrets Provider Job manifest is defined<br />- `K8S_SECRETS_LABEL` (or `K8S_SECRETS`) env variable is configured | Secrets Provider runs as a Job                               | - Secrets Provider pod authenticates and fetches Conjur secrets successfully<br />- All K8s Secrets with label(s) defined in `K8S_SECRETS_LABEL` are updated with  Conjur value <br />- App pods receive K8s Secret with Conjur secret values as environment variable<br />- Secrets Provider Job terminates on completion of task<br />- Verify logs |                                            |
+| 2    | Secret Provider Job updates K8s Secrets                      | - Without `K8S_SECRETS_LABEL` <br />- Without `K8S_SECRETS` env variable configured in Job manifest | Secrets Provider runs as a Job                               | Failure on missing environment variable. Either `K8S_SECRETS_LABEL` or `K8S_SECRETS` must be provided<br />- Failure is logged |                                            |
+| 2.1  | Empty `K8S_SECRETS_LABEL` value list                         | - `K8S_SECRETS_LABEL` env variable configured but the list is empty<br />- Without `K8S_SECRETS` env variable | Secrets Provider runs as a Job                               | All K8s Secrets in the namespace will be fetched and updated<br /><br />- Verify logs |                                            |
+| 2.2  | Empty `K8S_SECRETS_LABEL` value list with `K8S_SECRETS`      | - `K8S_SECRETS_LABEL` env variable configured but the list is empty<br />- `K8S_SECRETS` env variable configured |                                                              | - `K8S_SECRETS` takes precedence. All K8s Secrets defined under `K8S_SECRETS` will be updated |                                            |
+| 2.3  | K8S_SECRETS ***backwards compatibility***                    | - `K8S_SECRETS` and `K8S_SECRETS_LABEL` env variable configured | Secrets Provider runs as a Job                               | - K8s Secrets defined under `K8S_SECRETS` and all K8s Secrets that have the label defined under `K8S_SECRETS_LABEL`will be updated<br />- Verify logs |                                            |
+| 3    | Secret Provider Service Account has insuffient privileges ("list") | - Service Account lacks "list" permissions on K8s Secrets<br />`K8S_SECRETS_LABEL`<br />and `K8S_SECRETS` is *not* | Secrets Provider runs as a Job                               | - Failure on retrieving K8s Secret due to incorrect permissions given to Service Account<br />- Failure is logged |                                            |
+| 3.1  | Service Account with insuffient privileges ("list")          | - Service Account lacks "list" permissions on K8s Secrets<br />- `K8S_SECRETS_LABEL` env variable is *not* configured<br />and `K8S_SECRETS` is | Secrets Provider runs as a Job                               | - All K8s Secrets defined under `K8S_SECRETS` environment variable in Job manifest will be updated<br />- Verify logs |                                            |
+| 4    | Batch retrieval failure                                      | - Service Account has correct permissions (get/update/list)<br />- `K8S_SECRETS_LABEL` env variable or `K8S_SECRETS` is configured<br /> | Secrets Provider runs as a Job<br />- Host doesn't have permissions on Conjur secret | - Failure to fetch *specific* secret without harming batch retrieval for rest of the secrets <br />- Failure is logged defining which Conjur secret(s) failed |                                            |
+| 5    | *Vanilla flow*, non-conflicting Secrets Provider<br />       | Two Secrets Providers have access to different Conjur secret | 2 Secrets Provider runs as a Job in same namespace           | - All relevant K8s secrets are updated<br />- Verify logs    |                                            |
+| 6    | Non-conflicting Secrets Provider 1 namespace same K8s Secret | Two Secrets Providers have access to same  secret            | 2 Secrets Provider runs as a Job in same namespace           | - No race condition and Secrets Providers will not  override each other<br />- Verify logs |                                            |
+| 7    | *Regression tests*                                           |                                                              |                                                              | All regression tests should pass                             | All init container tests should still pass |
 
 ### Performance
 
 |      | **Title**                 | **Given**                                                    | **When**                       | **Then**                                                     | **Comment** |
 | ---- | ------------------------- | ------------------------------------------------------------ | ------------------------------ | ------------------------------------------------------------ | ----------- |
-| 1    | Performance investigation | - **#** (TBD) Secrets Providers defined<br />- Conjur secrets with max amount of characters | Secrets Provider runs as a Job | Evaluate how many K8s Secrets can be updated with Conjur secrets in 5 minutes |             |
-| 2    | Performance investigation | - **#** (TBD) Secrets Providers defined<br />- Conjur secret with average amount of characters | Secrets Provider runs as a Job | Evaluate how many K8s Secrets can be updated with Conjur secrets in 5 minutes |             |
+| 1    | Performance investigation | - 1000 Secrets Providers defined<br />- Conjur secrets with max amount of characters | Secrets Provider runs as a Job | Evaluate how many K8s Secrets can be updated with Conjur secrets in 5 minutes |             |
+| 2    | Performance investigation | - 1000 Secrets Providers defined<br />- Conjur secret with average amount of characters | Secrets Provider runs as a Job | Evaluate how many K8s Secrets can be updated with Conjur secrets in 5 minutes |             |
 
 
 ## Logs
@@ -453,7 +469,7 @@ We will test and document how many secrets can be updated in 5 minutes on averag
 | Admin does not provide K8S_SECRET_LABELS or K8S_SECRETS environment variables | Environment variable K8S_SECRETS_LABEL or K8S_SECRET must be provided... | Error |
 | Secrets Provider tries to update K8s Secret but value is up-to-date. Details number of K8s secrets that are being skipped. | Already up-to-date. Skipping update for %s k8s secret(s) from namespace '%s'... | Info  |
 | Secrets Provider tries to update K8s Secret but value is up-to-date | Already up-to-date. Skipping update for k8s secret(s) [%s, %s..] from namespace '%s'... | Debug |
-| Admin provides label that returns no K8s Secrets (empty list) | Failed to retrieve k8s secrets (Already exists)              | Error |
+| Admin provides label that does not return K8s Secrets (empty list) | Failed to retrieve k8s secrets with label %s                 | Error |
 | K8S_SECRETS_LABELS key-value pairs has invalid character, K8s API has problem with value (400 error) | Invalid characters in K8S_SECRETS_LABELS                     | Error |
 | Secrets Provider was unable to provide K8s secret with Conjur value | Failed to retrieve Conjur secrets. Reason: %s (Already exists) | Error |
 
