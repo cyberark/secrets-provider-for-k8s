@@ -53,10 +53,10 @@ function configure_secret() {
   echo "Create secret k8s-secret"
   $cli_with_timeout create -f $ENV_DIR/k8s-secret.yml
 
-  echo "Create secret k8s-secret"
-  $cli_with_timeout create -f $ENV_DIR/k8s-secret-sigal.yml
+#  echo "Create secret k8s-secret"
+#  $cli_with_timeout create -f $ENV_DIR/k8s-secret-sigal.yml
 
-  $cli_with_timeout create -f $ENV_DIR/k8s-secret-sigal3.yml
+#  $cli_with_timeout create -f $ENV_DIR/k8s-secret-sigal3.yml
 
   create_secret_access_role
 
