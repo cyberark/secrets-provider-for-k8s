@@ -54,8 +54,10 @@ The solution should support the following capabilities:
 
 Milestone 1 *(current)*
 
-- Secrets Provider runs and deployed without affecting the app deployment or app life cycle
-- Secrets Provider can serve many apps
+- Secrets Provider runs as a separate entity, serving multiple application containers that run on multiple pods
+- Solution needs to be native to Kubernetes
+- Lifecycle should support update/removal of deployment
+- Provide a way for customer to understand the state of the Secret Provider - when it finished initializing
 
 Milestone 2
 
@@ -99,7 +101,7 @@ These variations will be supported using the same Secrets Provider image, but th
 
 Run Secrets Provider as a **Job**.
 Once the Job's pod is spun up, it will authenticate to Conjur/DAP via authn-k8s.
-It will then fetch all the K8s secrets denoted with a specific label and update them with the Conjur secrets they require and upcome completion, terminate.
+It will then fetch all the K8s secrets denoted with a specific label and update them with the Conjur secrets they require and upon completion, terminate.
 
 ###### How does a Job answer the requirements?
 
@@ -170,10 +172,10 @@ The Secrets Provider host will resemble the following:
     role: !group secrets-accessors
     privileges: [ read, execute ]
  
-- !grant
-  role: !group secrets-accessors
-  members:
-    - !host conjur/authn-k8s/secrets-provider-1
+  - !grant
+    role: !group secrets-accessors
+    members:
+      - !host conjur/authn-k8s/secrets-provider-1
 ```
 
 The Secrets Provider manifest will be defined as the following:
@@ -202,7 +204,7 @@ In the current solution, there are behaviors that need to be changed:
 
 *Batch retrieval*
 
-At current, the Secrets Provider code looks at the "K8S_SECRET" environment variable in each of the pod manifests and preforms a batch retrieval against the Conjur API to get the relevant Conjur Secrets. If there is a failure in retrieving one of the secrets, the request fails and no secrets are returned to the request Pod. 
+At current, the Secrets Provider code looks at the `K8S_SECRETS` environment variable in each of the pod manifests and preforms a batch retrieval against the Conjur API to get the relevant Conjur Secrets. If there is a failure in retrieving one of the secrets, the request fails and no secrets are returned to the request Pod. 
 
 This is problematic for us at this stage because now the Secrets Provider is sitting separately and will need to perform a batch retrieval of all the secrets in the namespace. In other words, if the Secrets Provider fails to fetch one Conjur secret, the whole request will fail and applications will not get their secrets. 
 
@@ -233,16 +235,24 @@ stringData:
 
 With the decoupling of Secrets Provider and application pod, we can know what types of K8s Secrets the pod requires by either of the following ways: 
 
-|      | Fetch/Update K8s Secret                                      | Pros                                                         | Cons                                        | Effort estimation |
-| ---- | ------------------------------------------------------------ | ------------------------------------------------------------ | ------------------------------------------- | ----------------- |
-| 1    | Read all K8s Secrets that are marked with labels specified in `K8S_SECRETS_LABEL` env var | - Scalable <br /><br />- Less intervention on our part as a customer can define which types of secrets we should parse<br /><br />- K8s native, as-is solution | - Not generalized so we are still K8s bound | 3 days            |
-| 2    | Get K8s secrets with the names specified in `K8S_SECRETS`    | - No code changes<br /><br />- Backwards compatible          | - Repetitive work<br /><br />- Not scalable | Free              |
+|      | Fetch/Update K8s Secret                                      | Pros                                                         | Cons                                                         | Effort estimation |
+| ---- | ------------------------------------------------------------ | ------------------------------------------------------------ | ------------------------------------------------------------ | ----------------- |
+| 1    | Read all K8s Secrets that are marked with labels specified in `K8S_SECRETS_LABEL` env var | - Scalable <br /><br />- Less intervention on our part as a customer can define which types of secrets we should parse<br /><br />- K8s native, as-is solution | - Not generalized so we are still K8s bound<br />- Demands "list" privileges on secrets | 3 days            |
+| 2    | Get K8s secrets with the names specified in `K8S_SECRETS`    | - No code changes<br /><br />- Backwards compatible          | - Repetitive work<br /><br />- Not scalable                  | Free              |
 
 *Decision*: Solution #1, Read all K8s Secrets that are marked with labels. It would be the most K8s native and avoids the repetitive work of having to list all the K8s Secrets each app needs.
 
 Listing each K8s Secret in the ENV of the Secrets Provider manifest is not a scalable solution, especially for customers with hundreds of K8s Secrets. Customers might already use labels for grouping related K8s Secrets so we will benefit from this enhancement by integrating more with a customer environment and utilizing that.
 
-Even with this new addition, for backwards compatibility, we will still be supporting customers using `K8S_SECRETS`. 
+Even with this new addition, for backwards compatibility, we will still be supporting customers using `K8S_SECRETS`. The flow for this addition will be as follows
+
+```pseudocode
+K8S_SECRETS exists in manifest?
+  YES? Fetch k8s secrets defined under K8S_SECRETS
+  NO? K8S_SECRETS_LABEL exists?
+    YES? Fetch k8s secrets with label defined under K8S_SECRETS_LABEL
+    NO? Log failure
+```
 
 ##### **Customer Experience**
 
@@ -261,7 +271,7 @@ stringData:
     username: secrets-accessors/my_username
 ```
 
-These labels do not have to be Conjur-specific and the customer would decide which label to attach to the K8s secrets. They would define which secrets to iterate over by `K8S_SECRET_LABEL` env variable in their Secrets Provider manifest. The Secrets Provider will perform a search for secrets with that label key-value pair against the [K8s](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.18/#secret-v1-core)/[OC](https://docs.openshift.com/container-platform/4.4/rest_api/index.html#secret-v1-core) API and search for the "conjur_map" on the results.
+These labels do not have to be Conjur-specific and the customer would decide which label to attach to the K8s secrets. They would define which secrets to iterate over by `K8S_SECRET_LABEL` env variable in their Secrets Provider manifest. The Secrets Provider will perform a search for secrets with that label key-value pair against the [K8s](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.18/#secret-v1-core)/[OC](https://docs.openshift.com/container-platform/4.4/rest_api/index.html#list-14) API and search for the "conjur_map" on the results.
 
 Note that just because the customer added a label for us to filter over doesn't mean that all secret entries in the K8s Secret are stored in Conjur but it gives us a way to perform a more focused search for "conjur-map" in the K8s Secrets.
 
@@ -341,7 +351,20 @@ As optional (yet important) enhancements, we suggest the following:
    **Enhanced solution**: Use K8s API `GET namespaces/{namespace}/pods/{pod}` to get the pod's manifest and derive the deployment used for Secrets Provider.
 
    **Motivation**: better UX, no need to maintain another env var. Also, ensures correct value and prevent mistakes.
-   **Requirements**: Add `get` rights for `pods` to Secrets Provider's service account in K8s.
+   **Requirements**: Add `get` rights for `pods` to Secrets Provider's service account in K8s. This change will need to be done in the *authn-client.*
+
+   **Backwards compatibility:** 
+
+   ```
+   CONTAINER_MODE exists?
+   	YES? Set authnConfig.ContainerMode from environment variable
+   	NO? 
+   	  Service account has "get" privileges on Pods? 
+   	  	YES? Set authnConfig.Mode from API
+   	  	NO? Log failure	  
+   ```
+
+   
 
 2. #### Get `MY_POD_NAME` `MY_POD_NAMESPACE`
 
@@ -458,13 +481,13 @@ All fetches on a Conjur Resource are individually audited, creating its own audi
   - [ ] References to downward API in manifest (MY_POD_NAME and  MY_POD_NAMESPACE) and other ENV vars (CONTAINER_MODE - *TBD*)
 - [ ] Implement test plan (Integration + Unit + Performance tests align with SLA) ***(~5 days)\***
 - [ ] Security items have been taken care of (if they exist) ***(TBD)\***
-- [ ] Logs review by TW + PO ***(~1 day, can work in parallel)\*** 
+- [ ] Logs review by TW + PO ***(~1 day)\*** 
 - [ ] Documentation has been given to TW + approved ***(~2 days)\***
 - [ ] Engineer(s) not involved in project use documentation to get end-to-end ***(~1 day)\***
 - [ ] Create demo for Milestone 1 functionality ***(~1 day)\***
 - [ ] Versions are bumped in all relevant projects (if necessary) ***(~1 days)\***
 
-**Total:** ~26 days of non-parallel work **(~5 weeks)**
+**Total:** ~28 days of non-parallel work **(~5.5 weeks)**
 
 *Risks that could delay project completion*
 
