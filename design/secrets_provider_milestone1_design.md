@@ -180,7 +180,7 @@ apiVersion: batch/v1
 kind: Job
 metadata:
   name: secrets-provider-job
-  namespace: my-namespace
+  namespace: app-namespace
 spec:
   template:
     spec:
@@ -189,7 +189,13 @@ spec:
       - image: secrets-provider:latest
         name: cyberark-secrets-provider-1
         env:
-      	 # See enhancements
+        - name: SECRETS_DESTINATION
+          value: k8s_secrets
+
+        - name: K8S_SECRETS_LABEL # See enhancements
+          value: k8s-secrets-for-conjur:prod
+        
+        # K8s authn-client configurations (CONJUR_APPLIANCE_URL, CONJUR_AUTHN_URL, CONJUR_ACCOUNT, CONJUR_SSL_CERTIFICATE)
 ```
 
 Service Account and secret definitions can be found [below](#permission-definitions).
@@ -264,7 +270,7 @@ kind: Secret
 metadata:
   name: db-secret
   labels:
-    configurable-key: env-prod # label name can be configurable
+    k8s-secrets-for-conjur: prod # label name can be configurable
   type: Opaque
 stringData:
   conjur-map: |-
@@ -283,6 +289,7 @@ apiVersion: batch/v1
 kind: Job
 metadata:
   name: secrets-provider-job
+  namespace: app-namespace
 spec:
   template:
     spec:
@@ -290,12 +297,14 @@ spec:
       containers:
       - image: secrets-provider:latest
         name: cyberark-secrets-provider-1
-   ...
-      env:
-        - name: K8S_SECRETS_LABELS
-          value: 'configurable-key:env-prod,environment:prod'
-          
-# Rest of environment variables for Pod to run    
+        env:
+        - name: SECRETS_DESTINATION
+          value: k8s_secrets
+
+        - name: K8S_SECRETS_LABEL # See enhancements
+          value: k8s-secrets-for-conjur:prod
+        
+        # K8s authn-client configurations (CONJUR_APPLIANCE_URL, CONJUR_AUTHN_URL, CONJUR_ACCOUNT, CONJUR_SSL_CERTIFICATE)
 ```
 
 These labels will have an OR inclusive relationship, not an AND relationship. A customer can also write '*' to imply fetching all K8s secrets in the namespace. 
@@ -322,7 +331,7 @@ metadata:
 rules:
 - apiGroups: [""]
   resources: ["secrets"]
-  verbs: ["get", "update", "list"] # new privilege here
+  verbs: ["get", "update", "list"] # "list" is a new privilege here
 
 # RoleBinding definition to associate the SA with the Role
 apiVersion: rbac.authorization.k8s.io/v1
