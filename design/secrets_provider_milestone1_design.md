@@ -425,7 +425,7 @@ Steps to follow for successful deployment
 2. Run the Secrets Provider Job**
 3. Run application pods**
 
-**The order at which the Secrets Provider and application pod are deployed does not matter because the [application pod will not start](https://kubernetes.io/docs/concepts/configuration/secret/#details) until it has received the K8s Secrets it references (secretKeyRef). Until the 
+**The order at which the Secrets Provider and application pod are deployed does not matter because the [application pod will not start](https://kubernetes.io/docs/concepts/configuration/secret/#details) until it has received the keys from the K8s Secrets it references (secretKeyRef).
 
 ### Lifecycle/Deletion
 
