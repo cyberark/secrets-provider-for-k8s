@@ -198,15 +198,15 @@ Service Account and secret definitions can be found [below](#permission-definiti
 
 For this Milestone we recommend also tackling the following enhancements:
 
-1. Update how we fetch Conjur secrets
-2. Enhance how we fetch relevant K8s Secrets
+1. Fetch Conjur secrets for each K8s secret separately
+2. Fetch relevant K8s Secrets using a predefined label
 3. Differentiate between deployment types using K8s API
 4. Remove use of downward API
 5. Do not update K8s Secret that with the same value
 
-#### Update how we fetch Conjur secrets
+#### Fetch Conjur secrets for each K8s secret separately
 
-At current, the Secrets Provider code looks at the `K8S_SECRETS` environment variable in each of the pod manifests and preforms a batch retrieval against the Conjur API to get the relevant Conjur Secrets. If there is a failure in retrieving one of the secrets, the request fails and no secrets are returned to the request Pod. 
+At current, the Secrets Provider code looks at the `K8S_SECRETS` environment variable in each of the pod manifests and preforms a batch retrieval against the Conjur API to get all the relevant Conjur Secrets. If there is a failure in retrieving one of the secrets, the request fails and no secrets are returned to the request Pod. 
 
 This is problematic for us at this stage because now the Secrets Provider is sitting separately and will need to perform a batch retrieval of all the secrets in the namespace. In other words, if the Secrets Provider fails to fetch one Conjur secret, the whole request will fail and applications will not get their secrets. 
 
@@ -235,9 +235,9 @@ stringData:
     password: secrets-accessors/db_password # the value is one element in the variable-ids list
 ```
 
-#### Fetching how we fetch relevant K8s Secrets
+#### Fetch relevant K8s Secrets using a predefined label
 
-With the decoupling of Secrets Provider and application pod, we can know what types of K8s Secrets the pod requires by either of the following ways: 
+With the decoupling of Secrets Provider and application pod, we can know what K8s Secrets to fill from Conjur by either of the following ways: 
 
 |      | Fetch/Update K8s Secret                                      | Pros                                                         | Cons                                                         | UX                                                           | Effort estimation |
 | ---- | ------------------------------------------------------------ | ------------------------------------------------------------ | ------------------------------------------------------------ | ------------------------------------------------------------ | ----------------- |
