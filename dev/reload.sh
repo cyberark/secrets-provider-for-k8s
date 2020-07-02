@@ -2,15 +2,23 @@
 set -xeuo pipefail
 
 # Script for making it easy to make a change locally and redeploy
-pushd ../bin
-  ./build
-popd
+./bin/build
 
-docker tag "secrets-provider-for-k8s:dev" \
-         "${DOCKER_REGISTRY_PATH}/${APP_NAMESPACE_NAME}/secrets-provider"
-docker push "${DOCKER_REGISTRY_PATH}/${APP_NAMESPACE_NAME}/secrets-provider"
+summon --environment oc311 -f ./summon/secrets.yml update
 
-echo "Running Deployment Manifest"
-wait_for_it 600 "$ENV_DIR/app-env.sh.yml | $cli_without_timeout apply -f -"
+function update(){
+  docker tag "secrets-provider-for-k8s:dev" \
+           "${DOCKER_REGISTRY_PATH}/${APP_NAMESPACE_NAME}/secrets-provider"
+  docker push "${DOCKER_REGISTRY_PATH}/${APP_NAMESPACE_NAME}/secrets-provider"
 
-$cli_with_timeout "get pods --namespace=$APP_NAMESPACE_NAME --selector app=test-app --no-headers | wc -l"
+  #echo "Running Deployment Manifest"
+  #wait_for_it 600 "$ENV_DIR/app-env.sh.yml | $cli_without_timeout apply -f -"
+
+    echo "Running Deployment Manifest"
+    wait_for_it 600 "$ENV_DIR/app-env.sh.yml | $cli_without_timeout apply -f -"
+
+  echo "Running App deployment Manifest"
+  wait_for_it 600 "$ENV_DIR/separate-pod-env.sh.yml | $cli_without_timeout apply -f -"
+
+  $cli_with_timeout "get pods --namespace=$APP_NAMESPACE_NAME --selector app=test-app --no-headers | wc -l"
+}

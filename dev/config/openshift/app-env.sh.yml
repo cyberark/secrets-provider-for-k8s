@@ -8,15 +8,15 @@ kind: DeploymentConfig
 metadata:
   labels:
     app: test-env-app
-  name:  test-env-app
+  name: test-env-app
 spec:
   replicas: 1
   selector:
-    app:  test-env-app
+    app: test-env-app
   template:
     metadata:
       labels:
-        app:  test-env-app
+        app: test-env-app
     spec:
       serviceAccountName: ${APP_NAMESPACE_NAME}-sa
       containers:

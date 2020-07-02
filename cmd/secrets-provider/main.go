@@ -85,9 +85,9 @@ func main() {
 				return log.RecordedError(messages.CSPFK003E, err.Error())
 			}
 
-			if authnConfig.ContainerMode == "init" {
-				os.Exit(0)
-			}
+            if authnConfig.ContainerMode == "init" {
+                time.Sleep(1000)
+            }
 
 			// Reset exponential backoff
 			expBackoff.Reset()

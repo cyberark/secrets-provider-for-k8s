@@ -117,14 +117,14 @@ function deploy_env {
   export CONJUR_APPLIANCE_URL=$conjur_appliance_url
   export CONJUR_AUTHN_URL=$conjur_authenticator_url
 
-  echo "Running Init Secrets Provider Manifest"
-  wait_for_it 600 "$ENV_DIR/init.sh.yml | $cli_without_timeout apply -f -"
+#  echo "Running Init Secrets Provider Manifest"
+#  wait_for_it 600 "$ENV_DIR/init.sh.yml | $cli_without_timeout apply -f -"
 
-#  echo "Running Deployment Manifest"
-#  wait_for_it 600 "$ENV_DIR/app-env.sh.yml | $cli_without_timeout apply -f -"
-#
-#  echo "Running App deployment Manifest"
-#  wait_for_it 600 "$ENV_DIR/separate-pod-env.sh.yml | $cli_without_timeout apply -f -"
+  echo "Running Deployment Manifest"
+  wait_for_it 600 "$ENV_DIR/app-env.sh.yml | $cli_without_timeout apply -f -"
+
+  echo "Running App deployment Manifest"
+  wait_for_it 600 "$ENV_DIR/separate-pod-env.sh.yml | $cli_without_timeout apply -f -"
 
   $cli_with_timeout "get pods --namespace=$APP_NAMESPACE_NAME --selector app=test-app --no-headers | wc -l"
 }

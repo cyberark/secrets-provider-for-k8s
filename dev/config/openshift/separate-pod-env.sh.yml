@@ -70,7 +70,6 @@ spec:
 
           - name: CONJUR_AUTHN_LOGIN
             value: "host/conjur/authn-k8s/${AUTHENTICATOR_ID}/apps/${APP_NAMESPACE_NAME}/*/*"
-      restartPolicy: OnFailure
 
       imagePullSecrets:
         - name: dockerpullsecret
