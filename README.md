@@ -33,7 +33,7 @@ When we release a version, we push the following images to Dockerhub:
 1. Major.Minor
 1. Major
 
-We also push the Major.Minor.Build image to our Red Hat registry.
+We also push the Major.Minor.Build image to our [Red Hat registry](https://catalog.redhat.com/software/containers/cyberark/secrets-provider-for-k8s/5ee814f0ac3db90370949cf0).
 
 ## Stable release definition
 
