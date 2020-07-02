@@ -96,11 +96,11 @@ Subscribing to Conjur secret rotation events on the relevant secrets allows it t
 
 To create the events mechanism in Conjur there are 3 options:
 
-|      | Solution | Pros | Cons | Effort Estimation |
-| ---- | -------- | ---- | ---- | ----------------- |
-| 1    |          |      |      |                   |
-| 2    |          |      |      |                   |
-| 3    |          |      |      |                   |
+|      | Solution                                                     | Pros | Cons | Effort Estimation |
+| ---- | ------------------------------------------------------------ | ---- | ---- | ----------------- |
+| 1    | Use 3rd party pub/sub message handler to be notified of secrets change. Examples:<br />- ZMQ (no agent)<br />- RabbitMQ<br />- Redis |      |      |                   |
+| 2    | Use webhook API in the Follower that will send the `secrets changed` message |      |      |                   |
+| 3    | Connect to the Follower using websocket connection, where Follower will then send the `secrets changed` message |      |      |                   |
 
 *Decision*: Solution #1, use ZeroMQ.
 
