@@ -67,9 +67,22 @@ Subscribing to rotation events on the relevant secrets allows it to trigger secr
 
 #### What drawbacks does this solution have?
 
-Currently there's no events mechanism in Conjur, so it needs to be developed as part of this solution.
+1. Currently there's no events mechanism in Conjur, so it needs to be developed as part of this solution.
+2. Current solution does batch retrieval for all Conjur secrets and do not update any K8s secret if the batch does not succeed.
+   When serving multiple apps this behavior will block apps from loading due to irrelevant issue in secrets of another app.
+   Failure examples can be insufficient rights for the secret in Conjur, secret does not exist or secret does not have a value.
 
 #### How the drawbacks can be handled?
+
+1. [Create events mechanism](#create-events-mechanism)
+
+2. [Retrieve secrets from Conjur for each K8s secret separately](#retrieve-secrets-from-conjur-for-each-k8s-secret-separately)
+
+### Customer Experience
+
+### Code changes
+
+#### Create events mechanism
 
 To create the events mechanism in Conjur there are 3 options:
 
@@ -83,13 +96,13 @@ To create the events mechanism in Conjur there are 3 options:
 
 [ // ]: # "TODO:elaborate"
 
-### Customer Experience
+#### Retrieve secrets from Conjur for each K8s secret separately
 
 ### Order of Deployment
 
 Steps to follow for successful deployment
 
-1. Add all necessary K8s Secrets and their labels to the Secrets Provider manifest
+1. Add all necessary K8s Secrets to the Secrets Provider manifest
 2. Run the Secrets Provider Deployment (*)
 3. Run application pods (*)
 
