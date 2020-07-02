@@ -50,8 +50,8 @@ To support rotation, the Secrets Provider will listen on Conjur secret rotation 
 ### Design
 
 Run Secrets Provider as a **Deployment** (**DeploymentConfig** in OpenShift).
-Once the Deployment's pod is spun up, it will authenticate to Conjur/DAP via authn-k8s.
-It will then fetch all the relevant K8s secrets and update them with the Conjur secrets they require.
+Once the Deployment's Secrets Provider pod is spun up, it will authenticate to Conjur/DAP via authn-k8s.
+It will then fetch all the relevant K8s Secrets and update them with the Conjur secrets they require.
 Then, the Secrets Provider will connect to Pub/Sub channel in Conjur and subscribe to rotation events on the relevant secrets.
 
 #### How does a it answer the requirements?
@@ -145,6 +145,8 @@ We will test and document how many K8s Secrets can be updated in 5 minutes on av
 
 ### Affected Components
 
+*Milestone 2*
+
 - Conjur - Add Pub/Sub events mechanism
 
 ## Security
@@ -165,9 +167,7 @@ The value for `stringData`  in the K8s Secret resource is a String of user input
 
 ## Test Plan
 
-[ // ]: # "TODO: update/change/add relevant tests and logs"
-
-### Integration tests (Secrets Provider)
+### Integration tests (Milestone 1)
 
 |      | **Title**                                                    | **Given**                                                    | **When**                                                     | **Then**                                                     | **Comment**                                |
 | ---- | ------------------------------------------------------------ | ------------------------------------------------------------ | ------------------------------------------------------------ | ------------------------------------------------------------ | ------------------------------------------ |
@@ -176,13 +176,20 @@ The value for `stringData`  in the K8s Secret resource is a String of user input
 | 3    | *Vanilla flow*, non-conflicting Secrets Provider<br />       | Two Secrets Providers have access to different Conjur secret | 2 Secrets Provider run in same namespace                     | - All relevant K8s secrets are updated<br />- Verify logs    |                                            |
 | 4    | Non-conflicting Secrets Provider 1 namespace same K8s Secret | Two Secrets Providers have access to same  secret            | 2 Secrets Provider runs as a Job in same namespace           | - No race condition and Secrets Providers will not  override each other<br />- Verify logs |                                            |
 | 5    | *Regression tests*                                           |                                                              |                                                              | All regression tests should pass                             | All init container tests should still pass |
-|      |                                                              |                                                              |                                                              |                                                              |                                            |
+
+### Integration tests (Milestone 2)
+
+The following tests are for Milestone 2 and *are subject to change.*
+
+|      | **Title**                                                    | **Given**                                                    | **When**                                              | **Then**                                                     | Comment |
+| ---- | ------------------------------------------------------------ | ------------------------------------------------------------ | ----------------------------------------------------- | ------------------------------------------------------------ | ------- |
+| 1    | *Vanilla flow*, Conjur secret is rotated and K8s Secret is updated with new Conjur secret | - Conjur is running<br />- Secrets Provider is running and properly configured<br />- Secrets Provider subscribes to Secret change messaging queue <br /> | - Change in Conjur Secret that K8s pod requires<br /> | - Conjur publishes change to messaging queue<br />- Secrets Provider receives event <br />- Secrets Provider  fetches Conjur secret<br />- K8s Secret is updated with Conjur value<br />- Verify logs |         |
 
 ### Unit tests
 
 |      | Given                                | When | Then                                           | Comment                                                    |
 | ---- | ------------------------------------ | ---- | ---------------------------------------------- | ---------------------------------------------------------- |
-| 3    | Given one K8s secret with conjur-map |      | Validate content of conjur-map (encoded, size) | *Security test* that we are properly handling input values |
+| 1    | Given one K8s secret with conjur-map |      | Validate content of conjur-map (encoded, size) | *Security test* that we are properly handling input values |
 
 ### Performance Tests
 
@@ -191,8 +198,9 @@ The value for `stringData`  in the K8s Secret resource is a String of user input
 | 1    | Performance investigation | - 1000 Secrets Providers defined<br />- Conjur secrets with max amount of characters | Secrets Provider runs as a Job | Evaluate how many K8s Secrets can be updated with Conjur secrets in 5 minutes |             |
 | 2    | Performance investigation | - 1000 Secrets Providers defined<br />- Conjur secret with average amount of characters | Secrets Provider runs as a Job | Evaluate how many K8s Secrets can be updated with Conjur secrets in 5 minutes |             |
 
-
 ## Logs
+
+*Milestone 1 Logs*
 
 | **Scenario**                            | **Log message**                                              | Type  |
 | --------------------------------------- | ------------------------------------------------------------ | ----- |
@@ -200,31 +208,40 @@ The value for `stringData`  in the K8s Secret resource is a String of user input
 | Pod has completed                       | Kubernetes Secrets Provider has process completed…           | Info  |
 | Batch retrieval failure (404 Not Found) | Failed to retrieve Conjur secrets. Reason: 404 Not Found. Variable `secret/test_secret`. Proceeding to next secret... | Error |
 | Batch retrieval failure (403 Forbidden) | Failed to retrieve Conjur secrets. Reason: 403 Forbidden. Proceeding to next secret... | Error |
-|                                         |                                                              |       |
+
+*Milestone 2 Logs*
+
+| **Scenario**                                                 | **Log message**                                              | Type  | Where            |
+| ------------------------------------------------------------ | ------------------------------------------------------------ | ----- | ---------------- |
+| Secrets Provider subscribes to message queue                 | Subscribing to secrets updates on k8s secrets [test-secret, test-secret-2]... | Info  | Secret Provider  |
+| Secrets Providers attempt to subscribe to message queue is successful | Subscribing to secrets updates successful...                 | Info  | Secret Provider  |
+| Secrets Providers attempt to subscribe to message queue is unsuccessful | Subscribing to secrets updates unsuccessful...               | Error | Secret Provider  |
+| Secrets Provider has subscribed and is listening for Conjur secrets updates | Listening for secrets updates on k8s secrets [test-secret, test-secret-2]... | Info  | Secrets Provider |
+| Received Secret rotation event from Conjur                   | Received Conjur secret rotation event. Updating k8s secrets [test-secret, test-secret-2]... | Info  | Secrets Provider |
+| Conjur publishes Conjur secret change                        | Conjur secrets`[secrets/test-secret,secrets/test-secret2]` have been rotated. Publishing Conjur secrets... | Info  | Conjur           |
 
 ### Audit 
-All fetches on a Conjur Resource are individually audited, creating its own audit entry. Therefore there will be no changes in audit behavior for this Milestone.
 
-[ // ]: # "TODO: add events audit"
+All fetches on a Conjur Resource are individually audited, creating its own audit entry. Therefore there will be no changes in audit behavior for this Milestone.
 
 ## Documentation
 [//]: # "Add notes on what should be documented in this solution. Elaborate on where this should be documented. If the change is in open-source projects, we may need to update the docs in github too. If it's in Conjur and/or DAP mention which products are affected by it"
 
 ## Open questions
-[//]: # "Add any question that is still open. It makes it easier for the reader to have the open questions accumulated here istead of them being acattered along the doc"
+1. Do we need to add audit entries for all Pub/Sub tasks ("Connection made", "Subscribed", "Received Event")?
+2. Does the solution need to include K8s Secret monitoring activity?
 
 ## Implementation plan
 ### Delivery plan
-
-[ // ]: # "TODO: update"
 
 - [ ] Solution design approval + Security review approval
 - [ ] Golang Ramp-up ***(~3 days)\***
   - [ ] Get familiar with Secrets Provider code and learn Go and Go Testing
 - [ ] Create dev environment ***(~5 days)\***
   - [ ] Research + Implement HELM
-- [ ] Implement Phase 2 Milestone 1 functionality ***(~5 days)\***
+- [ ] Implement Phase 2 Milestone 1 functionality ***(~10 days)\***
   - [ ] Update batch retrieval
+  - [ ] Add trigger and pub/sub messaging
 - [ ] Implement test plan (Integration + Unit + Performance tests align with SLA) ***(~7 days)\***
 - [ ] Security items have been taken care of (if they exist) ***(TBD)\***
 - [ ] Logs review by TW + PO ***(~1 day)\*** 
