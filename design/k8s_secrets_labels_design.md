@@ -143,9 +143,9 @@ K8S_SECRETS exists in manifest?
 
 ### Backwards compatibility
 
-Although we will now offer `K8S_SECRETS_LABELS` for easy filtering on K8s Secrets, we will still support the `K8S_SECRETS` environment variable if the customer prefers to list the K8s Secrets they need values for from Conjur. If so, they will not need to add "list" permissions on their Service Account.
+Although we will now offer finding K8s Secrets by label, we will still support the `K8S_SECRETS` environment variable.
 
-Customers will be able to use a combination of `K8S_SECRETS` and `K8S_SECRETS_LABELS` if there are K8s Secrets without existing labels on them.
+If customer will supply `K8S_SECRETS` , they will be added to the secrets found using the K8s secrets label.
 
 ### Affected Components
 
@@ -203,7 +203,7 @@ Customers will be able to use a combination of `K8S_SECRETS` and `K8S_SECRETS_LA
 -  Golang Ramp-up ***(~3 days)***
   -  Get familiar with Secrets Provider code and learn Go and Go Testing
 -  Create dev environment ***(~2 days)***
--  Implement  `K8S_SECRETS_LABELS` enhancement ***(~5 days)***
+-  Implement Get Secrets By Label enhancement ***(~5 days)***
 -  Implement test plan (Integration + Unit)  ***(~5 days)***
 -  Logs review by TW + PO   ***(~1 days)***
 - Create demo for Milestone 1 functionality  ***(~1 day)***
