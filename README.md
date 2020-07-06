@@ -3,6 +3,7 @@
 - [Table of Contents](#table-of-contents)
 - [CyberArk Secrets Provider for Kubernetes](#cyberark-secrets-provider-for-kubernetes)
   - [Supported services](#supported-services)
+  - [Using This Project With Conjur-OSS](#using-secrets-provider-for-k8s-with-conjur-oss)
 - [Releases](#releases)
   - [Stable release definition](#stable-release-definition)
 - [Development](#development)
@@ -22,6 +23,17 @@ The CyberArk Secrets Provider for Kubernetes enables DAP to retrieve secrets sto
 - Openshift 3.9, 3.10, and 3.11
 - DAP 11.1+
 - Conjur OSS v1.4.2+
+
+## Using secrets-provider-for-k8s with Conjur OSS 
+
+Are you using this project with [Conjur OSS](https://github.com/cyberark/conjur)? Then we 
+**strongly** recommend choosing the version of this project to use from the latest [Conjur OSS 
+suite release](https://docs.conjur.org/Latest/en/Content/Overview/Conjur-OSS-Suite-Overview.html). 
+Conjur maintainers perform additional testing on the suite release versions to ensure 
+compatibility. When possible, upgrade your Conjur version to match the 
+[latest suite release](https://docs.conjur.org/Latest/en/Content/ReleaseNotes/ConjurOSS-suite-RN.htm); 
+when using integrations, choose the latest suite release that matches your Conjur version. For any 
+questions, please contact us on [Discourse](https://discuss.cyberarkcommons.org/c/conjur/5).
 
 # Releases
 
