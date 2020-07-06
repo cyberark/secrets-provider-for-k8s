@@ -40,12 +40,14 @@ DEMO=false
 CONJUR_DEPLOYMENT=oss
 SUMMON_ENV=gke
 ENV_CONFIG=test
+ENV_RELOAD=true
 
 while true ; do
   case "$1" in
     --docker ) RUN_IN_DOCKER=true ; shift ;;
     --demo ) DEMO=true ; shift ;;
     --dev ) ENV_CONFIG=dev ; shift ;;
+    --reload ) ENV_RELOAD=true ; shift ;;
     --oss ) CONJUR_DEPLOYMENT=oss ; shift ;;
     --dap ) CONJUR_DEPLOYMENT=dap ; shift ;;
     --gke ) SUMMON_ENV=gke ; shift ;;
@@ -59,6 +61,7 @@ done
 export RUN_IN_DOCKER
 export CONJUR_DEPLOYMENT
 export ENV_CONFIG
+export ENV_RELOAD
 
 # summon environment variable
 export CONJUR_MAJOR_VERSION=4
@@ -71,6 +74,9 @@ if [[ $DEMO = true ]]; then
 elif [[ $RUN_IN_DOCKER = true ]]; then
   # this option cannot run locally due to lack of docker credentials. It works only in the Jenkins pipeline
   runScriptWithSummon ./test_in_docker.sh
+elif [[ "$ENV_CONFIG" == "dev" && "$ENV_RELOAD" == "true" ]]; then
+  cd ../dev
+  runScriptWithSummon ./reload.sh
 elif [[ "$ENV_CONFIG" == "dev" ]]; then
   cd ../dev
   runScriptWithSummon ./run_local.sh
