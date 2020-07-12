@@ -14,30 +14,31 @@ echo "---"
 
 if [ $DEBUG == "debug" ]; then
 
-  echo "Building secrets-provider-debug Docker image"
+  echo "Building secrets-provider-for-k8s-debug Docker image"
 
   docker build \
-    --tag "secrets-provider-debug:latest" \
-    --target "secrets-provider-debug" \
+    --tag "secrets-provider-for-k8s-debug:latest" \
+    --target "secrets-provider-for-k8s-debug" \
     .
 
-  exit 0
+else
+
+  echo "Building secrets-provider-for-k8s Docker image"
+
+  docker build \
+    --tag "secrets-provider-for-k8s:dev" \
+    --tag "secrets-provider-for-k8s:${FULL_VERSION_TAG}" \
+    --tag "secrets-provider-for-k8s:latest" \
+    --target "secrets-provider" \
+    .
+
+  echo "Building secrets-provider-for-k8s-redhat:$FULL_VERSION_TAG Docker image"
+
+  docker build --tag "secrets-provider-for-k8s-redhat:${FULL_VERSION_TAG}" \
+     --build-arg VERSION="$FULL_VERSION_TAG" \
+     --target "secrets-provider-for-k8s-redhat" \
+     .
+
 fi
-
-echo "Building secrets-provider-for-k8s Docker image"
-
-docker build \
-  --tag "secrets-provider-for-k8s:dev" \
-  --tag "secrets-provider-for-k8s:${FULL_VERSION_TAG}" \
-  --tag "secrets-provider-for-k8s:latest" \
-  --target "secrets-provider" \
-  .
-
-echo "Building secrets-provider-for-k8s-redhat:$FULL_VERSION_TAG Docker image"
-
-docker build --tag "secrets-provider-for-k8s-redhat:${FULL_VERSION_TAG}" \
-   --build-arg VERSION="$FULL_VERSION_TAG" \
-   --target "secrets-provider-for-k8s-redhat" \
-   .
 
 echo "---"
