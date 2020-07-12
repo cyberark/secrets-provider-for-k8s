@@ -1,3 +1,5 @@
+# =================== BASE BUILD LAYER ===================
+# this layer is used to prepare a common layer for both debug and release builds
 FROM golang:1.13 as secrets-provider-builder-base
 MAINTAINER CyberArk Software Ltd.
 
@@ -17,6 +19,7 @@ EXPOSE 8080
 COPY go.mod .
 COPY go.sum .
 
+# Add a layer of prefetched modules so in case of rebuild the modules are already cached
 RUN go mod download
 
 # =================== RELEASE BUILD LAYER ===================
@@ -45,6 +48,7 @@ RUN go build -a -installsuffix cgo -gcflags="all=-N -l" -o secrets-provider ./cm
 FROM busybox
 
 # =================== BASE MAIN CONTAINER ===================
+# this layer is used to prepare a common layer for both debug and release containers
 FROM alpine:3.11 as secrets-provider-base
 MAINTAINER CyberArk Software Ltd.
 
