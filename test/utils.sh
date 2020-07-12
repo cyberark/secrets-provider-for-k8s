@@ -92,6 +92,7 @@ function runDockerCommand() {
     -i \
     -e UNIQUE_TEST_ID \
     -e CONJUR_APPLIANCE_IMAGE \
+    -e CONJUR_LOG_LEVEL \
     -e CONJUR_FOLLOWER_COUNT \
     -e CONJUR_ACCOUNT \
     -e AUTHENTICATOR_ID \
