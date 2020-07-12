@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 
 DEBUG="$1"
+export DOCKER_BUILDKIT=1
 
 set -e
 
@@ -14,11 +15,11 @@ echo "---"
 
 if [ $DEBUG == "debug" ]; then
 
-  echo "Building secrets-provider-for-k8s-debug Docker image"
+  echo "Building secrets-provider-debug Docker image"
 
   docker build \
     --tag "secrets-provider-for-k8s-debug:latest" \
-    --target "secrets-provider-for-k8s-debug" \
+    --target "secrets-provider-debug" \
     .
 
 else
@@ -36,7 +37,7 @@ else
 
   docker build --tag "secrets-provider-for-k8s-redhat:${FULL_VERSION_TAG}" \
      --build-arg VERSION="$FULL_VERSION_TAG" \
-     --target "secrets-provider-for-k8s-redhat" \
+     --target "secrets-provider-redhat" \
      .
 
 fi

@@ -10,7 +10,7 @@ RUN apt-get update
 RUN go get -u github.com/jstemmer/go-junit-report && \
     go get github.com/smartystreets/goconvey
 
-WORKDIR /opt/secrets-provider-for-k8s
+WORKDIR /opt/secrets-provider
 
 EXPOSE 8080
 
@@ -18,6 +18,27 @@ COPY go.mod .
 COPY go.sum .
 
 RUN go mod download
+
+# =================== RELEASE BUILD LAYER ===================
+# this layer is used to build the release binaries
+FROM secrets-provider-builder-base as secrets-provider-builder
+
+COPY . .
+
+RUN go build -a -installsuffix cgo -o secrets-provider ./cmd/secrets-provider
+
+# =================== DEBUG BUILD LAYER ===================
+# this layer is used to build the debug binaries
+FROM secrets-provider-builder-base as secrets-provider-builder-debug
+
+# Build Delve
+RUN go get github.com/go-delve/delve/cmd/dlv
+
+EXPOSE 40000
+
+COPY . .
+
+RUN go build -a -installsuffix cgo -gcflags="all=-N -l" -o secrets-provider ./cmd/secrets-provider
 
 # =================== BUSYBOX LAYER ===================
 # this layer is used to get binaries into the main container
@@ -61,50 +82,29 @@ RUN apk add -u shadow libc6-compat && \
 
 USER secrets-provider
 
-# =================== DEBUG BUILD LAYER ===================
-# this layer is used to build the debug binaries
-FROM secrets-provider-builder-base as secrets-provider-builder-debug
+# =================== RELEASE MAIN CONTAINER ===================
+FROM secrets-provider-base as secrets-provider
 
-# Build Delve
-RUN go get github.com/go-delve/delve/cmd/dlv
+COPY --from=secrets-provider-builder /opt/secrets-provider/secrets-provider /usr/local/bin/
 
-EXPOSE 40000
-
-COPY . .
-
-RUN go build -a -installsuffix cgo -gcflags="all=-N -l" -o secrets-provider ./cmd/secrets-provider
+CMD [ "/usr/local/bin/secrets-provider"]
 
 # =================== DEBUG MAIN CONTAINER ===================
 FROM secrets-provider-base as secrets-provider-debug
 
 COPY --from=secrets-provider-builder-debug /go/bin/dlv /usr/local/bin/
 
-COPY --from=secrets-provider-builder-debug /opt/secrets-provider-for-k8s/secrets-provider /usr/local/bin/
+COPY --from=secrets-provider-builder-debug /opt/secrets-provider/secrets-provider /usr/local/bin/
 
 CMD ["/usr/local/bin/dlv", "--listen=:40000", "--headless=true", "--api-version=2", "--accept-multiclient", "exec", "/usr/local/bin/secrets-provider"]
 
-# =================== RELEASE BUILD LAYER ===================
-# this layer is used to build the release binaries
-FROM secrets-provider-builder-base as secrets-provider-builder
-
-COPY . .
-
-RUN go build -a -installsuffix cgo -o secrets-provider ./cmd/secrets-provider
-
-# =================== RELEASE MAIN CONTAINER ===================
-FROM secrets-provider-base as secrets-provider
-
-COPY --from=secrets-provider-builder /opt/secrets-provider-for-k8s/secrets-provider /usr/local/bin/
-
-CMD [ "/usr/local/bin/secrets-provider"]
-
 # =================== MAIN CONTAINER (REDHAT) ===================
-FROM registry.access.redhat.com/rhel as secrets-provider-for-k8s-redhat
+FROM registry.access.redhat.com/rhel as secrets-provider-redhat
 MAINTAINER CyberArk Software Ltd.
 
 ARG VERSION
 
-LABEL name="secrets-provider-for-k8s"
+LABEL name="secrets-provider"
 LABEL vendor="CyberArk"
 LABEL version="$VERSION"
 LABEL release="$VERSION"
@@ -132,7 +132,7 @@ RUN groupadd -r secrets-provider \
     chmod 770 /etc/conjur/ssl \
               /run/conjur
 
-COPY --from=secrets-provider-builder /opt/secrets-provider-for-k8s/secrets-provider /usr/local/bin/
+COPY --from=secrets-provider-builder /opt/secrets-provider/secrets-provider /usr/local/bin/
 
 COPY LICENSE.md /licenses
 
