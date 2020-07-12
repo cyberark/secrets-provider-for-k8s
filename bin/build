@@ -1,12 +1,28 @@
 #!/usr/bin/env bash
 
+DEBUG="$1"
+
 set -e
+
+cd $(dirname $0)/..
 
 . bin/build_utils
 
 FULL_VERSION_TAG="$(full_version_tag)"
 
 echo "---"
+
+if [ $DEBUG == "debug" ]; then
+
+  echo "Building secrets-provider-debug Docker image"
+
+  docker build \
+    --tag "secrets-provider-debug:latest" \
+    --target "secrets-provider-debug" \
+    .
+
+  exit 0
+fi
 
 echo "Building secrets-provider-for-k8s Docker image"
 

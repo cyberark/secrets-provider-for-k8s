@@ -1,29 +1,30 @@
-FROM golang:1.13 as secrets-provider-builder
+FROM golang:1.13 as secrets-provider-builder-base
 MAINTAINER CyberArk Software Ltd.
 
 ENV GOOS=linux \
     GOARCH=amd64 \
     CGO_ENABLED=0
 
-COPY . /opt/secrets-provider-for-k8s
+RUN apt-get update
+
+RUN go get -u github.com/jstemmer/go-junit-report && \
+    go get github.com/smartystreets/goconvey
 
 WORKDIR /opt/secrets-provider-for-k8s
 
 EXPOSE 8080
 
-RUN apt-get update && apt-get install -y jq
+COPY go.mod .
+COPY go.sum .
 
-RUN go get -u github.com/jstemmer/go-junit-report && \
-    go get github.com/smartystreets/goconvey
-
-RUN go build -a -installsuffix cgo -o secrets-provider ./cmd/secrets-provider
+RUN go mod download
 
 # =================== BUSYBOX LAYER ===================
 # this layer is used to get binaries into the main container
 FROM busybox
 
-# =================== MAIN CONTAINER ===================
-FROM alpine:3.11 as secrets-provider
+# =================== BASE MAIN CONTAINER ===================
+FROM alpine:3.11 as secrets-provider-base
 MAINTAINER CyberArk Software Ltd.
 
 # copy a few commands from busybox
@@ -60,9 +61,42 @@ RUN apk add -u shadow libc6-compat && \
 
 USER secrets-provider
 
+# =================== DEBUG BUILD LAYER ===================
+# this layer is used to build the debug binaries
+FROM secrets-provider-builder-base as secrets-provider-builder-debug
+
+# Build Delve
+RUN go get github.com/go-delve/delve/cmd/dlv
+
+EXPOSE 40000
+
+COPY . .
+
+RUN go build -a -installsuffix cgo -gcflags="all=-N -l" -o secrets-provider ./cmd/secrets-provider
+
+# =================== DEBUG MAIN CONTAINER ===================
+FROM secrets-provider-base as secrets-provider-debug
+
+COPY --from=secrets-provider-builder-debug /go/bin/dlv /usr/local/bin/
+
+COPY --from=secrets-provider-builder-debug /opt/secrets-provider-for-k8s/secrets-provider /usr/local/bin/
+
+CMD ["/usr/local/bin/dlv", "--listen=:40000", "--headless=true", "--api-version=2", "--accept-multiclient", "exec", "/usr/local/bin/secrets-provider"]
+
+# =================== RELEASE BUILD LAYER ===================
+# this layer is used to build the release binaries
+FROM secrets-provider-builder-base as secrets-provider-builder
+
+COPY . .
+
+RUN go build -a -installsuffix cgo -o secrets-provider ./cmd/secrets-provider
+
+# =================== RELEASE MAIN CONTAINER ===================
+FROM secrets-provider-base as secrets-provider
+
 COPY --from=secrets-provider-builder /opt/secrets-provider-for-k8s/secrets-provider /usr/local/bin/
 
-ENTRYPOINT [ "/usr/local/bin/secrets-provider"]
+CMD [ "/usr/local/bin/secrets-provider"]
 
 # =================== MAIN CONTAINER (REDHAT) ===================
 FROM registry.access.redhat.com/rhel as secrets-provider-for-k8s-redhat
