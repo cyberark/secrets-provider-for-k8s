@@ -32,13 +32,15 @@ RUN go build -a -installsuffix cgo -o secrets-provider ./cmd/secrets-provider
 # this layer is used to build the debug binaries
 FROM secrets-provider-builder-base as secrets-provider-builder-debug
 
-# Build Delve
+# Build Delve - debugging tool for Go
 RUN go get github.com/go-delve/delve/cmd/dlv
 
+# Expose port 40000 for debugging
 EXPOSE 40000
 
 COPY . .
 
+# Build debug flavor without compilation optimizations using "all=-N -l"
 RUN go build -a -installsuffix cgo -gcflags="all=-N -l" -o secrets-provider ./cmd/secrets-provider
 
 # =================== BUSYBOX LAYER ===================
@@ -98,6 +100,8 @@ COPY --from=secrets-provider-builder-debug /go/bin/dlv /usr/local/bin/
 
 COPY --from=secrets-provider-builder-debug /opt/secrets-provider/secrets-provider /usr/local/bin/
 
+# Execute secrets provider wrapped with dlv debugger listening on port 40000 for remote debugger connection.
+# Will wait indefinitely until a debugger is connected.
 CMD ["/usr/local/bin/dlv", "--listen=:40000", "--headless=true", "--api-version=2", "--accept-multiclient", "exec", "/usr/local/bin/secrets-provider"]
 
 # =================== MAIN CONTAINER (REDHAT) ===================

@@ -2,6 +2,8 @@
 
 set -e
 
+# Use Docker BuildKit to efficiently build the targets.
+# With BuildKit, only relevant layers for the target are built.
 export DOCKER_BUILDKIT=1
 DEBUG=false
 
@@ -9,6 +11,7 @@ if [ "$1" == "--debug" ]; then
     DEBUG=true
 fi
 
+# go to repo root folder for execution
 cd $(dirname $0)/..
 
 . bin/build_utils
