@@ -7,8 +7,6 @@ ENV GOOS=linux \
     GOARCH=amd64 \
     CGO_ENABLED=0
 
-RUN apt-get update
-
 RUN go get -u github.com/jstemmer/go-junit-report && \
     go get github.com/smartystreets/goconvey
 
@@ -19,7 +17,7 @@ EXPOSE 8080
 COPY go.mod .
 COPY go.sum .
 
-# Add a layer of prefetched modules so in case of rebuild the modules are already cached
+# Add a layer of prefetched modules so the modules are already cached in case we rebuild
 RUN go mod download
 
 # =================== RELEASE BUILD LAYER ===================
