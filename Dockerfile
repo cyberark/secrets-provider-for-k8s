@@ -10,7 +10,7 @@ ENV GOOS=linux \
 RUN go get -u github.com/jstemmer/go-junit-report && \
     go get github.com/smartystreets/goconvey
 
-WORKDIR /opt/secrets-provider
+WORKDIR /opt/secrets-provider-for-k8s
 
 EXPOSE 8080
 
@@ -89,7 +89,7 @@ USER secrets-provider
 # =================== RELEASE MAIN CONTAINER ===================
 FROM secrets-provider-base as secrets-provider
 
-COPY --from=secrets-provider-builder /opt/secrets-provider/secrets-provider /usr/local/bin/
+COPY --from=secrets-provider-builder /opt/secrets-provider-for-k8s/secrets-provider /usr/local/bin/
 
 CMD [ "/usr/local/bin/secrets-provider"]
 
@@ -98,19 +98,19 @@ FROM secrets-provider-base as secrets-provider-debug
 
 COPY --from=secrets-provider-builder-debug /go/bin/dlv /usr/local/bin/
 
-COPY --from=secrets-provider-builder-debug /opt/secrets-provider/secrets-provider /usr/local/bin/
+COPY --from=secrets-provider-builder-debug /opt/secrets-provider-for-k8s/secrets-provider /usr/local/bin/
 
 # Execute secrets provider wrapped with dlv debugger listening on port 40000 for remote debugger connection.
 # Will wait indefinitely until a debugger is connected.
 CMD ["/usr/local/bin/dlv", "--listen=:40000", "--headless=true", "--api-version=2", "--accept-multiclient", "exec", "/usr/local/bin/secrets-provider"]
 
 # =================== MAIN CONTAINER (REDHAT) ===================
-FROM registry.access.redhat.com/rhel as secrets-provider-redhat
+FROM registry.access.redhat.com/rhel as secrets-provider-for-k8s-redhat
 MAINTAINER CyberArk Software Ltd.
 
 ARG VERSION
 
-LABEL name="secrets-provider"
+LABEL name="secrets-provider-for-k8s"
 LABEL vendor="CyberArk"
 LABEL version="$VERSION"
 LABEL release="$VERSION"
@@ -138,7 +138,7 @@ RUN groupadd -r secrets-provider \
     chmod 770 /etc/conjur/ssl \
               /run/conjur
 
-COPY --from=secrets-provider-builder /opt/secrets-provider/secrets-provider /usr/local/bin/
+COPY --from=secrets-provider-builder /opt/secrets-provider-for-k8s/secrets-provider /usr/local/bin/
 
 COPY LICENSE.md /licenses
 

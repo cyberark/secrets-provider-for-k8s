@@ -7,9 +7,12 @@ set -e
 export DOCKER_BUILDKIT=1
 DEBUG=false
 
-if [ "$1" == "--debug" ]; then
-    DEBUG=true
-fi
+while true ; do
+  case "$1" in
+    --debug ) DEBUG=true ; shift ;;
+     * ) if [ -z "$1" ]; then break; else echo "$1 is not a valid option"; exit 1; fi;;
+  esac
+done
 
 # go to repo root folder for execution
 cd $(dirname $0)/..
@@ -28,7 +31,7 @@ if [ $DEBUG = true ]; then
     --target "secrets-provider-debug" \
     .
 else
-  echo "Building secrets-provider-for-k8s Docker image"
+  echo "Building secrets-provider-for-k8s:$FULL_VERSION_TAG Docker image"
 
   docker build \
     --tag "secrets-provider-for-k8s:dev" \
@@ -41,7 +44,7 @@ else
 
   docker build --tag "secrets-provider-for-k8s-redhat:${FULL_VERSION_TAG}" \
      --build-arg VERSION="$FULL_VERSION_TAG" \
-     --target "secrets-provider-redhat" \
+     --target "secrets-provider-for-k8s-redhat" \
      .
 fi
 
