@@ -46,7 +46,7 @@
 | ------------------------------------------------------------ | ------------------------------------------------------------ |
 | [Job](*https://kubernetes.io/docs/concepts/workloads/controllers/job/*) | K8s entity that runs a pod for one-time operation. Once the pod exists, the Job terminates |
 | [Deployment](*https://kubernetes.io/docs/concepts/workloads/controllers/deployment/*) | K8s entity that ensures multiple replications of a pod are running all the time. If a pod terminates, another one will be created. |
-| [Kubernetes Helm](https://helm.sh/)                          | A tool that streamlines and organizes the management of Kubernetes installation, deployment, and upgrade processes. |
+| [Kubernetes Helm](https://helm.sh/)                          | A tool that streamlines and organizes the management of Kubernetes installation and deployment processes. |
 | [Helm Chart](https://helm.sh/docs/topics/charts/)            | A collection of files that describe a related set of Kubernetes resources. A chart can be used to describe a simple pod of a complex application. |
 
 ## Useful links
@@ -105,7 +105,7 @@ Running as a **Job** allows separation from the applications' deployment and ser
 
 Because for this Milestone we are concerned with updating K8s Secrets once at intial spin up, a **Job** is the most native solution. It will terminate upon task completion and not waste customer's resources.
 
-Kubernetes Helm is a tool that streamlines and organizes the management of Kubernetes installation, deployment, and upgrade processes. When we use Helm for deployment and lifecycle management, we can provide our customer's a one-click solution even though the way at which we deploy changes.
+Kubernetes Helm is a tool that streamlines and organizes the management of Kubernetes installation and deployment processes. When we use Helm for deployment and lifecycle management, we can provide our customer's a one-click solution even though the way at which we deploy changes.
 
 #### What drawbacks does this solution have?
 
@@ -130,13 +130,7 @@ Deployment for the Secrets Provider will be done using Helm. That way, if the
 
 2. Create `values.yaml` that will contain the following parameters and their defaults:
 
-   2.1. Service Account for Secrets Provider (default: `secrets-provider-account`)
-
-   2.2. Role (default: `secrets-provider-role`)
-
-   2.3. RoleBinding Name (default: `secrets-provider-role-binding`)
-
-   2.4. `K8S_SECRETS` (default: `[]`)
+   For a full list of required parameters, see `values.yaml` below
 
    *When parameters are not configured by customer, their defaults are used*
 
@@ -150,16 +144,13 @@ permission:
 	serviceAccountName: secrets-provider-account
 	roleName: secrets-provider-role
 	roleBinding: secrets-provider-role-binding
-	rules:
-		resources: secrets
-		verbs: [ "get", "update" ]
 
 # Secrets Provider pod defaults
 secrets-provider:
 	image: cyberark/secrets-provider-for-k8s
 	name: cyberark-secrets-provider
-	namespace: default-namespace
-	ttlSecondsAfterFinished: 0	# How long the Job should stay alive even after finishing task. Used for logging.
+	namespace: default
+	ttlSecondsAfterFinished: 0	# Length at which Job should stay alive even after finishing task. Used for logging.
 	
 # Secrets Provider environment variable defaults
 secrets-provider-environment:
@@ -172,6 +163,7 @@ secrets-provider-environment:
 	k8sSecrets=[]
 	containerMode=init
 	secretsDestination=k8s_secrets
+	rotationSupport=false
 ```
 
 Customers can override these defaults by loading the Chart with `custom-values.yaml`. Helm will first look for values in the customer defined `custom-values.yaml`. If they do not exist, Helm will resort to the defaults configured in `values.yaml` and populate the manifest with those values. 
@@ -187,87 +179,119 @@ Variables from the `values.yaml` / `custom-values.yml `are applied for our proje
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: {{ Values.permission.serviceAccount }}
+  name: {{ .Values.permission.serviceAccount }}
 
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
-  name: {{ Values.permission.roleName }}
+  name: {{ .Values.permission.roleName }}
 rules:
   - apiGroups: [""]
-    resources: {{ Values.permission.rules.resources }}
-    verbs: {{ Values.rules.verbs }}
+    resources: {{ .Values.permission.rules.resources }}
+    verbs:
+    	rules:
+			resources: secrets
+			verbs: [ "get", "update" ]
 
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
-  namespace: {{ TBD }}
-  name: {{ Values.permission.roleBinding }}
+  namespace: {{ .Values.secrets-provider.namespace }}
+  name: {{ .Values.permission.roleBinding }}
 subjects:
   - kind: ServiceAccount
-    namespace: {{ TBD }}
-    name: {{ Values.permission.serviceAccountName }}
+    namespace: {{ .Values.secrets-provider.namespace }}
+    name: {{ .Values.permission.serviceAccountName }}
 roleRef:
   kind: Role
   apiGroup: rbac.authorization.k8s.io
-  name: {{ Values.permission.roleName }}
+  name: {{ .Values.permission.roleName }}
 ```
 
 *templates/secrets-provider.yaml*
 
+The following template takes into account the anticipated flows for Milestone 1 and 2.
+
 ```yaml
+---
+{{- if eq .Values.secrets-provider-environment.rotationSupport "false" }}
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: {{ .Release.Name }}-job
-  namespace: {{ TBD }}
+  name: {{ .Release.Name }}
+  namespace: {{ .Values.secrets-provider.namespace }}
 spec:
-	ttlSecondsAfterFinished: {{ Values.secrets-provider.ttlSecondsAfterFinished }}
+	ttlSecondsAfterFinished: {{ .Values.secrets-provider.ttlSecondsAfterFinished }}
+{{ else }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}
+  namespace: {{ .Values.secrets-provider.namespace }}
+spec:
+{{- end }}
   template:
-		serviceAccountName: {{ Values.serviceAccount }}
-		containers:
-		- image: {{ Values.secrets-provider.image }}
-			imagePullPolicy: Always
-			name: {{ Values.secrets-provider.name }}
-			env:
-          - name: MY_POD_NAME
-            valueFrom:
-              fieldRef:
-                apiVersion: v1
+    serviceAccountName: {{ .Values.serviceAccount }}
+    containers:
+    - image: {{ .Values.secrets-provider.image }}
+        imagePullPolicy: Always
+        name: {{ .Values.secrets-provider.name }}
+        env:
+        - name: MY_POD_NAME
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
                 fieldPath: metadata.name
 
-          - name: MY_POD_NAMESPACE
-            valueFrom:
-              fieldRef:
-                apiVersion: v1
-                fieldPath: metadata.namespace
+        - name: MY_POD_NAMESPACE
+          valueFrom:
+          fieldRef:
+            apiVersion: v1
+            fieldPath: metadata.namespace
 
-          - name: CONJUR_APPLIANCE_URL
-            value:  {{ Values.secrets-provider-environment.conjurApplianceUrl }}
+        - name: CONJUR_APPLIANCE_URL
+          value:  {{ .Values.secrets-provider-environment.conjurApplianceUrl }}
 
-          - name: CONJUR_AUTHN_URL
-            value:  {{ Values.secrets-provider-environment.conjurAuthnUrl }}
+        - name: CONJUR_AUTHN_URL
+          value:  {{ .Values.secrets-provider-environment.conjurAuthnUrl }}
 
-          - name: CONJUR_ACCOUNT
-            value:  {{ Values.secrets-provider-environment.serviceAccount }}
+        - name: CONJUR_ACCOUNT
+          value:  {{ .Values.secrets-provider-environment.serviceAccount }}
 
-          - name: CONJUR_SSL_CERTIFICATE
-            valueFrom:
-              configMapKeyRef:
-                name: {{ Values.secrets-provider-environment.conjurSslCertificate }}
-                key: ssl-certificate
+        - name: CONJUR_SSL_CERTIFICATE
+       	  valueFrom:
+            configMapKeyRef:
+        	  name: {{ .Values.secrets-provider-environment.conjurSslCertificate }}
+       		  key: ssl-certificate
 
-          - name: DEBUG
-            value:  {{ Values.secrets-provider-environment.debug }}
+        - name: DEBUG
+       	  value:  {{ .Values.secrets-provider-environment.debug }}
 
-          - name: CONJUR_AUTHN_LOGIN
-            value:  {{ Values.secrets-provider-environment.conjurAuthnLogin }}
+        - name: CONJUR_AUTHN_LOGIN
+       	  value:  {{ Values.secrets-provider-environment.conjurAuthnLogin }}
 
+        {{- if eq .Values.secrets-provider-environment.rotationSupport "true" }}
+        - name: SYNC_INTERVAL_TIME
+          value: {{ .Values.secrets-provider-environment.syncInternalTime }}
+        {{- end }}
+
+        {{- if .Values.secrets-provider-environment.k8SecretsLabels }}
+        - name: K8S_SECRETS_LABELS
+          value: {{ .Values.secrets-provider-environment.k8sSecretsLabels }}
+        {{- end }}
 ```
 
+Note that when we transition to Milestone 2 we will need to keep the following in mind:
 
+`rotationSupport=false` default will need to be updated to`rotationSupport=true`. 
+
+We will need to add `syncIntervalTime=300` (5 minutes) to the default `values.yaml` where `syncIntervalTime` will represent how often the Secrets Provider will attempt to fetch new Conjur secrets. If the customer would like to change this parameter, they will need to do so manually by *reinstalling* *the Secrets Provider Chart*. 
+
+`ttlSecondsAfterFinished` will need to be removed from defaults
+
+All these changes *demands* that the customer manually deletes and installs the latest Helm Charts
 
 #### Packaging Helm Charts
 
@@ -412,6 +436,7 @@ All fetches on a Conjur Resource are individually audited, creating its own audi
 ## Open questions
 
 1. Once the Job terminates, there is no way to access the Job's logs. **ttlSecondsAfterFinished** allows the Job to stay alive even after the task terminates. Do we want to supply a **ttlSecondsAfterFinished** default for customers so that they can evaluate Job logs even after the Job terminates?
+2. Should customers be given two different Helm Charts for K8s and Openshift?
 
 ## Implementation plan
 
