@@ -1,10 +1,44 @@
-# Solution Design - Template
-
-[//]: # "Change the title above from "Template" to your design's title"
+# Secrets Provider Phase 2 Milestone 1 - Solution Design
 
 ## Table of Contents
 
-[//]: # "You can use this tool to generate a TOC - https://ecotrust-canada.github.io/markdown-toc/"
+* [Glossary](#glossary)
+
+  * [Useful links](#useful-links)
+  * [Background](#background)
+    + [Motivation](#motivation)
+  * [Requirements](#requirements)
+    + [Milestone 1 *(current)*](#milestone-1---current--)
+    + [Milestone 2](#milestone-2)
+  * [Solution](#solution)
+    + [Milestone 1: Serve K8s secrets to multiple applications once (no rotation)](#milestone-1--serve-k8s-secrets-to-multiple-applications-once--no-rotation-)
+    + [Design](#design)
+      - [How does a Job configured via Helm answer the requirements?](#how-does-a-job-configured-via-helm-answer-the-requirements-)
+      - [What drawbacks does this solution have?](#what-drawbacks-does-this-solution-have-)
+      - [Customer experience](#customer-experience)
+      - [Packaging Helm Charts](#packaging-helm-charts)
+    + [Milestone 2: Rotation](#milestone-2--rotation)
+    + [Lifecycle](#lifecycle)
+      - [Milestone 1](#milestone-1)
+        * [Installation](#installation)
+        * [Lifecycle](#lifecycle-1)
+        * [Update](#update)
+        * [Delete](#delete)
+    + [Order of Deployment](#order-of-deployment)
+      - [Milestone 1](#milestone-1-1)
+    + [Backwards compatibility](#backwards-compatibility)
+      - [Milestone 1](#milestone-1-2)
+    + [Performance](#performance)
+      - [Milestone 1](#milestone-1-3)
+    + [Affected Components](#affected-components)
+  * [Security](#security)
+  * [Test Plan](#test-plan)
+    + [Integration tests](#integration-tests)
+    + [Performance tests](#performance-tests)
+  * [Logs](#logs)
+  * [Documentation](#documentation)
+  * [Open questions](#open-questions)
+  * [Implementation plan](#implementation-plan)
 
 ## Glossary
 
@@ -13,6 +47,7 @@
 | [Job](*https://kubernetes.io/docs/concepts/workloads/controllers/job/*) | K8s entity that runs a pod for one-time operation. Once the pod exists, the Job terminates |
 | [Deployment](*https://kubernetes.io/docs/concepts/workloads/controllers/deployment/*) | K8s entity that ensures multiple replications of a pod are running all the time. If a pod terminates, another one will be created. |
 | [Kubernetes Helm](https://helm.sh/)                          | A tool that streamlines and organizes the management of Kubernetes installation, deployment, and upgrade processes. |
+| [Helm Chart](https://helm.sh/docs/topics/charts/)            | A collection of files that describe a related set of Kubernetes resources. A chart can be used to describe a simple pod of a complex application. |
 
 ## Useful links
 
@@ -28,15 +63,13 @@ During Phase 1, an *init container* was deployed in the same Pod as the customer
 
 ### Motivation
 
-The current implementation of the Secrets Provider only supports one application and makes the deployment of the Secrets Provider deeply coupled to the customer's applications.
-
-
+The current implementation of the Secrets Provider only supports one application and makes the deployment of the Secrets Provider deeply coupled to the customer's applications. 
 
 ## Requirements
 
 The solution should support the following capabilities:
 
-####  Milestone 1 *(current)*
+###  Milestone 1 *(current)*
 
 - Secrets Provider runs as a separate entity, serving multiple application containers that run on multiple pods
 - Solution needs to be native to Kubernetes
@@ -51,33 +84,28 @@ For seamless shift between milestones, we will deploy using Helm.
 
 ## Solution
 
-The solution is to allow different deployments and behave differently based on the use-case chosen.
-
-The following decision tree depicts customer uses-cases for Secrets Provider deployments:
+The solution is to allow different deployments and behave differently based on the use-case chosen. The following decision tree depicts customer uses-cases for Secrets Provider deployments:
 
  ![Secrets Provider flavors decision flow chart](https://user-images.githubusercontent.com/31179631/85747023-975bf500-b70f-11ea-8e26-1134068fe655.png) 
 
 These variations will be supported using the same Secrets Provider image, but the behavior will vary dynamically depending on the chosen deployment method that is configured via Helm Chart.
 
-*In this document we will focus on **Milestone 1**.*
+*In this document we will focus on **Milestone 1***, deploying the Secrets Provider as a Job
 
 ### Milestone 1: Serve K8s secrets to multiple applications once (no rotation)
 
 ### Design
 
-Configure the Secrets Provider via **Helm** as a **Job**.
-Once the Job's pod is spun up, it will authenticate to Conjur/DAP via authn-k8s.
+Customer will install our **Helm Chart** to deploy the Secrets Provider as a **Job**. Once installed, the Job spins up and authenticates to Conjur/DAP via authn-k8s.
 It will then fetch all the K8s secrets update them with the Conjur secrets they require and terminate upon completion.
 
-Kubernetes Helm is a tool that streamlines and organizes the management of Kubernetes installation, deployment, and upgrade processes. That way, we can provide our customer's a one-click solution even though the way at which we deploy changes.
-
-#### How does a Job answer the requirements?
+#### How does a Job installed via Helm answer the requirements?
 
 Running as a **Job** allows separation from the applications' deployment and serve multiple applications at once. 
 
 Because for this Milestone we are concerned with updating K8s Secrets once at intial spin up, a **Job** is the most native solution. It will terminate upon task completion and not waste customer's resources.
 
-TODO: See upgrade section for a detailed explanation of how we will provide a seemlessly solution between Milestones when the requirements change.
+Kubernetes Helm is a tool that streamlines and organizes the management of Kubernetes installation, deployment, and upgrade processes. When we use Helm for deployment and lifecycle management, we can provide our customer's a one-click solution even though the way at which we deploy changes.
 
 #### What drawbacks does this solution have?
 
@@ -108,53 +136,163 @@ Deployment for the Secrets Provider will be done using Helm. That way, if the
 
    2.3. RoleBinding Name (default: `secrets-provider-role-binding`)
 
-   2.4. K8S_SECRET (default: empty list)
+   2.4. `K8S_SECRETS` (default: `[]`)
 
-   *When parameters do not have are not given values, their defaults will be used*
+   *When parameters are not configured by customer, their defaults are used*
 
 3. Install Helm Chart for the Secrets Provider
 
-We will have a `values.yaml` file where all default variables for configurable parameters are collected. Our `values.yml` will resemble the following:
+We will supply the customer with a  `values.yaml` file where all default parameters are collected. Our `values.yaml` will resemble the following:
 
 ```
-# K8s manifest defaults
-serviceAccountName: secrets-provider-account
-image: cyberark/secrets-provider-for-k8s
-name: cyberark-secrets-provider
-
 # K8s permissioning defaults
-Role: secrets-provider-role
-Rolebinding: secrets-provider-role-binding
+permission:
+	serviceAccountName: secrets-provider-account
+	roleName: secrets-provider-role
+	roleBinding: secrets-provider-role-binding
+	rules:
+		resources: secrets
+		verbs: [ "get", "update" ]
 
-# Conjur defaults
-CONJUR_APPLIANCE_URL: TBD
-CONJUR_AUTHN_URL: TBD
-CONJUR_ACCOUNT: TBD
-CONJUR_SSL_CERTIFICATE: TBD
-DEBUG=true
-CONJUR_AUTHN_LOGIN: TBD
-K8S_SECRETS=[]
-CONTAINER_MODE=init
-SECRETS_DESTINATION=k8s_secrets
+# Secrets Provider pod defaults
+secrets-provider:
+	image: cyberark/secrets-provider-for-k8s
+	name: cyberark-secrets-provider
+	namespace: default-namespace
+	ttlSecondsAfterFinished: 0	# How long the Job should stay alive even after finishing task. Used for logging.
+	
+# Secrets Provider environment variable defaults
+secrets-provider-environment:
+	conjurApplianceUrl: https://conjur-follower.default.svc.cluster.local
+	conjurAuthnUrl: https://conjur-follower.default.svc.cluster.local/authn-k8s/authn-default
+	conjurAuthnLogin: host/conjur/authn-k8s/authn-default/default
+	conjurAccount: default
+	conjurSslCertificate: conjur-master-ca-env
+	debug=true
+	k8sSecrets=[]
+	containerMode=init
+	secretsDestination=k8s_secrets
+```
+
+Customers can override these defaults by loading the Chart with `custom-values.yaml`. Helm will first look for values in the customer defined `custom-values.yaml`. If they do not exist, Helm will resort to the defaults configured in `values.yaml` and populate the manifest with those values. 
+
+For more detailed information on how a customer will install our Chart, see the section on [Installation](#installation).
+
+Variables from the `values.yaml` / `custom-values.yml `are applied for our project as follows:
+
+*templates/secrets-access-role.yaml*
+
+```
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ Values.permission.serviceAccount }}
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ Values.permission.roleName }}
+rules:
+  - apiGroups: [""]
+    resources: {{ Values.permission.rules.resources }}
+    verbs: {{ Values.rules.verbs }}
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  namespace: {{ TBD }}
+  name: {{ Values.permission.roleBinding }}
+subjects:
+  - kind: ServiceAccount
+    namespace: {{ TBD }}
+    name: {{ Values.permission.serviceAccountName }}
+roleRef:
+  kind: Role
+  apiGroup: rbac.authorization.k8s.io
+  name: {{ Values.permission.roleName }}
+```
+
+*templates/secrets-provider.yaml*
+
+```yaml
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ .Release.Name }}-job
+  namespace: {{ TBD }}
+spec:
+	ttlSecondsAfterFinished: {{ Values.secrets-provider.ttlSecondsAfterFinished }}
+  template:
+		serviceAccountName: {{ Values.serviceAccount }}
+		containers:
+		- image: {{ Values.secrets-provider.image }}
+			imagePullPolicy: Always
+			name: {{ Values.secrets-provider.name }}
+			env:
+          - name: MY_POD_NAME
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.name
+
+          - name: MY_POD_NAMESPACE
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.namespace
+
+          - name: CONJUR_APPLIANCE_URL
+            value:  {{ Values.secrets-provider-environment.conjurApplianceUrl }}
+
+          - name: CONJUR_AUTHN_URL
+            value:  {{ Values.secrets-provider-environment.conjurAuthnUrl }}
+
+          - name: CONJUR_ACCOUNT
+            value:  {{ Values.secrets-provider-environment.serviceAccount }}
+
+          - name: CONJUR_SSL_CERTIFICATE
+            valueFrom:
+              configMapKeyRef:
+                name: {{ Values.secrets-provider-environment.conjurSslCertificate }}
+                key: ssl-certificate
+
+          - name: DEBUG
+            value:  {{ Values.secrets-provider-environment.debug }}
+
+          - name: CONJUR_AUTHN_LOGIN
+            value:  {{ Values.secrets-provider-environment.conjurAuthnLogin }}
+
 ```
 
 
 
-These variables can be applied for our project as follows:
+#### Packaging Helm Charts
 
-`templates/secrets-access-role.yml`
+Every Helm project requires a `Chart.yml` file that describes the project. The Secrets Provider `Chart.yaml` wil resemble the following:
 
-*TBD*
+```yaml
+apiVersion: v1
+description: A Helm chart for CyberArk Secrets Provider for Kubernetes
+home: https://www.cyberark.com
+icon: https://xebialabs-clients-iglusjax.stackpathdns.com/assets/files/logos/CyberArkConjurLogoWhiteBlue.png
+keywords:
+- security
+- secrets management
+maintainers:
+- email: conj_maintainers@cyberark.com
+  name: Conjur Maintainers
+name: secrets-provider
+version: 1.0.0
+```
 
-`templates/secrets-access-role-binding.yml`
+Helm Charts are packaged in `tgz` format. 
 
-*TBD*
+For each release, we will package our Chart (`helm package secrets-provider`) and the output will be `secrets-provider-<version>.tgz`. This `.tgz` is what we will push to Github.
 
-`templates/secrets-provider.yml`
-
-*TBD*
-
-
+For more detailed information on how a customer will install our Chart, see the section on [Installation](#installation).
 
 ### Milestone 2: Rotation
 
@@ -162,49 +300,61 @@ These variables can be applied for our project as follows:
 
 
 
+### Lifecycle
+
+#### Milestone 1
+
+##### Installation
+
+The customer will be able to override these defaults by creating their own `custom-values.yml` and passing it when installing our Helm chart. For example:
+
+`helm install conjur -f custom-values.yaml https://github.com/cyberark/secrets-provider-for-k8s/helm/secrets-provider-1.0.0.tgz`
+
+Where `custom-values.yaml` is the yaml file that the customer creates to override our defaults and where `https://github.com/cyberark/secrets-provider-for-k8s/helm/secrets-provider-1.0.0.tgz ` is the path to our repository where we will push the packaged Helm Chart.
+
+##### Lifecycle
+
+The lifecycle of the Secrets Provider is independent of the application pods. The application pods that detail K8s Secrets in their environment [will not start](*https://kubernetes.io/docs/concepts/configuration/secret/#details*) until the K8s Secrets they require are populated with the expected key. 
+
+To notify the customer that the Secrets Provider has started and finished it's work, the process will be logged.
+
+##### Update
+
+Because we will be using Helm Charts, we can easily supply customers with the Helm Charts for the current Milestone. All the customer would need to do is delete their current Secrets Provider Chart and install the new one.
+
+It is possible that future Milestones will require additional configurations. If so, the customer can add the necessary parameter with relative easy by manually defining it for us in their `custom-values.yaml` file. If not supplied, we will take our default.
+
+##### Delete
+
+Customers can uninstall the Secrets Provider release by uninstalling the Helm Chart: `helm uninstall secrets-provider `
+
+It is recommended that customers will delete the Helm Chart in its entirety and individual manifests. For example, we recommend that the customer not delete the individual Job manifest itself.
+
+The lifecycle of the Job is the length of the process. In other words, the time it takes to retrieve the Conjur secrets value and update them in the K8s Secrets. To examine the Secrets Provider Job logs, the customer can configure the Job to stay "alive" by adding **ttlSecondsAfterFinished**, with the desired about of seconds, to their Secrets Provider yaml. Because of the nature of a Job, a manual delete is not necessary.
+
 ### Order of Deployment
 
 #### Milestone 1
 
 Steps to follow for successful deployment
 
-1. Add all necessary K8s Secrets to the Secrets Provider manifest
-2. Run the Secrets Provider Deployment (*)
+1. Add all necessary K8s Secrets to `custom-values.yaml`
+2. Install Secrets Provider Chart passing in `custom-values.yaml` (*)
 3. Run application pods (*)
 
  (*) The order at which the Secrets Provider and application pod are deployed does not matter because the [application pod will not start](https://kubernetes.io/docs/concepts/configuration/secret/#details) until it has received the keys from the K8s Secrets it references (secretKeyRef).
-
-### Lifecycle, update, and deletion
-
-#### Milestone 1
-
-##### Lifecycle
-
-The lifecycle of the Secrets Provider is independent of the application pods. The application pods that detail K8s Secrets in their environment [will not start](*https://kubernetes.io/docs/concepts/configuration/secret/#details*) until the K8s Secrets they require are populated with the expected key. 
-
- To notify the customer that the Secrets Provider has started and finished it's work, the process will be logged.
-
-##### Update
-
-Because we will be using Helm Charts, we can easily supply customers with the Helm Charts for the current Milestone. As we progress and release new versions for the project, we can supply the customer with the necessary Helm Charts. All they would need to do is switch out their current Chart for the new one.
-
-##### Delete
-
-The lifecycle of the Job is the length of the process. In other words, the time it takes to retrieve the Conjur secrets value and update them in the K8s Secrets. The customer can configure the Job to stay "alive" by adding **ttlSecondsAfterFinished**, with the desired about of seconds, to their Secrets Provider yaml. Because of the nature of a Job, a manual delete is not necessary.
 
 ### Backwards compatibility
 
 #### Milestone 1
 
-Milestone 1 of Phase 2 will be built ontop of the current init container solution. We will deliver the same image and will not break current functionality.
+Introducing Helm will enhance the user experience and not impact the previous init container solution.
 
 ### Performance
 
 #### Milestone 1
 
-TODO: See performance tests
-
- We will test and document how many K8s Secrets can be updated in 5 minutes on average. A secret should be either extreme long password.
+We will test and document how many K8s Secrets can be updated in 5 minutes on average. A secret should be either extreme long password. See [Performance tests](#performance-tests) for further explanation.
 
 ### Affected Components
 
@@ -261,7 +411,7 @@ All fetches on a Conjur Resource are individually audited, creating its own audi
 
 ## Open questions
 
-
+1. Once the Job terminates, there is no way to access the Job's logs. **ttlSecondsAfterFinished** allows the Job to stay alive even after the task terminates. Do we want to supply a **ttlSecondsAfterFinished** default for customers so that they can evaluate Job logs even after the Job terminates?
 
 ## Implementation plan
 
