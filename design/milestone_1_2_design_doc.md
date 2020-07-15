@@ -111,14 +111,16 @@ Kubernetes Helm is a tool that streamlines and organizes the management of Kuber
 
 **Job** is not an existing application identity granularity.
 
- As a result, one can define the host representing the Secrets Provider in Conjur policy using only **namespace** and/or **service account** granularities.
+ As a result, one can define the host representing the Secrets Provider in Conjur policy using only **namespace** with/without **service account** granularities.
 
 To handle the missing **Job** granularity there are 2 options:
 
 |      | Solution                                                     | Pros                                                         | Cons                                                         | Effort Estimation |
 | ---- | ------------------------------------------------------------ | ------------------------------------------------------------ | ------------------------------------------------------------ | ----------------- |
 | 1    | Keep using only **namespace** and/or **service account** granularities. | \- Since Secrets Provider runs as a separate entity, we suggest creating a dedicated service account for Secrets Provider.<br />That way, the **service account** granularity serves as an exact match and **Job** granularity is redundant<br />- No code changes | \- Service account might be reused, which allows other apps to authenticate using Secrets Provider host<br />- Break application identity convention | Free              |
-| 2    | Add support for **Job** granularity in Conjur                | Allows specific identification of the Secrets Provider **Job**, which enhances security | \- Costly; requires code changes, verify compatibility, tests, docs<br />- Redundant if **service account** serves only the Secrets Provider | 10 days           |
+| 2    | Add support for **Job** granularity in Conjur                | Allows specific identification of the Secrets Provider **Job**, which enhances security | \- Costly; requires code changes, verify compatibility, tests, docs<br />- Redundant if **service account** serves only the Secrets Provider<br />- ***Not*** a ***seamless*** experience between Milestones because i | 10 days           |
+
+Implementing the Job granularity would mean that the experience in transitioning between the Milestones is not a smooth one. If a customer uses the Job granularity, they will need to update this in Milestone 2 because the deployment type will no longer be a Job. 
 
 *Decision*: Solution #1, use **namespace** and **service account** to define the Secrets Provider host in Conjur policy. We would recommend to the customer to create a dedicated service account for Secrets Provider.
 
@@ -136,104 +138,111 @@ Deployment for the Secrets Provider will be done using Helm. That way, if the
 
 3. Install Helm Chart for the Secrets Provider
 
-We will supply the customer with a  `values.yaml` file where all default parameters are collected. Our `values.yaml` will resemble the following:
+We will supply the customer with a  `values.yaml` file where all default parameters are collected. 
 
-```
-# K8s permissioning defaults
-permission:
-	serviceAccountName: secrets-provider-account
-	roleName: secrets-provider-role
-	roleBinding: secrets-provider-role-binding
+*values.yaml*
+
+```yaml
+global:
+  namespace: default
+	
+# K8s permission defaults
+rbac:
+  serviceAccountName: secrets-provider-service-account
+  roleName: secrets-provider-role
+  roleBinding: secrets-provider-role-binding
 
 # Secrets Provider pod defaults
 secrets-provider:
-	image: cyberark/secrets-provider-for-k8s
-	name: cyberark-secrets-provider
-	namespace: default
-	ttlSecondsAfterFinished: 0	# Length at which Job should stay alive even after finishing task. Used for logging.
+  image: cyberark/secrets-provider-for-k8s
+  name: cyberark-secrets-provider
 	
 # Secrets Provider environment variable defaults
 secrets-provider-environment:
-	conjurApplianceUrl: https://conjur-follower.default.svc.cluster.local
-	conjurAuthnUrl: https://conjur-follower.default.svc.cluster.local/authn-k8s/authn-default
-	conjurAuthnLogin: host/conjur/authn-k8s/authn-default/default
-	conjurAccount: default
-	conjurSslCertificate: conjur-master-ca-env
-	debug=true
-	k8sSecrets=[]
-	containerMode=init
-	secretsDestination=k8s_secrets
-	rotationSupport=false
+  conjurSslCertificateName: secrets-provider-ssl-config-map
+  containerMode: init
+  secretsDestination: k8s_secrets
+  debug: false
 ```
 
-Customers can override these defaults by loading the Chart with `custom-values.yaml`. Helm will first look for values in the customer defined `custom-values.yaml`. If they do not exist, Helm will resort to the defaults configured in `values.yaml` and populate the manifest with those values. 
+`custom-values.yaml` will hold both mandatory variables that the customer is required to fill and all defaults they want to override. The customers supplies Helm with these values by loading the Chart with `custom-values.yaml`. Helm will first look for values in the customer defined `custom-values.yaml`. If they do not exist, Helm will resort to the defaults configured in `values.yaml` and populate the manifest with those values. 
 
+*custom-values.yaml*
+
+```yaml
+secrets-provider-environment:
+  conjurAccount:
+  conjurApplianceUrl:
+  conjurAuthnUrl:
+  conjurAuthnLogin:
+  conjurSslCertificateValue:
+  k8sSecrets:		# Format needs to be array
+```
 For more detailed information on how a customer will install our Chart, see the section on [Installation](#installation).
 
-Variables from the `values.yaml` / `custom-values.yml `are applied for our project as follows:
+Variables from the `values.yaml` / `custom-values.yaml ` are applied for our project as follows:
 
 *templates/secrets-access-role.yaml*
 
-```
+```yaml
 ---
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: {{ .Values.permission.serviceAccount }}
+  name: {{ .Values.rbac.serviceAccountName }}
 
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
-  name: {{ .Values.permission.roleName }}
+  name: {{ .Values.rbac.roleName }}
 rules:
-  - apiGroups: [""]
-    resources: {{ .Values.permission.rules.resources }}
-    verbs:
-    	rules:
-			resources: secrets
-			verbs: [ "get", "update" ]
+  - resources: {{ .Values.rbac.rules.resources }}
+    verbs: [ "get", "update" ]
 
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
-  namespace: {{ .Values.secrets-provider.namespace }}
-  name: {{ .Values.permission.roleBinding }}
+  namespace: {{ .Values.global.namespace }}
+  name: {{ .Values.rbac.roleBinding }}
 subjects:
   - kind: ServiceAccount
-    namespace: {{ .Values.secrets-provider.namespace }}
-    name: {{ .Values.permission.serviceAccountName }}
+    namespace: {{ .Values.global.namespace }}
+    name: {{ .Values.rbac.serviceAccountName }}
 roleRef:
   kind: Role
   apiGroup: rbac.authorization.k8s.io
-  name: {{ .Values.permission.roleName }}
+  name: {{ .Values.rbac.roleName }}
+```
+
+*templates/conjur-master-cert.yaml*
+```yaml
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Values.secrets-provider-environment.conjurSslCertificateName }}
+  labels:
+    app: test-env
+data:
+  ssl-certificate: |
+    {{ .Values.secrets-provider-environment.conjurSslCertificateValue }}
 ```
 
 *templates/secrets-provider.yaml*
-
-The following template takes into account the anticipated flows for Milestone 1 and 2.
-
 ```yaml
 ---
-{{- if eq .Values.secrets-provider-environment.rotationSupport "false" }}
 apiVersion: batch/v1
 kind: Job
-metadata:
-  name: {{ .Release.Name }}
-  namespace: {{ .Values.secrets-provider.namespace }}
-spec:
-	ttlSecondsAfterFinished: {{ .Values.secrets-provider.ttlSecondsAfterFinished }}
-{{ else }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: {{ .Release.Name }}
-  namespace: {{ .Values.secrets-provider.namespace }}
+  namespace: {{ .Values.global.namespace }}
 spec:
-{{- end }}
   template:
-    serviceAccountName: {{ .Values.serviceAccount }}
+    serviceAccountName: {{ .Values.serviceAccountName }}
     containers:
     - image: {{ .Values.secrets-provider.image }}
         imagePullPolicy: Always
@@ -243,62 +252,59 @@ spec:
           valueFrom:
             fieldRef:
               apiVersion: v1
-                fieldPath: metadata.name
-
+              fieldPath: metadata.name
+        
         - name: MY_POD_NAMESPACE
           valueFrom:
-          fieldRef:
-            apiVersion: v1
-            fieldPath: metadata.namespace
-
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
+        
         - name: CONJUR_APPLIANCE_URL
-          value:  {{ .Values.secrets-provider-environment.conjurApplianceUrl }}
-
+          value:  {{ required "conjurApplianceUrl is a required configuration" .Values.secrets-provider-environment.conjurApplianceUrl | quote }}
+        
         - name: CONJUR_AUTHN_URL
-          value:  {{ .Values.secrets-provider-environment.conjurAuthnUrl }}
-
+          value:  {{ required "conjurAuthnUrl is a required configuration"  .Values.secrets-provider-environment.conjurAuthnUrl | quote }}
+        
         - name: CONJUR_ACCOUNT
-          value:  {{ .Values.secrets-provider-environment.serviceAccount }}
-
+          value:  {{ required "serviceAccount is a required configuration"   .Values.secrets-provider-environment.serviceAccount | quote }}
+        
         - name: CONJUR_SSL_CERTIFICATE
-       	  valueFrom:
-            configMapKeyRef:
-        	  name: {{ .Values.secrets-provider-environment.conjurSslCertificate }}
-       		  key: ssl-certificate
-
-        - name: DEBUG
-       	  value:  {{ .Values.secrets-provider-environment.debug }}
-
+           valueFrom:
+             configMapKeyRef:
+               name: {{ .Values.secrets-provider-environment.conjurSslCertificateName }}
+               key: ssl-certificate
+                 
         - name: CONJUR_AUTHN_LOGIN
-       	  value:  {{ Values.secrets-provider-environment.conjurAuthnLogin }}
-
-        {{- if eq .Values.secrets-provider-environment.rotationSupport "true" }}
-        - name: SYNC_INTERVAL_TIME
-          value: {{ .Values.secrets-provider-environment.syncInternalTime }}
-        {{- end }}
-
-        {{- if .Values.secrets-provider-environment.k8SecretsLabels }}
-        - name: K8S_SECRETS_LABELS
-          value: {{ .Values.secrets-provider-environment.k8sSecretsLabels }}
-        {{- end }}
+          value:  {{ required "conjurAuthnLogin is a required configuration" Values.secrets-provider-environment.conjurAuthnLogin | quote }}
+        
+        - name: SECRETS_DESTINATION
+          value: k8s_secrets
+                    
+        - name: CONTAINER_MODE
+          value: init
+					
+        - name: K8S_SECRETS
+          value: {{ required "k8sSecrets is a required configuration"  .Values.secrets-provider-environment.k8sSecrets }}
+        
+        {{- if eq .Values.secrets-provider-environment.debug "true" }}
+        - name: DEBUG
+          value: true
+        {{- end }} 
 ```
 
-Note that when we transition to Milestone 2 we will need to keep the following in mind:
+Where `required` declares a value entry as required and rendering will fail with the provided error and `quote` casts yaml values as strings rather than accepting vanilla user input.
 
-`rotationSupport=false` default will need to be updated to`rotationSupport=true`. 
+#### Limitations
 
-We will need to add `syncIntervalTime=300` (5 minutes) to the default `values.yaml` where `syncIntervalTime` will represent how often the Secrets Provider will attempt to fetch new Conjur secrets. If the customer would like to change this parameter, they will need to do so manually by *reinstalling* *the Secrets Provider Chart*. 
-
-`ttlSecondsAfterFinished` will need to be removed from defaults
-
-All these changes *demands* that the customer manually deletes and installs the latest Helm Charts
+- In order for a customer to add a new K8s Secret to the K8S_SECRETS, they will need to tear down the Chart and reinstall it with the updated list of `custom-values.yaml`
 
 #### Packaging Helm Charts
 
 Every Helm project requires a `Chart.yml` file that describes the project. The Secrets Provider `Chart.yaml` wil resemble the following:
 
 ```yaml
-apiVersion: v1
+apiVersion: v2
 description: A Helm chart for CyberArk Secrets Provider for Kubernetes
 home: https://www.cyberark.com
 icon: https://xebialabs-clients-iglusjax.stackpathdns.com/assets/files/logos/CyberArkConjurLogoWhiteBlue.png
@@ -321,8 +327,6 @@ For more detailed information on how a customer will install our Chart, see the 
 ### Milestone 2: Rotation
 
 *TBD*
-
-
 
 ### Lifecycle
 
@@ -352,9 +356,9 @@ It is possible that future Milestones will require additional configurations. If
 
 Customers can uninstall the Secrets Provider release by uninstalling the Helm Chart: `helm uninstall secrets-provider `
 
-It is recommended that customers will delete the Helm Chart in its entirety and individual manifests. For example, we recommend that the customer not delete the individual Job manifest itself.
+It is recommended that customers will delete the Helm Chart in its entirety and ***not*** individual manifests. For example, we recommend that the customer not delete the individual Job manifest itself.
 
-The lifecycle of the Job is the length of the process. In other words, the time it takes to retrieve the Conjur secrets value and update them in the K8s Secrets. To examine the Secrets Provider Job logs, the customer can configure the Job to stay "alive" by adding **ttlSecondsAfterFinished**, with the desired about of seconds, to their Secrets Provider yaml. Because of the nature of a Job, a manual delete is not necessary.
+The lifecycle of the Job is the length of the process. In other words, the time it takes to retrieve the Conjur secrets value and update them in the K8s Secrets. After the Pod terminates successfully, [the Job will remain](https://kubernetes.io/docs/concepts/workloads/controllers/job/#job-termination-and-cleanup) and the customer can fetch logs on the Job. 
 
 ### Order of Deployment
 
@@ -404,10 +408,12 @@ The value for *`stringData`* in the K8s Secret resource is a String of user inpu
 
 | **Title** | **Given**                                                    | **When**                                                     | **Then**                                      | **Comment**                                                  |
 | --------- | ------------------------------------------------------------ | ------------------------------------------------------------ | --------------------------------------------- | ------------------------------------------------------------ |
-| 1         | *Vanilla flow*, Secret Provider Job successfully updates K8s Secrets | - Conjur is running<br />- Authenticator is defined<br />- Secrets defined in Conjur and K8s Secrets are configured<br />- Service Account has correct permissions (get/update/list) <br />- Secrets Provider Job manifest is defined<br />- `K8S_SECRETS_LABELS` (or `K8S_SECRETS`) env variable is configured | Secrets Provider runs as a Job                | - Secrets Provider pod authenticates and fetches Conjur secrets successfully<br />- All K8s Secrets are updated with  Conjur value <br />- App pods receive K8s Secret with Conjur secret values as environment variable<br />- Secrets Provider Job terminates on completion of task<br />- Verify logs |
+| 1         | *Vanilla flow*, Secret Provider Job successfully updates K8s Secrets | - Conjur is running<br />- Authenticator is defined<br />- Secrets defined in Conjur and K8s Secrets are configured<br />- Service Account has correct permissions (get/update/list) <br />- Secrets Provider Job manifest is defined<br />-  `K8S_SECRETS` env variable is configured | Secrets Provider runs as a Job                | - Secrets Provider pod authenticates and fetches Conjur secrets successfully<br />- All K8s Secrets are updated with  Conjur value <br />- App pods receive K8s Secret with Conjur secret values as environment variable<br />- Verify in logs that deployment type is listed <br />- Secrets Provider Job terminates on completion of task<br />- Verify logs |
 | 2         | *Vanilla flow*, non-conflicting Secrets Provider<br />       | Two Secrets Providers have access to different Conjur secret | 2 Secrets Provider Jobs run in same namespace | - All relevant K8s secrets are updated<br />- Verify logs    |
-| 3         | Non-conflicting Secrets Provider 1 namespace same K8s Secret * | Two Secrets Providers have access to same secret             | 2 Secrets Provider Jobs run in same namespace | - No race condition and Secrets Providers will not override each other<br />- Verify logs |
-| 4         | *Regression tests*                                           | All regression tests should pass                             |                                               |                                                              |
+| 3         | Multiple Secrets Providers in same have access to same K8s Secret | Two Secrets Providers have access to same secret             | 2 Secrets Provider Jobs run in same namespace | - No race condition and Secrets Providers will not override each other<br />- Verify logs |
+| 4         | Check the integrity of all user input from `values.yaml` / `custom-values.yaml` |                                                              |                                               | - Validate no malicious input was received and escape/encode |
+| 4         | *Regression tests*                                           | All regression tests should pass (both Conjur / DAP)         |                                               |                                                              |
+| 5         | *Add support for OC 4.3*                                     | All integration tests should pass on OC 4.3                  |                                               |                                                              |
 
 ### Performance tests
 
@@ -415,8 +421,6 @@ The value for *`stringData`* in the K8s Secret resource is a String of user inpu
 | ----- | ------------------------- | ------------------------------------------------------------ | ------------------------------ | ------------------------------------------------------------ |
 | 1     | Performance investigation | - 1000 Secrets Providers defined<br />- Conjur secrets with max amount of characters | Secrets Provider runs as a Job | Evaluate how many K8s Secrets can be updated with Conjur secrets in 5 minutes |
 | 2     | Performance investigation | - 1000 Secrets Providers defined<br />- Conjur secret with average amount of characters | Secrets Provider runs as a Job | Evaluate how many K8s Secrets can be updated with Conjur secrets in 5 minutes |
-
-
 
 ## Logs
 
@@ -433,10 +437,21 @@ All fetches on a Conjur Resource are individually audited, creating its own audi
 
 
 
+## Concerns
+
+*Impact on user experience due to batch retrieval* *functionality*
+
+The Secrets Provider will no longer be running as an init container, rather a separate pod and serving multiple apps. 
+
+*Previously* because each Secrets Provider was sitting within the same Deployment as the app, when a batch retrieval request was made, the requests were dispersed across many call to the Conjur server. If one K8s Secret was not able to be updated with a Conjur value (for example due to a permission error), then the batch request would fail and only that pod would not spin up successfully. 
+
+*Now* that the Secrets Provider is running as a separate entity, a single batch retrieval request will be made to Conjur for *all* application. So if there is a failure in receiving one of the values, then the whole request would fail. In other words, ***no application*** will spin up in the namespace.
+
 ## Open questions
 
-1. Once the Job terminates, there is no way to access the Job's logs. **ttlSecondsAfterFinished** allows the Job to stay alive even after the task terminates. Do we want to supply a **ttlSecondsAfterFinished** default for customers so that they can evaluate Job logs even after the Job terminates?
-2. Should customers be given two different Helm Charts for K8s and Openshift?
+1. Should customers be given two different Helm Charts for K8s and Openshift? *TBD*
+2. What versions of OC/K8S should we support? *TBD*
+3. What version of Helm should we support/deploy with? *Helm 3.2.4*
 
 ## Implementation plan
 
@@ -445,11 +460,12 @@ All fetches on a Conjur Resource are individually audited, creating its own audi
 - [ ] Solution design approval + Security review approval
 - [ ] Implement Phase 2 Milestone 1 functionality ***(~2 days)\***
 - [ ] Implement test plan (Integration + Unit + Performance tests align with SLA) ***(~4 days)\***
+- [ ] Add support for OC 4.3 in our pipeline ***(~2 days)\***
 - [ ] Security items have been taken care of (if they exist) ***(TBD)\***
 - [ ] Logs review by TW + PO ***(~1 day)\*** 
 - [ ] Documentation has been given to TW + approved ***(~2 days)\***
 - [ ] Engineer(s) not involved in project use documentation to get end-to-end ***(~1 day)\***
 - [ ] Create demo for Milestone 1 functionality ***(~1 day)\***
-- [ ] Versions are bumped in all relevant projects (if necessary) ***(~1 days)\***
+- [ ] Versions are bumped in all relevant projects (if necessary) and automate the Helm package and release process ***(~1 days)\***
 
- **Total:** ~10 days of non-parallel work **(~2 weeks)**
+ **Total:** ~12 days of non-parallel work **(~2.5 weeks)**
