@@ -1,29 +1,54 @@
-FROM golang:1.13 as secrets-provider-builder
+# =================== BASE BUILD LAYER ===================
+# this layer is used to prepare a common layer for both debug and release builds
+FROM golang:1.13 as secrets-provider-builder-base
 MAINTAINER CyberArk Software Ltd.
 
 ENV GOOS=linux \
     GOARCH=amd64 \
     CGO_ENABLED=0
 
-COPY . /opt/secrets-provider-for-k8s
+RUN go get -u github.com/jstemmer/go-junit-report && \
+    go get github.com/smartystreets/goconvey
 
 WORKDIR /opt/secrets-provider-for-k8s
 
 EXPOSE 8080
 
-RUN apt-get update && apt-get install -y jq
+COPY go.mod go.sum ./
 
-RUN go get -u github.com/jstemmer/go-junit-report && \
-    go get github.com/smartystreets/goconvey
+# Add a layer of prefetched modules so the modules are already cached in case we rebuild
+RUN go mod download
+
+# =================== RELEASE BUILD LAYER ===================
+# this layer is used to build the release binaries
+FROM secrets-provider-builder-base as secrets-provider-builder
+
+COPY . .
 
 RUN go build -a -installsuffix cgo -o secrets-provider ./cmd/secrets-provider
+
+# =================== DEBUG BUILD LAYER ===================
+# this layer is used to build the debug binaries
+FROM secrets-provider-builder-base as secrets-provider-builder-debug
+
+# Build Delve - debugging tool for Go
+RUN go get github.com/go-delve/delve/cmd/dlv
+
+# Expose port 40000 for debugging
+EXPOSE 40000
+
+COPY . .
+
+# Build debug flavor without compilation optimizations using "all=-N -l"
+RUN go build -a -installsuffix cgo -gcflags="all=-N -l" -o secrets-provider ./cmd/secrets-provider
 
 # =================== BUSYBOX LAYER ===================
 # this layer is used to get binaries into the main container
 FROM busybox
 
-# =================== MAIN CONTAINER ===================
-FROM alpine:3.11 as secrets-provider
+# =================== BASE MAIN CONTAINER ===================
+# this layer is used to prepare a common layer for both debug and release containers
+FROM alpine:3.11 as secrets-provider-base
 MAINTAINER CyberArk Software Ltd.
 
 # copy a few commands from busybox
@@ -60,9 +85,29 @@ RUN apk add -u shadow libc6-compat && \
 
 USER secrets-provider
 
+# =================== RELEASE MAIN CONTAINER ===================
+FROM secrets-provider-base as secrets-provider
+
 COPY --from=secrets-provider-builder /opt/secrets-provider-for-k8s/secrets-provider /usr/local/bin/
 
-ENTRYPOINT [ "/usr/local/bin/secrets-provider"]
+CMD [ "/usr/local/bin/secrets-provider"]
+
+# =================== DEBUG MAIN CONTAINER ===================
+FROM secrets-provider-base as secrets-provider-debug
+
+COPY --from=secrets-provider-builder-debug /go/bin/dlv /usr/local/bin/
+
+COPY --from=secrets-provider-builder-debug /opt/secrets-provider-for-k8s/secrets-provider /usr/local/bin/
+
+# Execute secrets provider wrapped with dlv debugger listening on port 40000 for remote debugger connection.
+# Will wait indefinitely until a debugger is connected.
+CMD ["/usr/local/bin/dlv",  \
+     "--listen=:40000",     \
+     "--headless=true",     \
+     "--api-version=2",     \
+     "--accept-multiclient",\
+     "exec",                \
+     "/usr/local/bin/secrets-provider"]
 
 # =================== MAIN CONTAINER (REDHAT) ===================
 FROM registry.access.redhat.com/rhel as secrets-provider-for-k8s-redhat
