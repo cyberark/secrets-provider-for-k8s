@@ -14,8 +14,7 @@ WORKDIR /opt/secrets-provider-for-k8s
 
 EXPOSE 8080
 
-COPY go.mod .
-COPY go.sum .
+COPY go.mod go.sum ./
 
 # Add a layer of prefetched modules so the modules are already cached in case we rebuild
 RUN go mod download
@@ -102,7 +101,13 @@ COPY --from=secrets-provider-builder-debug /opt/secrets-provider-for-k8s/secrets
 
 # Execute secrets provider wrapped with dlv debugger listening on port 40000 for remote debugger connection.
 # Will wait indefinitely until a debugger is connected.
-CMD ["/usr/local/bin/dlv", "--listen=:40000", "--headless=true", "--api-version=2", "--accept-multiclient", "exec", "/usr/local/bin/secrets-provider"]
+CMD ["/usr/local/bin/dlv",  \
+     "--listen=:40000",     \
+     "--headless=true",     \
+     "--api-version=2",     \
+     "--accept-multiclient",\
+     "exec",                \
+     "/usr/local/bin/secrets-provider"]
 
 # =================== MAIN CONTAINER (REDHAT) ===================
 FROM registry.access.redhat.com/rhel as secrets-provider-for-k8s-redhat
