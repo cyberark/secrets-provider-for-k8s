@@ -166,6 +166,7 @@ secrets-provider-environment:
   containerMode: init
   secretsDestination: k8s_secrets
   debug: false
+  supportRotation: false
 ```
 
 `custom-values.yaml` will hold both mandatory variables that the customer is required to fill and all defaults they want to override. The customers supplies Helm with these values by loading the Chart with `custom-values.yaml`. For more detailed information on how a customer will install our Chart, see the section on [Installation](#installation).
@@ -284,8 +285,8 @@ spec:
         - name: SECRETS_DESTINATION
           value: k8s_secrets
                     
-        - name: CONTAINER_MODE
-          value: init
+        - name: SUPPORT_ROTATION			# this variable will allow us to determine if we should exit the Pod or not for later Milestones
+          value: {{ required "supportRotation is a required configuration"  .Values.secrets-provider-environment.supportRotation | quote }}
 					
         - name: K8S_SECRETS
           value: {{ required "k8sSecrets is a required configuration"  .Values.secrets-provider-environment.k8sSecrets }}
@@ -329,7 +330,27 @@ For more detailed information on how a customer will install our Chart, see the 
 
 ### Milestone 2: Rotation
 
-*TBD*
+The following section will be dedicated to a high-level design discussion on rotation for Milestone 2.
+
+The following solutions for rotation are being evaluated:
+
+|      | Solution                                                     | Elaboration                                                  | Pros                                                         | Cons                                                         | Effort estimation |
+| ---- | ------------------------------------------------------------ | ------------------------------------------------------------ | ------------------------------------------------------------ | ------------------------------------------------------------ | ----------------- |
+| 1    | Every configurable amount of time, retrieve secrets <br />*Default: 5 minutes (300 seconds)* | - Every 5 minutes, perform Secrets Provider cycle <br />- Fetch Conjur secrets and update K8s Secrets | - Easy integration with current retry mechanism<br />- No need to make a change in Conjur<br />- No changes in  Helm Charts between Milestones | - Polling is a bad way for a change notification mechanism<br />- Load on the server every 5 minutes | 5 days            |
+| 2a   | Every configurable amount of time, check if Conjur secret was updated | - Create a new API endpoint to check if Conjur secret version was updated<br />Return 200 status code<br />- Trigger Secrets Provider cycle on all K8s Secrets with values in Conjur | - Less load on Conjur server<br />- No changes in Helm Chart between Milestones | - New API endpoint is needed in Conjur<br />- API endpoint will *not* return which secret was updated<br />- Users will need to update their Conjur versions to use the endpoint (*) | 10 days           |
+| 2b   | Every configurable amount of time, check if Conjur secret was updated | - Expand on the current Batch Retrieval API to return list of secrets and **also**  **versions**<br /><br />- If newer version is returned, trigger  Secrets Provider cycle only with the returned list of updated Conjur secrets | - Don't need to create a new API                             | - Complex solution<br />- We need to ensure we are not introducing breaking changes | 15 days           |
+
+(*) As a possible fallback, we can provide the user with a warning that the endpoint feature is not available in their Conjur version and fail back to Solution #1.
+
+#### Concerns
+
+*Load on Server*
+
+To mitigate this concern we will test performance and supply our customers with clear limitations, detailing how many Secrets Providers and Followers can be used for optimal performance.
+
+#### Customer experience
+
+A decision has not been determined. Regardless of the final decision for rotation, we do not anticipate any change in terms of the customer experience when updating from Milestone 1 to 2. 
 
 ### Lifecycle
 
