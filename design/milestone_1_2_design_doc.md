@@ -24,6 +24,7 @@
         * [Lifecycle](#lifecycle-1)
         * [Update](#update)
         * [Delete](#delete)
+    + [Network Disruptions](#network-disruptions)
     + [Order of Deployment](#order-of-deployment)
       - [Milestone 1](#milestone-1-1)
     + [Backwards compatibility](#backwards-compatibility)
@@ -126,19 +127,21 @@ Implementing the Job granularity would mean that the experience in transitioning
 
 #### Customer experience
 
-Deployment for the Secrets Provider will be done using Helm. That way, if the 
+Deployment for the Secrets Provider will be done using Helm. The customer experience is as follows:
 
 1. Configure K8s Secrets with ***conjur-map\*** metadata defined
 
-2. Create `values.yaml` that will contain the following parameters and their defaults:
+2. Create `custom-values.yaml` that will contain the required parameters to deploy the Secrets Provider 
 
-   For a full list of required parameters, see `values.yaml` below
+   For a full list of required parameters, see `values.yaml` and `custom-values.yaml` below
 
    *When parameters are not configured by customer, their defaults are used*
 
-3. Install Helm Chart for the Secrets Provider
+3. Install Helm Chart for the Secrets Provider, passing in their `custom-values.yaml` like so: `helm install conjur -f custom-values.yaml https://github.com/cyberark/secrets-provider-for-k8s/helm/secrets-provider-1.0.0.tgz`
 
-We will supply the customer with a  `values.yaml` file where all default parameters are collected. 
+
+
+In Helm, default values are collected in `value.yaml` files. We will supply the customer this file where all default parameters will be defined for them.
 
 *values.yaml*
 
@@ -165,7 +168,9 @@ secrets-provider-environment:
   debug: false
 ```
 
-`custom-values.yaml` will hold both mandatory variables that the customer is required to fill and all defaults they want to override. The customers supplies Helm with these values by loading the Chart with `custom-values.yaml`. Helm will first look for values in the customer defined `custom-values.yaml`. If they do not exist, Helm will resort to the defaults configured in `values.yaml` and populate the manifest with those values. 
+`custom-values.yaml` will hold both mandatory variables that the customer is required to fill and all defaults they want to override. The customers supplies Helm with these values by loading the Chart with `custom-values.yaml`. For more detailed information on how a customer will install our Chart, see the section on [Installation](#installation).
+
+Helm will first look for values in the customer defined `custom-values.yaml`. If they do not exist, Helm will resort to the defaults configured in `values.yaml` and populate the manifest with those values upon rendering. 
 
 *custom-values.yaml*
 
@@ -178,8 +183,6 @@ secrets-provider-environment:
   conjurSslCertificateValue:
   k8sSecrets:		# Format needs to be array
 ```
-For more detailed information on how a customer will install our Chart, see the section on [Installation](#installation).
-
 Variables from the `values.yaml` / `custom-values.yaml ` are applied for our project as follows:
 
 *templates/secrets-access-role.yaml*
@@ -272,7 +275,7 @@ spec:
         - name: CONJUR_SSL_CERTIFICATE
            valueFrom:
              configMapKeyRef:
-               name: {{ .Values.secrets-provider-environment.conjurSslCertificateName }}
+               name: {{ .Values.secrets-provider-environment.conjurSslCertificateName | quote }}
                key: ssl-certificate
                  
         - name: CONJUR_AUTHN_LOGIN
@@ -293,7 +296,7 @@ spec:
         {{- end }} 
 ```
 
-Where `required` declares a value entry as required and rendering will fail with the provided error and `quote` casts yaml values as strings rather than accepting vanilla user input.
+Where `required` declares a value entry as required. If a customer does not supply a value for the required parameters, rendering will fail with the provided error.  `quote` casts yaml values as strings rather than accepting vanilla user input.
 
 #### Limitations
 
@@ -334,7 +337,7 @@ For more detailed information on how a customer will install our Chart, see the 
 
 ##### Installation
 
-The customer will be able to override these defaults by creating their own `custom-values.yml` and passing it when installing our Helm chart. For example:
+The customer will be able to override our provided defaults by creating their own `custom-values.yml` and passing it when installing our Helm chart. To install the customer will run the following: 
 
 `helm install conjur -f custom-values.yaml https://github.com/cyberark/secrets-provider-for-k8s/helm/secrets-provider-1.0.0.tgz`
 
@@ -359,6 +362,10 @@ Customers can uninstall the Secrets Provider release by uninstalling the Helm Ch
 It is recommended that customers will delete the Helm Chart in its entirety and ***not*** individual manifests. For example, we recommend that the customer not delete the individual Job manifest itself.
 
 The lifecycle of the Job is the length of the process. In other words, the time it takes to retrieve the Conjur secrets value and update them in the K8s Secrets. After the Pod terminates successfully, [the Job will remain](https://kubernetes.io/docs/concepts/workloads/controllers/job/#job-termination-and-cleanup) and the customer can fetch logs on the Job. 
+
+### Network Disruptions
+
+Our customers may experience disruptions in their network connection so it is important to address how we plan to behavior under these circumstances. In the Secrets Provider we will develop a Timeout/ Retry mechanism where we will retry to connect to the Follower for 10 seconds and retry twice before returning an `Retransmission backoff exhausted` error. 
 
 ### Order of Deployment
 
@@ -401,6 +408,8 @@ The security boundary of the Secrets Provider is the Host identity it uses to au
 #### Controls
 
 The value for *`stringData`* in the K8s Secret resource is a String of user input values. To guarantee that this field is not manipulated for malicious purposes, we are validating this input.
+
+The values placed in `custom-values.yaml` are determined by the user. To guarantee that the parameters we accept have not been manipulated for malicious purposes, inside the Helm template we cast each value as a string via `quote` and we will validate this input.
 
 ## Test Plan
 
