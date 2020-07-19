@@ -91,7 +91,7 @@ The solution is to allow different deployments and behave differently based on t
 
 These variations will be supported using the same Secrets Provider image, but the behavior will vary dynamically depending on the chosen deployment method that is configured via Helm Chart.
 
-*In this document we will focus on **Milestone 1***, deploying the Secrets Provider as a Job
+*In this document we will focus on **Milestone 1***, deploying the Secrets Provider as a Job using Helm
 
 ### Milestone 1: Serve K8s secrets to multiple applications once (no rotation)
 
@@ -112,7 +112,7 @@ Kubernetes Helm is a tool that streamlines and organizes the management of Kuber
 
 **Job** is not an existing application identity granularity.
 
- As a result, one can define the host representing the Secrets Provider in Conjur policy using only **namespace** with/without **service account** granularities.
+As a result, one can define the host representing the Secrets Provider in Conjur policy using only **namespace** with/without **service account** granularities.
 
 To handle the missing **Job** granularity there are 2 options:
 
@@ -139,8 +139,6 @@ Deployment for the Secrets Provider will be done using Helm. The customer experi
 
 3. Install Helm Chart for the Secrets Provider, passing in their `custom-values.yaml` like so: `helm install conjur -f custom-values.yaml https://github.com/cyberark/secrets-provider-for-k8s/helm/secrets-provider-1.0.0.tgz`
 
-
-
 In Helm, default values are collected in `value.yaml` files. We will supply the customer this file where all default parameters will be defined for them.
 
 *values.yaml*
@@ -157,16 +155,16 @@ rbac:
 
 # Secrets Provider pod defaults
 secrets-provider:
-  image: cyberark/secrets-provider-for-k8s
+  image: cyberark/secrets-provider-for-k8s:<version> 
   name: cyberark-secrets-provider
 	
 # Secrets Provider environment variable defaults
 secrets-provider-environment:
   conjurSslCertificateName: secrets-provider-ssl-config-map
-  containerMode: init
   secretsDestination: k8s_secrets
   debug: false
   supportRotation: false
+  supportMultiApps: true # Defined for Job and Deployment
 ```
 
 `custom-values.yaml` will hold both mandatory variables that the customer is required to fill and all defaults they want to override. The customers supplies Helm with these values by loading the Chart with `custom-values.yaml`. For more detailed information on how a customer will install our Chart, see the section on [Installation](#installation).
@@ -184,8 +182,6 @@ secrets-provider-environment:
   conjurSslCertificateValue:
   k8sSecrets:		# Format needs to be array
 ```
-Variables from the `values.yaml` / `custom-values.yaml ` are applied for our project as follows:
-
 *templates/secrets-access-role.yaml*
 
 ```yaml
@@ -228,19 +224,18 @@ kind: ConfigMap
 metadata:
   name: {{ .Values.secrets-provider-environment.conjurSslCertificateName }}
   labels:
-    app: test-env
+    app: app-name
 data:
   ssl-certificate: |
     {{ .Values.secrets-provider-environment.conjurSslCertificateValue }}
 ```
 
 *templates/secrets-provider.yaml*
+
 ```yaml
 ---
 apiVersion: batch/v1
 kind: Job
-apiVersion: apps/v1
-kind: Deployment
 metadata:
   name: {{ .Release.Name }}
   namespace: {{ .Values.global.namespace }}
@@ -287,6 +282,9 @@ spec:
                     
         - name: SUPPORT_ROTATION			# this variable will allow us to determine if we should exit the Pod or not for later Milestones
           value: {{ required "supportRotation is a required configuration"  .Values.secrets-provider-environment.supportRotation | quote }}
+          
+        - name: SUPPORT_MULTIPLE_APPS
+          value: {{ required "supportMultiApps is a required configuration"  .Values.secrets-provider-environment.supportMultiApps | quote }}
 					
         - name: K8S_SECRETS
           value: {{ required "k8sSecrets is a required configuration"  .Values.secrets-provider-environment.k8sSecrets }}
@@ -301,7 +299,7 @@ Where `required` declares a value entry as required. If a customer does not supp
 
 #### Limitations
 
-- In order for a customer to add a new K8s Secret to the K8S_SECRETS, they will need to tear down the Chart and reinstall it with the updated list of `custom-values.yaml`
+- In order for a customer to add a new K8s Secret to the `K8S_SECRETS`, they will need to tear down the Chart and reinstall it with the updated list of `custom-values.yaml`
 
 #### Packaging Helm Charts
 
@@ -328,6 +326,26 @@ For each release, we will package our Chart (`helm package secrets-provider`) an
 
 For more detailed information on how a customer will install our Chart, see the section on [Installation](#installation).
 
+#### Concerns
+
+*Batch retrival*
+
+The Secrets Provider will no longer be running as an init container, rather a separate pod and serving multiple apps. 
+
+*Previously* because each Secrets Provider was sitting within the same Deployment as the app, when a batch retrieval request was made, the requests were dispersed across many call to the Conjur server. If one K8s Secret was not able to be updated with a Conjur value (for example due to a permission error), then the batch request would fail and only that pod would not spin up successfully. 
+
+*Now* that the Secrets Provider is running as a separate entity, a single batch retrieval request will be made to Conjur for *all* application. So if there is a failure in receiving one of the values, then the whole request would fail. In other words, ***no application*** will spin up in the namespace.
+
+To assuage this concern, we will create a new Conjur API endpoint that will return a list of Conjur variables and their responses. That is, secret value for success or error status for failure for each secret. In doing so, we will not fail the whole response if there was an error in retrieving one of the Conjur secrets.
+
+##### Backwards Compatibility
+
+This behavior will be relevant only for supporting multiple applications. If the `containerMode` environment variable exists, we will use the old batch retrieval API endpoint.
+
+In the case where the customer has an older Conjur version and the new API endpoint does not exist, we will fallback to the existing batch retrieval solution and write warning in logs.
+
+For a detailed breakdown of the decision process see [here](batch_retrieval_design.md).
+
 ### Milestone 2: Rotation
 
 The following section will be dedicated to a high-level design discussion on rotation for Milestone 2.
@@ -338,7 +356,7 @@ The following solutions for rotation are being evaluated:
 | ---- | ------------------------------------------------------------ | ------------------------------------------------------------ | ------------------------------------------------------------ | ------------------------------------------------------------ | ----------------- |
 | 1    | Every configurable amount of time, retrieve secrets <br />*Default: 5 minutes (300 seconds)* | - Every 5 minutes, perform Secrets Provider cycle <br />- Fetch Conjur secrets and update K8s Secrets | - Easy integration with current retry mechanism<br />- No need to make a change in Conjur<br />- No changes in  Helm Charts between Milestones | - Polling is a bad way for a change notification mechanism<br />- Load on the server every 5 minutes | 5 days            |
 | 2a   | Every configurable amount of time, check if Conjur secret was updated | - Create a new API endpoint to check if Conjur secret version was updated<br />Return 200 status code<br />- Trigger Secrets Provider cycle on all K8s Secrets with values in Conjur | - Less load on Conjur server<br />- No changes in Helm Chart between Milestones | - New API endpoint is needed in Conjur<br />- API endpoint will *not* return which secret was updated<br />- Users will need to update their Conjur versions to use the endpoint (*) | 10 days           |
-| 2b   | Every configurable amount of time, check if Conjur secret was updated | - Expand on the current Batch Retrieval API to return list of secrets and **also**  **versions**<br /><br />- If newer version is returned, trigger  Secrets Provider cycle only with the returned list of updated Conjur secrets | - Don't need to create a new API                             | - Complex solution<br />- We need to ensure we are not introducing breaking changes | 15 days           |
+| 2b   | Every configurable amount of time, check if Conjur secret was updated | - Expand on the current Batch Retrieval API to return list of secrets and **also** **versions**<br /><br />- If newer version is returned, trigger  Secrets Provider cycle only with the returned list of updated Conjur secrets | - Don't need to create a new API                             | - Complex solution<br />- We need to ensure we are not introducing breaking changes | 15 days           |
 
 (*) As a possible fallback, we can provide the user with a warning that the endpoint feature is not available in their Conjur version and fail back to Solution #1.
 
@@ -370,7 +388,7 @@ The lifecycle of the Secrets Provider is independent of the application pods. Th
 
 To notify the customer that the Secrets Provider has started and finished it's work, the process will be logged.
 
-##### Update
+##### Upgrade
 
 Because we will be using Helm Charts, we can easily supply customers with the Helm Charts for the current Milestone. All the customer would need to do is delete their current Secrets Provider Chart and install the new one.
 
@@ -454,10 +472,14 @@ The values placed in `custom-values.yaml` are determined by the user. To guarant
 
 ## Logs
 
-| **Scenario**                         | **Log message**                                              |
-| ------------------------------------ | ------------------------------------------------------------ |
-| Secrets Provider spins up            | Kubernetes Secrets Provider v\*%s\* starting up as a %s... (Job/Deployment) |
-| Job has completed and is terminating | Kubernetes Secrets Provider has finished task and is terminating… |
+| **Scenario**                                         | **Log message**                                              |
+| ---------------------------------------------------- | ------------------------------------------------------------ |
+| Secrets Provider spins up                            | Kubernetes Secrets Provider v\*%s\* starting up as a %s... (Job/Deployment) |
+| Secrets Provider batch retrieval has partial success | Failed to retrieve Conjur secrets '%s'                       |
+| Secrets Provider batch retrieval has partial success | Skipped on K8s Secrets '%s'. Reason: failed to retrieve their Conjur secrets |
+| Secrets Provider success                             | Successfully updated '%d' out of '%d' K8s Secrets            |
+| Old batch retrieval endpoint                         | Warning: Secrets Provider cannot efficiently run because Conjur server is not up-to-date. Please consider upgrading to '%d' |
+| Job has completed and is terminating                 | Kubernetes Secrets Provider has finished task and is terminating… |
 
 ### Audit 
 
@@ -465,17 +487,8 @@ All fetches on a Conjur Resource are individually audited, creating its own audi
 
 ## Documentation
 
-
-
-## Concerns
-
-*Impact on user experience due to batch retrieval* *functionality*
-
-The Secrets Provider will no longer be running as an init container, rather a separate pod and serving multiple apps. 
-
-*Previously* because each Secrets Provider was sitting within the same Deployment as the app, when a batch retrieval request was made, the requests were dispersed across many call to the Conjur server. If one K8s Secret was not able to be updated with a Conjur value (for example due to a permission error), then the batch request would fail and only that pod would not spin up successfully. 
-
-*Now* that the Secrets Provider is running as a separate entity, a single batch retrieval request will be made to Conjur for *all* application. So if there is a failure in receiving one of the values, then the whole request would fail. In other words, ***no application*** will spin up in the namespace.
+- Add instruction for how to deploy Secrets Provider Phase 2
+- Add limitations and best practices to our documentation based off of performance tests
 
 ## Open questions
 
@@ -488,7 +501,8 @@ The Secrets Provider will no longer be running as an init container, rather a se
 #### Delivery Plan (Milestone 1)
 
 - [ ] Solution design approval + Security review approval
-- [ ] Implement Phase 2 Milestone 1 functionality ***(~2 days)\***
+- [ ] Implement Phase 2 Milestone 1 functionality ***(~4 days)\***
+- [ ] Batch Retrieval, create new API endpoint **(~7 days)**
 - [ ] Implement test plan (Integration + Unit + Performance tests align with SLA) ***(~4 days)\***
 - [ ] Add support for OC 4.3 in our pipeline ***(~2 days)\***
 - [ ] Security items have been taken care of (if they exist) ***(TBD)\***
@@ -498,4 +512,14 @@ The Secrets Provider will no longer be running as an init container, rather a se
 - [ ] Create demo for Milestone 1 functionality ***(~1 day)\***
 - [ ] Versions are bumped in all relevant projects (if necessary) and automate the Helm package and release process ***(~1 days)\***
 
- **Total:** ~12 days of non-parallel work **(~2.5 weeks)**
+ **Total:** ~23 days of non-parallel work **(~4.5 weeks)**
+
+*Risks that could delay project completion*
+
+- Cross-team dependency (conjur-core) designing the new API endpoint for batch retrieval
+
+  It is possible that architecturally we will decide against creating a new API and build ontop of the existing batch retrieval endpoint. If so, this will delay the project completion
+
+  - Mitigation: early communication with the conjur-core team and architects
+
+    
