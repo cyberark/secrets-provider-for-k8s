@@ -350,25 +350,27 @@ For a detailed breakdown of the decision process see [here](batch_retrieval_desi
 
 The following section will be dedicated to a high-level design discussion on rotation for Milestone 2.
 
-The following solutions for rotation are being evaluated:
+The following high-level solutions for rotation were evaluated:
 
-|      | Solution                                                     | Elaboration                                                  | Pros                                                         | Cons                                                         | Effort estimation |
-| ---- | ------------------------------------------------------------ | ------------------------------------------------------------ | ------------------------------------------------------------ | ------------------------------------------------------------ | ----------------- |
-| 1    | Every configurable amount of time, retrieve secrets <br />*Default: 5 minutes (300 seconds)* | - Every 5 minutes, perform Secrets Provider cycle <br />- Fetch Conjur secrets and update K8s Secrets | - Easy integration with current retry mechanism<br />- No need to make a change in Conjur<br />- No changes in  Helm Charts between Milestones | - Polling is a bad way for a change notification mechanism<br />- Load on the server every 5 minutes | 5 days            |
-| 2a   | Every configurable amount of time, check if Conjur secret was updated | - Create a new API endpoint to check if Conjur secret version was updated<br />Return 200 status code<br />- Trigger Secrets Provider cycle on all K8s Secrets with values in Conjur | - Less load on Conjur server<br />- No changes in Helm Chart between Milestones | - New API endpoint is needed in Conjur<br />- API endpoint will *not* return which secret was updated<br />- Users will need to update their Conjur versions to use the endpoint (*) | 10 days           |
-| 2b   | Every configurable amount of time, check if Conjur secret was updated | - Expand on the current Batch Retrieval API to return list of secrets and **also** **versions**<br /><br />- If newer version is returned, trigger  Secrets Provider cycle only with the returned list of updated Conjur secrets | - Don't need to create a new API                             | - Complex solution<br />- We need to ensure we are not introducing breaking changes | 15 days           |
+|      | Solution                               | Elaboration                                                  | Pros                                                         | Cons                                                         | Effort estimation |
+| ---- | -------------------------------------- | ------------------------------------------------------------ | ------------------------------------------------------------ | ------------------------------------------------------------ | ----------------- |
+| 1    | Client-side polling for secrets        | Every configurable amount of time, contact Conjur API server.<br />Possible solutions can be:<br />1. Retrieve all secrets<br />2. Check if there's something new for the requesting host<br />3. Retrieve secrets that were changed since last request | - Straight-forward<br />- Simple<br />- No additional requirements needed | - Regularly sends API calls even if nothing has changed<br />- Introduces load on the server to hanlde many secrets providers | 15 days           |
+| 2    | Event-driven mechanism using pub-sub   | Secrets providers subscribes to relevant events in the server. Server publishes a secret-changed event if a secret was changed | - Efficient, client calls the server only when needed<br />- Allows serving many secrets providers without too much load on the server | - Maintains active connection in the background<br />- Introduces Events mechanism that does not exist<br />- Complex<br />- Need to open ports for allowing connection | 40 days           |
+| 3    | Event-driven mechanism using web hooks | Secrets providers registers a URL for calling back when a secret has changed. | - Efficient, client calls the server only when needed<br />- No active connection is held in the background. A connection is made by the server only when needed. | - Complex<br />- Requires allowing connection from server to secrets providers<br />- Follower cannot keep callback URL in the DB, so no guarantee it will be used when needed<br />- Introduces Events mechanism that does not exist | 30 days           |
 
-(*) As a possible fallback, we can provide the user with a warning that the endpoint feature is not available in their Conjur version and fail back to Solution #1.
+We decided to go with option No. 1.
+Low level design of the solution will be introduced in a separate document.
+
+#### Customer experience
+
+This solution does not introduce any additional requirements for the solution besides using `Deployment` instead of a `Job`.
+We might add some variables, all with reasonable defaults as to ensure no additinal steps are needed to migrate from Milestone 1 to 2.
 
 #### Concerns
 
 *Load on Server*
 
-To mitigate this concern we will test performance and supply our customers with clear limitations, detailing how many Secrets Providers and Followers can be used for optimal performance.
-
-#### Customer experience
-
-A decision has not been determined. Regardless of the final decision for rotation, we do not anticipate any change in terms of the customer experience when updating from Milestone 1 to 2. 
+To assuage this concern we will test performance and supply our customers with clear limitations, detailing how many Secrets Providers and Followers can be used for optimal performance.
 
 ### Lifecycle
 
