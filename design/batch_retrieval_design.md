@@ -10,8 +10,8 @@ This document will cover the options for enhancing Batch Retrieval requests.
 
 |      | Solution                                                     | Pros                                                         | Cons                                                         | Effort (T-shirt size) |
 | ---- | ------------------------------------------------------------ | ------------------------------------------------------------ | ------------------------------------------------------------ | --------------------- |
-| 1    | *Client side:* <br />For each K8s Secret, perform a new Batch request | - No server side changes / no breaking changes               | Load on server with extra calls (*)                          | S, 3 days             |
-| 2    | *Server side:*<br />Update Batch retrieval to return list of variables **and** their response (success/failure) (**) | - Will help us during rotation for Milestone 2<br />- Better / straightforward design for how batch endpoints | - Requires both client/server implementation<br />- Need to handle backwards compatibility | M, 7 days             |
+| 1    | *Client side:* <br />For each K8s Secret, perform a new Batch request | - No server side changes / no breaking changes               | Load on server with extra calls (*)                          | S, 5 days             |
+| 2    | *Server side:*<br />Update Batch retrieval to return list of variables **and** their response (success/failure) (**) | - Will help us during rotation for Milestone 2<br />- Better / straightforward design for how batch endpoints | - Requires both client/server implementation<br />- Need to handle backwards compatibility | M, 10 days            |
 | 3    | Stay as is                                                   | No additional work needed                                    | Bad UX                                                       | -                     |
 
 (*) Fallback solution: use this solution as a safety net, only if the original Batch Retrieval request fails
