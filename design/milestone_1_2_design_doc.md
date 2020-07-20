@@ -473,10 +473,27 @@ Note we will also write tests in Conjur for the new batch retrieval endpoint.
 
 ### Performance tests
 
-| Title | Explanation               | Given                                                        | When                           | Then                                                         |
-| ----- | ------------------------- | ------------------------------------------------------------ | ------------------------------ | ------------------------------------------------------------ |
-| 1     | Performance investigation | - 1000 Secrets Providers defined<br />- Conjur secrets with max amount of characters | Secrets Provider runs as a Job | Evaluate how many K8s Secrets can be updated with Conjur secrets in 5 minutes |
-| 2     | Performance investigation | - 1000 Secrets Providers defined<br />- Conjur secret with average amount of characters | Secrets Provider runs as a Job | Evaluate how many K8s Secrets can be updated with Conjur secrets in 5 minutes |
+The performance tests should answer the following question:
+
+* *How many secrets can 1 follower support?*
+
+More specifically, regarding secrets provider that pulls secrets every given amount of time, the question is:
+
+* *How many secrets can 1 follower retrieve every 1 minute?*
+
+To answer it, we will measure what is the maximum number of secrets 1 follower can serve.
+To measure it, we will launch 100, 1000 and 10K goroutines, each sending batch secret retrieval API call to the follower repeatedly during 1 minute. We measure the total amount of secrets received during 1 minute for each, and the result is the maximum number of secrets received.
+
+Since this number may vary depending on many variables, we will do this test for each of the following variables independently:
+
+| Variable                                    | Const value while testing other variables | Values to test              |
+| ------------------------------------------- | ----------------------------------------- | --------------------------- |
+| Number of secrets in each batch request     | 20                                        | 1, 20, 100, 500, 2000, 10K  |
+| Number of Secrets Providers                 | 1                                         | 1, 10, 20, 50, 100          |
+| Secret path length                          | 20 chars                                  | 10, 20, 50, 100, 200 chars  |
+| Secret value length                         | 30 chars                                  | 30, 50, 100, 200, 500 chars |
+| Follower distance                           | None (Same K8S cluster)                   | None, Medium, Far           |
+| Number of followers behind L4 Load Balancer | 1                                         | 1, 2, 3, 5, 10              |
 
 From these performance tests we will be able to detail our limitations in our documentation and provide recommendated deployments.
 
