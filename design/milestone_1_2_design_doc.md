@@ -357,7 +357,7 @@ The following high-level solutions for rotation were evaluated:
 
 |      | Solution                               | Elaboration                                                  | Pros                                                         | Cons                                                         | Effort estimation |
 | ---- | -------------------------------------- | ------------------------------------------------------------ | ------------------------------------------------------------ | ------------------------------------------------------------ | ----------------- |
-| 1    | Client-side polling for secrets        | Every configurable amount of time, contact Conjur API server.<br />Possible solutions can be:<br />1. Retrieve all secrets<br />2. Check if there's something new for the requesting host<br />3. Retrieve secrets that were changed since last request | - Straight-forward<br />- Simple<br />- No additional requirements needed | - Regularly sends API calls even if nothing has changed<br />- Introduces load on the server to handle many secrets providers | 15 days           |
+| 1    | Client-side polling for secrets        | Every configurable amount of time, contact Conjur API server.<br />Possible solutions can be:<br />**a.** Retrieve all secrets<br />**b.** Check if there's new value for any of the secrets available for the requesting host<br />**c.** Retrieve secrets that were changed since last request | - Straight-forward<br />- Simple<br />- Uses existing HTTP API server in Conjur | - Regularly sends API calls even if nothing has changed<br />- Load on server to handle multiple secrets providers<br />- Requires Conjur upgrade to use new endpoint | 15 days           |
 | 2    | Event-driven mechanism using pub-sub   | Secrets providers subscribes to relevant events in the server. Server publishes a secret-changed event if a secret was changed | - Efficient, client calls the server only when needed<br />- Allows serving many secrets providers without too much load on the server | - Maintains active connection in the background<br />- Introduces Events mechanism that does not exist<br />- Complex<br />- Need to open ports for allowing connection | 40 days           |
 | 3    | Event-driven mechanism using web hooks | Secrets providers registers a URL for calling back when a secret has changed. | - Efficient, client calls the server only when needed<br />- No active connection is held in the background. A connection is made by the server only when needed. | - Complex<br />- Requires allowing connection from server to secrets providers<br />- Follower cannot keep callback URL in the DB, so no guarantee it will be used when needed<br />- Introduces Events mechanism that does not exist | 30 days           |
 
@@ -366,8 +366,9 @@ Low level design of the solution will be introduced in a separate document.
 
 #### Customer experience
 
-This solution does not introduce any additional requirements for the solution besides using `Deployment` instead of a `Job`.
-We might add some variables, all with reasonable defaults as to ensure no additinal steps are needed to migrate from Milestone 1 to 2.
+This solution introduce only 1 additional requirement for the customer; Use updated Conjur that includes the new API.
+This requirement is not mandatory; If this requirement is not fulfilled, the solution will fallback to option **(1.a)**, with efficiency price.
+The Secrets Provider chart will be using `Deployment` instead of a `Job`. There might be some new variables, all with reasonable defaults as to ensure no additinal steps are needed to migrate from Milestone 1 to 2.
 
 #### Concerns
 
