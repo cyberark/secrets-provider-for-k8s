@@ -119,7 +119,7 @@ To handle the missing **Job** granularity there are 2 options:
 |      | Solution                                                     | Pros                                                         | Cons                                                         | Effort Estimation |
 | ---- | ------------------------------------------------------------ | ------------------------------------------------------------ | ------------------------------------------------------------ | ----------------- |
 | 1    | Keep using only **namespace** and/or **service account** granularities. | \- Since Secrets Provider runs as a separate entity, we suggest creating a dedicated service account for Secrets Provider.<br />That way, the **service account** granularity serves as an exact match and **Job** granularity is redundant<br />- No code changes | \- Service account might be reused, which allows other apps to authenticate using Secrets Provider host<br />- Break application identity convention | Free              |
-| 2    | Add support for **Job** granularity in Conjur                | Allows specific identification of the Secrets Provider **Job**, which enhances security | \- Costly; requires code changes, verify compatibility, tests, docs<br />- Redundant if **service account** serves only the Secrets Provider<br />- ***Not*** a ***seamless*** experience between Milestones because i | 10 days           |
+| 2    | Add support for **Job** granularity in Conjur                | Allows specific identification of the Secrets Provider **Job**, which enhances security | \- Costly; requires code changes, verify compatibility, tests, docs<br />- Redundant if **service account** serves only the Secrets Provider<br />- ***Not*** a ***seamless*** experience between Milestones | 10 days           |
 
 Implementing the Job granularity would mean that the experience in transitioning between the Milestones is not a smooth one. If a customer uses the Job granularity, they will need to update this in Milestone 2 because the deployment type will no longer be a Job. 
 
@@ -150,6 +150,7 @@ global:
 # K8s permission defaults
 rbac:
   serviceAccountName: secrets-provider-service-account
+  provideExistingServiceAccount: false
   roleName: secrets-provider-role
   roleBinding: secrets-provider-role-binding
 
@@ -184,11 +185,13 @@ secrets-provider-environment:
 *templates/secrets-access-role.yaml*
 
 ```yaml
+{{- if eq .Values.rbac.provideExistingServiceAccount "false" }}
 ---
 apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: {{ .Values.rbac.serviceAccountName }}
+{{- end }}
 
 ---
 apiVersion: rbac.authorization.k8s.io/v1
@@ -200,6 +203,7 @@ rules:
     verbs: [ "get", "update" ]
 
 ---
+{{- if eq .Values.rbac.provideExistingServiceAccount "false" }}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
@@ -213,9 +217,17 @@ roleRef:
   kind: Role
   apiGroup: rbac.authorization.k8s.io
   name: {{ .Values.rbac.roleName }}
+{{- end}}
+```
+
+Instead of creating a new Service Account, customers can provide us with an already existing Service Account. If so, a new K8s Resource will not be deployed and in custom-values.yaml they will provide us with the name of the existing Service Account. To enable this, the customer will run the following:
+
+```yaml
+helm install --set provideExistingServiceAccountName=true custom-values.yaml secrets-provider https://github.com/cyberark/secrets-provider-for-k8s/helm/secrets-provider-1.0.0.tgz
 ```
 
 *templates/conjur-master-cert.yaml*
+
 ```yaml
 ---
 apiVersion: v1
@@ -302,7 +314,7 @@ Every Secrets Provider entity will need it's own Chart and `custom-values.yaml`.
 
 #### Limitations
 
-- In order for a customer to add a new K8s Secret to the `k8sSecret`, they will need to tear down the Chart and reinstall it with the updated list of `custom-values.yaml`
+- In order for a customer to add a new K8s Secret to the `k8sSecrets`, they will need to tear down the Chart and reinstall it with the updated list of `custom-values.yaml`
 
 #### Packaging Helm Charts
 
@@ -341,6 +353,8 @@ The Secrets Provider will no longer be running as an init container, rather a se
 
 To overcome this concern, we will create a new Conjur API endpoint that will return a list of Conjur variables and their responses. That is, secret value for success or error status for failure for each secret. In doing so, we will not fail the whole response if there was an error in retrieving one of the Conjur secrets.
 
+In the case of partial success, the Job will be marked with failure status and another Pod will not be spun up in its place. All secrets that were unable to be fetched will be written to logs. See [logs](#logs) for more detail.
+
 ##### Backwards Compatibility
 
 This behavior will be relevant only for supporting multiple applications. If the `SUPPORT_MULTIPLE_APPS` environment variable is not true, we will use the old batch retrieval API endpoint.
@@ -366,10 +380,10 @@ Low level design of the solution will be introduced in a separate document.
 
 #### Customer experience
 
-This solution introduces only 1 additional requirement for the customer; They must upgrade their Conjur server to access the new API.
-This is not mandatory. If the requirement if not fulfilled, the solution will fall back to option **1.a** but at the price of efficiency.
+This solution introduces an additional requirement for the customer. They must upgrade their Conjur server to access the new API.
+This is not mandatory and if not done so, we will provide a fallback solution **(1.a)** but at a price of efficiency.
 
-In Secrets Provider, the only difference between Milestone 1 and 2 isin the Helm chart. In Milestone 2 will be using `Deployment` instead of a `Job`. There might be some new variables, all with reasonable defaults as to ensure no additinal steps are needed to migrate from Milestone 1 to 2, so **only chart upgrade is needed**.
+For this Milestone, the Secrets Provider Chart will be using `Deployment` in-place of `Job`. New default variables may be introduced but no additional steps will needed to migrate from Milestone 1 to 2.
 
 #### Concerns
 
@@ -466,9 +480,10 @@ The values placed in `custom-values.yaml` are determined by the user. To guarant
 | 3         | *Vanilla flow*, non-conflicting Secrets Provider             | Two Secrets Providers have access to different Conjur secret | 2 Secrets Provider Jobs run in same namespace | - All relevant K8s secrets are updated<br />- Verify logs    |
 | 4         | Multiple Secrets Providers in same namespace have access to same K8s Secret | Two Secrets Providers have access to same secret             | 2 Secrets Provider Jobs run in same namespace | - No error will returned and both Secrets Providers will be able to access and update K8s Secret <br />- Verify logs |
 | 5         | Check the integrity of all user input from `values.yaml` / `custom-values.yaml` |                                                              |                                               | - Validate no malicious input was received and escape/encode |
-| 6         | Add retry check in all regression tests                      |                                                              |                                               | - Verify retry is also written in logs                       |
-| 7         | *Regression tests*                                           | All regression tests should pass (both Conjur / DAP)         |                                               |                                                              |
-| 8         | *Add support for OC 4.3*                                     | All integration tests should pass on OC 4.3                  |                                               | *Not final*                                                  |
+| 6         | Service Account does not exist                               | `provideExistingServiceAccount=true` but Service Account provided does not exist | Secrets Provider Chart is installed           | Job will fail because Service Account does not exist         |
+| 7         | Add retry check in all regression tests                      |                                                              |                                               | - Verify retry is also written in logs                       |
+| 8         | *Regression tests*                                           | All regression tests should pass (both Conjur / DAP)         |                                               |                                                              |
+| 9         | *Add support for OC 4.3*                                     | All integration tests should pass on OC 4.3                  |                                               | *Not final*                                                  |
 
 Note we will also write tests in Conjur for the new batch retrieval endpoint.
 
@@ -476,13 +491,13 @@ Note we will also write tests in Conjur for the new batch retrieval endpoint.
 
 The performance tests should answer the following question:
 
-* *How many secrets can 1 follower support?*
+* *How many secrets can 1 Follower support?*
 
 More specifically, regarding secrets provider that pulls secrets every given amount of time, the question is:
 
-* *How many secrets can 1 follower retrieve every 1 minute?*
+* *How many secrets can 1 Follower retrieve every 1 minute?*
 
-To answer it, we will measure what is the maximum number of secrets 1 follower can serve.
+To answer it, we will measure what is the maximum number of secrets 1 Follower can serve.
 To measure it, we will launch 100, 1000 and 10K goroutines, each sending batch secret retrieval API call to the follower repeatedly during 1 minute. We measure the total amount of secrets received during 1 minute for each, and the result is the maximum number of secrets received.
 
 Since this number may vary depending on many variables, we will do this test for each of the following variables independently:
@@ -494,7 +509,7 @@ Since this number may vary depending on many variables, we will do this test for
 | Secret path length                          | 20 chars                                  | 10, 20, 50, 100, 200 chars  |
 | Secret value length                         | 30 chars                                  | 30, 50, 100, 200, 500 chars |
 | Follower distance                           | None (Same K8S cluster)                   | None, Medium, Far           |
-| Number of followers behind L4 Load Balancer | 1                                         | 1, 2, 3, 5, 10              |
+| Number of Followers behind L4 Load Balancer | 1                                         | 1, 2, 3, 5, 10              |
 
 From these performance tests we will be able to detail our limitations in our documentation and provide recommendated deployments.
 
@@ -518,6 +533,7 @@ All fetches on a Conjur Resource are individually audited, creating its own audi
 
 - Add instruction for how to deploy Secrets Provider Phase 2
 - Add limitations and best practices to our documentation based off of performance tests
+- It is up to user if the Secrets Provider and Application will use the same Service Account. We need to recommend/show in our documentation examples of the same service account shared between application and Secrets Provider.
 
 ## Open questions
 
@@ -543,9 +559,9 @@ All fetches on a Conjur Resource are individually audited, creating its own audi
 - [ ] Documentation has been given to TW + approved ***(2 days)***
 - [ ] Engineer(s) not involved in project use documentation to get end-to-end ***(1 day)***
 - [ ] Create demo for Milestone 1 functionality ***(1 day)***
-- [ ] Versions are bumped in all relevant projects (if necessary) and automate the Helm package and release process ***(1 days)***
+- [ ] Versions are bumped in all relevant projects (if necessary) and automate the Helm package and release process ***(2 days)***
 
- **Total:** ~29 days of non-parallel work **(~6 weeks)**
+ **Total:** ~30 days of non-parallel work **(~6 weeks)**
 
 *Risks that could delay project completion*
 
