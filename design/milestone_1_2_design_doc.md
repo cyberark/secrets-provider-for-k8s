@@ -129,7 +129,7 @@ Implementing the Job granularity would mean that the experience in transitioning
 
 Deployment for the Secrets Provider will be done using Helm. The customer experience is as follows:
 
-1. Configure K8s Secrets with ***conjur-map\*** metadata defined
+1. Configure K8s Secrets with ***conjur-map*** metadata defined
 
 2. Create `custom-values.yaml` that will contain the required parameters and defaults to override to deploy the Secrets Provider 
 
@@ -366,9 +366,10 @@ Low level design of the solution will be introduced in a separate document.
 
 #### Customer experience
 
-This solution introduce only 1 additional requirement for the customer; Use updated Conjur that includes the new API.
-This requirement is not mandatory; If this requirement is not fulfilled, the solution will fallback to option **(1.a)**, with efficiency price.
-The Secrets Provider chart will be using `Deployment` instead of a `Job`. There might be some new variables, all with reasonable defaults as to ensure no additinal steps are needed to migrate from Milestone 1 to 2.
+This solution introduces only 1 additional requirement for the customer; They must upgrade their Conjur server to access the new API.
+This is not mandatory. If the requirement if not fulfilled, the solution will fall back to option **1.a** but at the price of efficiency.
+
+In Secrets Provider, the only difference between Milestone 1 and 2 isin the Helm chart. In Milestone 2 will be using `Deployment` instead of a `Job`. There might be some new variables, all with reasonable defaults as to ensure no additinal steps are needed to migrate from Milestone 1 to 2, so **only chart upgrade is needed**.
 
 #### Concerns
 
@@ -489,7 +490,7 @@ Since this number may vary depending on many variables, we will do this test for
 | Variable                                    | Const value while testing other variables | Values to test              |
 | ------------------------------------------- | ----------------------------------------- | --------------------------- |
 | Number of secrets in each batch request     | 20                                        | 1, 20, 100, 500, 2000, 10K  |
-| Number of Secrets Providers                 | 1                                         | 1, 10, 20, 50, 100          |
+| Number of Secrets Providers                 | 1                                         | 1, 10, 50, 100, 500, 1000   |
 | Secret path length                          | 20 chars                                  | 10, 20, 50, 100, 200 chars  |
 | Secret value length                         | 30 chars                                  | 30, 50, 100, 200, 500 chars |
 | Follower distance                           | None (Same K8S cluster)                   | None, Medium, Far           |
