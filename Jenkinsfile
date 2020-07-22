@@ -51,6 +51,9 @@ pipeline {
             tasks["Openshift v3.11, oss"] = {
               sh "./bin/test_integration --docker --oss --oc311"
             }
+            tasks["Openshift v4.3, oss"] = {
+                          sh "./bin/test_integration --docker --oss --oc43"
+            }
             //skip oc310 tests until the environment will be ready to use
             //tasks["Openshift v3.10, oss"] = {
             //  sh "./bin/test_integration --docker --oss --oc310"
@@ -69,6 +72,9 @@ pipeline {
             }
             tasks["Openshift v3.11, DAP"] = {
               sh "./bin/test_integration --docker --dap --oc311"
+            }
+            tasks["Openshift v4.3, DAP"] = {
+              sh "./bin/test_integration --docker --dap --oc43"
             }
             //skip oc310 tests until the environment will be ready to use
             //tasks["Openshift v3.10, DAP"] = {
