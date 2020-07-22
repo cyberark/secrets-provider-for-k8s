@@ -20,7 +20,7 @@ Usage: ./bin/test_integation [options]
 
     --gke         Run the integration tests on GKE. By default the tests are run on GKE.
 
-    --oc43       Run the integration tests on Openshift v4.3. By default the tests are run on GKE.
+    --oc43        Run the integration tests on Openshift v4.3. By default the tests are run on GKE.
 
     --oc311       Run the integration tests on Openshift v3.11. By default the tests are run on GKE.
 
@@ -47,6 +47,7 @@ while true ; do
     --oss ) CONJUR_DEPLOYMENT=oss ; shift ;;
     --dap ) CONJUR_DEPLOYMENT=dap ; shift ;;
     --gke ) SUMMON_ENV=gke ; shift ;;
+    --oc43  ) SUMMON_ENV=oc43  ; shift ;;
     --oc311 ) SUMMON_ENV=oc311 ; shift ;;
     --oc310 ) SUMMON_ENV=oc310 ; shift ;;
     -h | --help ) print_help ; shift ;;
