@@ -1,7 +1,6 @@
 #!/bin/bash
 set -xeuo pipefail
 
-# lookup test-env.sh.yml for explanation.
 export KEY_VALUE_NOT_EXIST=" "
 
 wait_for_it() {
@@ -117,17 +116,19 @@ function runDockerCommand() {
     -e GCLOUD_SERVICE_KEY=/tmp$GCLOUD_SERVICE_KEY \
     -e MINIKUBE \
     -e MINISHIFT \
+    -e DEV \
     -e CONJUR_DEPLOYMENT \
+    -e ENV_CONFIG \
     -e RUN_IN_DOCKER \
     -v $GCLOUD_SERVICE_KEY:/tmp$GCLOUD_SERVICE_KEY \
     -v /var/run/docker.sock:/var/run/docker.sock \
     -v ~/.config:/root/.config \
     -v ~/.docker:/root/.docker \
-    -v "$PWD/..":/src \
+    -v "$PWD":/src \
     -w /src \
     $TEST_RUNNER_IMAGE:$CONJUR_NAMESPACE_NAME \
     bash -c "
-      ./test/platform_login.sh
+      ./platform_login.sh
       $1
     "
 }
@@ -165,10 +166,10 @@ function deploy_env {
   echo "Running Deployment Manifest"
 
   if [[ "$DEV" = "true" ]]; then
-    ../dev/config/k8s/init-solution.sh.yml > ../dev/config/k8s/init-solution.yml
-    $cli_with_timeout apply -f ../dev/config/k8s/init-solution.yml
+    ./dev/config/k8s/init-solution.sh.yml > ./dev/config/k8s/init-solution.yml
+    $cli_with_timeout apply -f ./dev/config/k8s/init-solution.yml
 
-    $cli_with_timeout "get pods --namespace=$APP_NAMESPACE_NAME --selector app=test-app --no-headers | wc -l"
+    $cli_with_timeout "get pods --namespace=$APP_NAMESPACE_NAME --selector app=init-env --no-headers | wc -l"
   else
     wait_for_it 600 "$ENV_DIR/test-env.sh.yml | $cli_without_timeout apply -f -"
 

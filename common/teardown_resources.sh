@@ -7,7 +7,9 @@ set -euxo pipefail
 set_namespace $CONJUR_NAMESPACE_NAME
 
 configure_cli_pod
-$cli_with_timeout "exec $(get_conjur_cli_pod_name) -- conjur variable values add secrets/test_secret \"supersecret\""
+if [ "${DEV}" = "false" ]; then
+  $cli_with_timeout "exec $(get_conjur_cli_pod_name) -- conjur variable values add secrets/test_secret \"supersecret\""
+fi
 
 set_namespace $APP_NAMESPACE_NAME
 
@@ -29,5 +31,7 @@ fi
 
 $cli_with_timeout "delete configmap conjur-master-ca-env --ignore-not-found=true"
 
- echo "Verifying there are no (terminating) pods of type test-env"
- $cli_with_timeout "get pods --namespace=$TEST_APP_NAMESPACE_NAME --selector app=test-env --no-headers | wc -l | tr -d ' ' | grep '^0$'"
+if [ "${DEV}" = "false" ]; then
+  echo "Verifying there are no (terminating) pods of type test-env"
+  $cli_with_timeout "get pods --namespace=$APP_NAMESPACE_NAME --selector app=test-env --no-headers | wc -l | tr -d ' ' | grep '^0$'"
+fi

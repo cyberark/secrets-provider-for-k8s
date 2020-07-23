@@ -5,7 +5,7 @@ set -euo pipefail
 
 announce "Creating Application namespace."
 
-if [[ $PLATFORM == openshift ]]; then
+if [[ $PLATFORM == openshift && $DEV == false ]]; then
   $cli_with_timeout "login -u $OPENSHIFT_USERNAME"
 fi
 

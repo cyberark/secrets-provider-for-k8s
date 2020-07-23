@@ -5,23 +5,27 @@ set -xeuo pipefail
 
 # Clean up when script completes and fails
 function finish {
-  announce 'Wrapping up and removing test environment'
-
   # There is a TRAP in test_in_docker.sh to account for Docker deployments so we do not need to add another one here
   # Stop the running processes
-  if [[ $RUN_IN_DOCKER = false ]]; then
-    ./stop
-    ../kubernetes-conjur-deploy-"$UNIQUE_TEST_ID"/stop
+  if [[ $RUN_IN_DOCKER = false && $DEV = false ]]; then
+    announce 'Wrapping up and removing environment'
+    ../stop
+    cd ../kubernetes-conjur-deploy-$UNIQUE_TEST_ID && ./stop
     # Remove the deploy directory
     rm -rf "../kubernetes-conjur-deploy-$UNIQUE_TEST_ID"
   fi
-
 }
 trap finish EXIT
 
-./platform_login.sh
+if [ "${DEV}" = "false" ]; then
+  ../platform_login.sh
+fi
 
 ../1_check_dependencies.sh
+
+if [ "${DEV}" = "false" ]; then
+  ./stop
+fi
 
 ../2_create_app_namespace.sh
 
@@ -33,9 +37,16 @@ fi
 set_namespace $APP_NAMESPACE_NAME
 
 echo "Publish docker image"
-docker tag "secrets-provider-for-k8s:dev" \
-         "${DOCKER_REGISTRY_PATH}/${TEST_APP_NAMESPACE_NAME}/secrets-provider"
-docker push "${DOCKER_REGISTRY_PATH}/${TEST_APP_NAMESPACE_NAME}/secrets-provider"
+
+if [ "${DEV}" = "false"  ]; then
+  docker tag "secrets-provider-for-k8s:dev" \
+    "${DOCKER_REGISTRY_PATH}/${APP_NAMESPACE_NAME}/secrets-provider"
+
+  docker push "${DOCKER_REGISTRY_PATH}/${APP_NAMESPACE_NAME}/secrets-provider"
+else
+  docker tag "secrets-provider-for-k8s:dev" \
+    "${APP_NAMESPACE_NAME}/secrets-provider"
+fi
 
 selector="role=follower"
 cert_location="/opt/conjur/etc/ssl/conjur.pem"
@@ -48,6 +59,10 @@ ssl_cert=$($cli_with_timeout "exec ${conjur_pod_name} --namespace $CONJUR_NAMESP
 
 export CONJUR_SSL_CERTIFICATE=$ssl_cert
 
-pushd test_cases > /dev/null
-  ./run_tests.sh
-popd > /dev/null
+if [ "${DEV}" = "false"  ]; then
+  pushd ../test/test_cases > /dev/null
+    ./run_tests.sh
+  popd > /dev/null
+else
+  ../dev/5_load_environment.sh
+fi

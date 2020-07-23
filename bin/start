@@ -6,13 +6,13 @@ Test the secrets-provider-for-k8s image. This script sets up a Conjur cluster in
 container and a secrets-provider-for-k8s init container. Finally it tests that the outcome is as expected (for example,
 in the vanilla flow it verifies that the Conjur secret was provided to the app container via the environment.
 
-Usage: ./bin/test_integation [options]
+Usage: ./bin/start [options]
     --docker      Run the integation tests in a docker container. This is helpful when running the test in a machine that
                   doesn't have "oc" or "kubectl" installed on it.
 
-    --demo        Run a full end-to-end demo with the pet-store demo. This demo deploys an environment with an app container
-                  that needs credentials to a DB from Conjur. After running "./bin/test_integation --demo" run "oc get routes"
-                  and go to "<the exposed route>/pets" in a browser. The entry "Mr. Sidecar" should be displayed on the screen.
+    --dev         Run the development environment. By default the environment is run against a Conjur OSS deployment on GKE.
+
+    --reload      Run reload to rebuild and redeploy changes done in Secrets Provider to a local cluster without redeploying DAP/Conjur.
 
     --oss         Run the integration tests with a OSS Conjur deployment. By default the tests are run against a Conjur OSS deployment.
 
@@ -34,14 +34,16 @@ function runScriptWithSummon() {
 }
 
 RUN_IN_DOCKER=false
-DEMO=false
 CONJUR_DEPLOYMENT=oss
 SUMMON_ENV=gke
+RELOAD_ENV=false
+DEV=false
 
 while true ; do
   case "$1" in
     --docker ) RUN_IN_DOCKER=true ; shift ;;
-    --demo ) DEMO=true ; shift ;;
+    --dev ) DEV=true ; shift ;;
+    --reload ) RELOAD_ENV=true ; shift ;;
     --oss ) CONJUR_DEPLOYMENT=oss ; shift ;;
     --dap ) CONJUR_DEPLOYMENT=dap ; shift ;;
     --gke ) SUMMON_ENV=gke ; shift ;;
@@ -52,21 +54,29 @@ while true ; do
   esac
 done
 
+if [[ "${DEV}" = "false" && $RELOAD_ENV = true ]]; then
+  echo "Error: --reload should be configured with --dev"
+  exit 1
+fi
+
 export RUN_IN_DOCKER
 export CONJUR_DEPLOYMENT
-
-source test/bootstrap.env
+export DEV
 
 # summon environment variable
 export CONJUR_MAJOR_VERSION=4
 
-cd test
-if [[ $DEMO = true ]]; then
-  runScriptWithSummon ./run_demo.sh
-elif [[ $RUN_IN_DOCKER = true ]]; then
-  # this option cannot run locally due to lack of docker credentials. It works only in the Jenkins pipeline
-  runScriptWithSummon ./test_in_docker.sh
-else
-  cd common
-  runScriptWithSummon ./summon/secrets.yml ./run.sh
-fi
+source bootstrap.env
+
+pushd deploy
+  if [[ $RUN_IN_DOCKER = true ]]; then
+    # this option cannot run locally due to lack of docker credentials. It works only in the Jenkins pipeline
+    runScriptWithSummon ./test/test_in_docker.sh
+  elif [[ "${DEV}" = "true" && $RELOAD_ENV = true ]]; then
+    ./dev/reload.sh
+  elif [[ "${DEV}" = "true" ]]; then
+    ./run.sh
+  else
+    runScriptWithSummon ./run.sh
+  fi
+popd
