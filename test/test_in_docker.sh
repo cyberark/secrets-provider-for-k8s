@@ -9,10 +9,10 @@ function finish {
 
   # Stop the running processes
   runDockerCommand "
-    cd test && ./stop && cd ../kubernetes-conjur-deploy-$UNIQUE_TEST_ID && ./stop
+    ./stop && cd kubernetes-conjur-deploy-$UNIQUE_TEST_ID && ./stop
   "
   # Remove the deploy directory
-  rm -rf "../kubernetes-conjur-deploy-$UNIQUE_TEST_ID"
+  rm -rf "kubernetes-conjur-deploy-$UNIQUE_TEST_ID"
 }
 trap finish EXIT
 
@@ -24,19 +24,17 @@ function main() {
 
 function buildTestRunnerImage() {
   docker build --tag $TEST_RUNNER_IMAGE:$CONJUR_NAMESPACE_NAME \
-    --file Dockerfile \
+    --file test/Dockerfile \
     --build-arg OPENSHIFT_CLI_URL=$OPENSHIFT_CLI_URL \
     --build-arg KUBECTL_CLI_URL=$KUBECTL_CLI_URL \
     .
 }
 
 function deployConjur() {
-  pushd ..
-    git clone --single-branch \
-      --branch deploy-oss-tag \
-      git@github.com:cyberark/kubernetes-conjur-deploy \
-      kubernetes-conjur-deploy-$UNIQUE_TEST_ID
-  popd
+  git clone --single-branch \
+    --branch deploy-oss-tag \
+    git@github.com:cyberark/kubernetes-conjur-deploy \
+    kubernetes-conjur-deploy-$UNIQUE_TEST_ID
 
   cmd="./start"
   if [ $CONJUR_DEPLOYMENT == "dap" ]; then
