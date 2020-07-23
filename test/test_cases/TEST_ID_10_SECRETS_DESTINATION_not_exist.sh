@@ -7,7 +7,7 @@ create_secret_access_role_binding
 
 echo "Create test-env pod. SECRETS_DESTINATION is with invalid value 'incorrect_secrets'"
 export SECRETS_DESTINATION_KEY_VALUE=$KEY_VALUE_NOT_EXIST
-deploy_test_env
+deploy_env
 
 pod_name=$(cli_get_pods_test_env | awk '{print $1}')
 

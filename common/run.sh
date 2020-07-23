@@ -2,11 +2,11 @@
 set -xeuo pipefail
 
 . utils.sh
-printenv > /tmp/printenv_test_local.debug
+printenv > /tmp/printenv_local.debug
 
 function main() {
   deployConjur
-  ./test_with_summon.sh
+  ./run_with_summon.sh
 }
 
 function deployConjur() {

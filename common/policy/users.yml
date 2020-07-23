@@ -15,9 +15,9 @@
 - !grant
   role: !group operations
   members:
-  - !group cluster_admin
-  - !group secrets_admin 
-  - !group devops
+    - !group cluster_admin
+    - !group secrets_admin
+    - !group devops
 
 - !user ted
 - !grant
@@ -26,7 +26,7 @@
 
 - !user bob
 - !grant
-  role: !group devops 
+  role: !group devops
   member: !user bob
 
 - !user alice

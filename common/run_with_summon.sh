@@ -21,18 +21,16 @@ trap finish EXIT
 
 ./platform_login.sh
 
-./1_check_dependencies.sh
+../1_check_dependencies.sh
 
-./stop
-
-./2_create_test_app_namespace.sh
+../2_create_app_namespace.sh
 
 if [[ "${DEPLOY_MASTER_CLUSTER}" = "true" ]]; then
-  ./3_load_conjur_policies.sh
-  ./4_init_conjur_cert_authority.sh
+  ../3_load_conjur_policies.sh
+  ../4_init_conjur_cert_authority.sh
 fi
 
-set_namespace $TEST_APP_NAMESPACE_NAME
+set_namespace $APP_NAMESPACE_NAME
 
 echo "Publish docker image"
 docker tag "secrets-provider-for-k8s:dev" \

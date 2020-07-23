@@ -5,9 +5,9 @@ create_secret_access_role
 
 create_secret_access_role_binding
 
-export CONJUR_AUTHN_LOGIN="host/conjur/authn-k8s/${AUTHENTICATOR_ID}/apps/${TEST_APP_NAMESPACE_NAME}/service_account/${TEST_APP_NAMESPACE_NAME}-sa"
+export CONJUR_AUTHN_LOGIN="host/conjur/authn-k8s/${AUTHENTICATOR_ID}/apps/${APP_NAMESPACE_NAME}/service_account/${APP_NAMESPACE_NAME}-sa"
 
-deploy_test_env
+deploy_env
 
 echo "Expecting secrets provider to fail with error CSPFK034E Failed to retrieve Conjur secrets"
 pod_name=$(cli_get_pods_test_env | awk '{print $1}')

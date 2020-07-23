@@ -101,7 +101,7 @@ function runDockerCommand() {
     -e CONJUR_NAMESPACE_NAME \
     -e PLATFORM \
     -e LOCAL_AUTHENTICATOR \
-    -e TEST_APP_NAMESPACE_NAME \
+    -e APP_NAMESPACE_NAME \
     -e OPENSHIFT_URL \
     -e OPENSHIFT_USERNAME \
     -e OPENSHIFT_PASSWORD \
@@ -148,7 +148,7 @@ configure_cli_pod() {
   $cli_with_timeout exec $conjur_cli_pod -- conjur authn login -u admin -p $CONJUR_ADMIN_PASSWORD
 }
 
-function deploy_test_env {
+function deploy_env {
   conjur_node_name="conjur-cluster"
   if [ "$CONJUR_DEPLOYMENT" = "dap" ]; then
       conjur_node_name="conjur-follower"
@@ -162,40 +162,48 @@ function deploy_test_env {
   export CONJUR_APPLIANCE_URL=$conjur_appliance_url
   export CONJUR_AUTHN_URL=$conjur_authenticator_url
 
-  echo "Deploying test-env"
-  wait_for_it 600 "$TEST_CASES_DIR/test-env.sh.yml | $cli_without_timeout apply -f -"
+  echo "Running Deployment Manifest"
 
-  expected_num_replicas=`$TEST_CASES_DIR/test-env.sh.yml |  awk '/replicas:/ {print $2}' `
+  if [[ "$DEV" = "true" ]]; then
+    ../dev/config/k8s/init-solution.sh.yml > ../dev/config/k8s/init-solution.yml
+    $cli_with_timeout apply -f ../dev/config/k8s/init-solution.yml
 
-  # Deployment (Deployment for k8s and DeploymentConfig for Openshift) might fail on error flows, even before creating the pods. If so, re-deploy.
-  if [[ "$PLATFORM" = "kubernetes" ]]; then
-      $cli_with_timeout "get deployment test-env -o jsonpath={.status.replicas} | grep '^${expected_num_replicas}$'|| $cli_without_timeout rollout latest deployment test-env"
-  elif [[ "$PLATFORM" = "openshift" ]]; then
-      $cli_with_timeout "get dc/test-env -o jsonpath={.status.replicas} | grep '^${expected_num_replicas}$'|| $cli_without_timeout rollout latest dc/test-env"
+    $cli_with_timeout "get pods --namespace=$APP_NAMESPACE_NAME --selector app=test-app --no-headers | wc -l"
+  else
+    wait_for_it 600 "$ENV_DIR/test-env.sh.yml | $cli_without_timeout apply -f -"
+
+    expected_num_replicas=`$ENV_DIR/test-env.sh.yml |  awk '/replicas:/ {print $2}' `
+
+    # Deployment (Deployment for k8s and DeploymentConfig for Openshift) might fail on error flows, even before creating the pods. If so, re-deploy.
+    if [[ "$PLATFORM" = "kubernetes" ]]; then
+        $cli_with_timeout "get deployment test-env -o jsonpath={.status.replicas} | grep '^${expected_num_replicas}$'|| $cli_without_timeout rollout latest deployment test-env"
+    elif [[ "$PLATFORM" = "openshift" ]]; then
+        $cli_with_timeout "get dc/test-env -o jsonpath={.status.replicas} | grep '^${expected_num_replicas}$'|| $cli_without_timeout rollout latest dc/test-env"
+    fi
+
+    echo "Expecting for $expected_num_replicas deployed pods"
+    $cli_with_timeout "get pods --namespace=$APP_NAMESPACE_NAME --selector app=test-env --no-headers | wc -l | grep $expected_num_replicas"
   fi
-
-  echo "Expecting for $expected_num_replicas deployed pods"
-  $cli_with_timeout "get pods --namespace=$TEST_APP_NAMESPACE_NAME --selector app=test-env --no-headers | wc -l | grep $expected_num_replicas"
 }
 
 function create_secret_access_role () {
   echo "Creating secrets access role"
-  wait_for_it 600  "$TEST_CASES_DIR/secrets-access-role.sh.yml | $cli_without_timeout apply -f -"
+  wait_for_it 600  "$ENV_DIR/secrets-access-role.sh.yml | $cli_without_timeout apply -f -"
 }
 
 function create_secret_access_role_binding () {
   echo "Creating secrets access role binding"
-  wait_for_it 600  "$TEST_CASES_DIR/secrets-access-role-binding.sh.yml | $cli_without_timeout apply -f -"
+  wait_for_it 600  "$ENV_DIR/secrets-access-role-binding.sh.yml | $cli_without_timeout apply -f -"
 }
 
-function test_app_set_secret () {
+function set_secret () {
   SECRET_NAME=$1
   SECRET_VALUE=$2
   echo "Set secret '$SECRET_NAME' to '$SECRET_VALUE'"
   set_namespace "$CONJUR_NAMESPACE_NAME"
   configure_cli_pod
   $cli_with_timeout "exec $(get_conjur_cli_pod_name) -- conjur variable values add $SECRET_NAME $SECRET_VALUE"
-  set_namespace $TEST_APP_NAMESPACE_NAME
+  set_namespace $APP_NAMESPACE_NAME
 }
 
 yaml_print_key_name_value () {
@@ -218,7 +226,7 @@ yaml_print_key_name_value () {
 }
 
 cli_get_pods_test_env () {
-  $cli_with_timeout "get pods --namespace=$TEST_APP_NAMESPACE_NAME --selector app=test-env --no-headers"
+  $cli_with_timeout "get pods --namespace=$APP_NAMESPACE_NAME --selector app=test-env --no-headers"
 }
 
 test_secret_is_provided () {
@@ -230,8 +238,8 @@ test_secret_is_provided () {
   conjur_cli_pod=$(get_conjur_cli_pod_name)
   $cli_with_timeout "exec $conjur_cli_pod -- conjur variable values add \"$variable_name\" $secret_value"
 
-  set_namespace "$TEST_APP_NAMESPACE_NAME"
-  deploy_test_env
+  set_namespace "$APP_NAMESPACE_NAME"
+  deploy_env
 
   echo "Verifying pod test_env has environment variable '$environment_variable_name' with value '$secret_value'"
   pod_name=$(cli_get_pods_test_env | awk '{print $1}')
@@ -243,6 +251,6 @@ verify_secret_value_in_pod () {
   environment_variable_name=$2
   expected_value=$3
 
-  $cli_with_timeout "exec -n $TEST_APP_NAMESPACE_NAME ${pod_name} -- \
+  $cli_with_timeout "exec -n $APP_NAMESPACE_NAME ${pod_name} -- \
     printenv | grep $environment_variable_name | cut -d '=' -f 2- | grep $expected_value"
 }

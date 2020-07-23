@@ -25,4 +25,4 @@ elif [[ "$PLATFORM" == "openshift" ]]; then
 fi
 
 echo "Create secret k8s-secret"
-$cli_with_timeout create -f $TEST_CASES_DIR/k8s-secret.yml
+$cli_with_timeout create -f $ENV_DIR/k8s-secret.yml

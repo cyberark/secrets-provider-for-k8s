@@ -14,17 +14,17 @@ function main() {
 
   ./stop
 
-  ./2_create_test_app_namespace.sh
+  ./2_create_app_namespace.sh
 
   if [[ "${DEPLOY_MASTER_CLUSTER}" = "true" ]]; then
     ./3_load_conjur_policies.sh
     ./4_init_conjur_cert_authority.sh
   fi
 
-  docker tag "secrets-provider-for-k8s:dev" "${DOCKER_REGISTRY_PATH}/${TEST_APP_NAMESPACE_NAME}/secrets-provider"
-  docker push "${DOCKER_REGISTRY_PATH}/${TEST_APP_NAMESPACE_NAME}/secrets-provider"
+  docker tag "secrets-provider-for-k8s:dev" "${DOCKER_REGISTRY_PATH}/${APP_NAMESPACE_NAME}/secrets-provider"
+  docker push "${DOCKER_REGISTRY_PATH}/${APP_NAMESPACE_NAME}/secrets-provider"
 
-  set_namespace $TEST_APP_NAMESPACE_NAME
+  set_namespace $APP_NAMESPACE_NAME
   enableImagePull
 
   provideSecretAccessToServiceAccount
@@ -45,9 +45,9 @@ function CreatePetStoreApp() {
       readonly IMAGE_TAG="$(cat VERSION)"
     popd
 
-    oc new-project "${TEST_APP_NAMESPACE_NAME}"
-    docker tag "demo-app:${IMAGE_TAG}" "${DOCKER_REGISTRY_PATH}/${TEST_APP_NAMESPACE_NAME}/demo-app"
-    docker push "${DOCKER_REGISTRY_PATH}/${TEST_APP_NAMESPACE_NAME}/demo-app"
+    oc new-project "${APP_NAMESPACE_NAME}"
+    docker tag "demo-app:${IMAGE_TAG}" "${DOCKER_REGISTRY_PATH}/${APP_NAMESPACE_NAME}/demo-app"
+    docker push "${DOCKER_REGISTRY_PATH}/${APP_NAMESPACE_NAME}/demo-app"
 
     rm -rf pet-store-demo-$UNIQUE_TEST_ID
   popd
@@ -76,9 +76,9 @@ function enableImagePull() {
 
 function provideSecretAccessToServiceAccount() {
   $cli_without_timeout delete clusterrole secrets-access-${UNIQUE_TEST_ID} --ignore-not-found=true
-  ./$TEST_CASES_DIR/secrets-access-role.sh.yml | $cli_without_timeout create -f -
+  ./$ENV_DIR/secrets-access-role.sh.yml | $cli_without_timeout create -f -
 
-  ./$TEST_CASES_DIR/secrets-access-role-binding.sh.yml | $cli_without_timeout create -f -
+  ./$ENV_DIR/secrets-access-role-binding.sh.yml | $cli_without_timeout create -f -
 }
 
 function deployDemoEnv() {

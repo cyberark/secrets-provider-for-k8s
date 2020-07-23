@@ -7,7 +7,7 @@ create_secret_access_role
 
 create_secret_access_role_binding
 
-deploy_test_env
+deploy_env
 
 echo "Expecting secrets provider to fail with error 'CSPFK005D Failed to update k8s secret. Reason:...'"
 pod_name=$(cli_get_pods_test_env | awk '{print $1}')

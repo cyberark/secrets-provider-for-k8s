@@ -1,13 +1,15 @@
 #!/bin/bash
 set -euxo pipefail
 
+. "$(dirname "${0}")/utils.sh"
+
 # Restore secret to original value
 set_namespace $CONJUR_NAMESPACE_NAME
 
 configure_cli_pod
 $cli_with_timeout "exec $(get_conjur_cli_pod_name) -- conjur variable values add secrets/test_secret \"supersecret\""
 
-set_namespace $TEST_APP_NAMESPACE_NAME
+set_namespace $APP_NAMESPACE_NAME
 
 $cli_with_timeout "delete secret dockerpullsecret --ignore-not-found=true"
 
@@ -15,7 +17,7 @@ $cli_with_timeout "delete clusterrole secrets-access-${UNIQUE_TEST_ID} --ignore-
 
 $cli_with_timeout "delete secret test-k8s-secret --ignore-not-found=true"
 
-$cli_with_timeout "delete serviceaccount ${TEST_APP_NAMESPACE_NAME}-sa --ignore-not-found=true"
+$cli_with_timeout "delete serviceaccount ${APP_NAMESPACE_NAME}-sa --ignore-not-found=true"
 
 $cli_with_timeout "delete rolebinding secrets-access-role-binding --ignore-not-found=true"
 
