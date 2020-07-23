@@ -21,7 +21,6 @@ readonly POLICY_FILES=(
   "$POLICY_DIR/generated/$APP_NAMESPACE_NAME.cluster-authn-svc.yml"
   "$POLICY_DIR/generated/$APP_NAMESPACE_NAME.app-identity.yml"
   "$POLICY_DIR/generated/$APP_NAMESPACE_NAME.conjur-secrets.yml"
-  "$POLICY_DIR/generated/$APP_NAMESPACE_NAME.conjur-pet-store-secrets.yml"
   "$POLICY_DIR/generated/$APP_NAMESPACE_NAME.authn-any-policy-branch.yml"
 )
 
@@ -36,10 +35,5 @@ done
 conjur variable values add secrets/test_secret "some-secret"
 conjur variable values add "secrets/var with spaces" "some-secret"
 conjur variable values add "secrets/var+with+pluses" "some-secret"
-
-# populate Conjur secrets for the demo
-# TODO figure out why $POSTGRES_USERNAME / $POSTGRES_PASSWORD are empty
-#conjur variable values add secrets/db_username "$POSTGRES_USERNAME"
-#conjur variable values add secrets/db_password "$POSTGRES_PASSWORD"
 
 conjur authn logout

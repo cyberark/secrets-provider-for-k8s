@@ -17,8 +17,6 @@ pushd policy
 
   ./templates/app-identity-def.template.sh.yml > ./generated/$APP_NAMESPACE_NAME.app-identity.yml
 
-  ./templates/conjur-pet-store-secrets.template.sh.yml > generated/$APP_NAMESPACE_NAME.conjur-pet-store-secrets.yml
-
   ./templates/authn-any-policy-branch.template.sh.yml > generated/$APP_NAMESPACE_NAME.authn-any-policy-branch.yml
 popd
 

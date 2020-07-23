@@ -163,6 +163,7 @@ For example:
 - Deploy DAP on Openshift, run  `./bin/start --dap --oc311`
 
 When contributing new integration tests, perform the following:
+
 1. Navigate to the `test/test_case` folder
 
 1. Create a new test file with filename prefix `TEST_ID_<HIGHEST_NUMBER>_<TEST_NAME>`
