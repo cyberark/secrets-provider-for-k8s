@@ -411,7 +411,7 @@ To notify the customer that the Secrets Provider has started and finished it's w
 
 ##### Upgrade
 
-Because we will be using Helm Charts, we can easily supply customers with the Helm Charts for the current Milestone. All the customer would need to do is update their current Secrets Provider Chart. `helm update -f custom-values.yaml secrets-provider secrets-provider-<version>` 
+Because we will be using Helm Charts, we can easily supply customers with the Helm Charts for the current Milestone. All the customer would need to do is update their current Secrets Provider Chart. `helm upgrade -f custom-values.yaml secrets-provider secrets-provider-<version>` 
 
 ##### Delete
 
@@ -467,7 +467,7 @@ The security boundary of the Secrets Provider is the Host identity it uses to au
 
 The value for *`stringData`* in the K8s Secret resource is a String of user input values. To guarantee that this field is not manipulated for malicious purposes, we are validating this input.
 
-The values placed in `custom-values.yaml` are determined by the user. To guarantee that the parameters we accept have not been manipulated for malicious purposes, inside the Helm template we cast each value as a string via `quote` and we will validate this input.
+The values placed in `custom-values.yaml` are determined by the user. To guarantee that the parameters we accept have not been manipulated for malicious purposes, we will supply a JSON schema to impose an expected structure on input.
 
 ## Test Plan
 
@@ -475,12 +475,12 @@ The values placed in `custom-values.yaml` are determined by the user. To guarant
 
 | **Title** | Description                                                  | Given                                                        | When                                          | Then                                                         |
 | --------- | ------------------------------------------------------------ | ------------------------------------------------------------ | --------------------------------------------- | ------------------------------------------------------------ |
-| 1         | *Vanilla flow*, Secret Provider Job successfully updates K8s Secrets | - Conjur is running<br />- Authenticator is defined<br />- Secrets defined in Conjur and K8s Secrets are configured<br />- All mandatory values are defined in `custom-values.yaml`<br />- Customer installs Secrets provider Chart | Secrets Provider runs as a Job                | - Secrets Provider pod authenticates and fetches Conjur secrets successfully<br />- All K8s Secrets are updated with  Conjur value <br />- App pods receive K8s Secret with Conjur secret values as environment variable<br />- Verify in logs that deployment type is listed <br />- Secrets Provider Job is completion<br />- Verify logs |
-| 2         | Validate new batch retrieval functionality                   | Secrets Provider host does not have permissions on Conjur secrets / secret is missing / secret value doesn't exist | Secrets Provider runs as a Job                | - Verify in logs that a list of all failed Conjur secrets and those that were skipped are noted |
+| 1         | *Vanilla flow*, Secret Provider Job successfully updates K8s Secrets | - Conjur is running<br />- Authenticator is defined<br />- Secrets defined in Conjur and K8s Secrets are configured<br />- All mandatory values are defined in `custom-values.yaml`<br />- Customer installs Secrets provider Chart | Secrets Provider runs as a Job                | - Secrets Provider pod authenticates and fetches Conjur secrets successfully<br />- All K8s Secrets are updated with  Conjur value <br />- App pods receive K8s Secret with Conjur secret values as environment variables<br />- Verify in logs that deployment kind is listed <br />- Secrets Provider Job runs to completion<br />- Verify logs |
+| 2         | Validate new batch retrieval functionality                   | Secrets Provider host does not have permissions on Conjur secrets / secret is missing / secret value doesn't exist | Secrets Provider runs as a Job                | - Verify in logs that a list of  failed Conjur secrets and those K8s Secrets that were skipped are noted |
 | 3         | *Vanilla flow*, non-conflicting Secrets Provider             | Two Secrets Providers have access to different Conjur secret | 2 Secrets Provider Jobs run in same namespace | - All relevant K8s secrets are updated<br />- Verify logs    |
-| 4         | Multiple Secrets Providers in same namespace have access to same K8s Secret | Two Secrets Providers have access to same secret             | 2 Secrets Provider Jobs run in same namespace | - No error will returned and both Secrets Providers will be able to access and update K8s Secret <br />- Verify logs |
-| 5         | Check the integrity of all user input from `values.yaml` / `custom-values.yaml` |                                                              |                                               | - Validate no malicious input was received and escape/encode |
-| 6         | Service Account does not exist                               | `provideExistingServiceAccount=true` but Service Account provided does not exist | Secrets Provider Chart is installed           | Job will fail because Service Account does not exist         |
+| 4         | Multiple Secrets Providers in same namespace have access to same K8s Secret | Two Secrets Providers have access to same secret             | 2 Secrets Provider Jobs run in same namespace | - No error will be returned and both Secrets Providers will be able to access and update K8s Secret <br />- Verify logs |
+| 5         | Check the integrity of all user input from `values.yaml` / `custom-values.yaml` |                                                              |                                               | - Verify all input values are escaped/encode d               |
+|           | Service Account does not exist                               | `provideExistingServiceAccount=true` but Service Account provided does not exist in namespace | Secrets Provider Chart is installed           | Job will fail because Service Account does not exist         |
 | 7         | Add retry check in all regression tests                      |                                                              |                                               | - Verify retry is also written in logs                       |
 | 8         | *Regression tests*                                           | All regression tests should pass (both Conjur / DAP)         |                                               |                                                              |
 | 9         | *Add support for OC 4.3*                                     | All integration tests should pass on OC 4.3                  |                                               | *Not final*                                                  |
@@ -561,7 +561,7 @@ All fetches on a Conjur Resource are individually audited, creating its own audi
 - [ ] Create demo for Milestone 1 functionality ***(1 day)***
 - [ ] Versions are bumped in all relevant projects (if necessary) and automate the Helm package and release process ***(2 days)***
 
- **Total:** ~30 days of non-parallel work **(~6 weeks)**
+ **Total:** ~30 days **(~6 weeks)**
 
 *Risks that could delay project completion*
 
