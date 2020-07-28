@@ -9,8 +9,8 @@ function finish {
   # Stop the running processes
   if [[ $RUN_IN_DOCKER = false && $DEV = false ]]; then
     announce 'Wrapping up and removing environment'
-    ../stop
-    cd ../kubernetes-conjur-deploy-$UNIQUE_TEST_ID && ./stop
+    ./stop
+    cd ./kubernetes-conjur-deploy-$UNIQUE_TEST_ID && ./stop
     # Remove the deploy directory
     rm -rf "../kubernetes-conjur-deploy-$UNIQUE_TEST_ID"
   fi
@@ -18,20 +18,20 @@ function finish {
 trap finish EXIT
 
 if [ "${DEV}" = "false" ]; then
-  ../platform_login.sh
+  ./platform_login.sh
 fi
 
-../1_check_dependencies.sh
+./1_check_dependencies.sh
 
 if [ "${DEV}" = "false" ]; then
   ./stop
 fi
 
-../2_create_app_namespace.sh
+./2_create_app_namespace.sh
 
 if [[ "${DEPLOY_MASTER_CLUSTER}" = "true" ]]; then
-  ../3_load_conjur_policies.sh
-  ../4_init_conjur_cert_authority.sh
+  ./3_load_conjur_policies.sh
+  ./4_init_conjur_cert_authority.sh
 fi
 
 set_namespace $APP_NAMESPACE_NAME
@@ -60,9 +60,9 @@ ssl_cert=$($cli_with_timeout "exec ${conjur_pod_name} --namespace $CONJUR_NAMESP
 export CONJUR_SSL_CERTIFICATE=$ssl_cert
 
 if [ "${DEV}" = "false"  ]; then
-  pushd ../test/test_cases > /dev/null
+  pushd ./test/test_cases > /dev/null
     ./run_tests.sh
   popd > /dev/null
 else
-  ../dev/5_load_environment.sh
+  ./dev/5_load_environment.sh
 fi

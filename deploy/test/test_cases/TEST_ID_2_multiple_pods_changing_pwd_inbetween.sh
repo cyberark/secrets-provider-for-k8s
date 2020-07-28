@@ -2,10 +2,10 @@
 set -euxo pipefail
 
 echo "Creating secrets access role"
-wait_for_it 600  "$ENV_DIR/secrets-access-role.sh.yml | $cli_without_timeout apply -f -"
+wait_for_it 600  "$CONFIG_DIR/secrets-access-role.sh.yml | $cli_without_timeout apply -f -"
 
 echo "Creating secrets access role binding"
-wait_for_it 600 "$ENV_DIR/secrets-access-role-binding.sh.yml | $cli_without_timeout apply -f -"
+wait_for_it 600 "$CONFIG_DIR/secrets-access-role-binding.sh.yml | $cli_without_timeout apply -f -"
 
 deploy_env
 

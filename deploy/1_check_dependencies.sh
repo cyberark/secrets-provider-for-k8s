@@ -14,17 +14,15 @@ check_env_var "CONJUR_NAMESPACE_NAME"
 
 check_env_var "APP_NAMESPACE_NAME"
 
-if [[ "$PLATFORM" == "openshift" && "$DEV" == "false" ]]; then
+if [[ "$PLATFORM" = "openshift" && "${DEV}" = "false" ]]; then
   check_env_var "DOCKER_REGISTRY_PATH"
   check_env_var "OPENSHIFT_USERNAME"
   check_env_var "OPENSHIFT_PASSWORD"
-elif [[ "$PLATFORM" = "kubernetes" ]]; then
-    if [ "${DEV}" = "false" ]; then
-      check_env_var "DOCKER_REGISTRY_PATH"
-      check_env_var "GCLOUD_SERVICE_KEY"
-      check_env_var "GCLOUD_CLUSTER_NAME"
-      check_env_var "GCLOUD_ZONE"
-      check_env_var "GCLOUD_PROJECT_NAME"
-      check_env_var "DOCKER_REGISTRY_URL"
-    fi
+elif [[ "$PLATFORM" = "kubernetes" && "${DEV}" = "false" ]]; then
+  check_env_var "DOCKER_REGISTRY_PATH"
+  check_env_var "GCLOUD_SERVICE_KEY"
+  check_env_var "GCLOUD_CLUSTER_NAME"
+  check_env_var "GCLOUD_ZONE"
+  check_env_var "GCLOUD_PROJECT_NAME"
+  check_env_var "DOCKER_REGISTRY_URL"
 fi

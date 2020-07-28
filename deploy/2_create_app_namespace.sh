@@ -5,7 +5,7 @@ set -euo pipefail
 
 announce "Creating Application namespace."
 
-if [[ $PLATFORM == openshift && $DEV == false ]]; then
+if [[ $PLATFORM == openshift && "${DEV}" = "false" ]]; then
   $cli_with_timeout "login -u $OPENSHIFT_USERNAME"
 fi
 
@@ -24,14 +24,14 @@ else
   set_namespace $APP_NAMESPACE_NAME
 fi
 
-$cli_with_timeout delete --ignore-not-found rolebinding test-app-conjur-authenticator-role-binding-$CONJUR_NAMESPACE_NAME
+$cli_with_timeout delete --ignore-not-found rolebinding app-conjur-authenticator-role-binding-$CONJUR_NAMESPACE_NAME
 
-TEST_DIR="config/k8s"
+CONFIG_DIR="config/k8s"
 if [[ "$PLATFORM" = "openshift" ]]; then
-    TEST_DIR="config/openshift"
+    CONFIG_DIR="config/openshift"
 fi
 
-wait_for_it 600  "./$TEST_DIR/test-app-conjur-authenticator-role-binding.sh.yml | $cli_without_timeout apply -f -"
+wait_for_it 600  "./$CONFIG_DIR/app-conjur-authenticator-role-binding.sh.yml | $cli_without_timeout apply -f -"
 
 if [[ $PLATFORM == openshift ]]; then
   # add permissions for Conjur admin user

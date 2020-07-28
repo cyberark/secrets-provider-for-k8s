@@ -7,17 +7,17 @@ TEST_NAME_PREFIX=${1:-TEST_ID_}
 # Keep environment variables for debugging
 printenv > printenv.debug
 
-export ENV_DIR="$PWD/../../deploy/config/k8s"
+export CONFIG_DIR="$PWD/../../config/k8s"
 if [[ "$PLATFORM" = "openshift" ]]; then
-    export ENV_DIR="$PWD/../../deploy/config/openshift"
+    export CONFIG_DIR="$PWD/../../config/openshift"
 fi
 
 # export all utils.sh functions to be available for all tests
 set -a
-source "../../deploy/utils.sh"
+source "../../utils.sh"
 set +a
 
-../../deploy/teardown_resources.sh
+../../teardown_resources.sh
 
 times=1
 
@@ -27,7 +27,7 @@ do
       announce "Running '$filename'."
       ./test_case_setup.sh
       $filename
-      ../../deploy/teardown_resources.sh
+      ../../teardown_resources.sh
       announce "Test '$filename' ended successfully"
   done
 done

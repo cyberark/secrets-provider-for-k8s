@@ -114,7 +114,6 @@ function runDockerCommand() {
     -e MINISHIFT \
     -e DEV \
     -e CONJUR_DEPLOYMENT \
-    -e ENV_CONFIG \
     -e RUN_IN_DOCKER \
     -v $GCLOUD_SERVICE_KEY:/tmp$GCLOUD_SERVICE_KEY \
     -v /var/run/docker.sock:/var/run/docker.sock \
@@ -162,14 +161,14 @@ function deploy_env {
   echo "Running Deployment Manifest"
 
   if [[ "$DEV" = "true" ]]; then
-    ./dev/config/k8s/init-solution.sh.yml > ./dev/config/k8s/init-solution.yml
-    $cli_with_timeout apply -f ./dev/config/k8s/init-solution.yml
+    ./dev/config/k8s/secrets-provider-init-container.sh.yml > ./dev/config/k8s/secrets-provider-init-container.yml
+    $cli_with_timeout apply -f ./dev/config/k8s/secrets-provider-init-container.yml
 
     $cli_with_timeout "get pods --namespace=$APP_NAMESPACE_NAME --selector app=init-env --no-headers | wc -l"
   else
-    wait_for_it 600 "$ENV_DIR/test-env.sh.yml | $cli_without_timeout apply -f -"
+    wait_for_it 600 "$CONFIG_DIR/test-env.sh.yml | $cli_without_timeout apply -f -"
 
-    expected_num_replicas=`$ENV_DIR/test-env.sh.yml |  awk '/replicas:/ {print $2}' `
+    expected_num_replicas=`$CONFIG_DIR/test-env.sh.yml |  awk '/replicas:/ {print $2}' `
 
     # Deployment (Deployment for k8s and DeploymentConfig for Openshift) might fail on error flows, even before creating the pods. If so, re-deploy.
     if [[ "$PLATFORM" = "kubernetes" ]]; then
@@ -185,12 +184,12 @@ function deploy_env {
 
 function create_secret_access_role () {
   echo "Creating secrets access role"
-  wait_for_it 600  "$ENV_DIR/secrets-access-role.sh.yml | $cli_without_timeout apply -f -"
+  wait_for_it 600  "$CONFIG_DIR/secrets-access-role.sh.yml | $cli_without_timeout apply -f -"
 }
 
 function create_secret_access_role_binding () {
   echo "Creating secrets access role binding"
-  wait_for_it 600  "$ENV_DIR/secrets-access-role-binding.sh.yml | $cli_without_timeout apply -f -"
+  wait_for_it 600  "$CONFIG_DIR/secrets-access-role-binding.sh.yml | $cli_without_timeout apply -f -"
 }
 
 function set_secret () {

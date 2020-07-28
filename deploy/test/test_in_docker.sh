@@ -40,11 +40,11 @@ function deployConjur() {
   if [ $CONJUR_DEPLOYMENT == "dap" ]; then
       cmd="$cmd --dap"
   fi
-  runDockerCommand "cd kubernetes-conjur-deploy-$UNIQUE_TEST_ID && DEBUG=true $cmd"
+  runDockerCommand "cd ./kubernetes-conjur-deploy-$UNIQUE_TEST_ID && DEBUG=true $cmd"
 }
 
 function deployTest() {
-  runDockerCommand "cd deploy && ./run_with_summon.sh"
+  runDockerCommand "./run_with_summon.sh"
 }
 
 main

@@ -24,9 +24,9 @@ ssl_cert=$($cli_with_timeout "exec ${conjur_pod_name} --namespace $CONJUR_NAMESP
 
 export CONJUR_SSL_CERTIFICATE=$ssl_cert
 
-export ENV_DIR="$PWD/config/k8s"
+export CONFIG_DIR="$PWD/config/k8s"
 if [[ "$PLATFORM" = "openshift" ]]; then
-  export ENV_DIR="$PWD/config/openshift"
+  export CONFIG_DIR="$PWD/config/openshift"
 fi
 
 $cli_with_timeout "delete deployment init-env --ignore-not-found=true"

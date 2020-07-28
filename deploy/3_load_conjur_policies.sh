@@ -11,7 +11,7 @@ pushd policy
   # NOTE: generated files are prefixed with the APP_NAMESPACE to allow for parallel CI
   ./templates/cluster-authn-svc-def.template.sh.yml > ./generated/$APP_NAMESPACE_NAME.cluster-authn-svc.yml
 
-  ./templates/project-authn-def.template.sh.yml > ./generated/$APP_NAMESPACE_NAME.project-authn.yml
+  ./templates/conjur-authn-k8s.template.sh.yml > ./generated/$APP_NAMESPACE_NAME.project-authn.yml
 
   ./templates/conjur-secrets.template.sh.yml > ./generated/$APP_NAMESPACE_NAME.conjur-secrets.yml
 

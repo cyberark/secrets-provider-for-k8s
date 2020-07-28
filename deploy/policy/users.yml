@@ -2,21 +2,15 @@
 # initializes users for openshift/kubernetes test
 # ted - cluster admin
 # bob - devops admin
-# alice - secrets admin
-# carol - developer
-
 - !group operations
 - !group cluster_admin
 - !group devops
-- !group secrets_admin
-- !group developer
 
-# cluster_admin, security_admin and devops admin groups are members of the operations group
+# cluster_admin and devops admin groups are members of the operations group
 - !grant
   role: !group operations
   members:
     - !group cluster_admin
-    - !group secrets_admin
     - !group devops
 
 - !user ted
@@ -28,13 +22,3 @@
 - !grant
   role: !group devops
   member: !user bob
-
-- !user alice
-- !grant
-  role: !group secrets_admin
-  member: !user alice
-
-- !user carol
-- !grant
-  role: !group developer
-  member: !user carol
