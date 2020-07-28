@@ -1,4 +1,4 @@
-# Secrets Provider Phase 2 Milestone 1 - Solution Design
+# Secrets Provider Phase 2 Milestone Job - Solution Design
 
 ## Table of Contents
 
@@ -8,29 +8,29 @@
   * [Background](#background)
     + [Motivation](#motivation)
   * [Requirements](#requirements)
-    + [Milestone 1 *(current)*](#milestone-1---current--)
-    + [Milestone 2](#milestone-2)
+    + [Milestone Job *(current)*](#milestone-1---current--)
+    + [Milestone Rotation](#milestone-2)
   * [Solution](#solution)
-    + [Milestone 1: Serve K8s secrets to multiple applications once (no rotation)](#milestone-1--serve-k8s-secrets-to-multiple-applications-once--no-rotation-)
+    + [Milestone Job: Serve K8s secrets to multiple applications once (no rotation)](#milestone-1--serve-k8s-secrets-to-multiple-applications-once--no-rotation-)
     + [Design](#design)
       - [How does a Job configured via Helm answer the requirements?](#how-does-a-job-configured-via-helm-answer-the-requirements-)
       - [What drawbacks does this solution have?](#what-drawbacks-does-this-solution-have-)
       - [Customer experience](#customer-experience)
       - [Packaging Helm Charts](#packaging-helm-charts)
-    + [Milestone 2: Rotation](#milestone-2--rotation)
+    + [Milestone Rotation](#milestone-2--rotation)
     + [Lifecycle](#lifecycle)
-      - [Milestone 1](#milestone-1)
+      - [Milestone Job](#milestone-1)
         * [Installation](#installation)
         * [Lifecycle](#lifecycle-1)
         * [Update](#update)
         * [Delete](#delete)
     + [Network Disruptions](#network-disruptions)
     + [Order of Deployment](#order-of-deployment)
-      - [Milestone 1](#milestone-1-1)
+      - [Milestone Job](#milestone-1-1)
     + [Backwards compatibility](#backwards-compatibility)
-      - [Milestone 1](#milestone-1-2)
+      - [Milestone Job](#milestone-1-2)
     + [Performance](#performance)
-      - [Milestone 1](#milestone-1-3)
+      - [Milestone Job](#milestone-1-3)
     + [Affected Components](#affected-components)
   * [Security](#security)
   * [Test Plan](#test-plan)
@@ -70,14 +70,14 @@ The current implementation of the Secrets Provider only supports one application
 
 The solution should support the following capabilities:
 
-###  Milestone 1 *(current)*
+###  Milestone Job *(current)*
 
 - Secrets Provider runs as a separate entity, serving multiple application containers that run on multiple pods
 - Solution needs to be native to Kubernetes
 - Lifecycle should support update/removal of deployment
 - Provide a way for customer to understand the state of the Secret Provider - when it finished initializing
 
-###  Milestone 2
+###  Milestone Rotation
 
 - Secrets Provider support secret rotation
 
@@ -91,9 +91,9 @@ The solution is to allow different deployments and behave differently based on t
 
 These variations will be supported using the same Secrets Provider image, but the behavior will vary dynamically depending on the chosen deployment method that is configured via Helm Chart.
 
-*In this document we will focus on **Milestone 1***, deploying the Secrets Provider as a Job using Helm
+*In this document we will focus on **Milestone Job***, deploying the Secrets Provider as a Job using Helm
 
-### Milestone 1: Serve K8s secrets to multiple applications once (no rotation)
+### Milestone Job: Serve K8s secrets to multiple applications once (no rotation)
 
 ### Design
 
@@ -121,7 +121,7 @@ To handle the missing **Job** granularity there are 2 options:
 | 1    | Keep using only **namespace** and/or **service account** granularities. | \- Since Secrets Provider runs as a separate entity, we suggest creating a dedicated service account for Secrets Provider.<br />That way, the **service account** granularity serves as an exact match and **Job** granularity is redundant<br />- No code changes | \- Service account might be reused, which allows other apps to authenticate using Secrets Provider host<br />- Break application identity convention | Free              |
 | 2    | Add support for **Job** granularity in Conjur                | Allows specific identification of the Secrets Provider **Job**, which enhances security | \- Costly; requires code changes, verify compatibility, tests, docs<br />- Redundant if **service account** serves only the Secrets Provider<br />- ***Not*** a ***seamless*** experience between Milestones | 10 days           |
 
-Implementing the Job granularity would mean that the experience in transitioning between the Milestones is not a smooth one. If a customer uses the Job granularity, they will need to update this in Milestone 2 because the deployment type will no longer be a Job. 
+Implementing the Job granularity would mean that the experience in transitioning between the Milestones is not a smooth one. If a customer uses the Job granularity, they will need to update this in Milestone Rotation because the deployment type will no longer be a Job. 
 
 *Decision*: Solution #1, use **namespace** and **service account** to define the Secrets Provider host in Conjur policy. We would recommend to the customer to create a dedicated service account for Secrets Provider.
 
@@ -363,9 +363,9 @@ In the case where the customer has an older Conjur version and the new Conjur AP
 
 For a detailed breakdown of the decision process see [here](batch_retrieval_design.md).
 
-### Milestone 2: Rotation
+### Milestone Rotation
 
-The following section will be dedicated to a high-level design discussion on rotation for Milestone 2.
+The following section will be dedicated to a high-level design discussion on rotation for Milestone Rotation.
 
 The following high-level solutions for rotation were evaluated:
 
@@ -383,7 +383,7 @@ Low level design of the solution will be introduced in a separate document.
 This solution introduces an additional requirement for the customer. They must upgrade their Conjur server to access the new API.
 This is not mandatory and if not done so, we will provide a fallback solution **(1.a)** but at a price of efficiency.
 
-For this Milestone, the Secrets Provider Chart will be using `Deployment` in-place of `Job`. New default variables may be introduced but no additional steps will needed to migrate from Milestone 1 to 2.
+For this Milestone, the Secrets Provider Chart will be using `Deployment` in-place of `Job`. New default variables may be introduced but no additional steps will needed to migrate from Milestone Job to Rotation.
 
 #### Concerns
 
@@ -393,7 +393,7 @@ To assuage this concern we will test performance and supply our customers with c
 
 ### Lifecycle
 
-#### Milestone 1
+#### Milestone Job
 
 ##### Installation
 
@@ -425,7 +425,7 @@ Our customers may experience disruptions in their network connection so it is im
 
 ### Order of Deployment
 
-#### Milestone 1
+#### Milestone Job
 
 Steps to follow for successful deployment
 
@@ -437,13 +437,13 @@ Steps to follow for successful deployment
 
 ### Backwards compatibility
 
-#### Milestone 1
+#### Milestone Job
 
 Introducing Helm will enhance the user experience and not impact the previous init container solution.
 
 ### Performance
 
-#### Milestone 1
+#### Milestone Job
 
 We will test and document how many K8s Secrets can be updated in 5 minutes on average. A secret should be either extremely long password. See [Performance tests](#performance-tests) for further explanation.
 
@@ -465,7 +465,7 @@ The security boundary of the Secrets Provider is the Host identity it uses to au
 
 #### Controls
 
-We accept user input via the *`stringData`* in the K8s Secret resource. Kubernetes mitigates vulnerabilities in the Secret resource by encoding the string when the Secret is created or updated.
+We accept user input via the *`stringData`* in the K8s Secret resource. We will need to escape/encode this information before using them in the backend. 
 
 The values placed in `custom-values.yaml` are determined by the user. To guarantee that the parameters we accept have not been manipulated for malicious purposes, we will supply a JSON schema to impose an expected structure on input.
 
@@ -476,7 +476,7 @@ The values placed in `custom-values.yaml` are determined by the user. To guarant
 | **Title** | Description                                                  | Given                                                        | When                                          | Then                                                         |
 | --------- | ------------------------------------------------------------ | ------------------------------------------------------------ | --------------------------------------------- | ------------------------------------------------------------ |
 | 1         | *Vanilla flow*, Secret Provider Job successfully updates K8s Secrets | - Conjur is running<br />- Authenticator is defined<br />- Secrets defined in Conjur and K8s Secrets are configured<br />- All mandatory values are defined in `custom-values.yaml`<br />- Customer installs Secrets provider Chart | Secrets Provider runs as a Job                | - Secrets Provider pod authenticates and fetches Conjur secrets successfully<br />- All K8s Secrets are updated with  Conjur value <br />- App pods receive K8s Secret with Conjur secret values as environment variables<br />- Verify in logs that deployment kind is listed <br />- Secrets Provider Job runs to completion<br />- Verify logs |
-| 2         | Validate new batch retrieval functionality *(for Milestone 1.5)* | Secrets Provider host does not have permissions on Conjur secrets / secret is missing / secret value doesn't exist | Secrets Provider runs as a Job                | - Verify in logs that a list of  failed Conjur secrets and those K8s Secrets that were skipped are noted |
+| 2         | Validate new batch retrieval functionality *(for Milestone Batch)* | Secrets Provider host does not have permissions on Conjur secrets / secret is missing / secret value doesn't exist | Secrets Provider runs as a Job                | - Verify in logs that a list of  failed Conjur secrets and those K8s Secrets that were skipped are noted |
 | 3         | *Vanilla flow*, non-conflicting Secrets Provider             | Two Secrets Providers have access to different Conjur secret | 2 Secrets Provider Jobs run in same namespace | - All relevant K8s secrets are updated<br />- Verify logs    |
 | 4         | Multiple Secrets Providers in same namespace have access to same K8s Secret | Two Secrets Providers have access to same secret             | 2 Secrets Provider Jobs run in same namespace | - No error will be returned and both Secrets Providers will be able to access and update K8s Secret <br />- Verify logs |
 | 5         | Check the integrity of all user input from `values.yaml` / `custom-values.yaml` |                                                              |                                               | - Verify all input values are escaped/encoded                |
@@ -514,15 +514,15 @@ From these performance tests we will be able to detail our limitations in our do
 
 ## Logs
 
-| **Scenario**                                         | **Log message**                                              | Log level |
-| ---------------------------------------------------- | ------------------------------------------------------------ | --------- |
-| Secrets Provider spins up                            | Kubernetes Secrets Provider v\*%s\* starting up as a %s... (Job/Deployment) | Info      |
-| Secrets Provider batch retrieval has partial success | Failed to retrieve Conjur secrets '%s'                       | Error     |
-| Secrets Provider batch retrieval has partial success | Skipped on K8s Secrets '%s'. Reason: failed to retrieve their Conjur secrets | Debug     |
-| Secrets Provider success                             | Successfully updated '%d' out of '%d' K8s Secrets            | Info      |
-| Old batch retrieval endpoint *(for Milestone 1.5)*   | Warning: Secrets Provider cannot efficiently run because Conjur server is not up-to-date. Please consider upgrading to '%d' | Warn      |
-| Job has completed and is terminating                 | Kubernetes Secrets Provider has finished task and is terminating… | Info      |
-| Acknowledge when a retry is taking place             | Retrying '%d' out of '%d' ...                                | Info      |
+| **Scenario**                                                 | **Log message**                                              | Log level |
+| ------------------------------------------------------------ | ------------------------------------------------------------ | --------- |
+| Secrets Provider spins up                                    | Kubernetes Secrets Provider v\*%s\* starting up as a %s... (Job/Deployment) | Info      |
+| Secrets Provider batch retrieval has partial success         | Failed to retrieve Conjur secrets '%s'                       | Error     |
+| Secrets Provider batch retrieval has partial success *(for Milestone Batch)* | Skipped on K8s Secrets '%s'. Reason: failed to retrieve their Conjur secrets | Debug     |
+| Secrets Provider success *(for Milestone Batch)*             | Successfully updated '%d' out of '%d' K8s Secrets            | Info      |
+| Old batch retrieval endpoint *(for Milestone Batch)*         | Warning: Secrets Provider cannot efficiently run because Conjur server is not up-to-date. Please consider upgrading to '%d' | Warn      |
+| Job has completed and is terminating                         | Kubernetes Secrets Provider Job has completed…               | Info      |
+| Acknowledge when a retry is taking place                     | Retrying '%d' out of '%d' ...                                | Info      |
 
 ### Audit 
 
@@ -544,36 +544,41 @@ All fetches on a Conjur Resource are individually audited, creating its own audi
 
 ### Delivery Plan 
 
-#### Milestone 1
+#### Milestone Job
 
-- [ ] Solution design approval + Security review approval
-- [ ] Implement Phase 2 Milestone 1 functionality 
+- [x] Solution design approval + Security review approval
+- [ ] Implement Phase 2 Milestone Job functionality 
   - [ ] Build Helm charts ***(3 days)***
 - [ ] Implement test plan
   - [ ] Integration ***(3 days)***
-  - [ ] Performance tests align with SLA ***(3 days)***
-- [ ] Add support for OC 4.3 in our pipeline ***(not final, 2 days)***
-- [ ] Security items have been taken care of ***(2 days)***
+- [ ] Security items have been taken care of
+  - [ ] StringData encoding/escaping
+  - [ ] JSON schema for ` values`/`custom-values.yaml` ***(2 days)***
 - [ ] Logs review by TW + PO ***(1 day)***
 - [ ] Documentation has been given to TW + approved ***(2 days)***
 - [ ] Engineer(s) not involved in project use documentation to get end-to-end ***(1 day)***
-- [ ] Create demo for Milestone 1 functionality ***(1 day)***
+- [ ] Create demo for Milestone Job functionality ***(1 day)***
 - [ ] Versions are bumped in all relevant projects (if necessary) and automate the Helm package and release process ***(2 days)***
 
- **Total:** ~20 days **(~4 weeks)**
+ **Total:** ~15 days **(~3 weeks)**
 
-#### Milestone 1.5
+Note that the above estimation does not include OC 4.3 testing and pipeline additions
 
-- [ ] Batch Retrieval, create new Conjur API endpoint ***(10 days)***
+#### Milestone Batch
+
+- [ ] Batch Retrieval, create new Conjur API endpoint 
+  - [ ] Work in Conjur ***(10 days)***
+  - [ ] Work in Secrets Provider for K8s ***(3 days)***
 - [ ] Implement test plan
   - [ ] Integration tests in Secrets Provider ***(2 days)***
   - [ ] Integration tests in Conjur ***(3 days)***
-  - [ ] Performance tests align with SLA ***(2 days)***
-- [ ] Update documentation, detailing new Conjur Batch Retrieval endpoint ***(2 days)***
+  - [ ] Performance tests align with SLA ***(3 days)***
+- [ ] Update documentation, updating Batch retrieval limitation ***(1 days)***
 - [ ] Engineer(s) not involved in project use documentation to get end-to-end ***(1 day)***
+- [ ] Create demo for Milestone Job functionality ***(1 day)***
 - [ ] Versions are bumped in all relevant projects (if necessary) ***(1 day)***
 
-**Total:** ~21 days **(~4 weeks)**
+**Total:** ~25 days **(~5 weeks)**
 
 *Risks that could delay project completion*
 
