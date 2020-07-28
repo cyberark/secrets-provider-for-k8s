@@ -178,7 +178,7 @@ secrets-provider-environment:
   conjurAccount:
   conjurApplianceUrl:
   conjurAuthnUrl:
-  conjurAuthnLogin:
+  conjurAuthnLogin: 
   conjurSslCertificateValue:
   k8sSecrets:		# Format needs to be array
 ```
@@ -465,7 +465,7 @@ The security boundary of the Secrets Provider is the Host identity it uses to au
 
 #### Controls
 
-The value for *`stringData`* in the K8s Secret resource is a String of user input values. To guarantee that this field is not manipulated for malicious purposes, we are validating this input.
+We accept user input via the *`stringData`* in the K8s Secret resource. Kubernetes mitigates vulnerabilities in the Secret resource by encoding the string when the Secret is created or updated.
 
 The values placed in `custom-values.yaml` are determined by the user. To guarantee that the parameters we accept have not been manipulated for malicious purposes, we will supply a JSON schema to impose an expected structure on input.
 
@@ -476,16 +476,15 @@ The values placed in `custom-values.yaml` are determined by the user. To guarant
 | **Title** | Description                                                  | Given                                                        | When                                          | Then                                                         |
 | --------- | ------------------------------------------------------------ | ------------------------------------------------------------ | --------------------------------------------- | ------------------------------------------------------------ |
 | 1         | *Vanilla flow*, Secret Provider Job successfully updates K8s Secrets | - Conjur is running<br />- Authenticator is defined<br />- Secrets defined in Conjur and K8s Secrets are configured<br />- All mandatory values are defined in `custom-values.yaml`<br />- Customer installs Secrets provider Chart | Secrets Provider runs as a Job                | - Secrets Provider pod authenticates and fetches Conjur secrets successfully<br />- All K8s Secrets are updated with  Conjur value <br />- App pods receive K8s Secret with Conjur secret values as environment variables<br />- Verify in logs that deployment kind is listed <br />- Secrets Provider Job runs to completion<br />- Verify logs |
-| 2         | Validate new batch retrieval functionality                   | Secrets Provider host does not have permissions on Conjur secrets / secret is missing / secret value doesn't exist | Secrets Provider runs as a Job                | - Verify in logs that a list of  failed Conjur secrets and those K8s Secrets that were skipped are noted |
+| 2         | Validate new batch retrieval functionality *(for Milestone 1.5)* | Secrets Provider host does not have permissions on Conjur secrets / secret is missing / secret value doesn't exist | Secrets Provider runs as a Job                | - Verify in logs that a list of  failed Conjur secrets and those K8s Secrets that were skipped are noted |
 | 3         | *Vanilla flow*, non-conflicting Secrets Provider             | Two Secrets Providers have access to different Conjur secret | 2 Secrets Provider Jobs run in same namespace | - All relevant K8s secrets are updated<br />- Verify logs    |
 | 4         | Multiple Secrets Providers in same namespace have access to same K8s Secret | Two Secrets Providers have access to same secret             | 2 Secrets Provider Jobs run in same namespace | - No error will be returned and both Secrets Providers will be able to access and update K8s Secret <br />- Verify logs |
-| 5         | Check the integrity of all user input from `values.yaml` / `custom-values.yaml` |                                                              |                                               | - Verify all input values are escaped/encode d               |
-|           | Service Account does not exist                               | `provideExistingServiceAccount=true` but Service Account provided does not exist in namespace | Secrets Provider Chart is installed           | Job will fail because Service Account does not exist         |
+| 5         | Check the integrity of all user input from `values.yaml` / `custom-values.yaml` |                                                              |                                               | - Verify all input values are escaped/encoded                |
+| 6         | Service Account does not exist                               | `provideExistingServiceAccount=true` but Service Account provided does not exist in namespace | Secrets Provider Chart is installed           | Job will fail because Service Account does not exist         |
 | 7         | Add retry check in all regression tests                      |                                                              |                                               | - Verify retry is also written in logs                       |
 | 8         | *Regression tests*                                           | All regression tests should pass (both Conjur / DAP)         |                                               |                                                              |
-| 9         | *Add support for OC 4.3*                                     | All integration tests should pass on OC 4.3                  |                                               | *Not final*                                                  |
-
-Note we will also write tests in Conjur for the new batch retrieval endpoint.
+| 9         | *Performance tests* according to SLA                         |                                                              |                                               |                                                              |
+| 10        | *Add support for OC 4.3*                                     | All integration tests should pass on OC 4.3                  |                                               | *Not final*                                                  |
 
 ### Performance tests
 
@@ -511,19 +510,19 @@ Since this number may vary depending on many variables, we will do this test for
 | Follower distance                           | None (Same K8S cluster)                   | None, Medium, Far           |
 | Number of Followers behind L4 Load Balancer | 1                                         | 1, 2, 3, 5, 10              |
 
-From these performance tests we will be able to detail our limitations in our documentation and provide recommendated deployments.
+From these performance tests we will be able to detail our limitations in our documentation and provide recommended deployments.
 
 ## Logs
 
-| **Scenario**                                         | **Log message**                                              |
-| ---------------------------------------------------- | ------------------------------------------------------------ |
-| Secrets Provider spins up                            | Kubernetes Secrets Provider v\*%s\* starting up as a %s... (Job/Deployment) |
-| Secrets Provider batch retrieval has partial success | Failed to retrieve Conjur secrets '%s'                       |
-| Secrets Provider batch retrieval has partial success | Skipped on K8s Secrets '%s'. Reason: failed to retrieve their Conjur secrets |
-| Secrets Provider success                             | Successfully updated '%d' out of '%d' K8s Secrets            |
-| Old batch retrieval endpoint                         | Warning: Secrets Provider cannot efficiently run because Conjur server is not up-to-date. Please consider upgrading to '%d' |
-| Job has completed and is terminating                 | Kubernetes Secrets Provider has finished task and is terminating… |
-| Acknowledge when a retry is taking place             | Retrying '%d' out of '%d' ...                                |
+| **Scenario**                                         | **Log message**                                              | Log level |
+| ---------------------------------------------------- | ------------------------------------------------------------ | --------- |
+| Secrets Provider spins up                            | Kubernetes Secrets Provider v\*%s\* starting up as a %s... (Job/Deployment) | Info      |
+| Secrets Provider batch retrieval has partial success | Failed to retrieve Conjur secrets '%s'                       | Error     |
+| Secrets Provider batch retrieval has partial success | Skipped on K8s Secrets '%s'. Reason: failed to retrieve their Conjur secrets | Debug     |
+| Secrets Provider success                             | Successfully updated '%d' out of '%d' K8s Secrets            | Info      |
+| Old batch retrieval endpoint *(for Milestone 1.5)*   | Warning: Secrets Provider cannot efficiently run because Conjur server is not up-to-date. Please consider upgrading to '%d' | Warn      |
+| Job has completed and is terminating                 | Kubernetes Secrets Provider has finished task and is terminating… | Info      |
+| Acknowledge when a retry is taking place             | Retrying '%d' out of '%d' ...                                | Info      |
 
 ### Audit 
 
@@ -543,25 +542,38 @@ All fetches on a Conjur Resource are individually audited, creating its own audi
 
 ## Implementation plan
 
-#### Delivery Plan (Milestone 1)
+### Delivery Plan 
+
+#### Milestone 1
 
 - [ ] Solution design approval + Security review approval
 - [ ] Implement Phase 2 Milestone 1 functionality 
   - [ ] Build Helm charts ***(3 days)***
-  - [ ] Batch Retrieval, create new Conjur API endpoint ***(10 days)***
 - [ ] Implement test plan
   - [ ] Integration ***(3 days)***
   - [ ] Performance tests align with SLA ***(3 days)***
 - [ ] Add support for OC 4.3 in our pipeline ***(not final, 2 days)***
-- [ ] Security items have been taken care of
-  - [ ] Validate stringData in conjur-map ***(2 days)***
+- [ ] Security items have been taken care of ***(2 days)***
 - [ ] Logs review by TW + PO ***(1 day)***
 - [ ] Documentation has been given to TW + approved ***(2 days)***
 - [ ] Engineer(s) not involved in project use documentation to get end-to-end ***(1 day)***
 - [ ] Create demo for Milestone 1 functionality ***(1 day)***
 - [ ] Versions are bumped in all relevant projects (if necessary) and automate the Helm package and release process ***(2 days)***
 
- **Total:** ~30 days **(~6 weeks)**
+ **Total:** ~20 days **(~4 weeks)**
+
+#### Milestone 1.5
+
+- [ ] Batch Retrieval, create new Conjur API endpoint ***(10 days)***
+- [ ] Implement test plan
+  - [ ] Integration tests in Secrets Provider ***(2 days)***
+  - [ ] Integration tests in Conjur ***(3 days)***
+  - [ ] Performance tests align with SLA ***(2 days)***
+- [ ] Update documentation, detailing new Conjur Batch Retrieval endpoint ***(2 days)***
+- [ ] Engineer(s) not involved in project use documentation to get end-to-end ***(1 day)***
+- [ ] Versions are bumped in all relevant projects (if necessary) ***(1 day)***
+
+**Total:** ~21 days **(~4 weeks)**
 
 *Risks that could delay project completion*
 
@@ -570,7 +582,5 @@ All fetches on a Conjur Resource are individually audited, creating its own audi
   It is possible that architecturally we will decide against creating a new API and build ontop of the existing batch retrieval endpoint. If so, this might delay the project completion by ***5 days***.
 
   - Mitigation: Early communication with the conjur-core team and architects. 
-
-    
 
     
