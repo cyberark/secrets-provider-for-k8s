@@ -1,0 +1,20 @@
+# K8s permission defaults
+rbac:
+  roleName: secrets-provider-role
+  roleBindingName: secrets-provider-role-binding
+  serviceAccount:
+    # Specifies whether a service account should be created
+    create: true
+    # The name of the service account to use.
+    name: secrets-provider-service-account
+
+secretsProvider:
+  image: cyberark/secrets-provider-for-k8s
+  tag: 1.0.0
+  name: cyberark-secrets-provider
+
+environment:
+  conjur:
+    sslCertificate:
+      value: ""
+      name: secrets-provider-ssl-config-map

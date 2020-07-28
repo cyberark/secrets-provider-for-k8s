@@ -1,0 +1,9 @@
+environment:
+  k8sSecrets:
+  conjur:
+    sslCertificate:
+      value: ""
+    account:
+    applianceUrl:
+    authnUrl:
+    authnLogin:
