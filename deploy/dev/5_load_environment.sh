@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euxo pipefail
 
-. ../common/utils.sh
+. utils.sh
 
 function main() {
   ./teardown_resources.sh

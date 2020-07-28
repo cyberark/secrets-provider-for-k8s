@@ -10,10 +10,6 @@ Usage: ./bin/start [options]
     --docker      Run the integation tests in a docker container. This is helpful when running the test in a machine that
                   doesn't have "oc" or "kubectl" installed on it.
 
-    --demo        Run a full end-to-end demo with the pet-store demo. This demo deploys an environment with an app container
-                  that needs credentials to a DB from Conjur. After running "./bin/start --demo" run "oc get routes"
-                  and go to "<the exposed route>/pets" in a browser. The entry "Mr. Sidecar" should be displayed on the screen.
-
     --dev         Run the development environment. By default the environment is run against a Conjur OSS deployment on GKE.
 
     --reload      Run reload to rebuild and redeploy changes done in Secrets Provider to a local cluster without redeploying DAP/Conjur.

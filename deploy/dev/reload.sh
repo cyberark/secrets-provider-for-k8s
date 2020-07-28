@@ -1,7 +1,7 @@
 #!/bin/bash
 set -xeuo pipefail
 
-. ../common/utils.sh
+. utils.sh
 
 # Script for making it easy to make a change locally and redeploy
 pushd ..

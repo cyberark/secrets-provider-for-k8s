@@ -1,7 +1,7 @@
 #!/bin/bash
 set -xeuo pipefail
 
-. ./common/utils.sh
+. utils.sh
 
 # Clean up when script completes and fails
 function finish {
@@ -44,7 +44,7 @@ function deployConjur() {
 }
 
 function deployTest() {
-  runDockerCommand "cd common && ./run_with_summon.sh"
+  runDockerCommand "cd deploy && ./run_with_summon.sh"
 }
 
 main
