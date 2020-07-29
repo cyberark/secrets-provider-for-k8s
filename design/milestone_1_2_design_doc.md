@@ -548,19 +548,20 @@ All fetches on a Conjur Resource are individually audited, creating its own audi
 
 - [x] Solution design approval + Security review approval
 - [ ] Implement Phase 2 Milestone Job functionality 
-  - [ ] Build Helm charts ***(3 days)***
+  - [ ] Build Helm charts and bring up the Secrets Provider ***(3 days)***
 - [ ] Implement test plan
   - [ ] Integration ***(3 days)***
+  - [ ] Deliver recommended customer architecture - not in pipeline ***(2 days)***
 - [ ] Security items have been taken care of
-  - [ ] StringData encoding/escaping
-  - [ ] JSON schema for ` values`/`custom-values.yaml` ***(2 days)***
+  - [ ] StringData encoding/escaping 
+  - [ ] JSON schema for ` values`/`custom-values.yaml` validations ***(2 days)***
 - [ ] Logs review by TW + PO ***(1 day)***
 - [ ] Documentation has been given to TW + approved ***(2 days)***
 - [ ] Engineer(s) not involved in project use documentation to get end-to-end ***(1 day)***
 - [ ] Create demo for Milestone Job functionality ***(1 day)***
 - [ ] Versions are bumped in all relevant projects (if necessary) and automate the Helm package and release process ***(2 days)***
 
- **Total:** ~15 days **(~3 weeks)**
+ **Total:** ~17 days **(~3.5 weeks)**
 
 Note that the above estimation does not include OC 4.3 testing and pipeline additions
 
