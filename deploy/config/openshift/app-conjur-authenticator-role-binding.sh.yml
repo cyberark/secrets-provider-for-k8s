@@ -1,0 +1,18 @@
+#!/bin/bash
+
+set -euo pipefail
+cat << EOL
+---
+kind: RoleBinding
+apiVersion: v1
+metadata:
+  name: app-conjur-authenticator-role-binding-${CONJUR_NAMESPACE_NAME}
+  namespace: ${APP_NAMESPACE_NAME}
+subjects:
+  - kind: ServiceAccount
+    name: conjur-cluster
+    namespace: ${CONJUR_NAMESPACE_NAME}
+roleRef:
+  kind: ClusterRole
+  name: conjur-authenticator-${CONJUR_NAMESPACE_NAME}
+EOL

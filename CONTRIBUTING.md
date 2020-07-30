@@ -45,6 +45,65 @@ Before you can start contributing to the CyberArk Secrets Provider for Kubernete
     
     b. For detailed setup instructions for OSS, see [CyberArk Secrets Provider for Kubernetes for OSS](https://docs.conjur.org/Latest/en/Content/Integrations/Kubernetes_deployApplicationsConjur-k8s-Secrets.htm).
     
+### Deploy a Local Dev Environment (K8s)
+
+You can now deploy a local development environment for Kubernetes using [Docker Desktop](https://www.docker.com/products/docker-desktop). Docker Desktop provides a convenient way to deploy and develop from your machine against a locally deployed cluster. 
+
+#### Prerequisites
+
+1. [Docker Desktop](https://www.docker.com/products/docker-desktop) installed
+
+1. Kubernetes enabled in Docker Desktop
+
+    1. Navigate to Docker Preferences
+    
+    1. Click on the Kubernetes tab and "Enable Kubernetes"
+    
+1. The Secrets Provider for K8s uses the [Kubernetes Conjur deploy](https://github.com/cyberark/kubernetes-conjur-deploy/blob/master/CONTRIBUTING.md) repository to deploy Conjur/DAP on Kubernetes. 
+   By default, 2.0 Gib of memory is allocated to Docker on your computer.
+   
+   To successfully deploy a DAP cluster (Master + Followers + Standbys), you will need to increase the memory limit to 6 Gib. To do so, perform the following:
+   
+   1. Navigate to Docker preferences
+   
+   1. Click on "Advanced" and slide the "Memory" bar to 6
+
+#### Deploy
+
+To deploy a local development environment, perform the following:
+
+1. Run `./bin/build` to build the Secrets Provider image locally 
+
+1. Ensure you are in the proper local context. Otherwise, the deployment will not run successfully
+
+Run ` kubectl config current-context` to verify which context you are currently in so if needed, you can switch back to it easily
+
+Run `kubectl config use-context docker-desktop` to switch to a local context. This is the context you will need to run the development environment
+
+1. Navigate to `bootstrap.env` and uncomment the `Local DEV Env` section, ensuring that `DEV=true`
+
+1. Run `./bin/start --dev --gke`, appending `--oss` or `--dap` according to the environment that needs to be deployed
+
+1. To view the pod(s) that were deployed and the Secrets Provider logs, run `kubectl get pods` and `kubectl logs <pod-name> -c cyberark-secrets-provider` respectively. 
+You can also view Conjur/DAP pod logs by running `kubectl get pods -n local-conjur` and `kubectl logs <conjur-pod-name> -n local-conjur`
+
+1. If a cluster is already locally deployed run `./bin/start --dev --reload` to build your local changes and redeploy them to the local Secrets Provider K8s cluster
+
+#### Clean-up
+
+To remove K8s resources from your local environment perform the following:
+
+1. Run `kubectl get all --all-namespaces` to list all resources across all namespaces in your cluster
+
+1. Run `kubectl delete <resource-type> <name-of-resource> --namespace <namespace>`
+
+Note that for Deployments, you must first delete the Deployment and then the Pod. Otherwise the Pod will terminate and another will start it its place.
+
+#### Limitations
+
+- Currently, deploying a local dev environment only works against a local K8s cluster and not an Openshift one
+
+- At current, we cannot run our integration tests locally, only against a remote cluster
 
 ## Contributing
 
@@ -93,20 +152,18 @@ To follow [Go testing conventions](https://golang.org/pkg/cmd/go/internal/test/)
   
 #### Integration testing
 
-You can run integrations in different environment- local, demo, docker with either OSS or DAP deployments. 
-All you need to do is run `./bin/test_integration` with the proper flags.
+Our integration tests can be run against either a GKE / Openshift remote cluster. To do so, run `./bin/start` and add the proper flags. 
 
-Run on docker: `--docker`
+To deploy OSS / DAP, add the `--oss` / `--dap` flags to the above command. By default, the integration tests run OSS, so no flag is required.
+To deploy on GKE / Openshift, add `--gke` / `--oc311` / `oc310`. By default, the integration tests run on a GKE cluster, so no flag is required.
 
-Run demo: `--demo`
+For example:
 
-Run locally: no flag is supplied
+- Deploy OSS on GKE, run  `./bin/start --oss --gke`
+- Deploy DAP on Openshift, run  `./bin/start --dap --oc311`
 
-Additionally, concatenate `--dap` to the command to deploy DAP. By default, the integration tests run OSS, so no flag is needed.
+When contributing new integration tests, perform the following:
 
-For example, to deploy DAP locally, run  `./bin/test_integration --dap` or on docker `./bin/test_integration --docker --dap`
-
-When contributing new intregration tests, perform the following:
 1. Navigate to the `test/test_case` folder
 
 1. Create a new test file with filename prefix `TEST_ID_<HIGHEST_NUMBER>_<TEST_NAME>`

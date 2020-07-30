@@ -1,0 +1,24 @@
+---
+# initializes users for openshift/kubernetes test
+# ted - cluster admin
+# bob - devops admin
+- !group operations
+- !group cluster_admin
+- !group devops
+
+# cluster_admin and devops admin groups are members of the operations group
+- !grant
+  role: !group operations
+  members:
+    - !group cluster_admin
+    - !group devops
+
+- !user ted
+- !grant
+  role: !group cluster_admin
+  member: !user ted
+
+- !user bob
+- !grant
+  role: !group devops
+  member: !user bob
