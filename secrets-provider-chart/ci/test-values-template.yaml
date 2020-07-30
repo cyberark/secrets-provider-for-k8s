@@ -1,0 +1,25 @@
+# K8s permission defaults
+rbac:
+  roleName: {{ SECRETS_PROVIDER_ROLE }}
+  roleBindingName: {{ SECRETS_PROVIDER_ROLE_BINDING }}
+  serviceAccount:
+    # Specifies whether a service account should be created
+    create: {{ SERVICE_ACCOUNT_CREATE }}
+    # The name of the service account to use
+    name: {{ SERVICE_ACCOUNT }}
+
+secretsProvider:
+  image: cyberark/secrets-provider-for-k8s
+  tag: 1.0.0
+  name: cyberark-secrets-provider
+
+environment:
+  k8sSecrets: {{ K8S_SECRETS }}
+  conjur:
+    account: {{ CONJUR_ACCOUNT }}
+    applianceUrl: {{ CONJUR_APPLIANCE_URL }}
+    authnUrl: {{ CONJUR_AUTHN_URL }}
+    authnLogin: {{ CONJUR_AUTHN_LOGIN }}
+    sslCertificate:
+      value: ""
+      name: {{ SECRETS_PROVIDER_SSL_CONFIG_MAP }}
