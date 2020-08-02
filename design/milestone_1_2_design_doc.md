@@ -1,4 +1,4 @@
-# Secrets Provider Phase 2 Milestone Job - Solution Design
+Secrets Provider Phase 2 Milestone Job - Solution Design
 
 ## Table of Contents
 
@@ -555,7 +555,7 @@ All fetches on a Conjur Resource are individually audited, creating its own audi
 - [ ] Security items have been taken care of
   - [ ] StringData encoding/escaping 
   - [ ] JSON schema for ` values`/`custom-values.yaml` validations ***(2 days)***
-- [ ] Logs review by TW + PO ***(1 day)***
+- [ ] Logs review by TW + PO and add to codebase ***(1 day)***
 - [ ] Documentation has been given to TW + approved ***(2 days)***
 - [ ] Engineer(s) not involved in project use documentation to get end-to-end ***(1 day)***
 - [ ] Create demo for Milestone Job functionality ***(1 day)***
@@ -565,6 +565,8 @@ All fetches on a Conjur Resource are individually audited, creating its own audi
 
 Note that the above estimation does not include OC 4.3 testing and pipeline additions
 
+
+
 #### Milestone Batch
 
 - [ ] Batch Retrieval, create new Conjur API endpoint 
@@ -573,13 +575,13 @@ Note that the above estimation does not include OC 4.3 testing and pipeline addi
 - [ ] Implement test plan
   - [ ] Integration tests in Secrets Provider ***(2 days)***
   - [ ] Integration tests in Conjur ***(3 days)***
-  - [ ] Performance tests align with SLA ***(3 days)***
+  - [ ] Performance tests align with SLA ***(5 days)***
 - [ ] Update documentation, updating Batch retrieval limitation ***(1 days)***
 - [ ] Engineer(s) not involved in project use documentation to get end-to-end ***(1 day)***
-- [ ] Create demo for Milestone Job functionality ***(1 day)***
+- [ ] Create demo for Milestone Batch ***(1 day)***
 - [ ] Versions are bumped in all relevant projects (if necessary) ***(1 day)***
 
-**Total:** ~25 days **(~5 weeks)**
+**Total:** ~27 days **(~5.5 weeks)**
 
 *Risks that could delay project completion*
 
@@ -589,4 +591,22 @@ Note that the above estimation does not include OC 4.3 testing and pipeline addi
 
   - Mitigation: Early communication with the conjur-core team and architects. 
 
-    
+
+### Milestone Rotation
+
+- [ ] Rotation endpoint, create new Conjur API endpoint
+  - [ ] Work in Conjur ***(10 days)***
+  - [ ] Work in Secrets Provider for K8s ***(3 days)***
+- [ ] Implement test plan
+  - [ ] Integration tests in Secrets Provider ***(2 days)***
+  - [ ] Integration tests in Conjur ***(3 days)***
+
+- [ ] Update documentation, supporting Rotation ***(2 days)***
+- [ ] Logs review by TW + PO and add to codebase ***(1 day)***
+- [ ] Engineer(s) not involved in project use documentation to get end-to-end ***(1 day)***
+- [ ] Create demo for Milestone Rotation functionality ***(1 day)***
+- [ ] Versions are bumped in all relevant projects (if necessary) ***(1 day)***
+
+**Total:** ~24 days **(~5 weeks)**
+
+Estimated to complete Milestones on November 12
