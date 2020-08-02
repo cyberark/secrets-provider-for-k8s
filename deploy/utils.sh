@@ -73,9 +73,9 @@ set_namespace() {
 }
 
 get_master_pod_name() {
-  app_name=conjur-cluster
-  if [ "$CONJUR_DEPLOYMENT" = "dap" ]; then
-      app_name=conjur-node
+  app_name=conjur-node
+  if [ "$CONJUR_DEPLOYMENT" = "oss" ]; then
+      app_name=conjur-oss
   fi
   pod_list=$($cli_with_timeout get pods --selector app=$app_name,role=master --no-headers | awk '{ print $1 }')
   echo $pod_list | awk '{print $1}'
@@ -131,9 +131,9 @@ function runDockerCommand() {
 configure_cli_pod() {
   announce "Configuring Conjur CLI."
 
-  conjur_node_name="conjur-cluster"
-  if [ "$CONJUR_DEPLOYMENT" = "dap" ]; then
-      conjur_node_name="conjur-master"
+  conjur_node_name="conjur-master"
+  if [ "$CONJUR_DEPLOYMENT" = "oss" ]; then
+      conjur_node_name="conjur-oss"
   fi
   conjur_url="https://$conjur_node_name.$CONJUR_NAMESPACE_NAME.svc.cluster.local"
 
@@ -145,9 +145,9 @@ configure_cli_pod() {
 }
 
 function deploy_env {
-  conjur_node_name="conjur-cluster"
-  if [ "$CONJUR_DEPLOYMENT" = "dap" ]; then
-      conjur_node_name="conjur-follower"
+  conjur_node_name="conjur-follower"
+  if [ "$CONJUR_DEPLOYMENT" = "oss" ]; then
+      conjur_node_name="conjur-oss"
   fi
   conjur_appliance_url=https://$conjur_node_name.$CONJUR_NAMESPACE_NAME.svc.cluster.local
   if [ "$CONJUR_DEPLOYMENT" = "dap" ]; then
