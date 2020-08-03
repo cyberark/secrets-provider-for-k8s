@@ -10,7 +10,8 @@
       "required": [
         "roleName",
         "roleBindingName",
-        "serviceAccount"
+        "serviceAccount",
+        "create"
       ],
       "properties": {
         "roleName": {
@@ -23,7 +24,6 @@
         },
         "serviceAccount": {
           "required": [
-            "create",
             "name"
           ],
           "properties": {
