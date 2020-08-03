@@ -1,0 +1,126 @@
+{
+  "$schema": "http://json-schema.org/schema",
+  "required": [
+    "rbac",
+    "secretsProvider",
+    "environment"
+  ],
+  "properties": {
+    "rbac": {
+      "required": [
+        "roleName",
+        "roleBindingName",
+        "serviceAccount"
+      ],
+      "properties": {
+        "roleName": {
+          "type": "string",
+          "minLength": 1
+        },
+        "roleBindingName": {
+          "type": "string",
+          "minLength": 1
+        },
+        "serviceAccount": {
+          "required": [
+            "create",
+            "name"
+          ],
+          "properties": {
+            "create": {
+              "type": "boolean"
+            },
+            "name": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        }
+      }
+    },
+    "secretsProvider": {
+      "required": [
+        "image",
+        "tag",
+        "name"
+      ],
+      "properties": {
+        "image": {
+          "type": "string",
+          "minLength": 1
+        },
+        "tag": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^\\d+(\\.\\d+){0,2}$"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "environment": {
+      "required": [
+        "k8sSecrets",
+        "conjur"
+      ],
+      "properties": {
+        "k8sSecrets": {
+          "type": "array",
+          "minLength": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "conjur": {
+          "required": [
+            "account",
+            "applianceUrl",
+            "authnUrl",
+            "authnLogin",
+            "sslCertificate"
+          ],
+          "properties": {
+            "account": {
+              "type": "string",
+              "minLength": 1
+            },
+            "applianceUrl": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "^https?://[^\\s/$.?#].[^\\s]*$"
+            },
+            "authnUrl": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "^https?://[^\\s/$.?#].[^\\s]*$"
+            },
+            "authnLogin": {
+              "type": "string",
+              "minLength": 1
+            },
+            "sslCertificate": {
+              "type": "object",
+              "required": [
+                "name",
+                "value"
+              ],
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "value": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
