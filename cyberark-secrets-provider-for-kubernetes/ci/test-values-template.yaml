@@ -4,7 +4,7 @@ rbac:
   roleBindingName: {{ SECRETS_PROVIDER_ROLE_BINDING }}
   serviceAccount:
     # Specifies whether a service account should be created
-    create: {{ SERVICE_ACCOUNT_CREATE }}
+    create: {{ CREATE_SERVICE_ACCOUNT }}
     # The name of the service account to use
     name: {{ SERVICE_ACCOUNT }}
 
