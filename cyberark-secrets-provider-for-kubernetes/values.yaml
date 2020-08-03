@@ -5,7 +5,7 @@ rbac:
   serviceAccount:
     # Specifies whether a service account should be created
     create: true
-    # The name of the service account to use.
+    # Name of the service account to use
     name: secrets-provider-service-account
 
 secretsProvider:
@@ -13,7 +13,7 @@ secretsProvider:
   tag: 1.0.0
   name: cyberark-secrets-provider
 
-## Mandatory values to be filled in
+## Mandatory values to be filled in by customer
 ## Examples values given in https://docs.conjur.org/<PATH TBD>
 environment:
   # Comma-separated list of Kubernetes Secret names that applications consume and their value is sourced in DAP/Conjur
@@ -22,14 +22,15 @@ environment:
   conjur:
     # Account name designated to the Conjur/DAP during initial configuration
     account:
-    # URL of the service defined for Conjur/DAP
+    # URL of service defined for Conjur/DAP
     applianceUrl:
     # Credential service used to log into Conjur/DAP
     authnUrl:
-    # Host that authenticate to Conjur/DAP
+    # Host that authenticates to Conjur/DAP
     authnLogin:
     sslCertificate:
-      # Name of the config-map that will hold your public SSL certificate
+      # Name of config-map that will hold your public SSL certificate
       name:
-      # Value that stores the public SSL certificate required for connecting to Conjur/DAP. This value should be passed in upon install the Chart
+      # Value that stores the public SSL certificate required for connecting to Conjur/DAP
+      # This value should be passed in when installing the Chart
       value:
