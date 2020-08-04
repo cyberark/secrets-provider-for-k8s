@@ -9,6 +9,9 @@ Return the most recent RBAC API available
 {{- end }}
 {{- end }}
 
+{{/*
+Return the most recent Workload API available
+*/}}
 {{- define "conjur.deploy-api" -}}
 {{- if .Capabilities.APIVersions.Has "batch/v1" }}
 {{- printf "batch/v1" -}}

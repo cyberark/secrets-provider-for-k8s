@@ -1,26 +1,33 @@
+# Values for secrets-provider. All missing values need to be supplied by the customer.
+# Examples values given in https://docs.conjur.org/<PATH TBD>
+
 # K8s permission defaults
 rbac:
+  # Indicates whether the Secrets Provider ServiceAccount, Role, and Rolebinding should be created.
+  # This should be set to true, unless resources with the proper permissions exist in the namespace.
+  create: true
   roleName: secrets-provider-role
   roleBindingName: secrets-provider-role-binding
   serviceAccount:
-    # Specifies whether a service account should be created
-    create: true
     # Name of the service account to use
     name: secrets-provider-service-account
 
 secretsProvider:
   image: cyberark/secrets-provider-for-k8s
+  pullPolicy: IfNotPresent
   tag: 1.0.0
   name: cyberark-secrets-provider
 
-## Mandatory values to be filled in by customer
-## Examples values given in https://docs.conjur.org/<PATH TBD>
+# Additional labels to apply to all resources
+labels: {}
+annotations: {}
+
 environment:
-  # Comma-separated list of Kubernetes Secret names that applications consume and their value is sourced in DAP/Conjur
-  # This key should be in array format. For example, [k8s-secret1,k8s-secret2]
+  # Array of Kubernetes Secret names that applications consume and their value is sourced in DAP/Conjur.
+  # For example, [k8s-secret1,k8s-secret2]
   k8sSecrets:
   conjur:
-    # Account name designated to the Conjur/DAP during initial configuration
+    # Conjur account name designated to the Conjur/DAP during initial configuration
     account:
     # URL of service defined for Conjur/DAP
     applianceUrl:
@@ -30,7 +37,7 @@ environment:
     authnLogin:
     sslCertificate:
       # Name of config-map that will hold your public SSL certificate
-      name:
+      name: cert-config-map
       # Value that stores the public SSL certificate required for connecting to Conjur/DAP
       # This value should be passed in when installing the Chart
       value:
