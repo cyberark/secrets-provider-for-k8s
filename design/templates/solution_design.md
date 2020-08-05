@@ -38,7 +38,7 @@
 [//]: # (Address the components that will be affected by your solution [Conjur, DAP, clients, integrations, etc.])
 
 ## Security
-[//]: # (Are there any security issues with your solution? Even if you mentioned them somewhere in the doc it may be convenient for the security architect review to have them centralized here)
+[//]: # (Are there any security issues with your solution and how do you plan to mitigate them? Even if you mentioned them somewhere in the doc it may be convenient for the security architect review to have them centralized here)
 
 ## Test Plan
 [//]: # (Fill in the table below to depict the tests that should run to validate your solution)
@@ -53,10 +53,10 @@
 [//]: # (Fill in the table below to depict the log messages that can enhance the supportability of your solution)
 [//]: # (You can use this tool to generate a table - https://www.tablesgenerator.com/markdown_tables#)
 
-| **Scenario** | **Log message** |
-|--------------|-----------------|
-|              |                 |
-|              |                 |
+| **Scenario** | **Log message** | **Log level** 
+|--------------|-----------------|--------------|
+|              |                 |              |
+|              |                 |              |
 
 ### Audit 
 [//]: # (Does this solution require additional audit messages?)
