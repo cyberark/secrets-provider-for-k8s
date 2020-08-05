@@ -8,14 +8,3 @@ Return the most recent RBAC API available
 {{- printf "v1" -}}
 {{- end }}
 {{- end }}
-
-{{/*
-Return the most recent Workload API available
-*/}}
-{{- define "conjur.deploy-api" -}}
-{{- if .Capabilities.APIVersions.Has "batch/v1" }}
-{{- printf "batch/v1" -}}
-{{- else if .Capabilities.APIVersions.Has "apps/v1" }}
-{{- printf "apps/v1" -}}
-{{- end }}
-{{- end }}
