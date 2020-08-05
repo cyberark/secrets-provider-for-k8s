@@ -1,15 +1,17 @@
 # Values for secrets-provider. All missing values need to be supplied by the customer.
-# Examples values given in https://docs.conjur.org/<PATH TBD>
+# Example values provided here:
+# DAP https://docs.conjur.org/<PATH TBD>
+# Conjur OSS https://docs.conjur.org/<PATH TBD>
 
-# K8s permission defaults
+# Kubernetes permission defaults
 rbac:
-  # Indicates whether the Secrets Provider ServiceAccount, Role, and Rolebinding should be created.
-  # This should be set to true, unless resources with the proper permissions exist in the namespace.
+  # Indicates whether the Secrets Provider ServiceAccount, Role, and RoleBinding should be created.
+  # This should be set to true unless resources with the proper permissions exist in the namespace.
   create: true
   roleName: secrets-provider-role
   roleBindingName: secrets-provider-role-binding
   serviceAccount:
-    # Name of the service account to use
+    # Name of the service account for the Secrets Provider
     name: secrets-provider-service-account
 
 secretsProvider:
@@ -18,26 +20,26 @@ secretsProvider:
   pullPolicy: IfNotPresent
   name: cyberark-secrets-provider
 
-# Additional labels to apply to all resources
+# OPTIONAL: Additional labels to apply to Job resource
 labels: {}
 annotations: {}
 
 environment:
-  # Array of Kubernetes Secret names that applications consume and their value is sourced in DAP/Conjur.
+  # Array of Kubernetes Secret names that applications consume, and whose value is sourced in DAP/Conjur.
   # For example, [k8s-secret1,k8s-secret2]
   k8sSecrets:
   conjur:
-    # Conjur account name designated to the Conjur/DAP during initial configuration
+    # DAP/Conjur account name as defined during initial DAP/Conjur configuration
     account:
-    # URL of service defined for Conjur/DAP
+    # URL of service defined for DAP Follower/Conjur
     applianceUrl:
-    # Credential service used to log into Conjur/DAP
+    # Credential service used to log into DAP/Conjur
     authnUrl:
-    # Host that authenticates to Conjur/DAP
+    # Host that authenticates Secrets Provider to DAP/Conjur
     authnLogin:
     sslCertificate:
-      # Name of config-map that will hold your public SSL certificate
+      # Name of ConfigMap that holds the public SSL certificate required for connecting to Follower/Conjur
       name: cert-config-map
-      # Value that stores the public SSL certificate required for connecting to Conjur/DAP
-      # This value should be passed in when installing the Chart
+      # Value that stores the public SSL certificate required for connecting to Follower/Conjur
+      # This value should be passed in when installing the chart
       value:
