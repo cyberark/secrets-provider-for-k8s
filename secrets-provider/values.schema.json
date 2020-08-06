@@ -130,6 +130,9 @@
               }
             }
           }
+        },
+        "debug": {
+          "type": "boolean"
         }
       }
     }
