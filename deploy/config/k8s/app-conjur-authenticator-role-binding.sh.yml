@@ -14,6 +14,6 @@ subjects:
     namespace: ${CONJUR_NAMESPACE_NAME}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
+  kind: Role
   name: conjur-authenticator-${CONJUR_NAMESPACE_NAME}
 EOL

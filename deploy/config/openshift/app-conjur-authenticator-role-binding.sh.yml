@@ -13,6 +13,6 @@ subjects:
     name: conjur-cluster
     namespace: ${CONJUR_NAMESPACE_NAME}
 roleRef:
-  kind: ClusterRole
+  kind: Role
   name: conjur-authenticator-${CONJUR_NAMESPACE_NAME}
 EOL

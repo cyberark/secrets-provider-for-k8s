@@ -15,7 +15,7 @@ set_namespace $APP_NAMESPACE_NAME
 
 $cli_with_timeout "delete secret dockerpullsecret --ignore-not-found=true"
 
-$cli_with_timeout "delete clusterrole secrets-access-${UNIQUE_TEST_ID} --ignore-not-found=true"
+$cli_with_timeout "delete role secrets-access-${UNIQUE_TEST_ID} --ignore-not-found=true"
 
 $cli_with_timeout "delete secret test-k8s-secret --ignore-not-found=true"
 
