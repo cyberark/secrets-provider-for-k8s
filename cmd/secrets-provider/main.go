@@ -85,6 +85,7 @@ func main() {
 				return log.RecordedError(messages.CSPFK003E, err.Error())
 			}
 
+			log.Info(messages.CSPFK009I)
 			if authnConfig.ContainerMode == "init" {
 				os.Exit(0)
 			}
@@ -109,6 +110,7 @@ func main() {
 
 		printErrorAndExit(messages.CSPFK038E)
 	}
+	log.Info(messages.CSPFK010I)
 }
 
 func printErrorAndExit(errorMessage string) {
