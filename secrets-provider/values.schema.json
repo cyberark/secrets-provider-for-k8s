@@ -53,7 +53,7 @@
         "tag": {
           "type": ["string", "number"],
           "minLength": 1,
-          "pattern": "^\\d+(\\.\\d+){0,2}$"
+          "pattern": "(^\\d+(\\.\\d+){0,2}|dev)$"
         },
         "imagePullPolicy": {
           "type": "string",
