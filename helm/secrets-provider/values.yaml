@@ -4,7 +4,7 @@
 # Conjur OSS https://docs.conjur.org/<PATH TBD>
 
 rbac:
-  # Indicates whether the Secrets Provider ServiceAccount, Role, and RoleBinding should be created. This should be set
+  # Indicates whether the Secrets Provider service account, Role, and RoleBinding should be created. This should be set
   # to true unless resources with the proper permissions exist in the namespace.
   create: true
   roleName: secrets-provider-role
