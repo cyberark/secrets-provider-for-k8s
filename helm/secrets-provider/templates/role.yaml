@@ -1,0 +1,11 @@
+{{- if .Values.rbac.create -}}
+apiVersion: {{ include "conjur.rbac-api" . }}
+kind: Role
+metadata:
+  name: {{ .Values.rbac.roleName }}
+  namespace: {{ .Release.namespace }}
+rules:
+  - apiGroups: [""]
+    resources: [ "secrets" ]
+    verbs: [ "get", "update" ]
+{{- end}}

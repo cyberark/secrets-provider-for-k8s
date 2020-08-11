@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Values.environment.conjur.sslCertificate.name }}
+  namespace: {{ .Release.namespace }}
+data:
+  ssl-certificate: {{ .Values.environment.conjur.sslCertificate.value | quote }}

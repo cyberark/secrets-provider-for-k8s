@@ -1,0 +1,15 @@
+{{- if .Values.rbac.create -}}
+apiVersion: {{ include "conjur.rbac-api" . }}
+kind: RoleBinding
+metadata:
+  namespace: {{ .Release.namespace }}
+  name: {{ .Values.rbac.roleBindingName }}
+subjects:
+  - kind: ServiceAccount
+    namespace: {{ .Release.namespace }}
+    name: {{ .Values.rbac.serviceAccount.name }}
+roleRef:
+  kind: Role
+  apiGroup: rbac.authorization.k8s.io
+  name: {{ .Values.rbac.roleName }}
+{{- end }}
