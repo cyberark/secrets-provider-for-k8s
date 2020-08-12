@@ -31,27 +31,27 @@ const CSPFK011E string = "CSPFK011E Failed to parse authentication response"
 // ProvideConjurSecrets
 const CSPFK014E string = "CSPFK014E Failed to instantiate ProvideConjurSecrets function. Reason: %s"
 const CSPFK015E string = "CSPFK015E Failed to instantiate secrets config"
-const CSPFK016E string = "CSPFK016E Failed to provide Conjur secrets"
+const CSPFK016E string = "CSPFK016E Failed to provide DAP/Conjur secrets"
 
 // Kubernetes
 const CSPFK018E string = "CSPFK018E Failed to create Kubernetes client"
 const CSPFK019E string = "CSPFK019E Failed to load in-cluster Kubernetes client config"
-const CSPFK020E string = "CSPFK020E Failed to retrieve k8s secret"
-const CSPFK021E string = "CSPFK021E Failed to retrieve k8s secrets"
-const CSPFK022E string = "CSPFK022E Failed to update k8s secret"
-const CSPFK023E string = "CSPFK023E Failed to update K8s secrets"
+const CSPFK020E string = "CSPFK020E Failed to retrieve Kubernetes Secret"
+const CSPFK021E string = "CSPFK021E Failed to retrieve Kubernetes Secrets"
+const CSPFK022E string = "CSPFK022E Failed to update Kubernetes Secret"
+const CSPFK023E string = "CSPFK023E Failed to update Kubernetes Secrets"
 const CSPFK025E string = "CSPFK025E PathMap cannot be empty"
-const CSPFK027E string = "CSPFK027E Failed to update K8s secrets map with Conjur secrets"
-const CSPFK028E string = "CSPFK028E Unable to update k8s secret '%s'"
+const CSPFK027E string = "CSPFK027E Failed to update Kubernetes Secrets map with DAP/Conjur secrets"
+const CSPFK028E string = "CSPFK028E Unable to update Kubernetes Secret '%s'"
 
-// Conjur
-const CSPFK031E string = "CSPFK031E Failed to load Conjur config. Reason: %s"
-const CSPFK032E string = "CSPFK032E Failed to create Conjur client from token. Reason: %s"
-const CSPFK033E string = "CSPFK033E Failed to create Conjur client"
-const CSPFK034E string = "CSPFK034E Failed to retrieve Conjur secrets. Reason: %s"
-const CSPFK035E string = "CSPFK035E Failed to parse Conjur variable ID"
+// DAP/Conjur
+const CSPFK031E string = "CSPFK031E Failed to load DAP/Conjur config. Reason: %s"
+const CSPFK032E string = "CSPFK032E Failed to create DAP/Conjur client from token. Reason: %s"
+const CSPFK033E string = "CSPFK033E Failed to create DAP/Conjur client"
+const CSPFK034E string = "CSPFK034E Failed to retrieve DAP/Conjur secrets. Reason: %s"
+const CSPFK035E string = "CSPFK035E Failed to parse DAP/Conjur variable ID"
 const CSPFK036E string = "CSPFK036E Variable ID '%s' is not in the format '<account>:variable:<variable_id>'"
-const CSPFK037E string = "CSPFK037E Failed to parse Conjur variable IDs"
+const CSPFK037E string = "CSPFK037E Failed to parse DAP/Conjur variable IDs"
 
 // General
 const CSPFK038E string = "CSPFK038E Retransmission backoff exhausted"

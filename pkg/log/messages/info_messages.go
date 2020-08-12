@@ -13,10 +13,12 @@ package messages
 */
 
 const CSPFK001I string = "CSPFK001I Authenticating as user '%s'"
-const CSPFK002I string = "CSPFK002I Creating Conjur client..."
-const CSPFK003I string = "CSPFK003I Retrieving following secrets from Conjur: %v"
-const CSPFK004I string = "CSPFK004I Creating Kubernetes client..."
-const CSPFK005I string = "CSPFK005I Retrieving Kubernetes secret '%s' from namespace '%s'..."
+const CSPFK002I string = "CSPFK002I Creating DAP/Conjur client"
+const CSPFK003I string = "CSPFK003I Retrieving following secrets from DAP/Conjur: %v"
+const CSPFK004I string = "CSPFK004I Creating Kubernetes client"
+const CSPFK005I string = "CSPFK005I Retrieving Kubernetes secret '%s' from namespace '%s'"
 const CSPFK006I string = "CSPFK006I Updating Kubernetes secret '%s' in namespace '%s'"
 const CSPFK007I string = "CSPFK007I Waiting for %s to re-authenticate and fetch secrets."
-const CSPFK008I string = "CSPFK008I Kubernetes Secrets Provider v%s starting up..."
+const CSPFK008I string = "CSPFK008I CyberArk Secrets Provider for Kubernetes v%s starting up"
+const CSPFK009I string = "CSPFK009I DAP/Conjur Secrets updated in Kubernetes successfully"
+const CSPFK010I string = "CSPFK010I Secrets Provider for Kubernetes completed successfully"
