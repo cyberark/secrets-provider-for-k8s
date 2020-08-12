@@ -20,7 +20,7 @@ const CSPFK003E string = "CSPFK003E AccessToken failed to delete access token da
 // Environment variables
 const CSPFK004E string = "CSPFK004E Environment variable '%s' must be provided"
 const CSPFK005E string = "CSPFK005E Provided incorrect value for environment variable %s"
-const CSPFK007E string = "CSPFK007E Setting SECRETS_DESTINATION environment variable to 'k8s_secrets' must run as init container"
+const CSPFK007E string = "CSPFK007E CONTAINER_MODE '%s' is not supported. Supported values are: %v"
 
 // Authenticator
 const CSPFK008E string = "CSPFK008E Failed to instantiate authenticator configuration"
