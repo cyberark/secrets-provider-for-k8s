@@ -2,6 +2,7 @@ package config
 
 import (
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/log"
@@ -9,8 +10,10 @@ import (
 )
 
 const (
-	K8S            = "k8s_secrets"
-	CONJUR_MAP_KEY = "conjur-map"
+	K8S                       = "k8s_secrets"
+	CONJUR_MAP_KEY            = "conjur-map"
+	DEFAULT_RETRY_COUNT_LIMIT = 3
+	DEFAULT_RETRY_INTERVAL    = 30
 )
 
 // Config defines the configuration parameters
@@ -18,6 +21,8 @@ const (
 type Config struct {
 	PodNamespace       string
 	RequiredK8sSecrets []string
+	RetryCountLimit    int
+	RetryInterval      int
 	StoreType          string
 }
 
@@ -49,9 +54,21 @@ func NewFromEnv() (*Config, error) {
 		return nil, err
 	}
 
+	retryInterval := DEFAULT_RETRY_INTERVAL
+	if envRetryInterval, _ := strconv.Atoi(os.Getenv("RETRY_INTERVAL")); envRetryInterval != DEFAULT_RETRY_INTERVAL && envRetryInterval != 0 {
+		retryInterval = envRetryInterval
+	}
+
+	retryCountLimit := DEFAULT_RETRY_COUNT_LIMIT
+	if envRetryCountLimit, _ := strconv.Atoi(os.Getenv("RETRY_COUNT_LIMIT")); envRetryCountLimit != DEFAULT_RETRY_COUNT_LIMIT && envRetryCountLimit != 0 {
+		retryCountLimit = envRetryCountLimit
+	}
+
 	return &Config{
 		PodNamespace:       podNamespace,
 		RequiredK8sSecrets: requiredK8sSecrets,
+		RetryCountLimit:    retryCountLimit,
+		RetryInterval:      retryInterval,
 		StoreType:          storeType,
 	}, nil
 }

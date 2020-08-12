@@ -51,51 +51,44 @@ func main() {
 		printErrorAndExit(messages.CSPFK009E)
 	}
 
-	// Configure exponential backoff
-	expBackoff := backoff.NewExponentialBackOff()
-	expBackoff.InitialInterval = 2 * time.Second
-	expBackoff.RandomizationFactor = 0.5
-	expBackoff.Multiplier = 2
-	expBackoff.MaxInterval = 15 * time.Second
-	expBackoff.MaxElapsedTime = 2 * time.Minute
-
+	constantBackOff := backoff.NewConstantBackOff(time.Duration(secretsConfig.RetryInterval) * time.Second)
+	count := 0
 	err = backoff.Retry(func() error {
-		for {
-			log.Info(fmt.Sprintf(messages.CSPFK001I, authn.Config.Username))
-			authnResp, err := authn.Authenticate()
-			if err != nil {
-				return log.RecordedError(messages.CSPFK010E)
-			}
-
-			err = authn.ParseAuthenticationResponse(authnResp)
-			if err != nil {
-				return log.RecordedError(messages.CSPFK011E)
-			}
-
-			err = provideConjurSecrets(accessToken)
-			if err != nil {
-				return log.RecordedError(messages.CSPFK016E)
-			}
-
-			err = accessToken.Delete()
-			if err != nil {
-				return log.RecordedError(messages.CSPFK003E, err.Error())
-			}
-
-			if authnConfig.ContainerMode == "init" || authnConfig.ContainerMode == "application" {
-				log.Info(messages.CSPFK010I)
-				os.Exit(0)
-			}
-
-			// Reset exponential backoff
-			expBackoff.Reset()
-
-			log.Info(messages.CSPFK007I, authn.Config.TokenRefreshTimeout)
-
-			fmt.Println()
-			time.Sleep(authn.Config.TokenRefreshTimeout)
+		if count > secretsConfig.RetryCountLimit {
+			return backoff.Permanent(log.RecordedError(messages.CSPFK038E))
 		}
-	}, expBackoff)
+		if count > 0 {
+			log.Info(fmt.Sprintf(messages.CSPFK010I, count, secretsConfig.RetryCountLimit))
+		}
+		count++
+
+		log.Info(fmt.Sprintf(messages.CSPFK001I, authn.Config.Username))
+		authnResp, err := authn.Authenticate()
+		if err != nil {
+			return log.RecordedError(messages.CSPFK010E)
+		}
+
+		err = authn.ParseAuthenticationResponse(authnResp)
+		if err != nil {
+			return log.RecordedError(messages.CSPFK011E)
+		}
+
+		err = provideConjurSecrets(accessToken)
+		if err != nil {
+			return log.RecordedError(messages.CSPFK016E)
+		}
+
+		err = accessToken.Delete()
+		if err != nil {
+			return log.RecordedError(messages.CSPFK003E, err.Error())
+		}
+
+		if authnConfig.ContainerMode == "init" || authnConfig.ContainerMode == "application" {
+			log.Info(messages.CSPFK009I)
+			os.Exit(0)
+		}
+		return nil
+	}, constantBackOff)
 
 	if err != nil {
 		// Deleting the retrieved Conjur access token in case we got an error after retrieval.
@@ -104,10 +97,8 @@ func main() {
 		if err != nil {
 			log.Error(messages.CSPFK003E, err)
 		}
-
-		printErrorAndExit(messages.CSPFK038E)
+		printErrorAndExit(messages.CSPFK039E)
 	}
-	log.Info(messages.CSPFK010I)
 }
 
 func printErrorAndExit(errorMessage string) {
