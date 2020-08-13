@@ -34,10 +34,7 @@ func main() {
 		printErrorAndExit(messages.CSPFK015E)
 	}
 
-	// verify we don't run with a K8s secrets storage configuration in a side car
-	if secretsConfig.StoreType == secretsConfigProvider.K8S && authnConfig.ContainerMode != "init" {
-		printErrorAndExit(messages.CSPFK007E)
-	}
+	validateContainerMode(authnConfig.ContainerMode)
 
 	provideConjurSecrets, err := secrets.GetProvideConjurSecretFunc(secretsConfig.StoreType)
 	if err != nil {
@@ -85,8 +82,8 @@ func main() {
 				return log.RecordedError(messages.CSPFK003E, err.Error())
 			}
 
-			log.Info(messages.CSPFK009I)
-			if authnConfig.ContainerMode == "init" {
+			if authnConfig.ContainerMode == "init" || authnConfig.ContainerMode == "application" {
+				log.Info(messages.CSPFK010I)
 				os.Exit(0)
 			}
 
@@ -126,5 +123,23 @@ func configureLogLevel() {
 	} else if val != "" {
 		// In case "DEBUG" is configured with incorrect value
 		log.Warn(messages.CSPFK001W, val, validVal)
+	}
+}
+
+func validateContainerMode(containerMode string) {
+	validContainerModes := []string{
+		"init",
+		"application",
+	}
+
+	isValidContainerMode := false
+	for _, validContainerModeType := range validContainerModes {
+		if containerMode == validContainerModeType {
+			isValidContainerMode = true
+		}
+	}
+
+	if !isValidContainerMode {
+		printErrorAndExit(fmt.Sprintf(messages.CSPFK007E, containerMode, validContainerModes))
 	}
 }
