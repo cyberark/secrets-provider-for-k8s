@@ -151,7 +151,7 @@ function deploy_env {
   fi
   conjur_appliance_url=https://$conjur_node_name.$CONJUR_NAMESPACE_NAME.svc.cluster.local
   if [ "$CONJUR_DEPLOYMENT" = "dap" ]; then
-    conjur_appliance_url="$conjur_appliance_url/api"
+      conjur_appliance_url="$conjur_appliance_url/api"
   fi
   conjur_authenticator_url=$conjur_appliance_url/authn-k8s/$AUTHENTICATOR_ID
 

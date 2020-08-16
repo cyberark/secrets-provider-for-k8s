@@ -10,13 +10,13 @@ Usage: ./bin/start [options]
     --docker      Run the integation tests in a docker container. This is helpful when running the test in a machine that
                   doesn't have "oc" or "kubectl" installed on it.
 
-    --dev         Run the development environment. By default the environment is run against a Conjur OSS deployment on GKE.
+    --dev         Run the development environment. By default the environment is run against a Conjur DAP deployment on GKE.
 
     --reload      Run reload to rebuild and redeploy changes done in Secrets Provider to a local cluster without redeploying DAP/Conjur.
 
-    --oss         Run the integration tests with a OSS Conjur deployment. By default the tests are run against a Conjur OSS deployment.
+    --oss         Run the integration tests with a OSS Conjur deployment. By default the tests are run against a Conjur DAP deployment.
 
-    --dap         Run the integration tests with a DAP Conjur deployment. By default the tests are run against a Conjur OSS deployment.
+    --dap         Run the integration tests with a DAP Conjur deployment. By default the tests are run against a Conjur DAP deployment.
 
     --gke         Run the integration tests on GKE. By default the tests are run on GKE.
 
@@ -34,7 +34,7 @@ function runScriptWithSummon() {
 }
 
 RUN_IN_DOCKER=false
-CONJUR_DEPLOYMENT=oss
+CONJUR_DEPLOYMENT=dap
 SUMMON_ENV=gke
 RELOAD_ENV=false
 DEV=false
