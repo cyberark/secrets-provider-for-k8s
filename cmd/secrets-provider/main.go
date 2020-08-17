@@ -51,42 +51,23 @@ func main() {
 		printErrorAndExit(messages.CSPFK009E)
 	}
 
-	constantBackOff := backoff.NewConstantBackOff(time.Duration(secretsConfig.RetryInterval) * time.Second)
+	constantBackOff := backoff.NewConstantBackOff(time.Duration(secretsConfig.RetryIntervalSec) * time.Second)
 	count := 0
 	err = backoff.Retry(func() error {
-		if count > secretsConfig.RetryCountLimit {
-			return backoff.Permanent(log.RecordedError(messages.CSPFK038E))
-		}
 		if count > 0 {
 			log.Info(fmt.Sprintf(messages.CSPFK010I, count, secretsConfig.RetryCountLimit))
 		}
 		count++
 
-		log.Info(fmt.Sprintf(messages.CSPFK001I, authn.Config.Username))
-		authnResp, err := authn.Authenticate()
+		err = provideSecretsToTarget(authn, provideConjurSecrets, accessToken)
 		if err != nil {
-			return log.RecordedError(messages.CSPFK010E)
+			if count > secretsConfig.RetryCountLimit {
+				return backoff.Permanent(log.RecordedError(messages.CSPFK038E))
+			} else {
+				return err
+			}
 		}
-
-		err = authn.ParseAuthenticationResponse(authnResp)
-		if err != nil {
-			return log.RecordedError(messages.CSPFK011E)
-		}
-
-		err = provideConjurSecrets(accessToken)
-		if err != nil {
-			return log.RecordedError(messages.CSPFK016E)
-		}
-
-		err = accessToken.Delete()
-		if err != nil {
-			return log.RecordedError(messages.CSPFK003E, err.Error())
-		}
-
-		if authnConfig.ContainerMode == "init" || authnConfig.ContainerMode == "application" {
-			log.Info(messages.CSPFK009I)
-			os.Exit(0)
-		}
+		log.Info(messages.CSPFK009I)
 		return nil
 	}, constantBackOff)
 
@@ -99,6 +80,30 @@ func main() {
 		}
 		printErrorAndExit(messages.CSPFK039E)
 	}
+}
+
+func provideSecretsToTarget(authn *authenticator.Authenticator, provideConjurSecrets secrets.ProvideConjurSecrets, accessToken *memory.AccessToken) error {
+	log.Info(fmt.Sprintf(messages.CSPFK001I, authn.Config.Username))
+	authnResp, err := authn.Authenticate()
+	if err != nil {
+		return log.RecordedError(messages.CSPFK010E)
+	}
+
+	err = authn.ParseAuthenticationResponse(authnResp)
+	if err != nil {
+		return log.RecordedError(messages.CSPFK011E)
+	}
+
+	err = provideConjurSecrets(accessToken)
+	if err != nil {
+		return log.RecordedError(messages.CSPFK016E)
+	}
+
+	err = accessToken.Delete()
+	if err != nil {
+		return log.RecordedError(messages.CSPFK003E, err.Error())
+	}
+	return nil
 }
 
 func printErrorAndExit(errorMessage string) {

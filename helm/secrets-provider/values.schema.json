@@ -112,15 +112,13 @@
               "type": "string",
               "minLength": 1
             },
-            "retryInterval": {
+            "retryIntervalSec": {
               "type": "number",
-              "minLength": 1,
               "minimum": 5
             },
             "retryCountLimit": {
               "type": "number",
-              "minLength": 1,
-              "minimum": 1
+              "minimum": 0
             },
             "sslCertificate": {
               "type": "object",
