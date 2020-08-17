@@ -55,3 +55,4 @@ const CSPFK037E string = "CSPFK037E Failed to parse DAP/Conjur variable IDs"
 
 // General
 const CSPFK038E string = "CSPFK038E Retransmission backoff exhausted"
+const CSPFK039E string = "CSPFK039E Secrets Provider for Kubernetes failed to update Kubernetes Secrets"

@@ -2,6 +2,7 @@ package config
 
 import (
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/log"
@@ -9,8 +10,11 @@ import (
 )
 
 const (
-	K8S            = "k8s_secrets"
-	CONJUR_MAP_KEY = "conjur-map"
+	K8S                        = "k8s_secrets"
+	CONJUR_MAP_KEY             = "conjur-map"
+	DEFAULT_RETRY_COUNT_LIMIT  = 3
+	DEFAULT_RETRY_INTERVAL_SEC = 30
+	MIN_RETRY_VALUE            = 0
 )
 
 // Config defines the configuration parameters
@@ -18,6 +22,8 @@ const (
 type Config struct {
 	PodNamespace       string
 	RequiredK8sSecrets []string
+	RetryCountLimit    int
+	RetryIntervalSec   int
 	StoreType          string
 }
 
@@ -49,11 +55,26 @@ func NewFromEnv() (*Config, error) {
 		return nil, err
 	}
 
+	retryIntervalSec := parseIntFromEnvOrDefault("RETRY_INTERVAL_SEC", DEFAULT_RETRY_INTERVAL_SEC, MIN_RETRY_VALUE)
+
+	retryCountLimit := parseIntFromEnvOrDefault("RETRY_COUNT_LIMIT", DEFAULT_RETRY_COUNT_LIMIT, MIN_RETRY_VALUE)
+
 	return &Config{
 		PodNamespace:       podNamespace,
 		RequiredK8sSecrets: requiredK8sSecrets,
+		RetryCountLimit:    retryCountLimit,
+		RetryIntervalSec:   retryIntervalSec,
 		StoreType:          storeType,
 	}, nil
+}
+
+func parseIntFromEnvOrDefault(environmentVariable string, defaultValue int, minValue int) int {
+	envString := os.Getenv(environmentVariable)
+	envValueInt, err := strconv.Atoi(envString)
+	if err != nil || envValueInt < minValue {
+		return defaultValue
+	}
+	return envValueInt
 }
 
 func validateStoreType(storeType string) error {

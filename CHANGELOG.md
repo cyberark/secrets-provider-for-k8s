@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - Red Hat certified version of the secrets-provider-for-k8s image ([cyberark/secrets-provider-for-k8s#93](https://github.com/cyberark/secrets-provider-for-k8s/pull/93))
 
 ### Changed
+- The retry backoff for the Secrets Provider is now constant instead of exponential ([cyberark/secrets-provider-for-k8s#174](https://github.com/cyberark/secrets-provider-for-k8s/issues/174))
 - The secrets-provider-for-k8s now runs as a limited user in the Docker image 
   instead of as root. This is considered a best security practice because it abides by the principle of least privilege
   [cyberark/secrets-provider-for-k8s#95](https://github.com/cyberark/secrets-provider-for-k8s/pull/95) 

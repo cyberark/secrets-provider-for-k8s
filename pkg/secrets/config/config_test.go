@@ -13,6 +13,8 @@ import (
 
 func TestConfig(t *testing.T) {
 	Convey("NewFromEnv", t, func() {
+		testRetryCountLimit := 3
+		testRetryIntervalSec := 30
 		testNamespace := "test-namespace"
 		testK8sSecrets := "test-k8s-secret,other-k8s-secret, k8s-secret-after-a-space"
 		// remove spaces and split by comma
@@ -34,7 +36,9 @@ func TestConfig(t *testing.T) {
 
 					expectedConfig := &Config{
 						PodNamespace:       testNamespace,
+						RetryCountLimit:    testRetryCountLimit,
 						RequiredK8sSecrets: testK8sSecretsList,
+						RetryIntervalSec:   testRetryIntervalSec,
 						StoreType:          storeType,
 					}
 
