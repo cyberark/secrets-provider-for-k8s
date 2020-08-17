@@ -54,7 +54,7 @@ func main() {
 	constantBackOff := backoff.NewConstantBackOff(time.Duration(secretsConfig.RetryIntervalSec) * time.Second)
 	count := 0
 	err = backoff.Retry(func() error {
-		if count > 0 {
+		if count > 0 && err != nil {
 			log.Info(fmt.Sprintf(messages.CSPFK010I, count, secretsConfig.RetryCountLimit))
 		}
 		count++
