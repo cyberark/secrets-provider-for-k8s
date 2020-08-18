@@ -3,7 +3,8 @@ set -euxo pipefail
 
 . utils.sh
 
-function main() {
+main() {
+  export DEV_HELM=${DEV_HELM:-"false"}
   ./teardown_resources.sh
 
   set_namespace "$APP_NAMESPACE_NAME"
@@ -13,8 +14,8 @@ function main() {
   deploy_env
 }
 
-function configure_secret() {
-  announce "Configuring K8s Secret and access."
+create_k8s_secret() {
+  announce "Creating K8s Secret."
 
   export CONFIG_DIR="$PWD/config/k8s"
   if [[ "$PLATFORM" = "openshift" ]]; then

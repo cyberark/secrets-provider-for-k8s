@@ -4,7 +4,7 @@ set -xeuo pipefail
 . utils.sh
 
 # Clean up when script completes and fails
-function finish {
+finish() {
   announce 'Wrapping up and removing test environment'
 
   # Stop the running processes
@@ -16,13 +16,13 @@ function finish {
 }
 trap finish EXIT
 
-function main() {
+main() {
   buildTestRunnerImage
   deployConjur
   deployTest
 }
 
-function buildTestRunnerImage() {
+buildTestRunnerImage() {
   docker build --tag $TEST_RUNNER_IMAGE:$CONJUR_NAMESPACE_NAME \
     --file test/Dockerfile \
     --build-arg OPENSHIFT_CLI_URL=$OPENSHIFT_CLI_URL \
@@ -30,7 +30,7 @@ function buildTestRunnerImage() {
     .
 }
 
-function deployConjur() {
+deployConjur() {
   git clone git@github.com:cyberark/kubernetes-conjur-deploy \
       kubernetes-conjur-deploy-$UNIQUE_TEST_ID
 
@@ -41,7 +41,7 @@ function deployConjur() {
   runDockerCommand "cd ./kubernetes-conjur-deploy-$UNIQUE_TEST_ID && DEBUG=true $cmd"
 }
 
-function deployTest() {
+deployTest() {
   runDockerCommand "./run_with_summon.sh"
 }
 

@@ -1,6 +1,3 @@
-#!/bin/bash
-set -xeuo pipefail
-
 export KEY_VALUE_NOT_EXIST=" "
 
 wait_for_it() {
@@ -86,7 +83,7 @@ get_conjur_cli_pod_name() {
   echo $pod_list | awk '{print $1}'
 }
 
-function runDockerCommand() {
+runDockerCommand() {
   docker run --rm \
     -i \
     -e UNIQUE_TEST_ID \
@@ -144,7 +141,7 @@ configure_cli_pod() {
   $cli_with_timeout exec $conjur_cli_pod -- conjur authn login -u admin -p $CONJUR_ADMIN_PASSWORD
 }
 
-function deploy_env {
+configure_conjur_url() {
   conjur_node_name="conjur-follower"
   if [ "$CONJUR_DEPLOYMENT" = "oss" ]; then
       conjur_node_name="conjur-oss"
@@ -182,17 +179,17 @@ function deploy_env {
   fi
 }
 
-function create_secret_access_role () {
+create_secret_access_role() {
   echo "Creating secrets access role"
   wait_for_it 600  "$CONFIG_DIR/secrets-access-role.sh.yml | $cli_without_timeout apply -f -"
 }
 
-function create_secret_access_role_binding () {
+create_secret_access_role_binding() {
   echo "Creating secrets access role binding"
   wait_for_it 600  "$CONFIG_DIR/secrets-access-role-binding.sh.yml | $cli_without_timeout apply -f -"
 }
 
-function set_secret () {
+set_conjur_secret() {
   SECRET_NAME=$1
   SECRET_VALUE=$2
   echo "Set secret '$SECRET_NAME' to '$SECRET_VALUE'"
@@ -202,7 +199,7 @@ function set_secret () {
   set_namespace $APP_NAMESPACE_NAME
 }
 
-yaml_print_key_name_value () {
+yaml_print_key_name_value() {
   spaces=$1
   key_name=${2:-""}
   key_value=${3:-""}
@@ -221,11 +218,11 @@ yaml_print_key_name_value () {
   fi
 }
 
-cli_get_pods_test_env () {
+cli_get_pods_test_env() {
   $cli_with_timeout "get pods --namespace=$APP_NAMESPACE_NAME --selector app=test-env --no-headers"
 }
 
-test_secret_is_provided () {
+test_secret_is_provided() {
   secret_value=$1
   variable_name="${2:-secrets/test_secret}"
   environment_variable_name="${3:-TEST_SECRET}"
@@ -242,7 +239,7 @@ test_secret_is_provided () {
   verify_secret_value_in_pod "$pod_name" "$environment_variable_name" "$secret_value"
 }
 
-verify_secret_value_in_pod () {
+verify_secret_value_in_pod() {
   pod_name=$1
   environment_variable_name=$2
   expected_value=$3

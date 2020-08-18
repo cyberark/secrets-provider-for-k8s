@@ -4,7 +4,7 @@ set -xeuo pipefail
 . utils.sh
 
 # Clean up when script completes and fails
-function finish {
+finish() {
   # There is a TRAP in test_in_docker.sh to account for Docker deployments so we do not need to add another one here
   # Stop the running processes
   if [[ $RUN_IN_DOCKER = false && $DEV = false ]]; then

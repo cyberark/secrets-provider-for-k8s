@@ -4,12 +4,12 @@ set -xeuo pipefail
 . utils.sh
 printenv > /tmp/printenv_local.debug
 
-function main() {
+main() {
   deployConjur
   ./run_with_summon.sh
 }
 
-function deployConjur() {
+deployConjur() {
   pushd ..
     git clone git@github.com:cyberark/kubernetes-conjur-deploy kubernetes-conjur-deploy-$UNIQUE_TEST_ID
 
