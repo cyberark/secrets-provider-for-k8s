@@ -9,10 +9,13 @@ finish() {
   # Stop the running processes
   if [[ $RUN_IN_DOCKER = false && $DEV = false ]]; then
     announce 'Wrapping up and removing environment'
-    ./stop
-    cd ./kubernetes-conjur-deploy-$UNIQUE_TEST_ID && ./stop
+    repo_root_path=$(git rev-parse --show-toplevel)
+    "$repo_root_path/deploy/stop"
+    pushd $repo_root_path/kubernetes-conjur-deploy-$UNIQUE_TEST_ID
+      ./stop
+    popd
     # Remove the deploy directory
-    rm -rf "../kubernetes-conjur-deploy-$UNIQUE_TEST_ID"
+    rm -rf "$repo_root_path/kubernetes-conjur-deploy-$UNIQUE_TEST_ID"
   fi
 }
 trap finish EXIT
@@ -59,7 +62,7 @@ ssl_cert=$($cli_with_timeout "exec ${conjur_pod_name} --namespace $CONJUR_NAMESP
 
 export CONJUR_SSL_CERTIFICATE=$ssl_cert
 
-if [ "${DEV}" = "false"  ]; then
+if [[ "${DEV}" = "false" ]]; then
   pushd ./test/test_cases > /dev/null
     ./run_tests.sh
   popd > /dev/null

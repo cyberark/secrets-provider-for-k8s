@@ -66,7 +66,9 @@ You can now deploy a local development environment for Kubernetes using [Docker 
    
    1. Navigate to Docker preferences
    
-   1. Click on "Advanced" and slide the "Memory" bar to 6
+   1. Click on "Resources" and slide the "Memory" bar to 6
+  
+1. If you intend to deploy the Secrets Provider via Helm, you will need to install the Helm CLI. See [here](https://helm.sh/docs/intro/install/) for instructions on how to do so.
 
 #### Deploy
 
@@ -80,9 +82,9 @@ Run ` kubectl config current-context` to verify which context you are currently 
 
 Run `kubectl config use-context docker-desktop` to switch to a local context. This is the context you will need to run the development environment
 
-1. Navigate to `bootstrap.env` and uncomment the `Local DEV Env` section, ensuring that `DEV=true`
+1. Navigate to `bootstrap.env` and uncomment the `Local DEV Env` section, ensuring that `DEV=true`. Additionally, you can deploy the Secrets Provider locally using HELM. To do so, _also_ uncomment `DEV_HELM`
 
-1. Run `./bin/start --dev --gke`, appending `--oss` or `--dap` according to the environment that needs to be deployed
+1. Run `./bin/start --dev`, appending `--oss` or `--dap` according to the environment that needs to be deployed
 
 1. To view the pod(s) that were deployed and the Secrets Provider logs, run `kubectl get pods` and `kubectl logs <pod-name> -c cyberark-secrets-provider` respectively. 
 You can also view Conjur/DAP pod logs by running `kubectl get pods -n local-conjur` and `kubectl logs <conjur-pod-name> -n local-conjur`

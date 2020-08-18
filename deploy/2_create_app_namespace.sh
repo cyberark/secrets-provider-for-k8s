@@ -26,10 +26,7 @@ fi
 
 $cli_with_timeout delete --ignore-not-found rolebinding app-conjur-authenticator-role-binding-$CONJUR_NAMESPACE_NAME
 
-CONFIG_DIR="config/k8s"
-if [[ "$PLATFORM" = "openshift" ]]; then
-    CONFIG_DIR="config/openshift"
-fi
+set_config_directory_path
 
 wait_for_it 600  "./$CONFIG_DIR/app-conjur-authenticator-role-binding.sh.yml | $cli_without_timeout apply -f -"
 

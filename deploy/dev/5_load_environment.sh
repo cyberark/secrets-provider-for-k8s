@@ -9,25 +9,34 @@ main() {
 
   set_namespace "$APP_NAMESPACE_NAME"
 
-  configure_secret
+  if [ "${DEV_HELM}" = "true" ]; then
+    setup_helm_environment
 
-  deploy_env
+    create_k8s_secret
+    export IMAGE_PULL_POLICY="Never"
+    export IMAGE="secrets-provider-for-k8s"
+    export TAG="dev"
+    deploy_chart
+
+    deploy_helm_app
+  else
+    create_k8s_secret
+
+    create_secret_access_role
+
+    create_secret_access_role_binding
+
+    deploy_init_env
+  fi
 }
 
 create_k8s_secret() {
   announce "Creating K8s Secret."
 
-  export CONFIG_DIR="$PWD/config/k8s"
-  if [[ "$PLATFORM" = "openshift" ]]; then
-      export CONFIG_DIR="$PWD/config/openshift"
-  fi
+  set_config_directory_path
 
   echo "Create secret k8s-secret"
   $cli_with_timeout create -f $CONFIG_DIR/k8s-secret.yml
-
-  create_secret_access_role
-
-  create_secret_access_role_binding
 }
 
 main
