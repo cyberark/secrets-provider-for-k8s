@@ -1,0 +1,5 @@
+secretsProvider:
+  image: {{ IMAGE }}
+  imagePullPolicy: {{ IMAGE_PULL_POLICY }}
+  tag: {{ TAG }}
+  name: cyberark-secrets-provider

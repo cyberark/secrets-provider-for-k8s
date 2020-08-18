@@ -1,0 +1,37 @@
+# Values for secrets-provider Chart. All missing values need to be supplied via environment variable.
+
+rbac:
+  # Indicates whether the Secrets Provider service account, Role, and RoleBinding should be created.
+  # This should be set to true unless resources with the proper permissions exist in the namespace.
+  create: {{ CREATE_SERVICE_ACCOUNT }}
+  roleName: {{ SECRETS_PROVIDER_ROLE }}
+  roleBindingName: {{ SECRETS_PROVIDER_ROLE_BINDING }}
+  serviceAccount:
+    # Name of the service account for the Secrets Provider.
+    name: {{ SERVICE_ACCOUNT }}
+
+secretsProvider:
+  image: {{ IMAGE }}
+  imagePullPolicy: {{ IMAGE_PULL_POLICY }}
+  tag: {{ TAG }}
+  name: cyberark-secrets-provider
+
+# Additional labels to apply to all resources.
+labels: { {{ LABELS }} }
+annotations: {}
+
+environment:
+  debug: {{ DEBUG }}
+  # Array of Kubernetes Secret names that applications consume, and whose value is sourced in DAP/Conjur.
+  # For example, [k8s-secret1,k8s-secret2]
+  k8sSecrets: [{{ K8S_SECRETS }}]
+  conjur:
+    retryIntervalSec: {{ RETRY_INTERVAL_SEC }}
+    retryCountLimit: {{ RETRY_COUNT_LIMIT }}
+    account: {{ CONJUR_ACCOUNT }}
+    applianceUrl: {{ CONJUR_APPLIANCE_URL }}
+    authnUrl: {{ CONJUR_AUTHN_URL }}
+    authnLogin: {{ CONJUR_AUTHN_LOGIN }}
+    sslCertificate:
+      value: ""
+      name: {{ SECRETS_PROVIDER_SSL_CONFIG_MAP }}
