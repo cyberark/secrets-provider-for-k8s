@@ -31,7 +31,9 @@ function buildTestRunnerImage() {
 }
 
 function deployConjur() {
-  git clone git@github.com:cyberark/kubernetes-conjur-deploy \
+  git clone --single-branch \
+    --branch add-retry-cli-commands \
+      git@github.com:cyberark/kubernetes-conjur-deploy \
       kubernetes-conjur-deploy-$UNIQUE_TEST_ID
 
   cmd="./start"
