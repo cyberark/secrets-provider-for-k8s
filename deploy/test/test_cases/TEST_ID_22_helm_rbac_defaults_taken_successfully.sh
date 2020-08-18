@@ -26,4 +26,4 @@ $cli_with_timeout "get RoleBinding secrets-provider-role-binding"
 $cli_with_timeout "get ConfigMap cert-config-map"
 
 # Validate that the Secrets Provider took the default image configurations if not supplied and was deployed successfully
-$cli_with_timeout "describe job secrets-provider | grep 'cyberark/secrets-provider-for-k8s:1.0.0'" | awk '{print $2}' && $cli_with_timeout "get job secrets-provider -o jsonpath={.status.succeeded}"
+$cli_with_timeout "describe job secrets-provider | grep 'cyberark/secrets-provider-for-k8s:1.1.0'" | awk '{print $2}' && $cli_with_timeout "get job secrets-provider -o jsonpath={.status.succeeded}"

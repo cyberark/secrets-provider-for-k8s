@@ -6,6 +6,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [1.1.0] - 2020-08-20
 ### Added
 - Helm chart to deploy the Secrets Provider Job using Helm ([cyberark/secrets-provider-for-k8s#165](https://github.com/cyberark/secrets-provider-for-k8s/pulls/165))
 - CONTAINER_MODE support for application containers in addition to init containers ([cyberark/secrets-provider-for-k8s#179](https://github.com/cyberark/secrets-provider-for-k8s/pull/179))
@@ -49,7 +50,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ### Changed
   - Escape secrets with backslashes before patching in k8s
 
-[Unreleased]: https://github.com/cyberark/secrets-provider-for-k8s/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/cyberark/secrets-provider-for-k8s/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/cyberark/secrets-provider-for-k8s/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/cyberark/secrets-provider-for-k8s/compare/v0.4.0...v1.0.0
 [0.4.0]: https://github.com/cyberark/secrets-provider-for-k8s/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/cyberark/secrets-provider-for-k8s/compare/v0.2.0...v0.3.0
