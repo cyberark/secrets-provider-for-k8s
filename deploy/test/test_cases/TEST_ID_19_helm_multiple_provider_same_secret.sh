@@ -15,6 +15,7 @@ popd
 helm_chart_name="secrets-provider"
 $cli_with_timeout wait --for=condition=complete job/$helm_chart_name
 
+setup_helm_environment
 pushd ../../
   export SECRETS_PROVIDER_ROLE=another-secrets-provider-role
   export SECRETS_PROVIDER_ROLE_BINDING=another-secrets-provider-role-binding

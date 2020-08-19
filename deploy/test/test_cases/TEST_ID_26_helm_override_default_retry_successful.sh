@@ -30,11 +30,12 @@ $cli_with_timeout "logs $pod_name | grep 'CSPFK010I Updating Kubernetes Secrets:
 duration=$(( SECONDS - start ))
 # Since we are testing retry in scripts we must determine an acceptable range that retry should take place
 # If the duration falls within that range, then we can determine the retry mechanism works as expected
-retryIntervalMin=`echo "scale=2; $RETRY_INTERVAL_SEC/100*80" | bc`
-retryIntervalMax=`echo "scale=2; $RETRY_INTERVAL_SEC/100*120" | bc`
+retryIntervalMin=`echo "scale=2; $RETRY_INTERVAL_SEC/100*80" | bc | cut -d "." -f 1 | cut -d "," -f 1`
+retryIntervalMax=`echo "scale=2; $RETRY_INTERVAL_SEC/100*120" | bc | cut -d "." -f 1 | cut -d "," -f 1`
 if (( $duration >= $retryIntervalMin && $duration <= $retryIntervalMax )); then
   echo 0
 else
+  echo "Timed retry failed to occur according to detailed retry interval. Timed duration: $duration"
   echo 1
 fi
 

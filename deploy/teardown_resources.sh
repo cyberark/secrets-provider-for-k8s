@@ -8,8 +8,8 @@ set_namespace $CONJUR_NAMESPACE_NAME
 
 configure_cli_pod
 
-# Helm Chart clean-up
-rm -f conjur.pem
+## Helm Chart clean-up
+#rm -f conjur.pem
 
 helm_ci_path="../helm/secrets-provider/ci"
 if [[ "${DEV}" = "false" || "${RUN_IN_DOCKER}" = "true" ]]; then

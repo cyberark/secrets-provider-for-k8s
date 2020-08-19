@@ -15,6 +15,8 @@ popd
 helm_chart_name="secrets-provider"
 $cli_with_timeout wait --for=condition=complete job/$helm_chart_name
 
+setup_helm_environment
+
 pushd ../../
   export CREATE_SERVICE_ACCOUNT="false"
   export LABELS="app: another-test-helm"

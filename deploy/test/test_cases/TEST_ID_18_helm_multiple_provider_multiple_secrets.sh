@@ -21,6 +21,8 @@ $cli_with_timeout wait --for=condition=complete job/$helm_chart_name
 
 deploy_helm_app
 
+# Deployed twice to ensure conjur.pem exists
+setup_helm_environment
 # Deploy second Secrets Provider Job
 pushd ../../
   export SECRETS_PROVIDER_ROLE=another-secrets-provider-role
