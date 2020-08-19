@@ -18,11 +18,15 @@ The CyberArk Secrets Provider for Kubernetes enables DAP to retrieve secrets sto
  secrets can be consumed by your Kubernetes or Openshift application containers. To retrieve the secrets from Conjur or DAP, 
  the CyberArk Secrets Provider for Kubernetes runs as an init container and fetches the secrets that the pods require. 
  
-## Supported services
-
-- Openshift 3.9, 3.10, and 3.11
+## Supported Services
 - DAP 11.1+
+
 - Conjur OSS v1.4.2+
+
+## Supported Platforms
+- GKE
+
+- Openshift 3.9, 3.10, and 3.11 _*(DAP only)*_
 
 ## Using secrets-provider-for-k8s with Conjur OSS 
 
