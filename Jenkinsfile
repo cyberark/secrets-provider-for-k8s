@@ -22,6 +22,13 @@ pipeline {
       }
     }
 
+    stage('Check permissions') {
+      steps {
+        sh 'ls -l /var/lib/jenkins/.docker/config.json'
+        sh 'exit 1'
+      }
+    }
+
     stage('Build client Docker image') {
       steps {
         sh './bin/build'
