@@ -181,13 +181,23 @@ follow the instructions in this section.
 
 ### Update the version, changelog, and notices
 1. Create a new branch for the version bump.
-1. Based on the unreleased content, determine the new version number and update
-   the [version](pkg/secrets/version.go) file.
+1. Based on the unreleased content, determine the new version number.
+1. Update this version in the following files:
+    1. [Version file](pkg/secrets/version.go)
+    1. [Chart version](helm/secrets-provider/Chart.yaml)
+    1. [Default deployed version](helm/secrets-provider/values.yaml)
+    
+1. Create a helm package by running the following command from the repo root: `pushd helm/secrets-provider/packages && helm package .. && popd`
+1. Add the resulting package file to the release PR.
+1. Create a PR for [helm-charts](https://github.com/cyberark/helm-charts) with the following changes:
+    1. Add the package file to the *docs* folder
+    1. Execute the `reindex.sh` script file from the `helm-charts` repo root folder
 1. Review the git log and ensure the [changelog](CHANGELOG.md) contains all
    relevant recent changes with references to GitHub issues or PRs, if possible.
 1. Review the changes since the last tag, and if the dependencies have changed
    revise the [NOTICES](NOTICES.txt) to correctly capture the included
    dependencies and their licenses / copyrights.
+1. Before release, ensure that all documentation that needs to be written has been written by TW and pushed to the forward-facing documentation.
 1. Commit these changes - `Bump version to x.y.z` is an acceptable commit
    message - and open a PR for review.
    
