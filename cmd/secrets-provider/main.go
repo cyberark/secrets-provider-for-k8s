@@ -14,6 +14,7 @@ import (
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/log/messages"
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/secrets"
 	secretsConfigProvider "github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/config"
+	"github.com/cyberark/secrets-provider-for-k8s/pkg/utils"
 )
 
 func main() {
@@ -51,27 +52,21 @@ func main() {
 		printErrorAndExit(messages.CSPFK009E)
 	}
 
-	constantBackOff := backoff.NewConstantBackOff(time.Duration(secretsConfig.RetryIntervalSec) * time.Second)
-	count := 0
-	err = backoff.Retry(func() error {
-		if count > 0 {
-			log.Info(fmt.Sprintf(messages.CSPFK010I, count, secretsConfig.RetryCountLimit))
-		}
-		count++
+	limitedBackOff := utils.NewLimitedBackOff(
+		time.Duration(secretsConfig.RetryIntervalSec)*time.Second,
+		secretsConfig.RetryCountLimit)
 
-		err = provideSecretsToTarget(authn, provideConjurSecrets, accessToken)
-		if err != nil {
-			if count > secretsConfig.RetryCountLimit {
-				return backoff.Permanent(log.RecordedError(messages.CSPFK038E))
-			} else {
-				return err
-			}
+	err = backoff.Retry(func() error {
+		if limitedBackOff.RetryCount() > 0 {
+			log.Info(fmt.Sprintf(messages.CSPFK010I, limitedBackOff.RetryCount(), limitedBackOff.RetryLimit))
 		}
-		log.Info(messages.CSPFK009I)
-		return nil
-	}, constantBackOff)
+
+		return provideSecretsToTarget(authn, provideConjurSecrets, accessToken)
+	}, limitedBackOff)
 
 	if err != nil {
+		log.Error(messages.CSPFK038E)
+
 		// Deleting the retrieved Conjur access token in case we got an error after retrieval.
 		// if the access token is already deleted the action should not fail
 		err = accessToken.Delete()
@@ -103,6 +98,8 @@ func provideSecretsToTarget(authn *authenticator.Authenticator, provideConjurSec
 	if err != nil {
 		return log.RecordedError(messages.CSPFK003E, err.Error())
 	}
+
+	log.Info(messages.CSPFK009I)
 	return nil
 }
 
