@@ -23,7 +23,7 @@ main() {
 
     export IMAGE_PULL_POLICY="Never"
     export IMAGE="secrets-provider-for-k8s"
-    export TAG="dev"
+    export TAG="latest"
     deploy_chart
 
     deploy_helm_app
