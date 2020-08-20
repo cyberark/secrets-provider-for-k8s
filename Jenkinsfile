@@ -25,13 +25,18 @@ pipeline {
     stage('Check permissions') {
       steps {
         sh 'ls -l /var/lib/jenkins/.docker/config.json'
-        sh 'exit 1'
       }
     }
 
     stage('Build client Docker image') {
       steps {
         sh './bin/build'
+      }
+    }
+
+    stage('Check permissions') {
+      steps {
+        sh 'ls -l /var/lib/jenkins/.docker/config.json'
       }
     }
 
@@ -42,6 +47,12 @@ pipeline {
         junit 'junit.xml'
         cobertura autoUpdateHealth: true, autoUpdateStability: true, coberturaReportFile: 'coverage.xml', conditionalCoverageTargets: '30, 0, 0', failUnhealthy: true, failUnstable: false, maxNumberOfBuilds: 0, methodCoverageTargets: '30, 0, 0', onlyStable: false, sourceEncoding: 'ASCII', zoomCoverageChart: false
         ccCoverage("gocov", "--prefix github.com/cyberark/secrets-provider-for-k8s")
+      }
+    }
+
+    stage('Check permissions') {
+      steps {
+        sh 'ls -l /var/lib/jenkins/.docker/config.json'
       }
     }
 
@@ -64,6 +75,13 @@ pipeline {
             // }
           parallel tasks
         }
+      }
+    }
+
+    stage('Check permissions') {
+      steps {
+        sh 'ls -l /var/lib/jenkins/.docker/config.json'
+        sh 'exit 1'
       }
     }
 
