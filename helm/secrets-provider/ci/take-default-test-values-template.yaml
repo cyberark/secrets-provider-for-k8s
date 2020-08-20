@@ -1,0 +1,13 @@
+labels: { {{ LABELS }} }
+
+environment:
+  # Array of Kubernetes Secret names that applications consume, and whose value is sourced in DAP/Conjur.
+  # For example, [k8s-secret1,k8s-secret2]
+  k8sSecrets: [{{ K8S_SECRETS }}]
+  conjur:
+    account: {{ CONJUR_ACCOUNT }}
+    applianceUrl: {{ CONJUR_APPLIANCE_URL }}
+    authnUrl: {{ CONJUR_AUTHN_URL }}
+    authnLogin: {{ CONJUR_AUTHN_LOGIN }}
+    sslCertificate:
+      value: ""

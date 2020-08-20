@@ -3,32 +3,49 @@ set -xeuo pipefail
 
 . utils.sh
 
-# Script for making it easy to make a change locally and redeploy
-pushd ..
-  ./bin/build
-popd
+main() {
+  export DEV_HELM=${DEV_HELM:-"false"}
 
-set_namespace $APP_NAMESPACE_NAME
+   # Clean-up previous run
+  if [ "$(helm ls -aq | wc -l | tr -d ' ')" != 0 ]; then
+    helm delete $(helm ls -aq)
+  fi
+  $cli_with_timeout "delete deployment test-env --ignore-not-found=true"
 
-docker tag "secrets-provider-for-k8s:dev" "${APP_NAMESPACE_NAME}/secrets-provider"
+  pushd ..
+    ./bin/build
+  popd
 
-selector="role=follower"
-cert_location="/opt/conjur/etc/ssl/conjur.pem"
-if [ "$CONJUR_DEPLOYMENT" = "oss" ]; then
-  selector="app=conjur-cli"
-  cert_location="/root/conjur-${CONJUR_ACCOUNT}.pem"
-fi
+  set_namespace $APP_NAMESPACE_NAME
 
-conjur_pod_name=$($cli_with_timeout get pods --selector=$selector --namespace $CONJUR_NAMESPACE_NAME --no-headers | awk '{ print $1 }' | head -1)
-ssl_cert=$($cli_with_timeout "exec ${conjur_pod_name} --namespace $CONJUR_NAMESPACE_NAME cat $cert_location")
+  if [ "${DEV_HELM}" = "true" ]; then
+    setup_helm_environment
 
-export CONJUR_SSL_CERTIFICATE=$ssl_cert
+    export IMAGE_PULL_POLICY="Never"
+    export IMAGE="secrets-provider-for-k8s"
+    export TAG="dev"
+    deploy_chart
 
-export CONFIG_DIR="$PWD/config/k8s"
-if [[ "$PLATFORM" = "openshift" ]]; then
-  export CONFIG_DIR="$PWD/config/openshift"
-fi
+    deploy_helm_app
+  else
+    selector="role=follower"
+    cert_location="/opt/conjur/etc/ssl/conjur.pem"
+    if [ "$CONJUR_DEPLOYMENT" = "oss" ]; then
+      selector="app=conjur-cli"
+      cert_location="/root/conjur-${CONJUR_ACCOUNT}.pem"
+    fi
 
-$cli_with_timeout "delete deployment init-env --ignore-not-found=true"
+    conjur_pod_name=$($cli_with_timeout get pods --selector=$selector --namespace $CONJUR_NAMESPACE_NAME --no-headers | awk '{ print $1 }' | head -1)
+    ssl_cert=$($cli_with_timeout "exec ${conjur_pod_name} --namespace $CONJUR_NAMESPACE_NAME cat $cert_location")
 
-deploy_env
+    export CONJUR_SSL_CERTIFICATE=$ssl_cert
+
+    set_config_directory_path
+
+    $cli_with_timeout "delete deployment init-env --ignore-not-found=true"
+
+    deploy_init_env
+  fi
+}
+
+main

@@ -1,0 +1,30 @@
+# This app is created to run end-to-end tests with the Secrets Provider Job to ensure the updated K8s Secret appear as
+# environment variables
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: {{ ID }}test-env
+  name: {{ ID }}test-env
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ ID }}test-env
+  template:
+    metadata:
+      labels:
+        app: {{ ID }}test-env
+    spec:
+      serviceAccountName:  {{ SERVICE_ACCOUNT }}
+      containers:
+      - image: centos:7
+        name: {{ ID }}test-app
+        command: ["sleep"]
+        args: ["infinity"]
+        env:
+        - name: {{ ID }}TEST_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: {{ K8S_SECRET }}
+              key: secret

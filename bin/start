@@ -1,6 +1,6 @@
 #!/bin/bash -ex
 
-function print_help() {
+print_help() {
   cat << EOF
 Test the secrets-provider-for-k8s image. This script sets up a Conjur cluster in k8s and deploys a k8s environment with an app
 container and a secrets-provider-for-k8s init container. Finally it tests that the outcome is as expected (for example,
@@ -29,7 +29,7 @@ EOF
   exit
 }
 
-function runScriptWithSummon() {
+runScriptWithSummon() {
     summon --environment $SUMMON_ENV -f ./summon/secrets.yml $1
 }
 

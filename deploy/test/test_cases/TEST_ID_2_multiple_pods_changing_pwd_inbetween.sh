@@ -7,7 +7,7 @@ wait_for_it 600  "$CONFIG_DIR/secrets-access-role.sh.yml | $cli_without_timeout 
 echo "Creating secrets access role binding"
 wait_for_it 600 "$CONFIG_DIR/secrets-access-role-binding.sh.yml | $cli_without_timeout apply -f -"
 
-deploy_env
+deploy_init_env
 
 pod_name1=$(cli_get_pods_test_env | awk '{print $1}')
 
@@ -24,11 +24,11 @@ if [[ "$PLATFORM" = "kubernetes" ]]; then
     # Waiting until pod is successfully removed from the namespace before advancing.
     $cli_with_timeout "get pods --namespace=$APP_NAMESPACE_NAME --selector app=test-env --no-headers | wc -l | tr -d ' ' | grep '^0$'"
 
-    set_secret secrets/test_secret secret2
+    set_conjur_secret secrets/test_secret secret2
 
     $cli_with_timeout "scale deployment test-env --replicas=1"
 elif [ $PLATFORM = "openshift" ]; then
-    set_secret secrets/test_secret secret2
+    set_conjur_secret secrets/test_secret secret2
 
     $cli_with_timeout "delete pod $pod_name1"
 fi
@@ -37,7 +37,7 @@ pod_name2=$(cli_get_pods_test_env | awk '{print $1}')
 echo "Verify pod $pod_name2 has environment variable 'TEST_SECRET' with value 'secret2'"
 verify_secret_value_in_pod $pod_name2 TEST_SECRET secret2
 
-set_secret secrets/test_secret secret3
+set_conjur_secret secrets/test_secret secret3
 
 if [[ "$PLATFORM" = "kubernetes" ]]; then
     echo "Setting deployment test-env to replicas"

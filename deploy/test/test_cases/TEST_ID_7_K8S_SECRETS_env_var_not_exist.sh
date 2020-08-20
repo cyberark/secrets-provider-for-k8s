@@ -7,7 +7,7 @@ create_secret_access_role_binding
 
 echo "Deploying test_env without K8S_SECRETS environment variable"
 export K8S_SECRETS_KEY_VALUE=$KEY_VALUE_NOT_EXIST
-deploy_env
+deploy_init_env
 
 echo "Expecting for 'CrashLoopBackOff' state of pod test-env"
 wait_for_it 600 "cli_get_pods_test_env | grep CrashLoopBackOff"

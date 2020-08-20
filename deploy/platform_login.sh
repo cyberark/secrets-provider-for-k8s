@@ -3,7 +3,7 @@
 set -euo pipefail
 IFS=$'\n\t'
 
-function main() {
+main() {
   # Log in to platform
   if [[ "$PLATFORM" = "kubernetes" ]]; then
     gcloud auth activate-service-account \
