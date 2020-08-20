@@ -1,7 +1,4 @@
 # Values for secrets-provider. All missing values need to be supplied by the customer.
-# Example values provided here:
-# DAP https://docs.conjur.org/<PATH TBD>
-# Conjur OSS https://docs.conjur.org/<PATH TBD>
 
 rbac:
   # Indicates whether the Secrets Provider service account, Role, and RoleBinding should be created. This should be set
