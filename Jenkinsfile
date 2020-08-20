@@ -34,7 +34,7 @@ pipeline {
       }
     }
 
-    stage('Check permissions') {
+    stage('Check permissions 2') {
       steps {
         sh 'ls -l /var/lib/jenkins/.docker/config.json'
       }
@@ -50,7 +50,7 @@ pipeline {
       }
     }
 
-    stage('Check permissions') {
+    stage('Check permissions 3') {
       steps {
         sh 'ls -l /var/lib/jenkins/.docker/config.json'
       }
@@ -78,7 +78,7 @@ pipeline {
       }
     }
 
-    stage('Check permissions') {
+    stage('Check permissions 4') {
       steps {
         sh 'ls -l /var/lib/jenkins/.docker/config.json'
         sh 'exit 1'
