@@ -115,7 +115,6 @@ runDockerCommand() {
     -v $GCLOUD_SERVICE_KEY:/tmp$GCLOUD_SERVICE_KEY \
     -v /var/run/docker.sock:/var/run/docker.sock \
     -v ~/.config:/root/.config \
-    -v ~/.docker:/root/.docker \
     -v "$PWD/../helm":/helm \
     -v "$PWD":/src \
     -w /src \
