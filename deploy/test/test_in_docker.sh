@@ -31,6 +31,11 @@ buildTestRunnerImage() {
 }
 
 deployConjur() {
+  # Prepare Docker images
+  # This is done outside of the container to avoid authentication errors when pulling from the internal registry
+  # from inside the container
+  docker pull $CONJUR_APPLIANCE_IMAGE
+
   git clone git@github.com:cyberark/kubernetes-conjur-deploy \
       kubernetes-conjur-deploy-$UNIQUE_TEST_ID
 
