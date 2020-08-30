@@ -18,8 +18,8 @@ pushd ../../
   # A parameter that will force a failure
   export CONJUR_AUTHN_URL="https://conjur-follower.${CONJUR_NAMESPACE_NAME}.svc.cluster.local/api/authn-k8s/${AUTHENTICATOR_ID}xyz"  # Configure retry mechanism with overriding defaults
 
-  DEFAULT_RETRY_INTERVAL_SEC=30
-  DEFAULT_RETRY_COUNT_LIMIT=3
+  DEFAULT_RETRY_INTERVAL_SEC=1
+  DEFAULT_RETRY_COUNT_LIMIT=5
 
   fill_helm_chart_test_image
   fill_helm_chart_no_override_defaults
@@ -36,18 +36,18 @@ $cli_with_timeout "logs $pod_name | grep 'CSPFK010E Failed to authenticate'"
 # Start the timer for retry interval
 start=$SECONDS
 
-echo "Expecting Secrets Provider retry configurations to take defaults RETRY_INTERVAL_SEC 30 and RETRY_COUNT_LIMIT 3"
+echo "Expecting Secrets Provider retry configurations to take defaults RETRY_INTERVAL_SEC $DEFAULT_RETRY_INTERVAL_SEC and RETRY_COUNT_LIMIT $DEFAULT_RETRY_COUNT_LIMIT"
 $cli_with_timeout "logs $pod_name | grep 'CSPFK010I Updating Kubernetes Secrets: 1 retries out of $DEFAULT_RETRY_COUNT_LIMIT'"
 
 duration=$(( SECONDS - start ))
 # Since we are testing retry in scripts we must determine an acceptable range that retry should have taken place
 # If the duration falls within that range, then we can determine the retry mechanism works as expected
-retryIntervalMin=`echo "scale=2; $DEFAULT_RETRY_INTERVAL_SEC/100*80" | bc | cut -d "." -f 1 | cut -d "," -f 1`
-retryIntervalMax=`echo "scale=2; $DEFAULT_RETRY_INTERVAL_SEC/100*120" | bc | cut -d "." -f 1 | cut -d "," -f 1`
-if (( $duration >= $retryIntervalMin && $duration <= $retryIntervalMax )); then
-  echo 0
+retryIntervalMin=`echo "scale=3; $DEFAULT_RETRY_INTERVAL_SEC/100*80" | bc -l | awk '{print ($0-int($0)<0.499)?int($0):int($0)+1}'`
+retryIntervalMax=`echo "scale=3; $DEFAULT_RETRY_INTERVAL_SEC/100*160" | bc -l | awk '{print ($0-int($0)<0.499)?int($0):int($0)+1}'`
+if (( ($duration >= $retryIntervalMin) && ($duration <= $retryIntervalMax) || $duration == 0 )); then
+  exit 0
 else
   echo "Timed retry failed to occur according to detailed retry interval. Timed duration: $duration"
-  echo 1
+  exit 1
 fi
 

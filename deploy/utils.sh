@@ -219,8 +219,8 @@ fill_helm_chart() {
     -e "s#{{ TAG }}# ${TAG:-"latest"}#g" \
     -e "s#{{ LABELS }}# ${LABELS:-"app: test-helm"}#g" \
     -e "s#{{ DEBUG }}# ${DEBUG:-"false"}#g" \
-    -e "s#{{ RETRY_COUNT_LIMIT }}# ${RETRY_COUNT_LIMIT:-"3"}#g" \
-    -e "s#{{ RETRY_INTERVAL_SEC }}# ${RETRY_INTERVAL_SEC:-"30"}#g" \
+    -e "s#{{ RETRY_COUNT_LIMIT }}# ${RETRY_COUNT_LIMIT:-"5"}#g" \
+    -e "s#{{ RETRY_INTERVAL_SEC }}# ${RETRY_INTERVAL_SEC:-"1"}#g" \
     "$helm_path/helm/secrets-provider/ci/test-values-template.yaml" > "$helm_path/helm/secrets-provider/ci/${id}test-values.yaml"
 }
 

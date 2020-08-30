@@ -114,7 +114,7 @@
             },
             "retryIntervalSec": {
               "type": "number",
-              "minimum": 5
+              "minimum": 1
             },
             "retryCountLimit": {
               "type": "number",
