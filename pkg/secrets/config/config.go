@@ -12,8 +12,8 @@ import (
 const (
 	K8S                        = "k8s_secrets"
 	CONJUR_MAP_KEY             = "conjur-map"
-	DEFAULT_RETRY_COUNT_LIMIT  = 3
-	DEFAULT_RETRY_INTERVAL_SEC = 30
+	DEFAULT_RETRY_COUNT_LIMIT  = 5
+	DEFAULT_RETRY_INTERVAL_SEC = 1
 	MIN_RETRY_VALUE            = 0
 )
 
