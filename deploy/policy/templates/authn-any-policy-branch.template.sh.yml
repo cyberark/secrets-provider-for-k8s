@@ -20,7 +20,7 @@ cat << EOL
       - !host
         id: ${APP_NAMESPACE_NAME}/*/*
         annotations:
-          kubernetes/authentication-container-name: cyberark-secrets-provider
+          kubernetes/authentication-container-name: cyberark-secrets-provider-for-k8s
 
       # This host tests the ability to authenticate hosts with application identity in annotations
       - !host
@@ -28,7 +28,7 @@ cat << EOL
         annotations:
           authn-k8s/namespace: ${APP_NAMESPACE_NAME}
           authn-k8s/service-account: ${APP_NAMESPACE_NAME}-sa
-          authn-k8s/authentication-container-name: cyberark-secrets-provider
+          authn-k8s/authentication-container-name: cyberark-secrets-provider-for-k8s
 
     - !grant
       role: !layer
@@ -38,7 +38,7 @@ cat << EOL
 - !host
   id: ${APP_NAMESPACE_NAME}/*/*
   annotations:
-    kubernetes/authentication-container-name: cyberark-secrets-provider
+    kubernetes/authentication-container-name: cyberark-secrets-provider-for-k8s
 
 # Add the root based host to the "some-apps" layer so we can give it permissions easily
 - !grant
