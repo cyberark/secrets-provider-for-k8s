@@ -14,7 +14,7 @@ secretsProvider:
   image: cyberark/secrets-provider-for-k8s
   tag: 1.1.0
   imagePullPolicy: IfNotPresent
-  name: cyberark-secrets-provider
+  name: cyberark-secrets-provider-for-k8s
 
 # OPTIONAL: Additional labels to apply to Job resource.
 labels: {}

@@ -58,7 +58,7 @@ spec:
       initContainers:
       - image: '${DOCKER_REGISTRY_PATH}/${APP_NAMESPACE_NAME}/secrets-provider:latest'
         imagePullPolicy: Always
-        name: cyberark-secrets-provider
+        name: cyberark-secrets-provider-for-k8s
         env:
           - name: MY_POD_NAME
             valueFrom:
