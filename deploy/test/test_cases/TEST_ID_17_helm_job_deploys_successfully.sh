@@ -14,13 +14,15 @@ popd
 # Deploy app to test against
 deploy_helm_app
 
-# Check for Job completion
+# Wait for Job completion
 helm_chart_name="secrets-provider"
-$cli_with_timeout wait --for=condition=complete job/$helm_chart_name
+$cli_with_timeout "get job/$helm_chart_name -o=jsonpath='{.status.conditions[*].type}' | grep Complete"
 
-pod_name=$($cli_with_timeout get pods --namespace=$APP_NAMESPACE_NAME --selector app=test-env --no-headers | awk '{print $1}' )
-verify_secret_value_in_pod $pod_name "TEST_SECRET" "supersecret"
+$cli_with_timeout "get pods --namespace=$APP_NAMESPACE_NAME --selector app=test-env --no-headers | wc -l | tr -d ' ' | grep '^1$'"
+app_pod_name=$($cli_without_timeout get pods --namespace=$APP_NAMESPACE_NAME --selector app=test-env --no-headers | awk '{print $1}' )
+verify_secret_value_in_pod $app_pod_name "TEST_SECRET" "supersecret"
 
-pod_name=$($cli_with_timeout get pods --namespace=$APP_NAMESPACE_NAME --selector app=test-helm --no-headers | awk '{print $1}' )
+$cli_with_timeout "get pods --namespace=$APP_NAMESPACE_NAME --selector app=test-helm --no-headers | wc -l | tr -d ' ' | grep '^1$'"
+secrets_provider_pod_name=$($cli_without_timeout get pods --namespace=$APP_NAMESPACE_NAME --selector app=test-helm --no-headers | awk '{print $1}' )
 echo "Expecting the Secrets provider to succeed with proper success log 'CSPFK009I DAP/Conjur Secrets updated in Kubernetes successfully'"
-$cli_with_timeout "logs $pod_name | grep CSPFK009I"
+$cli_with_timeout "logs $secrets_provider_pod_name | grep CSPFK009I"

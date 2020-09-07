@@ -17,6 +17,7 @@ pushd ../../
     --set-file environment.conjur.sslCertificate.value="test/test_cases/conjur.pem"
 popd
 
+$cli_with_timeout "get pods --namespace=$APP_NAMESPACE_NAME --selector app=test-helm --no-headers"
 pod_name=$($cli_with_timeout get pods --namespace=$APP_NAMESPACE_NAME --selector app=test-helm --no-headers | awk '{print $1}' )
 # Find initial authentication error that should trigger the retry
 $cli_with_timeout "logs $pod_name | grep 'CSPFK010E Failed to authenticate'"

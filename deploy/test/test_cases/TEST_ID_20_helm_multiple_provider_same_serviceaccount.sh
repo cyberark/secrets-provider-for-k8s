@@ -13,7 +13,7 @@ popd
 
 # Check for Job completion
 helm_chart_name="secrets-provider"
-$cli_with_timeout wait --for=condition=complete job/$helm_chart_name
+$cli_with_timeout "get job/$helm_chart_name -o=jsonpath='{.status.conditions[*].type}' | grep Complete"
 
 setup_helm_environment
 
@@ -30,7 +30,7 @@ pushd ../../
 popd
 
 helm_chart_name="another-secrets-provider"
-$cli_with_timeout wait --for=condition=complete job/$helm_chart_name
+$cli_with_timeout "get job/$helm_chart_name -o=jsonpath='{.status.conditions[*].type}' | grep Complete"
 
 # Verify that another-secrets-provider runs with the correct Service Account
 $cli_with_timeout "get pods --namespace=$APP_NAMESPACE_NAME --selector app=another-test-helm --no-headers | grep another-secrets-provider"
