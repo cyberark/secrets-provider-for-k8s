@@ -29,7 +29,7 @@ This document will cover the options for enhancing Batch Retrieval requests.
 
 ### Motivation
 
-*Previously*, for the init container solution, each Secrets Provider was deployed to the same Pod as the customer application containers. Because of this, when a batch retrieval request was made, the requests were dispersed across many call to the Conjur server. When making the batch retreival request and a permission error occured for example, then the batch request would fail and only that Pod would not spin up successfully. 
+*Previously*, for the init container solution, each Secrets Provider was deployed to the same Pod as the customer application containers. Because of this, when a batch retrieval request was made, the requests were dispersed across many call to the Conjur server. When making the batch retrieval request and a permission error occurred for example, then the batch request would fail and only that Pod would not spin up successfully. 
 
 *Now*, with the Job Milestone, the Secrets Provider is deployed outside of the customers' Pods, supporting multiple customer pods. With this, a single batch retrieval request will be made for *all* applications to fetch the necessary secrets to deploy properly. Therefore, if there is a failure in receiving one of the values, then the whole request will fail. In other words, **no application** Pod will spin up in the namespace. This leads to a faulty user experience.
 
@@ -79,10 +79,10 @@ The new Batch Retrieval API will effect #2a. This will effect both init and appl
 
 ##### POST /secrets
 
-This method retuns a list of secrets, their status code, and their value if an error did not occur. For differences between proposed API and existing API see [Proposed API vs Current API](#proposed-api-vs-current-api) section below.
+This method retuns a list of secrets, their status code, and their value if an error did not occur. For differences between proposed API and existing API see [Proposed API vs Current API](#proposed-api-vs-current-api) section below. We  require `account` as part of the URI instead of as part of the variableIDs
 
 ```
-POST /secrets
+POST /secrets/{account}
 ```
 
 ### Request Body
@@ -186,8 +186,9 @@ The following are the possible error codes that can be returned for individual s
 
 |               | Current                                                      | Proposed                                                     |
 | ------------- | ------------------------------------------------------------ | ------------------------------------------------------------ |
-| URI           | `GET /secrets{?variable_ids}}`                               | `POST /secrets`                                              |
+| URI           | `GET /secrets{?variable_ids}}`                               | `POST /secrets/{account}`                                    |
 | Request Body  | -                                                            | See **Request Body** section                                 |
+| VariableID    | `variable_ids=myorg:variable:var/path/conjurSecret`          | `variable_ids=var/path/conjurSecret`                         |
 | Response Body | JSON of ***only*** successfully retrieved secrets and their values. Single failure, fails whole request and no secret is returned. | JSON of **all** secrets, their status code/messages, and values for successfully retrieved secrets |
 | Behavior      | Request fails when individual request fails                  | Request does not fail when sub/individual requests fail      |
 
@@ -211,109 +212,55 @@ A new audit entry will made per secret fetched from Conjur/DAP as is done in the
 
 The following integration tests will be implemented in Conjur
 
-|      | Scenario                                                     | Given                                                        | When                                                         | Then                                                         | Manual/Automated |
-| ---- | ------------------------------------------------------------ | ------------------------------------------------------------ | ------------------------------------------------------------ | ------------------------------------------------------------ | ---------------- |
-| 1    | Vanilla flow                                                 | Given I am an authenticated, privileged user/host<br />With proper permissions on requested secrets | I send `POST /secrets` with valid JSON body with  `var/path/conjurSecret` and `var/path/anotherConjurSecret` in request body | - The JSON response should be (*see below* #1)<br />- Status response code should be `200 OK`<br />- The proper audit record should appear for the whole request and each individual secret | Automated        |
-| 2    | User/Host authenticated but does not have `execute` privilege | Given I am a privileged, authenticated user/host<br />With proper permissions on ***one*** of requested secrets | I send `POST /secrets` with valid JSON body with  `var/path/conjurSecret` and `var/path/anotherConjurSecret` in request body | - The JSON response should be (*see below* #2)<br />- Status response code should be `200 OK`<br />- Existing secret should have `200`. Non-existing secret should have `403` status error<br />- The proper audit record should appear for the whole request and each individual secret | Automated        |
-| 3    | User/Host authenticated but secret doesn't exist             | Given I am a privileged, authenticated user/host<br />With proper `execute` permissions<br />Requesting secret does not exist | I send `POST /secrets` with valid JSON body with  `var/path/conjurSecret` and `var/path/nonExistingSecret` in request body | - The JSON response should be (*see below #3*)<br />- Status response code should be `200 OK`<br />- Existing secret should have `200`. Non-existing secret should have `404 ` status error<br />- The proper audit record should appear for the whole request and each individual secret | Automated        |
-| 4    | User/Host authenticated but secret does not have value       | Given I am a privileged, authenticated user/host<br />With proper permissions<br />Requesting secret *value* does not exist | I send `POST /secrets` with valid JSON body with  `var/path/conjurSecret` and `var/path/nonSecretValue` in request body | - The JSON response should be (*see below #4)<br />- Status response code should be `200 OK`<br />- Existing secret should have `200`. Non-existing secret value should have `404 ` status error<br />- The proper audit record should appear for the whole request and each individual secret | Automated        |
-| 5    | Invalid request body                                         | Given I am a privileged, authenticated user/host<br />With proper permissions<br />Requesting secret in invalid format | I send `POST /secrets` with invalid JSON body with `var/path/conjurSecret` and  `var/path/<>` | - The JSON response should be (see below #5)<br />- Status response code should be `400 `<br />- The proper audit record should appear for the whole request and each individual secret | Automated        |
-| 6    | Security Mitigation tests                                    |                                                              |                                                              |                                                              |                  |
+##### Request tests
 
-*Test 1 response body*
+The following table are possible responses ordered in terms of prioritization. 
 
-```json
-200 OK
+| Priority | Scenario                  | Response                             |
+| -------- | ------------------------- | ------------------------------------ |
+| 1        | Access token is invalid   | 401 Unauthorized                     |
+| 2        | Account does not exist    | 404 Not Found (if account is in URI) |
+| 3        | JSON body is not parsable | 400 Bad Request                      |
 
+##### Individual secret request tests
+
+The following table are the permutations for the possible individual sercet responses. Each permutation will be its own test.
+
+| Variable          | Execute | Read | Response | Message              |
+| ----------------- | ------- | ---- | -------- | -------------------- |
+| Not Exist         | -       | -    | 404      | Not Found            |
+| Exists with value | No      | No   | 400      | Not Found            |
+| ""                | Yes     | No   | 200      | OK                   |
+| ""                | Yes     | Yes  | 200      | OK                   |
+| ""                | No      | Yes  | 403      | Forbidden *Security! |
+| Has no value      | No      | No   | 404      | Not Found            |
+| ""                | Yes     | No   | ???      | Has No Value         |
+| ""                | Yes     | Yes  | ???      | Has No value         |
+| ""                | No      | Yes  | 403      | Forbidden            |
+
+We will ensure all the proper audit record should appear for the whole request *and* each individual secret. All tests will be automated.
+
+As part of input validation, we want to ensure that we deserialize only the parts of the JSON request that we expect. For example for input in the following format:
+
+```
 {
   "variables": [
-  {
-    "id": "var/path/conjurSecret",
-    "status": 200,
-    "value": "superSecret"
-  },
-  {
-    "id": "var/path/anotherConjurSecret",
-    "status": 200,
-    "value": "superSecret"
-  }
- ] 
+    {"id": "var/path/conjurSecret"},
+    {"anotherId": "var/path/notToBeUsed"},
+    ...
+  ]
 }
 ```
 
-*Test 2 response body*
+We will only use the parts we expect and need. For example:
 
-```json
-200 OK
-
+```
 {
   "variables": [
-  {
-    "id": "var/path/conjurSecret",
-    "status": 200,
-    "value": "superSecret"
-  },
-    {
-    "id": "var/path/anotherConjurSecret",
-    "status": 403,
-    "error": {
-      "message": "Forbidden"
- 		}
-  },
- ] 
+    {"id": "var/path/conjurSecret"},
+    ...
+  ]
 }
-```
-
-*Test 3 response body*
-
-```json
-200 OK
-
-{
-  "variables": [
-  {
-    "id": "var/path/conjurSecret",
-    "status": 200,
-    "value": "superSecret"
-  },
-    {
-    "id": "var/path/nonexistingSecret",
-    "status": 404,
-    "error": {
-      "message": "Not Found"
- 		}
-  },
- ] 
-}
-```
-
-*Test 4 response body*
-
-```json
-200 OK
-
-{
-  "variables": [
-  {
-    "id": "var/path/conjurSecret",
-    "status": 200,
-    "value": "superSecret"
-  },
-    {
-    "id": "var/path/nonSecretValue",
-    "status": 404,
-    "error": {
-      "message": "Not Found"
- 		}
-  },
- ] 
-}
-```
-
-*Test 5 response*
-
-```json
-400 Bad Request
 ```
 
 
@@ -331,17 +278,17 @@ The following integration tests will be implemented in Secrets Provider for K8s
 
 ## Logs
 
-|      | **Scenario**                                                 | **Log message**                                              | Log level |
-| ---- | ------------------------------------------------------------ | ------------------------------------------------------------ | --------- |
-| 1    | Secrets Provider batch retrieval has partial success (Conjur) | Failed to retrieve a portion of the Conjur/DAP secrets: Reason: '%s' | Error     |
-| 2    | Secrets Provider batch retrieval total failure (Conjur)      | Failed to retrieve Conjur/DAP secrets: Reason: '%s'          | Error     |
-| 3    | Secrets Provider batch retrieval has partial success (Secrets Provider) | Skipped Kubernetes Secrets '%s'. Reason: Failed to retrieve DAP/Conjur secrets | Debug     |
-| 4    | Secrets Provider success                                     | Successfully updated '%d' out of '%d' Kubernetes Secrets     | Info      |
-| 5    | Old batch retrieval endpoint                                 | Warning: Secrets Provider cannot efficiently run because DAP/Conjur is not up to date. Please consider upgrading to the latest version | Warn      |
+|      | **Scenario**                                         | **Log message**                                              | Log level |
+| ---- | ---------------------------------------------------- | ------------------------------------------------------------ | --------- |
+| 1    | Secrets Provider batch retrieval has partial success | Failed to retrieve a portion of the Conjur/DAP secrets: Reason: '%s' | Error     |
+| 2    | Secrets Provider batch retrieval total failure       | Failed to retrieve Conjur/DAP secrets: Reason: '%s'          | Error     |
+| 3    | Secrets Provider batch retrieval has partial success | Skipped Kubernetes Secrets '%s'. Reason: Failed to retrieve DAP/Conjur secrets | Debug     |
+| 4    | Secrets Provider success                             | Successfully updated '%d' out of '%d' Kubernetes Secrets     | Info      |
+| 5    | Old batch retrieval endpoint                         | Warning: Secrets Provider cannot efficiently run because DAP/Conjur is not up to date. Please consider upgrading to the latest version | Warn      |
 
 ## Performance tests
 
-@Abraham add here
+--
 
 
 
@@ -367,14 +314,13 @@ The following are ideas for possible extension of the batch retrieval endpoint A
 - [ ] Golang SDK
   - [ ] Implement batch logic *2 days*
   - [ ] Add unit tests *2 days*
-- [ ] Implement tests in Golang SDK *3 days*
-- [ ] Add change in Secrets Provider *3 days*
+- [ ] Implement change in Secrets Provider *3 days*
 - [ ] Implement test plan
   - [ ] Add integration tests in Secrets Provider *3 days*
 - [ ] Performance tests
   - [ ] In Conjur *TBD*
   - [ ] In Secrets Provider *TBD*
 - [ ] Team/cross-team review cycle *3 days*
-- [x] Logs reviewed by TW *1 day*
+- [ ] Logs reviewed by TW *1 day*
 
 Total: 29 days ~6 weeks
