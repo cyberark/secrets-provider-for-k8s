@@ -288,7 +288,31 @@ The following integration tests will be implemented in Secrets Provider for K8s
 
 ## Performance tests
 
---
+The following performance tests will be run using *Jmeter*.
+These tests will be run for both the new API and the existing one, and compare the results between them.
+
+#### Benchmark
+
+| Section     | Parameter                      | Value          |
+| ----------- | ------------------------------ | -------------- |
+| Conjur      | \# of standbys                 | 2              |
+| Conjur      | \# of followers                | 1              |
+| Environment | Kubernetes                     | OpenShift 3.11 |
+| Environment | \# of cores                    | 16             |
+| Environment | \# of nodes                    | 1              |
+| Test        | \# of requesting threads       | 20             |
+| Test        | \# of variables                | 1025           |
+| Test        | \# of variabels per policy     | 5              |
+| Test        | \# of policies                 | 205            |
+| Test        | Variable ID length             | 50             |
+| Test        | Variable value length (secret) | 50             |
+
+
+
+|      | Scenario      | Given                                                        | When                                                         | Then                                                         | Manual/Automated |
+| ---- | ------------- | ------------------------------------------------------------ | ------------------------------------------------------------ | ------------------------------------------------------------ | ---------------- |
+| 1    | Response time | - Conjur is running<br />- Host is defined<br />- 1024 Secrets are defined<br /> | For X=1, X<=1024, X=X\*2:<br />    Concurrently retrieve X secrets for 5 minutes, measure average response time.<br />    Repeat each step 3 times.<br /> | Calculate the average response time between the 3 cycles for each step.<br />Plot the average response time per number of secrets provider. | Manual           |
+| 2    | Throughput    | - Conjur is running<br />- Host is defined<br />- 1024 Secrets are defined<br /> | For X=1, X<=1024, X=X\*2:<br />    Concurrently retrieve X secrets for 5 minutes, measure throughput.<br />    Repeat each step 3 times.<br /> | Calculate the throughput between the 3 cycles for each step.<br />Plot the throughput per number of secrets provider. | Manual           |
 
 
 
@@ -308,19 +332,20 @@ The following are ideas for possible extension of the batch retrieval endpoint A
 
 ### Delivery Plan
 
-- [ ] Fix flaky tests *2 days*
-- [ ] Implement new API endpoint in Conjur *5 days*
-- [ ] Add integration tests in Conjur *4 days*
+- [ ] Fix flaky tests ***2 days***
+- [ ] Implement new API endpoint in Conjur ***5 days***
+- [ ] Add integration tests in Conjur ***4 days***
 - [ ] Golang SDK
-  - [ ] Implement batch logic *2 days*
-  - [ ] Add unit tests *2 days*
-- [ ] Implement change in Secrets Provider *3 days*
+  - [ ] Implement batch logic ***2 days***
+  - [ ] Add unit tests ***2 days***
+- [ ] Implement change in Secrets Provider ***3 days***
 - [ ] Implement test plan
-  - [ ] Add integration tests in Secrets Provider *3 days*
+  - [ ] Add integration tests in Secrets Provider ***3 days***
 - [ ] Performance tests
-  - [ ] In Conjur *TBD*
-  - [ ] In Secrets Provider *TBD*
-- [ ] Team/cross-team review cycle *3 days*
-- [ ] Logs reviewed by TW *1 day*
+  - [ ] In Conjur ***5 days***
+  - [ ] In Secrets Provider ***3 days***
+- [ ] Team/cross-team review cycle ***3 days***
+- [ ] Logs reviewed by TW ***1 day***
 
-Total: 29 days ~6 weeks
+Total: 33 days ~6.5 weeks
+
