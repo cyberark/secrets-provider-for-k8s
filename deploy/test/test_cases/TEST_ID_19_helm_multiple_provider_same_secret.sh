@@ -13,7 +13,7 @@ popd
 
 # Check for Job completion
 helm_chart_name="secrets-provider"
-$cli_with_timeout wait --for=condition=complete job/$helm_chart_name
+$cli_with_timeout "get job/$helm_chart_name -o=jsonpath='{.status.conditions[*].type}' | grep Complete"
 
 setup_helm_environment
 pushd ../../
@@ -28,7 +28,7 @@ pushd ../../
 popd
 
 helm_chart_name="another-secrets-provider"
-$cli_with_timeout wait --for=condition=complete job/$helm_chart_name
+$cli_with_timeout "get job/$helm_chart_name -o=jsonpath='{.status.conditions[*].type}' | grep Complete"
 
 # Deploy app to test against
 deploy_helm_app

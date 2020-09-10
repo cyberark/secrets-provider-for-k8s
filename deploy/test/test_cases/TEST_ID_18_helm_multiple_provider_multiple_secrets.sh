@@ -17,7 +17,7 @@ pushd ../../
 popd
 
 helm_chart_name="secrets-provider"
-$cli_with_timeout wait --for=condition=complete job/$helm_chart_name
+$cli_with_timeout "get job/$helm_chart_name -o=jsonpath='{.status.conditions[*].type}' | grep Complete"
 
 deploy_helm_app
 
@@ -36,8 +36,9 @@ pushd ../../
     --set-file environment.conjur.sslCertificate.value="test/test_cases/conjur.pem"
 popd
 
+# Wait for Job completion
 helm_chart_name="another-secrets-provider"
-$cli_with_timeout wait --for=condition=complete job/$helm_chart_name
+$cli_with_timeout "get job/$helm_chart_name -o=jsonpath='{.status.conditions[*].type}' | grep Complete"
 
 export K8S_SECRET=another-test-k8s-secret
 deploy_helm_app "another-"

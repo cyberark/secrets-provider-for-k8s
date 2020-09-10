@@ -29,10 +29,15 @@ pushd ../../
     --set-file environment.conjur.sslCertificate.value="test/test_cases/conjur.pem"
 popd
 
+$cli_with_timeout "get pods --namespace=$APP_NAMESPACE_NAME --selector app=test-helm --no-headers"
 pod_name=$($cli_with_timeout get pods --namespace=$APP_NAMESPACE_NAME --selector app=test-helm --no-headers | awk '{print $1}' )
+
+# This sleep allows all logs to arrive to avoid platform failures
+sleep 5
 
 # Find initial authentication error that should trigger the retry
 $cli_with_timeout "logs $pod_name | grep 'CSPFK010E Failed to authenticate'"
+
 # Start the timer for retry interval
 start=$SECONDS
 
@@ -40,6 +45,7 @@ echo "Expecting Secrets Provider retry configurations to take defaults RETRY_INT
 $cli_with_timeout "logs $pod_name | grep 'CSPFK010I Updating Kubernetes Secrets: 1 retries out of $DEFAULT_RETRY_COUNT_LIMIT'"
 
 duration=$(( SECONDS - start ))
+
 # Since we are testing retry in scripts we must determine an acceptable range that retry should have taken place
 # If the duration falls within that range, then we can determine the retry mechanism works as expected
 retryIntervalMin=`echo "scale=3; $DEFAULT_RETRY_INTERVAL_SEC/100*80" | bc -l | awk '{print ($0-int($0)<0.499)?int($0):int($0)+1}'`
