@@ -102,6 +102,9 @@ pipeline {
   }
 
   post {
+    always {
+      archiveArtifacts artifacts: 'output/*'
+    }
     success {
       cleanupAndNotify(currentBuild.currentResult)
     }

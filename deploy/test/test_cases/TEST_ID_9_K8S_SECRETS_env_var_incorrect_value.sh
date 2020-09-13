@@ -15,3 +15,5 @@ $cli_with_timeout "logs $pod_name -c cyberark-secrets-provider-for-k8s | grep CS
 
 echo "Expecting secrets provider to fail with error 'CSPFK020E Failed to retrieve k8s secret'"
 $cli_with_timeout "logs $pod_name -c cyberark-secrets-provider-for-k8s | grep CSPFK020E"
+
+get_logs

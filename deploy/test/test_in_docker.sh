@@ -4,19 +4,21 @@ set -xeuo pipefail
 . utils.sh
 
 # Clean up when script completes and fails
-finish() {
-  announce 'Wrapping up and removing test environment'
-
-  # Stop the running processes
-  runDockerCommand "
-    ./stop && cd kubernetes-conjur-deploy-$UNIQUE_TEST_ID && ./stop
-  "
-  # Remove the deploy directory
-  rm -rf "kubernetes-conjur-deploy-$UNIQUE_TEST_ID"
-}
-trap finish EXIT
+#finish() {
+#  announce 'Wrapping up and removing test environment'
+#
+#  get_logs
+#  # Stop the running processes
+#  runDockerCommand "
+#    ./stop && cd kubernetes-conjur-deploy-$UNIQUE_TEST_ID && ./stop
+#  "
+#  # Remove the deploy directory
+#  rm -rf "kubernetes-conjur-deploy-$UNIQUE_TEST_ID"
+#}
+#trap finish EXIT
 
 main() {
+  mkdir -p ../output #for pod logs
   buildTestRunnerImage
   deployConjur
   deployTest
@@ -36,8 +38,10 @@ deployConjur() {
   # from inside the container
   docker pull $CONJUR_APPLIANCE_IMAGE
 
-  git clone git@github.com:cyberark/kubernetes-conjur-deploy \
+  git clone --single-branch --branch flaky-test git@github.com:cyberark/kubernetes-conjur-deploy \
       kubernetes-conjur-deploy-$UNIQUE_TEST_ID
+  #git clone git@github.com:cyberark/kubernetes-conjur-deploy \
+   #   kubernetes-conjur-deploy-$UNIQUE_TEST_ID
 
   cmd="./start"
   if [ $CONJUR_DEPLOYMENT = "oss" ]; then

@@ -388,3 +388,18 @@ verify_secret_value_in_pod() {
   $cli_with_timeout "exec -n $APP_NAMESPACE_NAME ${pod_name} -- \
     printenv | grep $environment_variable_name | cut -d '=' -f 2- | grep $expected_value"
 }
+
+get_logs()
+{
+    pod_name=$(cli_get_pods_test_env | awk '{print $1}')
+    if [[ -z "$pod_name" ]]; then
+      echo "no logs "
+    else
+      ls ../../
+      #touch "output/$PLATFORM-authn-k8s-logs.txt"
+      #echo "$pod_name"
+      #$cli_without_timeout logs $pod_name -c cyberark-secrets-provider-for-k8s > "output/$PLATFORM-authn-k8s-logs.txt"
+      #ls output
+    fi
+
+}
