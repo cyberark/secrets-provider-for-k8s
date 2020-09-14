@@ -102,6 +102,9 @@ pipeline {
   }
 
   post {
+    always {
+         archiveArtifacts artifacts: "deploy/output/*.txt", fingerprint: false, allowEmptyArchive: true
+    }
     success {
       cleanupAndNotify(currentBuild.currentResult)
     }

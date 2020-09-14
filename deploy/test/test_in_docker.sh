@@ -17,6 +17,7 @@ finish() {
 trap finish EXIT
 
 main() {
+  mkdir -p output #location where Secrets Provider/Conjur logs will be saved
   buildTestRunnerImage
   deployConjur
   deployTest
