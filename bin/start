@@ -62,6 +62,7 @@ fi
 export RUN_IN_DOCKER
 export CONJUR_DEPLOYMENT
 export DEV
+export SUMMON_ENV
 
 # summon environment variable
 export CONJUR_MAJOR_VERSION=4

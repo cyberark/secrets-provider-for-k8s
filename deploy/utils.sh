@@ -112,6 +112,7 @@ runDockerCommand() {
     -e DEV \
     -e CONJUR_DEPLOYMENT \
     -e RUN_IN_DOCKER \
+    -e SUMMON_ENV \
     -v $GCLOUD_SERVICE_KEY:/tmp$GCLOUD_SERVICE_KEY \
     -v /var/run/docker.sock:/var/run/docker.sock \
     -v ~/.config:/root/.config \
@@ -387,4 +388,61 @@ verify_secret_value_in_pod() {
 
   $cli_with_timeout "exec -n $APP_NAMESPACE_NAME ${pod_name} -- \
     printenv | grep $environment_variable_name | cut -d '=' -f 2- | grep $expected_value"
+}
+
+get_app_logs_container() {
+    echo "Get logs from the Secrets Provider container"
+    set_namespace "$APP_NAMESPACE_NAME"
+    helm=$(helm ls -aq)
+    $cli_without_timeout get pods
+
+    if [[ -z "$helm" ]]; then
+      pod_name=$($cli_without_timeout get pods --selector app=test-env --no-headers  | awk '{print $1}' )
+      echo "pod_name="$pod_name
+
+      if [[ $pod_name != "" ]]; then
+        $cli_without_timeout logs $pod_name -c cyberark-secrets-provider-for-k8s > "output/$SUMMON_ENV-secrets-provider-logs.txt"
+      fi
+    else
+      pod_name=$($cli_without_timeout get pods --selector app=test-helm --no-headers | awk '{print $1}' )
+      echo "pod_name="$pod_name
+
+      if [[ $pod_name != "" ]]; then
+         $cli_without_timeout logs $pod_name  > "output/$SUMMON_ENV-secrets-provider-logs-with-helm.txt"
+      fi
+    fi
+}
+
+get_conjur_logs_container() {
+    echo "Get logs from the DAP Follower/Conjur container(s)"
+    set_namespace "$CONJUR_NAMESPACE_NAME"
+    selector="role=follower"
+
+    if [ "$CONJUR_DEPLOYMENT" = "oss" ]; then
+      selector="app=conjur-oss"
+    fi
+
+    $cli_without_timeout get pods
+    $cli_with_timeout get pods --selector=$selector --no-headers
+    pod_list=$($cli_without_timeout get pods --selector=$selector --no-headers | awk '{ print $1 }')
+
+    if [[ -z "$pod_list" ]]; then
+      echo "Pod doesn't exist. DAP Follower/Conjur logs were unable to be retrieved"
+    else
+      if [ "$CONJUR_DEPLOYMENT" = "oss" ]; then
+        $cli_without_timeout logs $pod_list -c conjur > "output/$SUMMON_ENV-$pod_list-logs.txt"
+      else
+        #Fetch multiple container logs for case where there are more than one DAP Follower
+        for pod in $pod_list
+        do
+          $cli_without_timeout logs $pod  > "output/$SUMMON_ENV-$pod-logs.txt"
+        done
+      fi
+    fi
+}
+
+get_logs() {
+    echo "Fetching all success / error logs"
+    get_conjur_logs_container
+    get_app_logs_container
 }
