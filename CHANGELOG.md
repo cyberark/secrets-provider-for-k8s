@@ -5,14 +5,14 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
-
-## [1.1.0] - 2020-08-20
 ### Added
 - Helm chart to deploy the Secrets Provider Job using Helm ([cyberark/secrets-provider-for-k8s#165](https://github.com/cyberark/secrets-provider-for-k8s/pulls/165))
 - CONTAINER_MODE support for application containers in addition to init containers ([cyberark/secrets-provider-for-k8s#179](https://github.com/cyberark/secrets-provider-for-k8s/pull/179))
 - Red Hat certified version of the secrets-provider-for-k8s image ([cyberark/secrets-provider-for-k8s#93](https://github.com/cyberark/secrets-provider-for-k8s/pull/93))
 
 ### Changed
+- Bumped the authn-k8s client version to 0.18.1 
+  [cyberark/conjur-authn-k8s-client#223](https://github.com/cyberark/conjur-authn-k8s-client/issues/223)
 - The retry backoff for the Secrets Provider is now constant instead of exponential ([cyberark/secrets-provider-for-k8s#174](https://github.com/cyberark/secrets-provider-for-k8s/issues/174))
 - The secrets-provider-for-k8s now runs as a limited user in the Docker image 
   instead of as root. This is considered a best security practice because it abides by the principle of least privilege
