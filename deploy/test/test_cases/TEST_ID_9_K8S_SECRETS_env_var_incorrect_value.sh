@@ -10,7 +10,9 @@ export K8S_SECRETS_KEY_VALUE="K8S_SECRETS K8S_SECRETS_invalid_value"
 deploy_init_env
 
 echo "Expecting secrets provider to fail with debug message 'CSPFK004D Failed to retrieve k8s secret. Reason: secrets K8S_SECRETS_invalid_value not found'"
-pod_name=$(cli_get_pods_test_env | awk '{print $1}')
+$cli_with_timeout "get pods --namespace=$APP_NAMESPACE_NAME --selector app=test-env --no-headers | wc -l | tr -d ' ' | grep '^1$'"
+pod_name=$($cli_with_timeout "get pods --namespace=$APP_NAMESPACE_NAME --selector app=test-env --no-headers" | awk '{print $1}')
+
 $cli_with_timeout "logs $pod_name -c cyberark-secrets-provider-for-k8s | grep CSPFK004D"
 
 echo "Expecting secrets provider to fail with error 'CSPFK020E Failed to retrieve k8s secret'"

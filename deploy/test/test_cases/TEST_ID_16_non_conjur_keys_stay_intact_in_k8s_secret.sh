@@ -14,5 +14,7 @@ k8s_secret_key="NON_CONJUR_SECRET"
 secret_value="some-value"
 
 echo "Verifying pod test_env has environment variable '$k8s_secret_key' with value '$secret_value'"
-pod_name=$(cli_get_pods_test_env | awk '{print $1}')
+$cli_with_timeout "get pods --namespace=$APP_NAMESPACE_NAME --selector app=test-env --no-headers | wc -l | tr -d ' ' | grep '^1$'"
+pod_name=$($cli_with_timeout "get pods --namespace=$APP_NAMESPACE_NAME --selector app=test-env --no-headers" | awk '{print $1}')
+
 verify_secret_value_in_pod "$pod_name" $k8s_secret_key "$secret_value"
