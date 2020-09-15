@@ -210,10 +210,9 @@ follow the instructions in this section.
 
 ### Publish the git release
 1. In the GitHub UI, create a release from the new tag and copy the change log
-for the new version into the GitHub release description.
-1. The Jenkins pipeline auto-publishes new images to DockerHub, but to publish the Red Hat certified image you will need 
-to visit its [management page](https://connect.redhat.com/project/4381831/view) and manually publish the image.
-
+for the new version into the GitHub release description. The Jenkins pipeline 
+will auto-publish new images to DockerHub.
+                                                            
 ### Publish the Red Hat image
 1. Visit the [Red Hat project page](https://connect.redhat.com/project/4381831/view) once the images have been pushed 
 and manually choose to publish the latest release.
