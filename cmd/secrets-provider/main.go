@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"strconv"
 	"time"
 
 	"github.com/cenkalti/backoff"
@@ -18,7 +19,13 @@ import (
 )
 
 func main() {
-	var err error
+	endAtStr := os.Getenv("END_AT")
+	endAtUnixTime, err := strconv.Atoi(endAtStr)
+	endAt := time.Unix(int64(endAtUnixTime), 0)
+
+	start := time.Now()
+	//log.Warn("QQQ Started")
+	//defer func() {log.Warn("QQQ Total: %f, active: %f", time.Since(startAt).Seconds(), time.Since(start).Seconds())}()
 
 	log.Info(messages.CSPFK008I, secrets.FullVersionName)
 
@@ -56,24 +63,38 @@ func main() {
 		time.Duration(secretsConfig.RetryIntervalSec)*time.Second,
 		secretsConfig.RetryCountLimit)
 
-	err = backoff.Retry(func() error {
-		if limitedBackOff.RetryCount() > 0 {
-			log.Info(fmt.Sprintf(messages.CSPFK010I, limitedBackOff.RetryCount(), limitedBackOff.RetryLimit))
-		}
+	failed := 0
+	for i := 1; ; i++ {
+		err = backoff.Retry(func() error {
+			if limitedBackOff.RetryCount() > 0 {
+				log.Info(fmt.Sprintf(messages.CSPFK010I, limitedBackOff.RetryCount(), limitedBackOff.RetryLimit))
+			}
 
-		return provideSecretsToTarget(authn, provideConjurSecrets, accessToken)
-	}, limitedBackOff)
+			return provideSecretsToTarget(authn, provideConjurSecrets, accessToken)
+		}, limitedBackOff)
 
-	if err != nil {
-		log.Error(messages.CSPFK038E)
-
-		// Deleting the retrieved Conjur access token in case we got an error after retrieval.
-		// if the access token is already deleted the action should not fail
-		err = accessToken.Delete()
 		if err != nil {
-			log.Error(messages.CSPFK003E, err)
+			log.Error(messages.CSPFK038E)
+
+			failed++
+			// Deleting the retrieved Conjur access token in case we got an error after retrieval.
+			// if the access token is already deleted the action should not fail
+			err2 := accessToken.Delete()
+			if err2 != nil {
+				log.Error(messages.CSPFK003E, err)
+			}
+			//printErrorAndExit(messages.CSPFK039E)
 		}
-		printErrorAndExit(messages.CSPFK039E)
+
+		log.Warn("QQQ Cycle succeeded: [%v] duration: [%f]", err == nil, time.Since(start).Seconds())
+
+		if time.Now().After(endAt) {
+			log.Warn("QQQ End time has reached: %v, Cycles: [%d], Failed: [%d]", endAt, i, failed)
+			os.Exit(0)
+		}
+
+		authn.PublicCert = nil
+		start = time.Now()
 	}
 }
 

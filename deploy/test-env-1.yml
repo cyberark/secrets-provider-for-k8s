@@ -1,0 +1,67 @@
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    app: test-env
+  name: test-env-{{ ID }}
+spec:
+  serviceAccountName: secrets-provider-sa
+  restartPolicy: Never
+  containers:
+  - image: 'docker-registry-default.openshift-311.itd.conjur.net/app-performance/secrets-provider:latest'
+    imagePullPolicy: Always
+    name: cyberark-secrets-provider
+    env:
+      - name: MY_POD_NAME
+        valueFrom:
+          fieldRef:
+            apiVersion: v1
+            fieldPath: metadata.name
+
+      - name: MY_POD_NAMESPACE
+        valueFrom:
+          fieldRef:
+            apiVersion: v1
+            fieldPath: metadata.namespace
+
+      - name: CONJUR_APPLIANCE_URL
+        value: https://conjur-follower.conjur-performance.svc.cluster.local/api
+
+      - name: CONJUR_AUTHN_URL
+        value: https://conjur-follower.conjur-performance.svc.cluster.local/api/authn-k8s/conjur-performance-test
+
+      - name: CONJUR_ACCOUNT
+        value: my-account
+
+      - name: CONJUR_SSL_CERTIFICATE
+        valueFrom:
+          configMapKeyRef:
+            name: conjur-master-ca-env
+            key: ssl-certificate
+
+      - name: CONJUR_AUTHN_LOGIN
+        value: host/conjur/authn-k8s/conjur-performance-test/apps/test-app
+
+      - name: SECRETS_DESTINATION
+        value: k8s_secrets
+
+      - name: CONTAINER_MODE
+        value: application
+
+      - name: K8S_SECRETS
+        value: secrets-1,secrets-2,secrets-3,secrets-4,secrets-5,secrets-6,secrets-7,secrets-8,secrets-9,secrets-10
+
+      - name: RETRY_COUNT_LIMIT
+        value: "5"
+      - name: RETRY_INTERVAL_SEC
+        value: "1"
+      - name: END_AT
+        value: "{{ END_AT }}"
+
+
+
+  imagePullSecrets:
+    - name: dockerpullsecret
+
+
