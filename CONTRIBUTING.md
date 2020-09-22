@@ -187,10 +187,12 @@ follow the instructions in this section.
     1. [Chart version](helm/secrets-provider/Chart.yaml)
     1. [Default deployed version](helm/secrets-provider/values.yaml)
     
-1. Create a helm package by running the following command from the repo root: `pushd helm/secrets-provider/packages && helm package .. && popd`
-1. Create a PR for [helm-charts](https://github.com/cyberark/helm-charts) and do the following:
-    1. Add the packaged file to the *docs* folder
-    1. Execute the `reindex.sh` script file from the `helm-charts` repo root folder
+1. Create a Helm package by running the following command from the repo root: `helm package helm/secrets-provider`.
+   The Helm package will be saved to the current folder and will resemble `secrets-provider-<version>.tgz`.
+1. Clone the repo [helm-charts](https://github.com/cyberark/helm-charts) and do the following:
+    1. Move the Helm package file created in the previous step to the *docs* folder in the `helm-charts` repo.
+    1. Go to the `helm-charts` repo root folder and execute the `reindex.sh` script file located there.
+    1. Create a PR with those changes.
 1. Review the git log and ensure the [changelog](CHANGELOG.md) contains all
    relevant recent changes with references to GitHub issues or PRs, if possible.
 1. Review the changes since the last tag, and if the dependencies have changed
