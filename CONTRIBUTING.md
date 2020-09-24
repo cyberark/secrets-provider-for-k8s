@@ -186,13 +186,6 @@ follow the instructions in this section.
     1. [Version file](pkg/secrets/version.go)
     1. [Chart version](helm/secrets-provider/Chart.yaml)
     1. [Default deployed version](helm/secrets-provider/values.yaml)
-    
-1. Create a Helm package by running the following command from the repo root: `helm package helm/secrets-provider`.
-   The Helm package will be saved to the current folder and will resemble `secrets-provider-<version>.tgz`.
-1. Clone the repo [helm-charts](https://github.com/cyberark/helm-charts) and do the following:
-    1. Move the Helm package file created in the previous step to the *docs* folder in the `helm-charts` repo.
-    1. Go to the `helm-charts` repo root folder and execute the `reindex.sh` script file located there.
-    1. Create a PR with those changes.
 1. Review the git log and ensure the [changelog](CHANGELOG.md) contains all
    relevant recent changes with references to GitHub issues or PRs, if possible.
 1. Review the changes since the last tag, and if the dependencies have changed
@@ -210,6 +203,14 @@ follow the instructions in this section.
 1. Push the tag: `git push vx.y.z` (or `git push origin vx.y.z` if you are working
    from your local machine).
 
+### Push Helm package
+1. Every build packages the Secrets Provider Helm chart for us. The package can be found under the 'Artifacts' tab of the Jenkins build and will resemble `secrets-provider-<version>.tgz`. 
+Navigate to the 'Artifacts' tab of the _tagged version_ build and save this file. You will need it for the next step.
+1. Clone the repo [helm-charts](https://github.com/cyberark/helm-charts) and do the following:
+    1. Move the Helm package file created in the previous step to the *docs* folder in the `helm-charts` repo.
+    1. Go to the `helm-charts` repo root folder and execute the `reindex.sh` script file located there.
+    1. Create a PR with those changes.
+    
 ### Publish the git release
 1. In the GitHub UI, create a release from the new tag and copy the change log
 for the new version into the GitHub release description. The Jenkins pipeline 
