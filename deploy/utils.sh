@@ -177,6 +177,9 @@ setup_helm_environment() {
     ssl_location="../conjur.pem"
   fi
 
+  fetch_ssl_from_conjur
+  # Save cert for later setting in Helm
+  $cli_with_timeout "exec ${conjur_pod_name} --namespace $CONJUR_NAMESPACE_NAME cat $cert_location" > "$ssl_location"
   i=0
   while [[ ! -f "$ssl_location" || ! -s "$ssl_location" && $i -le 5 ]]; do
     i=$(( $i + 1 ))
@@ -205,11 +208,13 @@ fill_helm_chart() {
     helm_path=".."
   fi
 
+  id=${1:-""}
+  rm -rf "$helm_path/helm/secrets-provider/ci/${id}test-values-$UNIQUE_TEST_ID.yaml"
+
   set_image_path
 
-  id=${1:-""}
   i=0
-  while [[ ! -f "$helm_path/helm/secrets-provider/ci/${id}test-values.yaml" && $i -le 5 ]]; do
+  while [[ ! -f "$helm_path/helm/secrets-provider/ci/${id}test-values-$UNIQUE_TEST_ID.yaml" && $i -le 5 ]]; do
     i=$(( $i + 1 ))
     sed -e "s#{{ SECRETS_PROVIDER_ROLE }}#${SECRETS_PROVIDER_ROLE:-"secrets-provider-role"}#g" \
       -e "s#{{ SECRETS_PROVIDER_ROLE_BINDING }}#${SECRETS_PROVIDER_ROLE_BINDING:-"secrets-provider-role-binding"}#g" \
@@ -228,14 +233,16 @@ fill_helm_chart() {
       -e "s#{{ DEBUG }}# ${DEBUG:-"false"}#g" \
       -e "s#{{ RETRY_COUNT_LIMIT }}# ${RETRY_COUNT_LIMIT:-"5"}#g" \
       -e "s#{{ RETRY_INTERVAL_SEC }}# ${RETRY_INTERVAL_SEC:-"5"}#g" \
-      "$helm_path/helm/secrets-provider/ci/test-values-template.yaml" > "$helm_path/helm/secrets-provider/ci/${id}test-values.yaml"
+      "$helm_path/helm/secrets-provider/ci/test-values-template.yaml" > "$helm_path/helm/secrets-provider/ci/${id}test-values-$UNIQUE_TEST_ID.yaml"
   done
 
 }
 
 fill_helm_chart_no_override_defaults() {
+  rm -rf "../helm/secrets-provider/ci/take-default-test-values-$UNIQUE_TEST_ID.yaml"
+
   i=0
-  while [[ ! -f "../helm/secrets-provider/ci/take-default-test-values.yaml" && $i -le 5 ]]; do
+  while [[ ! -f "../helm/secrets-provider/ci/take-default-test-values-$UNIQUE_TEST_ID.yaml" && $i -le 5 ]]; do
     i=$(( $i + 1 ))
     sed -e "s#{{ K8S_SECRETS }}#${K8S_SECRETS}#g" \
       -e "s#{{ CONJUR_ACCOUNT }}#${CONJUR_ACCOUNT}#g" \
@@ -243,25 +250,27 @@ fill_helm_chart_no_override_defaults() {
       -e "s#{{ CONJUR_APPLIANCE_URL }}#${CONJUR_APPLIANCE_URL}#g" \
       -e "s#{{ CONJUR_AUTHN_URL }}#${CONJUR_AUTHN_URL}#g" \
       -e "s#{{ CONJUR_AUTHN_LOGIN }}# ${CONJUR_AUTHN_LOGIN}#g"  \
-      "../helm/secrets-provider/ci/take-default-test-values-template.yaml" > "../helm/secrets-provider/ci/take-default-test-values.yaml"
+      "../helm/secrets-provider/ci/take-default-test-values-template.yaml" > "../helm/secrets-provider/ci/take-default-test-values-$UNIQUE_TEST_ID.yaml"
   done
 }
 
 fill_helm_chart_test_image() {
+  rm -rf "../helm/secrets-provider/ci/take-image-values-$UNIQUE_TEST_ID.yaml"
+
   i=0
-  while [[ ! -f "../helm/secrets-provider/ci/take-image-values.yaml" && $i -le 5 ]]; do
+  while [[ ! -f "../helm/secrets-provider/ci/take-image-values-$UNIQUE_TEST_ID.yaml" && $i -le 5 ]]; do
     i=$(( $i + 1 ))
     sed -e "s#{{ IMAGE }}#${IMAGE}#g" \
       -e "s#{{ TAG }}#${TAG}#g" \
       -e "s#{{ IMAGE_PULL_POLICY }}#${IMAGE_PULL_POLICY}#g" \
-      "../helm/secrets-provider/ci/take-image-values-template.yaml" > "../helm/secrets-provider/ci/take-image-values.yaml"
+      "../helm/secrets-provider/ci/take-image-values-template.yaml" > "../helm/secrets-provider/ci/take-image-values-$UNIQUE_TEST_ID.yaml"
   done
 }
 
 deploy_chart() {
   pushd ../
     fill_helm_chart
-    helm install -f "helm/secrets-provider/ci/test-values.yaml" \
+    helm install -f "helm/secrets-provider/ci/test-values-$UNIQUE_TEST_ID.yaml" \
       secrets-provider ./helm/secrets-provider \
       --set-file environment.conjur.sslCertificate.value="conjur.pem"
   popd
@@ -418,6 +427,8 @@ get_app_logs_container() {
       echo "pod_name="$pod_name
 
       if [[ $pod_name != "" ]]; then
+        $cli_without_timeout describe pod $pod_name
+        $cli_without_timeout get events
         $cli_without_timeout logs $pod_name -c cyberark-secrets-provider-for-k8s > "output/$SUMMON_ENV-secrets-provider-logs.txt"
       fi
     else
@@ -425,6 +436,8 @@ get_app_logs_container() {
       echo "pod_name="$pod_name
 
       if [[ $pod_name != "" ]]; then
+          $cli_without_timeout describe pod $pod_name
+          $cli_without_timeout get events
          $cli_without_timeout logs $pod_name  > "output/$SUMMON_ENV-secrets-provider-logs-with-helm.txt"
       fi
     fi
