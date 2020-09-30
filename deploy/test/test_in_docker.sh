@@ -37,6 +37,7 @@ deployConjur() {
   docker pull $CONJUR_APPLIANCE_IMAGE
 
   git clone git@github.com:cyberark/kubernetes-conjur-deploy \
+      --single-branch --branch pod-exec-err \
       kubernetes-conjur-deploy-$UNIQUE_TEST_ID
 
   cmd="./start"
