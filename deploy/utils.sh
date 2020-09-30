@@ -2,9 +2,8 @@ export KEY_VALUE_NOT_EXIST=" "
 
 wait_for_it() {
   local timeout=$1
-  local spacer=2
+  local spacer=5
   shift
-
   if ! [ $timeout = '-1' ]; then
     local times_to_run=$((timeout / spacer))
 
@@ -27,10 +26,10 @@ wait_for_it() {
 }
 
 if [ $PLATFORM = "kubernetes" ]; then
-    cli_with_timeout="wait_for_it 600 kubectl"
+    cli_with_timeout="wait_for_it 300 kubectl"
     cli_without_timeout=kubectl
 elif [ $PLATFORM = "openshift" ]; then
-    cli_with_timeout="wait_for_it 600 oc"
+    cli_with_timeout="wait_for_it 300 oc"
     cli_without_timeout=oc
 fi
 
@@ -173,14 +172,21 @@ setup_helm_environment() {
 
   configure_conjur_url
 
-  fetch_ssl_from_conjur
-
   ssl_location="conjur.pem"
   if [ "${DEV}" = "true" ]; then
     ssl_location="../conjur.pem"
   fi
+
+  fetch_ssl_from_conjur
   # Save cert for later setting in Helm
   $cli_with_timeout "exec ${conjur_pod_name} --namespace $CONJUR_NAMESPACE_NAME cat $cert_location" > "$ssl_location"
+  i=0
+  while [[ ! -f "$ssl_location" || ! -s "$ssl_location" && $i -le 5 ]]; do
+    i=$(( $i + 1 ))
+    fetch_ssl_from_conjur
+    # Save cert for later setting in Helm
+    $cli_with_timeout "exec ${conjur_pod_name} --namespace $CONJUR_NAMESPACE_NAME cat $cert_location" > "$ssl_location"
+  done
 
   set_namespace $APP_NAMESPACE_NAME
 }
@@ -202,50 +208,69 @@ fill_helm_chart() {
     helm_path=".."
   fi
 
+  id=${1:-""}
+  rm -rf "$helm_path/helm/secrets-provider/ci/${id}test-values-$UNIQUE_TEST_ID.yaml"
+
   set_image_path
 
-  id=${1:-""}
-  sed -e "s#{{ SECRETS_PROVIDER_ROLE }}#${SECRETS_PROVIDER_ROLE:-"secrets-provider-role"}#g" \
-    -e "s#{{ SECRETS_PROVIDER_ROLE_BINDING }}#${SECRETS_PROVIDER_ROLE_BINDING:-"secrets-provider-role-binding"}#g" \
-    -e "s#{{ CREATE_SERVICE_ACCOUNT }}#${CREATE_SERVICE_ACCOUNT:-"true"}#g" \
-    -e "s#{{ SERVICE_ACCOUNT }}#${SERVICE_ACCOUNT:-"secrets-provider-service-account"}#g" \
-    -e "s#{{ K8S_SECRETS }}#${K8S_SECRETS:-"test-k8s-secret"}#g" \
-    -e "s#{{ CONJUR_ACCOUNT }}#${CONJUR_ACCOUNT:-"cucumber"}#g" \
-    -e "s#{{ CONJUR_APPLIANCE_URL }}#${CONJUR_APPLIANCE_URL:-"https://conjur-follower.${CONJUR_NAMESPACE_NAME}.svc.cluster.local/api"}#g" \
-    -e "s#{{ CONJUR_AUTHN_URL }}#${CONJUR_AUTHN_URL:-"https://conjur-follower.${CONJUR_NAMESPACE_NAME}.svc.cluster.local/api/authn-k8s/${AUTHENTICATOR_ID}"}#g" \
-    -e "s#{{ CONJUR_AUTHN_LOGIN }}# ${CONJUR_AUTHN_LOGIN:-"host/conjur/authn-k8s/${AUTHENTICATOR_ID}/apps/${APP_NAMESPACE_NAME}/*/*"}#g"  \
-    -e "s#{{ SECRETS_PROVIDER_SSL_CONFIG_MAP }}# ${SECRETS_PROVIDER_SSL_CONFIG_MAP:-"secrets-provider-ssl-config-map"}#g" \
-    -e "s#{{ IMAGE_PULL_POLICY }}# ${IMAGE_PULL_POLICY:-"IfNotPresent"}#g" \
-    -e "s#{{ IMAGE }}# ${IMAGE:-"$image_path/secrets-provider"}#g" \
-    -e "s#{{ TAG }}# ${TAG:-"latest"}#g" \
-    -e "s#{{ LABELS }}# ${LABELS:-"app: test-helm"}#g" \
-    -e "s#{{ DEBUG }}# ${DEBUG:-"false"}#g" \
-    -e "s#{{ RETRY_COUNT_LIMIT }}# ${RETRY_COUNT_LIMIT:-"5"}#g" \
-    -e "s#{{ RETRY_INTERVAL_SEC }}# ${RETRY_INTERVAL_SEC:-"1"}#g" \
-    "$helm_path/helm/secrets-provider/ci/test-values-template.yaml" > "$helm_path/helm/secrets-provider/ci/${id}test-values.yaml"
+  i=0
+  while [[ ! -f "$helm_path/helm/secrets-provider/ci/${id}test-values-$UNIQUE_TEST_ID.yaml" && $i -le 5 ]]; do
+    i=$(( $i + 1 ))
+    sed -e "s#{{ SECRETS_PROVIDER_ROLE }}#${SECRETS_PROVIDER_ROLE:-"secrets-provider-role"}#g" \
+      -e "s#{{ SECRETS_PROVIDER_ROLE_BINDING }}#${SECRETS_PROVIDER_ROLE_BINDING:-"secrets-provider-role-binding"}#g" \
+      -e "s#{{ CREATE_SERVICE_ACCOUNT }}#${CREATE_SERVICE_ACCOUNT:-"true"}#g" \
+      -e "s#{{ SERVICE_ACCOUNT }}#${SERVICE_ACCOUNT:-"secrets-provider-service-account"}#g" \
+      -e "s#{{ K8S_SECRETS }}#${K8S_SECRETS:-"test-k8s-secret"}#g" \
+      -e "s#{{ CONJUR_ACCOUNT }}#${CONJUR_ACCOUNT:-"cucumber"}#g" \
+      -e "s#{{ CONJUR_APPLIANCE_URL }}#${CONJUR_APPLIANCE_URL:-"https://conjur-follower.${CONJUR_NAMESPACE_NAME}.svc.cluster.local/api"}#g" \
+      -e "s#{{ CONJUR_AUTHN_URL }}#${CONJUR_AUTHN_URL:-"https://conjur-follower.${CONJUR_NAMESPACE_NAME}.svc.cluster.local/api/authn-k8s/${AUTHENTICATOR_ID}"}#g" \
+      -e "s#{{ CONJUR_AUTHN_LOGIN }}# ${CONJUR_AUTHN_LOGIN:-"host/conjur/authn-k8s/${AUTHENTICATOR_ID}/apps/${APP_NAMESPACE_NAME}/*/*"}#g"  \
+      -e "s#{{ SECRETS_PROVIDER_SSL_CONFIG_MAP }}# ${SECRETS_PROVIDER_SSL_CONFIG_MAP:-"secrets-provider-ssl-config-map"}#g" \
+      -e "s#{{ IMAGE_PULL_POLICY }}# ${IMAGE_PULL_POLICY:-"IfNotPresent"}#g" \
+      -e "s#{{ IMAGE }}# ${IMAGE:-"$image_path/secrets-provider"}#g" \
+      -e "s#{{ TAG }}# ${TAG:-"latest"}#g" \
+      -e "s#{{ LABELS }}# ${LABELS:-"app: test-helm"}#g" \
+      -e "s#{{ DEBUG }}# ${DEBUG:-"false"}#g" \
+      -e "s#{{ RETRY_COUNT_LIMIT }}# ${RETRY_COUNT_LIMIT:-"5"}#g" \
+      -e "s#{{ RETRY_INTERVAL_SEC }}# ${RETRY_INTERVAL_SEC:-"5"}#g" \
+      "$helm_path/helm/secrets-provider/ci/test-values-template.yaml" > "$helm_path/helm/secrets-provider/ci/${id}test-values-$UNIQUE_TEST_ID.yaml"
+  done
+
 }
 
 fill_helm_chart_no_override_defaults() {
-  sed -e "s#{{ K8S_SECRETS }}#${K8S_SECRETS}#g" \
-    -e "s#{{ CONJUR_ACCOUNT }}#${CONJUR_ACCOUNT}#g" \
-    -e "s#{{ LABELS }}# ${LABELS}#g" \
-    -e "s#{{ CONJUR_APPLIANCE_URL }}#${CONJUR_APPLIANCE_URL}#g" \
-    -e "s#{{ CONJUR_AUTHN_URL }}#${CONJUR_AUTHN_URL}#g" \
-    -e "s#{{ CONJUR_AUTHN_LOGIN }}# ${CONJUR_AUTHN_LOGIN}#g"  \
-    "../helm/secrets-provider/ci/take-default-test-values-template.yaml" > "../helm/secrets-provider/ci/take-default-test-values.yaml"
+  rm -rf "../helm/secrets-provider/ci/take-default-test-values-$UNIQUE_TEST_ID.yaml"
+
+  i=0
+  while [[ ! -f "../helm/secrets-provider/ci/take-default-test-values-$UNIQUE_TEST_ID.yaml" && $i -le 5 ]]; do
+    i=$(( $i + 1 ))
+    sed -e "s#{{ K8S_SECRETS }}#${K8S_SECRETS}#g" \
+      -e "s#{{ CONJUR_ACCOUNT }}#${CONJUR_ACCOUNT}#g" \
+      -e "s#{{ LABELS }}# ${LABELS}#g" \
+      -e "s#{{ CONJUR_APPLIANCE_URL }}#${CONJUR_APPLIANCE_URL}#g" \
+      -e "s#{{ CONJUR_AUTHN_URL }}#${CONJUR_AUTHN_URL}#g" \
+      -e "s#{{ CONJUR_AUTHN_LOGIN }}# ${CONJUR_AUTHN_LOGIN}#g"  \
+      "../helm/secrets-provider/ci/take-default-test-values-template.yaml" > "../helm/secrets-provider/ci/take-default-test-values-$UNIQUE_TEST_ID.yaml"
+  done
 }
 
 fill_helm_chart_test_image() {
-  sed -e "s#{{ IMAGE }}#${IMAGE}#g" \
-    -e "s#{{ TAG }}#${TAG}#g" \
-    -e "s#{{ IMAGE_PULL_POLICY }}#${IMAGE_PULL_POLICY}#g" \
-    "../helm/secrets-provider/ci/take-image-values-template.yaml" > "../helm/secrets-provider/ci/take-image-values.yaml"
+  rm -rf "../helm/secrets-provider/ci/take-image-values-$UNIQUE_TEST_ID.yaml"
+
+  i=0
+  while [[ ! -f "../helm/secrets-provider/ci/take-image-values-$UNIQUE_TEST_ID.yaml" && $i -le 5 ]]; do
+    i=$(( $i + 1 ))
+    sed -e "s#{{ IMAGE }}#${IMAGE}#g" \
+      -e "s#{{ TAG }}#${TAG}#g" \
+      -e "s#{{ IMAGE_PULL_POLICY }}#${IMAGE_PULL_POLICY}#g" \
+      "../helm/secrets-provider/ci/take-image-values-template.yaml" > "../helm/secrets-provider/ci/take-image-values-$UNIQUE_TEST_ID.yaml"
+  done
 }
 
 deploy_chart() {
   pushd ../
     fill_helm_chart
-    helm install -f "helm/secrets-provider/ci/test-values.yaml" \
+    helm install -f "helm/secrets-provider/ci/test-values-$UNIQUE_TEST_ID.yaml" \
       secrets-provider ./helm/secrets-provider \
       --set-file environment.conjur.sslCertificate.value="conjur.pem"
   popd
@@ -377,6 +402,7 @@ test_secret_is_provided() {
   deploy_init_env
 
   echo "Verifying pod test_env has environment variable '$environment_variable_name' with value '$secret_value'"
+  $cli_with_timeout "get pods --namespace=$APP_NAMESPACE_NAME --selector app=test-env --no-headers"
   pod_name=$(cli_get_pods_test_env | awk '{print $1}')
   verify_secret_value_in_pod "$pod_name" "$environment_variable_name" "$secret_value"
 }
@@ -401,6 +427,8 @@ get_app_logs_container() {
       echo "pod_name="$pod_name
 
       if [[ $pod_name != "" ]]; then
+        $cli_without_timeout describe pod $pod_name
+        $cli_without_timeout get events
         $cli_without_timeout logs $pod_name -c cyberark-secrets-provider-for-k8s > "output/$SUMMON_ENV-secrets-provider-logs.txt"
       fi
     else
@@ -408,6 +436,8 @@ get_app_logs_container() {
       echo "pod_name="$pod_name
 
       if [[ $pod_name != "" ]]; then
+          $cli_without_timeout describe pod $pod_name
+          $cli_without_timeout get events
          $cli_without_timeout logs $pod_name  > "output/$SUMMON_ENV-secrets-provider-logs-with-helm.txt"
       fi
     fi

@@ -14,7 +14,7 @@ pushd ../../
   export CONJUR_AUTHN_LOGIN="host/conjur/authn-k8s/${AUTHENTICATOR_ID}/apps/${APP_NAMESPACE_NAME}/*/*"
 
   fill_helm_chart_no_override_defaults
-  helm install -f "../helm/secrets-provider/ci/take-default-test-values.yaml" \
+  helm install -f "../helm/secrets-provider/ci/take-default-test-values-$UNIQUE_TEST_ID.yaml" \
     secrets-provider ../helm/secrets-provider \
     --set-file environment.conjur.sslCertificate.value="test/test_cases/conjur.pem"
 popd

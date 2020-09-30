@@ -11,7 +11,7 @@ pushd ../../
   export DEBUG="true"
 
   fill_helm_chart
-  helm install -f "../helm/secrets-provider/ci/test-values.yaml" \
+  helm install -f "../helm/secrets-provider/ci/test-values-$UNIQUE_TEST_ID.yaml" \
     secrets-provider ../helm/secrets-provider \
     --set-file environment.conjur.sslCertificate.value="test/test_cases/conjur.pem"
 popd

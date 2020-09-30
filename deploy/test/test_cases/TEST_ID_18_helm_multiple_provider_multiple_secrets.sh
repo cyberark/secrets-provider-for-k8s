@@ -11,7 +11,7 @@ set_conjur_secret secrets/another_test_secret another-some-secret-value
 # Deploy first Secrets Provider Job
 pushd ../../
   fill_helm_chart
-  helm install -f "../helm/secrets-provider/ci/test-values.yaml" \
+  helm install -f "../helm/secrets-provider/ci/test-values-$UNIQUE_TEST_ID.yaml" \
     secrets-provider ../helm/secrets-provider \
     --set-file environment.conjur.sslCertificate.value="test/test_cases/conjur.pem"
 popd
@@ -31,7 +31,7 @@ pushd ../../
   export K8S_SECRETS=another-test-k8s-secret
   export SECRETS_PROVIDER_SSL_CONFIG_MAP=another-secrets-provider-ssl-config-map
   fill_helm_chart "another-"
-  helm install -f "../helm/secrets-provider/ci/another-test-values.yaml" \
+  helm install -f "../helm/secrets-provider/ci/another-test-values-$UNIQUE_TEST_ID.yaml" \
     another-secrets-provider ../helm/secrets-provider \
     --set-file environment.conjur.sslCertificate.value="test/test_cases/conjur.pem"
 popd

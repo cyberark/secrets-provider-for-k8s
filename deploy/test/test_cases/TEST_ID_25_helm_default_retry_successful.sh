@@ -18,33 +18,34 @@ pushd ../../
   # A parameter that will force a failure
   export CONJUR_AUTHN_URL="https://conjur-follower.${CONJUR_NAMESPACE_NAME}.svc.cluster.local/api/authn-k8s/${AUTHENTICATOR_ID}xyz"  # Configure retry mechanism with overriding defaults
 
+  export RETRY_COUNT_LIMIT="1"
+  export RETRY_INTERVAL_SEC="5"
+
   DEFAULT_RETRY_INTERVAL_SEC=1
   DEFAULT_RETRY_COUNT_LIMIT=5
 
   fill_helm_chart_test_image
+
   fill_helm_chart_no_override_defaults
-  helm install -f "../helm/secrets-provider/ci/take-default-test-values.yaml" \
-    -f "../helm/secrets-provider/ci/take-image-values.yaml" \
+
+  helm install -f "../helm/secrets-provider/ci/take-default-test-values-$UNIQUE_TEST_ID.yaml" \
+    -f "../helm/secrets-provider/ci/take-image-values-$UNIQUE_TEST_ID.yaml" \
     secrets-provider ../helm/secrets-provider \
     --set-file environment.conjur.sslCertificate.value="test/test_cases/conjur.pem"
 popd
 
-$cli_with_timeout "get pods --namespace=$APP_NAMESPACE_NAME --selector app=test-helm --no-headers"
+$cli_with_timeout "get pods --namespace=$APP_NAMESPACE_NAME --selector app=test-helm --no-headers | wc -l | tr -d ' ' | grep '^1$'"
 pod_name=$($cli_with_timeout get pods --namespace=$APP_NAMESPACE_NAME --selector app=test-helm --no-headers | awk '{print $1}' )
-
-# This sleep allows all logs to arrive to avoid platform failures
-sleep 5
 
 # Find initial authentication error that should trigger the retry
 $cli_with_timeout "logs $pod_name | grep 'CSPFK010E Failed to authenticate'"
-
-# Start the timer for retry interval
-start=$SECONDS
+failure_time=$($cli_without_timeout logs $pod_name | grep 'CSPFK010E Failed to authenticate' | head -1 | awk '{ print $3 }' | awk -F: '{ print ($1 * 3600) + ($2 * 60) + $3 }')
 
 echo "Expecting Secrets Provider retry configurations to take defaults RETRY_INTERVAL_SEC $DEFAULT_RETRY_INTERVAL_SEC and RETRY_COUNT_LIMIT $DEFAULT_RETRY_COUNT_LIMIT"
 $cli_with_timeout "logs $pod_name | grep 'CSPFK010I Updating Kubernetes Secrets: 1 retries out of $DEFAULT_RETRY_COUNT_LIMIT'"
+retry_time=$($cli_without_timeout logs $pod_name | grep "CSPFK010I Updating Kubernetes Secrets: 1 retries out of $DEFAULT_RETRY_COUNT_LIMIT" | head -1 | awk '{ print $3 }' | awk -F: '{ print ($1 * 3600) + ($2 * 60) + $3 }')
 
-duration=$(( SECONDS - start ))
+duration=$(( retry_time - failure_time ))
 
 # Since we are testing retry in scripts we must determine an acceptable range that retry should have taken place
 # If the duration falls within that range, then we can determine the retry mechanism works as expected
