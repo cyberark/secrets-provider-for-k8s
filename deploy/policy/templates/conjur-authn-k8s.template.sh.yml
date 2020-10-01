@@ -17,6 +17,7 @@ cat << EOL
       - !host
         id: ${APP_NAMESPACE_NAME}/*/*
         annotations:
+          authn-k8s/service-account: ${APP_NAMESPACE_NAME}-sa
           kubernetes/authentication-container-name: cyberark-secrets-provider-for-k8s
 
       # This host will not have permissions on Conjur secrets to test this use-case
