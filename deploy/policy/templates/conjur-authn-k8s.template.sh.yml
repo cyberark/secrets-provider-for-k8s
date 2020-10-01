@@ -17,6 +17,7 @@ cat << EOL
       - !host
         id: ${APP_NAMESPACE_NAME}/*/*
         annotations:
+          authn-k8s/namespace: ${APP_NAMESPACE_NAME}
           authn-k8s/deployment-config: test-env
           kubernetes/authentication-container-name: cyberark-secrets-provider-for-k8s
 
