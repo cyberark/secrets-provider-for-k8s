@@ -11,7 +11,7 @@ main() {
 
 deployConjur() {
   pushd ..
-    git clone git@github.com:cyberark/kubernetes-conjur-deploy kubernetes-conjur-deploy-$UNIQUE_TEST_ID
+    git clone git@github.com:cyberark/kubernetes-conjur-deploy --single-branch --branch deployment-config-permissions kubernetes-conjur-deploy-$UNIQUE_TEST_ID
 
     cmd="./start"
     if [ $CONJUR_DEPLOYMENT = "oss" ]; then
