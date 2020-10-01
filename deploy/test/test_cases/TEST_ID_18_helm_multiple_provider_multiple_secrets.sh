@@ -13,7 +13,7 @@ pushd ../../
   fill_helm_chart
   helm install -f "../helm/secrets-provider/ci/test-values-$UNIQUE_TEST_ID.yaml" \
     secrets-provider ../helm/secrets-provider \
-    --set-file environment.conjur.sslCertificate.value="test/test_cases/conjur.pem"
+    --set-file environment.conjur.sslCertificate.value="test/test_cases/conjur-$UNIQUE_TEST_ID.pem"
 popd
 
 helm_chart_name="secrets-provider"
@@ -33,7 +33,7 @@ pushd ../../
   fill_helm_chart "another-"
   helm install -f "../helm/secrets-provider/ci/another-test-values-$UNIQUE_TEST_ID.yaml" \
     another-secrets-provider ../helm/secrets-provider \
-    --set-file environment.conjur.sslCertificate.value="test/test_cases/conjur.pem"
+    --set-file environment.conjur.sslCertificate.value="test/test_cases/conjur-$UNIQUE_TEST_ID.pem"
 popd
 
 # Wait for Job completion
