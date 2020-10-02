@@ -31,7 +31,7 @@ pushd ../../
   helm install -f "../helm/secrets-provider/ci/take-default-test-values-$UNIQUE_TEST_ID.yaml" \
     -f "../helm/secrets-provider/ci/take-image-values-$UNIQUE_TEST_ID.yaml" \
     secrets-provider ../helm/secrets-provider \
-    --set-file environment.conjur.sslCertificate.value="test/test_cases/conjur.pem"
+    --set-file environment.conjur.sslCertificate.value="test/test_cases/conjur-$UNIQUE_TEST_ID.pem"
 popd
 
 $cli_with_timeout "get pods --namespace=$APP_NAMESPACE_NAME --selector app=test-helm --no-headers | wc -l | tr -d ' ' | grep '^1$'"

@@ -172,9 +172,9 @@ setup_helm_environment() {
 
   configure_conjur_url
 
-  ssl_location="conjur.pem"
+  ssl_location="conjur-$UNIQUE_TEST_ID.pem"
   if [ "${DEV}" = "true" ]; then
-    ssl_location="../conjur.pem"
+    ssl_location="../conjur-$UNIQUE_TEST_ID.pem"
   fi
 
   fetch_ssl_from_conjur
@@ -272,7 +272,7 @@ deploy_chart() {
     fill_helm_chart
     helm install -f "helm/secrets-provider/ci/test-values-$UNIQUE_TEST_ID.yaml" \
       secrets-provider ./helm/secrets-provider \
-      --set-file environment.conjur.sslCertificate.value="conjur.pem"
+      --set-file environment.conjur.sslCertificate.value="conjur-$UNIQUE_TEST_ID.pem"
   popd
 }
 
