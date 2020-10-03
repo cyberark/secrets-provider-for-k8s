@@ -3,6 +3,7 @@ set -euxo pipefail
 
 . "$(dirname "${0}")/utils.sh"
 
+announce "Teardown resources"
 # Restore secret to original value
 set_namespace $CONJUR_NAMESPACE_NAME
 
@@ -13,7 +14,7 @@ if [[ "${DEV}" = "false" || "${RUN_IN_DOCKER}" = "true" ]]; then
   helm_ci_path="../../../helm/secrets-provider/ci"
 fi
 pushd $helm_ci_path
-  find . -type f ! -name '*template.yaml' -delete
+  find . -type f -name "*${UNIQUE_TEST_ID}.yaml" -delete
 popd
 
 # Delete Helm Chart if already exists
