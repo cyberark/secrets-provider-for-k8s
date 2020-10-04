@@ -19,11 +19,11 @@ RUN wget -O /usr/local/bin/kubectl ${KUBECTL_CLI_URL:-https://storage.googleapis
 
 # Install OpenShift oc CLI
 ARG OPENSHIFT_CLI_URL
-RUN mkdir -p ocbin && \
-    wget -O oc.tar.gz ${OPENSHIFT_CLI_URL:-https://github.com/openshift/origin/releases/download/v3.7.2/openshift-origin-client-tools-v3.7.2-282e43f-linux-64bit.tar.gz} && \
-    tar xvf oc.tar.gz --strip-components=1 -C ocbin && \
-    mv ocbin/oc /usr/local/bin/oc && \
-    rm -rf ocbin oc.tar.gz
+RUN mkdir -p ocbin
+RUN wget -O oc.tar.gz ${OPENSHIFT_CLI_URL:-https://github.com/openshift/origin/releases/download/v3.7.2/openshift-origin-client-tools-v3.7.2-282e43f-linux-64bit.tar.gz}
+RUN tar xvf oc.tar.gz --transform='s/.*\///' --wildcards -C ocbin *oc
+RUN mv ocbin/oc /usr/local/bin/oc
+RUN rm -rf ocbin oc.tar.gz
 
 # Install Helm
 RUN curl https://baltocdn.com/helm/signing.asc | apt-key add - && \

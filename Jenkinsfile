@@ -28,26 +28,26 @@ pipeline {
       }
     }
 
-    stage('Run Unit Tests') {
-      steps {
-        sh './bin/test_unit'
+    //stage('Run Unit Tests') {
+    //  steps {
+    //    sh './bin/test_unit'
 
-        junit 'junit.xml'
-        cobertura autoUpdateHealth: true, autoUpdateStability: true, coberturaReportFile: 'coverage.xml', conditionalCoverageTargets: '30, 0, 0', failUnhealthy: true, failUnstable: false, maxNumberOfBuilds: 0, methodCoverageTargets: '30, 0, 0', onlyStable: false, sourceEncoding: 'ASCII', zoomCoverageChart: false
-        ccCoverage("gocov", "--prefix github.com/cyberark/secrets-provider-for-k8s")
-      }
-    }
+    //    junit 'junit.xml'
+    //    cobertura autoUpdateHealth: true, autoUpdateStability: true, coberturaReportFile: 'coverage.xml', conditionalCoverageTargets: '30, 0, 0', failUnhealthy: true, failUnstable: false, maxNumberOfBuilds: 0, methodCoverageTargets: '30, 0, 0', onlyStable: false, sourceEncoding: 'ASCII', zoomCoverageChart: false
+    //    ccCoverage("gocov", "--prefix github.com/cyberark/secrets-provider-for-k8s")
+    //  }
+    // }
 
     // We want to avoid running in parallel.
     // When we have 2 build running on the same environment (gke env only) in parallel,
     // we get the error "gcloud crashed : database is locked"
-    stage ("Run Integration Tests on oss") {
-      steps {
-        script {
-          def tasks = [:]
-            tasks["Kubernetes GKE, oss"] = {
-              sh "./bin/start --docker --oss --gke"
-            }
+    //stage ("Run Integration Tests on oss") {
+    //  steps {
+    //    script {
+    //      def tasks = [:]
+    //        tasks["Kubernetes GKE, oss"] = {
+    //          sh "./bin/start --docker --oss --gke"
+    //        }
             // tasks["Openshift v3.11, oss"] = {
             //  sh "./bin/start --docker --oss --oc311"
             // }
@@ -55,10 +55,10 @@ pipeline {
             // tasks["Openshift v3.10, oss"] = {
             //   sh "./bin/start --docker --oss --oc310"
             // }
-          parallel tasks
-        }
-      }
-    }
+     //     parallel tasks
+     //   }
+     // }
+   // }
 
     stage ("Run Integration Tests on DAP") {
       steps {
@@ -69,6 +69,9 @@ pipeline {
             }
             tasks["Openshift v3.11, DAP"] = {
               sh "./bin/start --docker --dap --oc311"
+            }
+            tasks["Openshift v4.3, DAP"] = {
+              sh "./bin/start --docker --dap --oc43"
             }
             // skip oc310 tests until the environment will be ready to use
             // tasks["Openshift v3.10, DAP"] = {

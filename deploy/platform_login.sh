@@ -18,7 +18,7 @@ main() {
   elif [[ "$PLATFORM" = "openshift" ]]; then
     # sensible default for OPENSHIFT_URL port
     if [[ -n "${OPENSHIFT_URL}" ]] && [[ "${OPENSHIFT_URL}" != *: ]]; then
-     OPENSHIFT_URL="${OPENSHIFT_URL}:8443"
+     OPENSHIFT_URL="${OPENSHIFT_URL}"
     fi
 
     oc login "$OPENSHIFT_URL" \

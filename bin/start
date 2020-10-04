@@ -47,6 +47,7 @@ while true ; do
     --oss ) CONJUR_DEPLOYMENT=oss ; shift ;;
     --dap ) CONJUR_DEPLOYMENT=dap ; shift ;;
     --gke ) SUMMON_ENV=gke ; shift ;;
+    --oc43 ) SUMMON_ENV=oc43 ; shift ;;
     --oc311 ) SUMMON_ENV=oc311 ; shift ;;
     --oc310 ) SUMMON_ENV=oc310 ; shift ;;
     -h | --help ) print_help ; shift ;;

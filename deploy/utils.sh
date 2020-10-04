@@ -235,7 +235,7 @@ fill_helm_chart() {
       -e "s#{{ RETRY_INTERVAL_SEC }}# ${RETRY_INTERVAL_SEC:-"5"}#g" \
       "$helm_path/helm/secrets-provider/ci/test-values-template.yaml" > "$helm_path/helm/secrets-provider/ci/${id}test-values-$UNIQUE_TEST_ID.yaml"
   done
-
+  ls $helm_path/helm/secrets-provider/ci/
 }
 
 fill_helm_chart_no_override_defaults() {
