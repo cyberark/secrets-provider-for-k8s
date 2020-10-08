@@ -5,6 +5,11 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+### Changed
+- Update k8s authenticator client version to 
+  [0.19.0](https://github.com/cyberark/conjur-authn-k8s-client/blob/master/CHANGELOG.md#0190---2020-10-08),
+  which adds some fixes around cert injection failure (see also changes in 
+  [0.18.1](https://github.com/cyberark/conjur-authn-k8s-client/blob/master/CHANGELOG.md#0181---2020-09-13)).
 
 ## [1.1.0] - 2020-09-15
 ### Added
