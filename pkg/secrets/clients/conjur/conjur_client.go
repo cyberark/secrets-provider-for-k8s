@@ -2,8 +2,8 @@ package conjur
 
 import (
 	"github.com/cyberark/conjur-api-go/conjurapi"
+	"github.com/cyberark/conjur-authn-k8s-client/pkg/log"
 
-	"github.com/cyberark/secrets-provider-for-k8s/pkg/log"
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/log/messages"
 )
 

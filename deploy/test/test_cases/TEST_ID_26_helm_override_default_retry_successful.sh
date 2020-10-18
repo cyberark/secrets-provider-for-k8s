@@ -21,13 +21,13 @@ $cli_with_timeout "get pods --namespace=$APP_NAMESPACE_NAME --selector app=test-
 pod_name=$($cli_with_timeout get pods --namespace=$APP_NAMESPACE_NAME --selector app=test-helm --no-headers | awk '{print $1}' )
 # Find initial authentication error that should trigger the retry
 $cli_with_timeout "logs $pod_name | grep 'CSPFK010E Failed to authenticate'" | head -1
-failure_time=$($cli_without_timeout logs $pod_name | grep 'CSPFK010E Failed to authenticate' | head -1 | awk '{ print $3 }' | awk -F: '{ print ($1 * 3600) + ($2 * 60) + $3 }')
+failure_time=$($cli_without_timeout logs $pod_name | grep 'CSPFK010E Failed to authenticate' | head -1 | awk '{ print $3 }' | awk -F: '{ print ($1 * 3600) + ($2 * 60) + int($3) }')
 
 
 # Validate that the Secrets Provider retry mechanism takes user input of RETRY_INTERVAL_SEC of 5 and RETRY_COUNT_LIMIT of 2
 echo "Expecting Secrets Provider retry configurations to take their defaults of RETRY_INTERVAL_SEC of 5 and RETRY_COUNT_LIMIT of 2"
 $cli_with_timeout "logs $pod_name | grep 'CSPFK010I Updating Kubernetes Secrets: 1 retries out of $RETRY_COUNT_LIMIT'" | head -1
-retry_time=$($cli_without_timeout logs $pod_name | grep "CSPFK010I Updating Kubernetes Secrets: 1 retries out of $RETRY_COUNT_LIMIT" | head -1 | awk '{ print $3 }' | awk -F: '{ print ($1 * 3600) + ($2 * 60) + $3 }')
+retry_time=$($cli_without_timeout logs $pod_name | grep "CSPFK010I Updating Kubernetes Secrets: 1 retries out of $RETRY_COUNT_LIMIT" | head -1 | awk '{ print $3 }' | awk -F: '{ print ($1 * 3600) + ($2 * 60) + int($3) }')
 
 duration=$(( retry_time - failure_time ))
 # Since we are testing retry in scripts we must determine an acceptable range that retry should take place
