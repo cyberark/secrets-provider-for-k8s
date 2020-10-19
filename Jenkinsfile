@@ -28,6 +28,29 @@ pipeline {
       }
     }
 
+    stage('Scan Docker Image') {
+      parallel {
+        stage("Scan Docker Image for fixable issues") {
+          steps {
+            // Adding the false parameter to scanAndReport causes trivy to
+            // ignore vulnerabilities for which no fix is available. We'll
+            // only fail the build if we can actually fix the vulnerability
+            // right now.
+            scanAndReport('secrets-provider-for-k8s:latest', "HIGH", false)
+          }
+        }
+        stage("Scan Docker image for total issues") {
+          steps {
+            // By default, trivy includes vulnerabilities with no fix. We
+            // want to know about that ASAP, but they shouldn't cause a
+            // build failure until we can do something about it. This call
+            // to scanAndReport should always be left as "NONE"
+            scanAndReport("secrets-provider-for-k8s:latest", "NONE", true)
+          }
+        }
+      }
+    }
+
     stage('Run Unit Tests') {
       steps {
         sh './bin/test_unit'
