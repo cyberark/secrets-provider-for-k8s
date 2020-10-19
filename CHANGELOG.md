@@ -5,6 +5,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+### Added
+- Push an edge release tag for every successful master build and automate the packaging of Secrets Provider Helm Chart as 
+  part of the pipeline ([cyberark/secrets-provider-for-k8s#234](https://github.com/cyberark/secrets-provider-for-k8s/pull/234))
+
 ### Changed
 - Update k8s authenticator client version to 
   [0.19.0](https://github.com/cyberark/conjur-authn-k8s-client/blob/master/CHANGELOG.md#0190---2020-10-08),
