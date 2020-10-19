@@ -10,6 +10,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
   part of the pipeline ([cyberark/secrets-provider-for-k8s#234](https://github.com/cyberark/secrets-provider-for-k8s/pull/234))
 
 ### Changed
+- Use logger from k8s authenticator client; its timestamp format contains milliseconds precision.
+  [cyberark/secrets-provider-for-k8s#221](https://github.com/cyberark/secrets-provider-for-k8s/issues/221) 
 - Update k8s authenticator client version to 
   [0.19.0](https://github.com/cyberark/conjur-authn-k8s-client/blob/master/CHANGELOG.md#0190---2020-10-08),
   which adds some fixes around cert injection failure (see also changes in 

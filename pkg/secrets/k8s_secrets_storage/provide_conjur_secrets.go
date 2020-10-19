@@ -4,13 +4,11 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/cyberark/conjur-authn-k8s-client/pkg/access_token"
+	"github.com/cyberark/conjur-authn-k8s-client/pkg/log"
+	"gopkg.in/yaml.v2"
 	v1 "k8s.io/api/core/v1"
 
-	"gopkg.in/yaml.v2"
-
-	"github.com/cyberark/conjur-authn-k8s-client/pkg/access_token"
-
-	"github.com/cyberark/secrets-provider-for-k8s/pkg/log"
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/log/messages"
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/clients/conjur"
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/clients/k8s"
