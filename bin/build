@@ -27,6 +27,7 @@ if [ $DEBUG = true ]; then
   echo "Building secrets-provider-debug Docker image"
 
   docker build \
+    --build-arg TAG="debug" \
     --tag "secrets-provider-for-k8s-debug:latest" \
     --target "secrets-provider-debug" \
     .
@@ -34,6 +35,7 @@ else
   echo "Building secrets-provider-for-k8s:$FULL_VERSION_TAG Docker image"
 
   docker build \
+    --build-arg TAG=$(git_tag) \
     --tag "secrets-provider-for-k8s:dev" \
     --tag "secrets-provider-for-k8s:${FULL_VERSION_TAG}" \
     --tag "secrets-provider-for-k8s:latest" \
@@ -42,8 +44,10 @@ else
 
   echo "Building secrets-provider-for-k8s-redhat:$FULL_VERSION_TAG Docker image"
 
-  docker build --tag "secrets-provider-for-k8s-redhat:${FULL_VERSION_TAG}" \
+  docker build \
+     --build-arg TAG=$(git_tag) \
      --build-arg VERSION="$FULL_VERSION_TAG" \
+     --tag "secrets-provider-for-k8s-redhat:${FULL_VERSION_TAG}" \
      --target "secrets-provider-for-k8s-redhat" \
      .
 fi
