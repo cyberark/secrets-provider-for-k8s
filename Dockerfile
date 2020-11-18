@@ -25,7 +25,15 @@ FROM secrets-provider-builder-base as secrets-provider-builder
 
 COPY . .
 
-RUN go build -a -installsuffix cgo -o secrets-provider ./cmd/secrets-provider
+# this value is set in ./bin/build
+ARG TAG
+
+RUN go build \
+    -a \
+    -installsuffix cgo \
+    -ldflags="-X github.com/cyberark/secrets-provider-for-k8s/pkg/secrets.Tag=$TAG" \
+    -o secrets-provider \
+    ./cmd/secrets-provider
 
 # =================== DEBUG BUILD LAYER ===================
 # this layer is used to build the debug binaries
