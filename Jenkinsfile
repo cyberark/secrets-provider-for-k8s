@@ -24,8 +24,30 @@ pipeline {
 
     stage('Build and test Secrets Provider') {
       when {
-        expression {
-         sh(returnStatus: true, script: 'git diff origin/master --name-only | grep -v "^.*\\.md$" > /dev/null') == 0
+        // Run tests only when ANY of the following is true:
+        // 1. A non-markdown file has changed.
+        // 2. It's the nightly build.
+        // 3. It's a tag-triggered build.
+        anyOf {
+          // Note: You cannot use "when"'s changeset condition here because it's
+          // not powerful enough to express "_only_ md files have changed".
+          // Dropping down to a git script was the easiest alternative.
+          expression {
+            0 == sh(
+              returnStatus: true,
+              // A non-markdown file has changed.
+              script: '''
+                git diff  origin/master --name-only |
+                grep -v "^.*\\.md$" > /dev/null
+              '''
+            )
+          }
+
+          // Always run the full pipeline on nightly builds
+          expression { params.NIGHTLY }
+
+          // Always run the full pipeline on tags of the form v*
+          tag "v*"
         }
       }
       stages {
