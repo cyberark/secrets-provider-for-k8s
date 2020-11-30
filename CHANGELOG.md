@@ -5,17 +5,20 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+## [1.1.1] - 2020-11-24
 ### Added
-- Push an edge release tag for every successful master build and automate the packaging of Secrets Provider Helm Chart as 
-  part of the pipeline. [cyberark/secrets-provider-for-k8s#234](https://github.com/cyberark/secrets-provider-for-k8s/pull/234)
+- An `edge` tag is published for every successful master build.
+  [cyberark/secrets-provider-for-k8s#234](https://github.com/cyberark/secrets-provider-for-k8s/pull/234)
 
 ### Changed
-- Use logger from k8s authenticator client; its timestamp format contains milliseconds precision.
+- Uses logger from k8s authenticator client; its timestamp format contains milliseconds precision.
   [cyberark/secrets-provider-for-k8s#221](https://github.com/cyberark/secrets-provider-for-k8s/issues/221) 
 - Update k8s authenticator client version to 
   [0.19.0](https://github.com/cyberark/conjur-authn-k8s-client/blob/master/CHANGELOG.md#0190---2020-10-08),
   which adds some fixes around cert injection failure (see also changes in 
-  [0.18.1](https://github.com/cyberark/conjur-authn-k8s-client/blob/master/CHANGELOG.md#0181---2020-09-13)). [cyberark/secrets-provider-for-k8s#247](https://github.com/cyberark/secrets-provider-for-k8s/pull/247)
+  [0.18.1](https://github.com/cyberark/conjur-authn-k8s-client/blob/master/CHANGELOG.md#0181---2020-09-13)).
+  [cyberark/secrets-provider-for-k8s#247](https://github.com/cyberark/secrets-provider-for-k8s/pull/247)
 
 ### Fixed
 - The version that is printed at the product's startup now includes the git commit
@@ -68,7 +71,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ### Changed
   - Escape secrets with backslashes before patching in k8s
 
-[Unreleased]: https://github.com/cyberark/secrets-provider-for-k8s/compare/v1.1.0...HEAD
+[Unreleased]: https://github.com/cyberark/secrets-provider-for-k8s/compare/v1.1.1...HEAD
+[1.1.1]: https://github.com/cyberark/secrets-provider-for-k8s/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/cyberark/secrets-provider-for-k8s/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/cyberark/secrets-provider-for-k8s/compare/v0.4.0...v1.0.0
 [0.4.0]: https://github.com/cyberark/secrets-provider-for-k8s/compare/v0.3.0...v0.4.0

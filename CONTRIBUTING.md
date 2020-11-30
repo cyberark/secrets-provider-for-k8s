@@ -186,6 +186,7 @@ follow the instructions in this section.
     1. [Version file](pkg/secrets/version.go)
     1. [Chart version](helm/secrets-provider/Chart.yaml)
     1. [Default deployed version](helm/secrets-provider/values.yaml)
+    1. [Test case hardcoded version](deploy/test/test_cases/TEST_ID_22_helm_rbac_defaults_taken_successfully.sh)
 1. Review the git log and ensure the [changelog](CHANGELOG.md) contains all
    relevant recent changes with references to GitHub issues or PRs, if possible.
 1. Review the changes since the last tag, and if the dependencies have changed
