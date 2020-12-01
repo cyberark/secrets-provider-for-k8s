@@ -26,9 +26,7 @@ pipeline {
       when {
         // Run tests only when EITHER of the following is true:
         // 1. A non-markdown file has changed.
-        // 2. It's the nightly build.
-        // 3. It's triggered by conjur's build
-        // 4. It's a tag-triggered build.
+        // 2. It's the master branch.
         anyOf {
           // Note: You cannot use "when"'s changeset condition here because it's
           // not powerful enough to express "_only_ md files have changed".
@@ -44,14 +42,8 @@ pipeline {
             )
           }
 
-          // Always run the full pipeline on nightly builds
-          expression { params.NIGHTLY }
-
-          // Always run the full pipeline when triggered by conjur build
-          expression { getTrigger() == "upstreambuild" }
-
-          // Always run the full pipeline on tags of the form v*
-          tag "v*"
+          // Always run the full pipeline on master branch
+          branch 'master'
         }
       }
       stages {
