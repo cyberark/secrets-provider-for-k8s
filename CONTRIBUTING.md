@@ -179,6 +179,17 @@ That's it!
 Releases should be created by maintainers only. To create a tag and release,
 follow the instructions in this section.
 
+### Pre-requisites 
+
+1. Review the git log and ensure the [changelog](CHANGELOG.md) contains all
+   relevant recent changes with references to GitHub issues or PRs, if possible.
+1. Review the changes since the last tag, and if the dependencies have changed
+   revise the [NOTICES](NOTICES.txt) to correctly capture the included
+   dependencies and their licenses / copyrights.
+1. Ensure that all documentation that needs to be written has been 
+   written by TW, approved by PO/Engineer, and pushed to the forward-facing documentation.
+1. Scan the project for vulnerabilities
+
 ### Update the version, changelog, and notices
 1. Create a new branch for the version bump.
 1. Based on the unreleased content, determine the new version number.
@@ -187,12 +198,6 @@ follow the instructions in this section.
     1. [Chart version](helm/secrets-provider/Chart.yaml)
     1. [Default deployed version](helm/secrets-provider/values.yaml)
     1. [Test case hardcoded version](deploy/test/test_cases/TEST_ID_22_helm_rbac_defaults_taken_successfully.sh)
-1. Review the git log and ensure the [changelog](CHANGELOG.md) contains all
-   relevant recent changes with references to GitHub issues or PRs, if possible.
-1. Review the changes since the last tag, and if the dependencies have changed
-   revise the [NOTICES](NOTICES.txt) to correctly capture the included
-   dependencies and their licenses / copyrights.
-1. Before release, ensure that all documentation that needs to be written has been written by TW, approved by PO/Engineer, and pushed to the forward-facing documentation.
 1. Commit these changes - `Bump version to x.y.z` is an acceptable commit
    message - and open a PR for review.
    
