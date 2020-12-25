@@ -29,7 +29,7 @@ To deploy the CyberArk Secrets Provider for Kubernetes as an application contain
 ## Supported Platforms
 - GKE
 
-- K8S 1.11+
+- K8s 1.11+
 
 - Openshift 3.9, 3.10, and 3.11 _*(DAP only)*_
 
