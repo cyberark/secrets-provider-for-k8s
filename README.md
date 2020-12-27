@@ -29,6 +29,8 @@ To deploy the CyberArk Secrets Provider for Kubernetes as an application contain
 ## Supported Platforms
 - GKE
 
+- K8s 1.11+
+
 - Openshift 3.9, 3.10, and 3.11 _*(DAP only)*_
 
 ## Using secrets-provider-for-k8s with Conjur OSS 
@@ -94,6 +96,14 @@ You can find official documentation on [our site](https://docs.conjur.org/Latest
 [Moti Cohen](https://github.com/moticless)
  
 [Dekel Asaf](https://github.com/tovli)
+
+[Elad Kugman](https://github.com/eladkug)
+
+[Abraham Kotev Emet](https://github.com/abrahamko)
+
+[Eran Hadar](https://github.com/eranha)
+
+[Tamir Zheleznyak](https://github.com/tzheleznyak)
 
 [Inbal Zilberman](https://github.com/InbalZilberman)
 
