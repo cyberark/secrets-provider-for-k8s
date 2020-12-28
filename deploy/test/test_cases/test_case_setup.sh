@@ -7,7 +7,7 @@ if [ "${DEV}" = "false" ]; then
    $cli_with_timeout delete --ignore-not-found secret dockerpullsecret
 
    $cli_with_timeout create secret docker-registry dockerpullsecret \
-    --docker-server=${DOCKER_REGISTRY_URL} \
+    --docker-server="${PULL_DOCKER_REGISTRY_URL}" \
     --docker-username=_ \
     --docker-password=_ \
     --docker-email=_
@@ -15,7 +15,7 @@ if [ "${DEV}" = "false" ]; then
     $cli_with_timeout delete --ignore-not-found secrets dockerpullsecret
 
     $cli_with_timeout create secret docker-registry dockerpullsecret \
-      --docker-server=${DOCKER_REGISTRY_PATH} \
+      --docker-server="${PULL_DOCKER_REGISTRY_PATH}" \
       --docker-username=_ \
       --docker-password=$($cli_with_timeout whoami -t) \
       --docker-email=_

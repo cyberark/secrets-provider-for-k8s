@@ -10,7 +10,7 @@ fi
 set_namespace default
 
 if [[ $PLATFORM == openshift ]]; then
-  $cli_with_timeout login -u $OPENSHIFT_USERNAME
+  $cli_with_timeout login -u $OPENSHIFT_USERNAME -p $OPENSHIFT_PASSWORD
 fi
 
 if has_namespace $APP_NAMESPACE_NAME; then
