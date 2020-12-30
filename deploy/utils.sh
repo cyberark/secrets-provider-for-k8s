@@ -1,3 +1,6 @@
+#!/bin/bash
+set -euo pipefail
+
 export KEY_VALUE_NOT_EXIST=" "
 mkdir -p output
 
@@ -13,22 +16,26 @@ wait_for_it() {
   local timeout=$1
   local spacer=5
   shift
-  if ! [ $timeout = '-1' ]; then
+  if ! [ "${timeout}" = '-1' ]; then
     local times_to_run=$((timeout / spacer))
 
-    #echo "Waiting for '$@' up to $timeout s"
     for i in $(seq $times_to_run); do
-      eval $*  && return 0
+      cmd_output=$(eval "$@")
+      if [[ $? -eq 0 ]] ;
+      then
+        echo "$cmd_output"
+        return 0
+      fi
       sleep $spacer
     done
 
     # Last run evaluated. If this fails we return an error exit code to caller
-    eval $*
+    eval "$@"
   else
     echo "Waiting for '$*' forever"
 
-    while ! eval $* > /dev/null; do
-      sleep $spacer
+    while ! eval "$@" > /dev/null; do
+      sleep "${spacer}"
     done
     echo 'Success!'
   fi
@@ -476,4 +483,24 @@ get_logs() {
     echo "Fetching all success / error logs"
     get_conjur_logs_container
     get_app_logs_container
+}
+
+get_pod_name() {
+  local namespace=$1
+  local app_name=$2
+
+  pod_name=$(
+    $cli_with_timeout get pods \
+      --namespace=${namespace} \
+      --selector app=${app_name} \
+      -o jsonpath='{.items[].metadata.name}'
+  )
+
+  if [[ -z ${pod_name:-""} ]]; then
+    echo "Unable to find ${app_name} pod in namespace ${namespace} - aborting."
+    eval "${cli_with_timeout}" describe pods --namespace="${namespace}"
+    exit 1
+  fi
+
+  echo "${pod_name}"
 }
