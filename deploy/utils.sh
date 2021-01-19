@@ -1,6 +1,14 @@
 export KEY_VALUE_NOT_EXIST=" "
 mkdir -p output
 
+if [ $PLATFORM = "kubernetes" ]; then
+    cli_with_timeout="wait_for_it 300 kubectl"
+    cli_without_timeout=kubectl
+elif [ $PLATFORM = "openshift" ]; then
+    cli_with_timeout="wait_for_it 300 oc"
+    cli_without_timeout=oc
+fi
+
 wait_for_it() {
   local timeout=$1
   local spacer=5
@@ -25,14 +33,6 @@ wait_for_it() {
     echo 'Success!'
   fi
 }
-
-if [ $PLATFORM = "kubernetes" ]; then
-    cli_with_timeout="wait_for_it 300 kubectl"
-    cli_without_timeout=kubectl
-elif [ $PLATFORM = "openshift" ]; then
-    cli_with_timeout="wait_for_it 300 oc"
-    cli_without_timeout=oc
-fi
 
 check_env_var() {
   if [[ -z "${!1+x}" ]]; then
