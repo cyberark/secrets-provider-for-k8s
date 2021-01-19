@@ -43,6 +43,7 @@ while true ; do
   case "$1" in
     --docker ) RUN_IN_DOCKER=true ; shift ;;
     --dev ) DEV=true ; shift ;;
+    --test-prefix=* ) TEST_NAME_PREFIX="${1#*=}" ; export TEST_NAME_PREFIX; shift ;;
     --reload ) RELOAD_ENV=true ; shift ;;
     --oss ) CONJUR_DEPLOYMENT=oss ; shift ;;
     --dap ) CONJUR_DEPLOYMENT=dap ; shift ;;

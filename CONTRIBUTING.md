@@ -9,15 +9,23 @@ Thanks for your interest in the CyberArk Secrets Provider for Kubernetes. We wel
     + [Go](#go)
   * [Documentation](#documentation)
     + [Get up and running](#get-up-and-running)
+    + [Deploy a Local Dev Environment (K8s)](#deploy-a-local-dev-environment--k8s-)
+      - [Prerequisites](#prerequisites-1)
+      - [Deploy a local development environment](#deploy-a-local-development-environment)
+      - [Clean-up](#clean-up)
+      - [Limitations](#limitations)
   * [Contributing](#contributing)
     + [Contributing workflow](#contributing-workflow)
     + [Testing](#testing)
       - [Unit testing](#unit-testing)
       - [Integration testing](#integration-testing)
   * [Releases](#releases)
+    + [Pre-requisites](#pre-requisites)
     + [Update the version, changelog, and notices](#update-the-version--changelog--and-notices)
     + [Add a git tag](#add-a-git-tag)
+    + [Push Helm package](#push-helm-package)
     + [Publish the git release](#publish-the-git-release)
+    + [Publish the Red Hat image](#publish-the-red-hat-image)
 
 ## Prerequisites
 
@@ -70,7 +78,7 @@ You can now deploy a local development environment for Kubernetes using [Docker 
   
 1. If you intend to deploy the Secrets Provider via Helm, you will need to install the Helm CLI. See [here](https://helm.sh/docs/intro/install/) for instructions on how to do so.
 
-#### Deploy
+#### Deploy a local development environment
 
 To deploy a local development environment, perform the following:
 
@@ -163,6 +171,10 @@ For example:
 
 - Deploy OSS on GKE, run  `./bin/start --oss --gke`
 - Deploy DAP on Openshift, run  `./bin/start --dap --oc311`
+
+It is also possible to run a single test instead of the full suite. This can be done by running `./bin/start` with the
+flag `--test-prefix=<prefix>`. For example, running with the flag `--test-prefix=TEST_ID_18` will run only the test
+`TEST_ID_18_helm_multiple_provider_multiple_secrets.sh`, or run with the flag `--test-prefix=*1[789]` to run tests 17,18,19.
 
 When contributing new integration tests, perform the following:
 
