@@ -10,7 +10,7 @@ export K8S_SECRETS_KEY_VALUE=$KEY_VALUE_NOT_EXIST
 deploy_init_env
 
 echo "Expecting for 'CrashLoopBackOff' state of pod test-env"
-wait_for_it 600 "cli_get_pods_test_env | grep CrashLoopBackOff"
+wait_for_it 600 "$(get_pods_info "$APP_NAMESPACE_NAME" test-env) | grep CrashLoopBackOff"
 
 echo "Expecting secrets provider to fail with error 'CSPFK004E Environment variable K8S_SECRETS must be provided'"
 pod_name="$(get_pod_name ${APP_NAMESPACE_NAME} 'test-env')"

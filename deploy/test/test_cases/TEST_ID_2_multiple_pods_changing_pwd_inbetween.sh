@@ -52,7 +52,8 @@ echo "Waiting for 3 running pod test-env"
 $cli_with_timeout "get pods | grep test-env | grep Running | wc -l | tr -d ' ' | grep '^3$'"
 
 echo "Iterate over new pods and verify their secret was updated"
-pod_names=$(cli_get_pods_test_env | awk '{print $1}' | grep -v $pod_name2)
+pods_info=$(get_pods_info "$APP_NAMESPACE_NAME" test-env)
+pod_names=$(pods_info | awk '{print $1}' | grep -v "$pod_name2")
 for new_pod in $pod_names
 do
      echo "Verify pod $new_pod has environment variable 'TEST_SECRET' with value 'secret3'"
