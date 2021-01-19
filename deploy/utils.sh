@@ -1,10 +1,10 @@
 export KEY_VALUE_NOT_EXIST=" "
 mkdir -p output
 
-if [ $PLATFORM = "kubernetes" ]; then
+if [ "${PLATFORM}" = "kubernetes" ]; then
     cli_with_timeout="wait_for_it 300 kubectl"
     cli_without_timeout=kubectl
-elif [ $PLATFORM = "openshift" ]; then
+elif [ "${PLATFORM}" = "openshift" ]; then
     cli_with_timeout="wait_for_it 300 oc"
     cli_without_timeout=oc
 fi
@@ -96,9 +96,11 @@ runDockerCommand() {
     -e DEPLOY_MASTER_CLUSTER \
     -e CONJUR_NAMESPACE_NAME \
     -e PLATFORM \
+    -e TEST_PLATFORM \
     -e LOCAL_AUTHENTICATOR \
     -e APP_NAMESPACE_NAME \
     -e OPENSHIFT_URL \
+    -e OPENSHIFT_VERSION \
     -e OPENSHIFT_USERNAME \
     -e OPENSHIFT_PASSWORD \
     -e DOCKER_REGISTRY_PATH \
