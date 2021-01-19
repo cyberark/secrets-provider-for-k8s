@@ -20,7 +20,7 @@ wait_for_it() {
     local times_to_run=$((timeout / spacer))
 
     for i in $(seq $times_to_run); do
-      cmd_output=$(eval "$@")
+      cmd_output=$(eval "$@" 2>&1)
       if [[ $? -eq 0 ]] ;
       then
         echo "$cmd_output"
