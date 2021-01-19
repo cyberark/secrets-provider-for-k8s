@@ -1,4 +1,5 @@
 export KEY_VALUE_NOT_EXIST=" "
+mkdir -p output
 
 wait_for_it() {
   local timeout=$1
