@@ -21,7 +21,7 @@ wait_for_it() {
     while ! eval $* > /dev/null; do
       sleep $spacer
     done
-  echo 'Success!'
+    echo 'Success!'
   fi
 }
 
@@ -109,6 +109,7 @@ runDockerCommand() {
     -e MINIKUBE \
     -e MINISHIFT \
     -e DEV \
+    -e TEST_NAME_PREFIX \
     -e CONJUR_DEPLOYMENT \
     -e RUN_IN_DOCKER \
     -e SUMMON_ENV \
