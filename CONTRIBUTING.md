@@ -164,6 +164,10 @@ For example:
 - Deploy OSS on GKE, run  `./bin/start --oss --gke`
 - Deploy DAP on Openshift, run  `./bin/start --dap --oc311`
 
+It is also possible to run a single test instead of the full suite. This can be done by running `./bin/start` with the
+flag `--test-prefix=<prefix>`. For example, running with the flag `--test-prefix=TEST_ID_18` will run only the test
+`TEST_ID_18_helm_multiple_provider_multiple_secrets.sh`.
+
 When contributing new integration tests, perform the following:
 
 1. Navigate to the `test/test_case` folder

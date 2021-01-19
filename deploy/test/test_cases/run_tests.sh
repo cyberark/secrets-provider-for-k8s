@@ -1,8 +1,9 @@
 #!/bin/bash
 set -euo pipefail
 
-# By default lookup for folders with specifics prefix of type 'test_'. Can be modified by passing argument.
-TEST_NAME_PREFIX=${1:-TEST_ID_}
+# By default lookup for folders with specifics prefix of type 'test_'.
+# Can be modified by using the `--test-prefix` flag for running `./bin/start`.
+TEST_NAME_PREFIX=${TEST_NAME_PREFIX:-TEST_ID_}
 
 # Keep environment variables for debugging
 printenv > printenv.debug
