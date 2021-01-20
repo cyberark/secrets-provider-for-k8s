@@ -14,14 +14,13 @@ if [ "${DEV}" = "false" ]; then
   elif [[ "$PLATFORM" == "openshift" ]]; then
     $cli_with_timeout delete --ignore-not-found secrets dockerpullsecret
 
-    # TODO: replace the following with `$cli create secret`
-    $cli_with_timeout secrets new-dockercfg dockerpullsecret \
+    $cli_with_timeout create secret docker-registry dockerpullsecret \
       --docker-server=${DOCKER_REGISTRY_PATH} \
       --docker-username=_ \
       --docker-password=$($cli_with_timeout whoami -t) \
       --docker-email=_
 
-    $cli_with_timeout secrets add serviceaccount/default secrets/dockerpullsecret --for=pull
+    $cli_with_timeout secrets link serviceaccount/default dockerpullsecret --for=pull
   fi
 fi
 
