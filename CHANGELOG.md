@@ -5,6 +5,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+### Security
+- Updated gogo/protobuf to v1.3.2 to address CVE-2021-3121 (PR TBD)
 
 ### Added
 - Support for OpenShift 4.5.
@@ -27,10 +29,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ### Changed
 - Uses logger from k8s authenticator client; its timestamp format contains milliseconds precision.
-  [cyberark/secrets-provider-for-k8s#221](https://github.com/cyberark/secrets-provider-for-k8s/issues/221) 
-- Update k8s authenticator client version to 
+  [cyberark/secrets-provider-for-k8s#221](https://github.com/cyberark/secrets-provider-for-k8s/issues/221)
+- Update k8s authenticator client version to
   [0.19.0](https://github.com/cyberark/conjur-authn-k8s-client/blob/master/CHANGELOG.md#0190---2020-10-08),
-  which adds some fixes around cert injection failure (see also changes in 
+  which adds some fixes around cert injection failure (see also changes in
   [0.18.1](https://github.com/cyberark/conjur-authn-k8s-client/blob/master/CHANGELOG.md#0181---2020-09-13)).
   [cyberark/secrets-provider-for-k8s#247](https://github.com/cyberark/secrets-provider-for-k8s/pull/247)
 
@@ -49,16 +51,16 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
   [cyberark/secrets-provider-for-k8s#93](https://github.com/cyberark/secrets-provider-for-k8s/pull/93)
 
 ### Changed
-- Bumped the authn-k8s client version to 0.18.1 
+- Bumped the authn-k8s client version to 0.18.1
   [cyberark/conjur-authn-k8s-client#223](https://github.com/cyberark/conjur-authn-k8s-client/issues/223)
 - The retry backoff for the Secrets Provider is now constant instead of exponential ([cyberark/secrets-provider-for-k8s#174](https://github.com/cyberark/secrets-provider-for-k8s/issues/174))
-- The secrets-provider-for-k8s now runs as a limited user in the Docker image 
+- The secrets-provider-for-k8s now runs as a limited user in the Docker image
   instead of as root. This is considered a best security practice because it abides by the principle of least privilege
-  [cyberark/secrets-provider-for-k8s#95](https://github.com/cyberark/secrets-provider-for-k8s/pull/95) 
+  [cyberark/secrets-provider-for-k8s#95](https://github.com/cyberark/secrets-provider-for-k8s/pull/95)
 
 ## [1.0.0] - 2020-05-19
 ### Changed
-- Bumped the authn-k8s client version to 0.16.1 
+- Bumped the authn-k8s client version to 0.16.1
   [cyberark/conjur-authn-k8s-client#70](https://github.com/cyberark/conjur-authn-k8s-client/issues/70)
 
 ### Fixed

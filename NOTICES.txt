@@ -19,7 +19,7 @@ Section 1: Apache-2.0
 >>> k8s.io/utils - v0.0.0-20191218082557-f07c713de883
 
 Section 2: BSD 3-Clause
->>> github.com/gogo/protobuf  - v1.3.1
+>>> github.com/gogo/protobuf  - v1.3.2
 >>> golang.org/x/oauth2 - v0.0.0-20191202225959-858c2ad4c8b6
 >>> golang.org/x/time - v0.0.0-20191024005414-555d28b269f0
 >>> gopkg.in/inf.v0 - v0.9.1
@@ -204,7 +204,7 @@ limitations under the License.
 
 BSD 3-Clause License is applicable to the following component(s).
 
->>> github.com/gogo/protobuf  - v1.3.1
+>>> github.com/gogo/protobuf  - v1.3.2
 
 Copyright (c) 2013, The GoGo Authors. All rights reserved.
 
