@@ -22,8 +22,6 @@ func main() {
 
 	log.Info(messages.CSPFK008I, secrets.FullVersionName)
 
-	configureLogLevel()
-
 	// Initialize configurations
 	authnConfig, err := authnConfigProvider.NewFromEnv()
 	if err != nil {
@@ -106,17 +104,6 @@ func provideSecretsToTarget(authn *authenticator.Authenticator, provideConjurSec
 func printErrorAndExit(errorMessage string) {
 	log.Error(errorMessage)
 	os.Exit(1)
-}
-
-func configureLogLevel() {
-	validVal := "true"
-	val := os.Getenv("DEBUG")
-	if val == validVal {
-		log.EnableDebugMode()
-	} else if val != "" {
-		// In case "DEBUG" is configured with incorrect value
-		log.Warn(messages.CSPFK001W, val, validVal)
-	}
 }
 
 func validateContainerMode(containerMode string) {
