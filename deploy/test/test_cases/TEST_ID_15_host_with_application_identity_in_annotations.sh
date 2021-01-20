@@ -10,7 +10,6 @@ export CONJUR_AUTHN_LOGIN="host/some-apps/annotations-app"
 deploy_init_env
 
 echo "Verifying pod test_env has environment variable 'TEST_SECRET' with value 'supersecret'"
-$cli_with_timeout "get pods --namespace=$APP_NAMESPACE_NAME --selector app=test-env --no-headers | wc -l | tr -d ' ' | grep '^1$'"
-pod_name=$($cli_with_timeout "get pods --namespace=$APP_NAMESPACE_NAME --selector app=test-env --no-headers" | awk '{print $1}')
+pod_name="$(get_pod_name ${APP_NAMESPACE_NAME} 'test-env')"
 
 verify_secret_value_in_pod $pod_name TEST_SECRET supersecret

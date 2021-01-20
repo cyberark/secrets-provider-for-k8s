@@ -388,10 +388,6 @@ yaml_print_key_name_value() {
   fi
 }
 
-cli_get_pods_test_env() {
-  $cli_with_timeout "get pods --namespace=$APP_NAMESPACE_NAME --selector app=test-env --no-headers"
-}
-
 test_secret_is_provided() {
   secret_value=$1
   variable_name="${2:-secrets/test_secret}"
@@ -406,7 +402,7 @@ test_secret_is_provided() {
 
   echo "Verifying pod test_env has environment variable '$environment_variable_name' with value '$secret_value'"
   $cli_with_timeout "get pods --namespace=$APP_NAMESPACE_NAME --selector app=test-env --no-headers"
-  pod_name=$(cli_get_pods_test_env | awk '{print $1}')
+  pod_name="$(get_pod_name "${APP_NAMESPACE_NAME}" 'test-env')"
   verify_secret_value_in_pod "$pod_name" "$environment_variable_name" "$secret_value"
 }
 
@@ -478,4 +474,44 @@ get_logs() {
     echo "Fetching all success / error logs"
     get_conjur_logs_container
     get_app_logs_container
+}
+
+# TODO: remove this and use get_pods_info instead
+cli_get_pods_test_env() {
+  $cli_with_timeout "get pods --namespace=$APP_NAMESPACE_NAME --selector app=test-env --no-headers"
+}
+
+# Return the pods information of a given namespace and app name without the headers
+# For example: 'test-app-5-fab52b20-0 secret-provider-0 1/1 Running 1 20m'
+get_pods_info() {
+  local namespace=$1
+  local app_name=$2
+
+  $cli_with_timeout get pods \
+    --namespace=${namespace} \
+    --selector app=${app_name} \
+    --no-headers
+}
+
+# TODO: use this method for all cases that need the pod name
+# Return the pod name of a given namespace and app name
+# For example: 'secret-provider-0'
+get_pod_name() {
+  local namespace=$1
+  local app_name=$2
+
+  pod_name=$(
+    $cli_with_timeout get pods \
+      --namespace=${namespace} \
+      --selector app=${app_name} \
+      -o jsonpath='{.items[].metadata.name}'
+  )
+
+  if [[ -z ${pod_name:-""} ]]; then
+    echo "Unable to find ${app_name} pod in namespace ${namespace} - aborting."
+    eval "${cli_with_timeout}" describe pods --namespace="${namespace}"
+    exit 1
+  fi
+
+  echo "${pod_name}"
 }

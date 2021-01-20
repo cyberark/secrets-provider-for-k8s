@@ -9,9 +9,7 @@ wait_for_it 600 "$CONFIG_DIR/secrets-access-role-binding.sh.yml | $cli_without_t
 
 deploy_init_env
 
-$cli_with_timeout "get pods --namespace=$APP_NAMESPACE_NAME --selector app=test-env --no-headers | wc -l | tr -d ' ' | grep '^1$'"
-pod_name1=$($cli_with_timeout "get pods --namespace=$APP_NAMESPACE_NAME --selector app=test-env --no-headers" | awk '{print $1}')
-
+pod_name1="$(get_pod_name ${APP_NAMESPACE_NAME} 'test-env')"
 
 echo "Verify pod $pod_name1 has environment variable 'TEST_SECRET' with value 'supersecret'"
 verify_secret_value_in_pod $pod_name1 TEST_SECRET supersecret
@@ -35,8 +33,7 @@ elif [ $PLATFORM = "openshift" ]; then
     $cli_with_timeout "delete pod $pod_name1"
 fi
 
-$cli_with_timeout "get pods --namespace=$APP_NAMESPACE_NAME --selector app=test-env --no-headers | wc -l | tr -d ' ' | grep '^1$'"
-pod_name2=$($cli_with_timeout "get pods --namespace=$APP_NAMESPACE_NAME --selector app=test-env --no-headers" | awk '{print $1}')
+pod_name2="$(get_pod_name ${APP_NAMESPACE_NAME} 'test-env')"
 
 echo "Verify pod $pod_name2 has environment variable 'TEST_SECRET' with value 'secret2'"
 verify_secret_value_in_pod $pod_name2 TEST_SECRET secret2
@@ -55,9 +52,10 @@ echo "Waiting for 3 running pod test-env"
 $cli_with_timeout "get pods | grep test-env | grep Running | wc -l | tr -d ' ' | grep '^3$'"
 
 echo "Iterate over new pods and verify their secret was updated"
-pod_names=$(cli_get_pods_test_env | awk '{print $1}' | grep -v $pod_name2)
+pods_info=$(get_pods_info "$APP_NAMESPACE_NAME" test-env)
+pod_names=$(echo "$pods_info" | awk '{print $1}' | grep -v "$pod_name2")
 for new_pod in $pod_names
 do
-     echo "Verify pod $new_pod has environment variable 'TEST_SECRET' with value 'secret3'"
-     verify_secret_value_in_pod $new_pod TEST_SECRET secret3
+   echo "Verify pod $new_pod has environment variable 'TEST_SECRET' with value 'secret3'"
+   verify_secret_value_in_pod $new_pod TEST_SECRET secret3
 done
