@@ -43,8 +43,8 @@ $cli_with_timeout "get job/$helm_chart_name -o=jsonpath='{.status.conditions[*].
 export K8S_SECRET=another-test-k8s-secret
 deploy_helm_app "another-"
 
-pod_name="$(get_pod_name "${APP_NAMESPACE_NAME}" 'test-env')"
+pod_name="$(get_pod_name "${APP_NAMESPACE_NAME}" 'app=test-env')"
 verify_secret_value_in_pod $pod_name "TEST_SECRET" "supersecret"
 
-pod_name="$(get_pod_name "${APP_NAMESPACE_NAME}" 'another-test-env')"
+pod_name="$(get_pod_name "${APP_NAMESPACE_NAME}" 'app=another-test-env')"
 verify_secret_value_in_pod $pod_name "another-TEST_SECRET" "another-some-secret-value"

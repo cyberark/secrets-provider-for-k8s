@@ -18,9 +18,9 @@ deploy_helm_app
 helm_chart_name="secrets-provider"
 $cli_with_timeout "get job/$helm_chart_name -o=jsonpath='{.status.conditions[*].type}' | grep Complete"
 
-app_pod_name="$(get_pod_name ${APP_NAMESPACE_NAME} 'test-env')"
+app_pod_name="$(get_pod_name "${APP_NAMESPACE_NAME}" 'app=test-env')"
 verify_secret_value_in_pod $app_pod_name "TEST_SECRET" "supersecret"
 
-secrets_provider_pod_name="$(get_pod_name ${APP_NAMESPACE_NAME} 'test-helm')"
+secrets_provider_pod_name="$(get_pod_name "${APP_NAMESPACE_NAME}" 'app=test-helm')"
 echo "Expecting the Secrets provider to succeed with proper success log 'CSPFK009I DAP/Conjur Secrets updated in Kubernetes successfully'"
 $cli_with_timeout "logs $secrets_provider_pod_name | grep CSPFK009I"

@@ -80,13 +80,11 @@ get_master_pod_name() {
   if [ "$CONJUR_DEPLOYMENT" = "oss" ]; then
       app_name=conjur-oss
   fi
-  pod_list=$($cli_with_timeout get pods --selector app=$app_name,role=master --no-headers | awk '{ print $1 }')
-  echo $pod_list | awk '{print $1}'
+  get_pod_name "${CONJUR_NAMESPACE_NAME}" app=$app_name,role=master
 }
 
 get_conjur_cli_pod_name() {
-  pod_list=$($cli_with_timeout get pods --selector app=conjur-cli --no-headers | awk '{ print $1 }')
-  echo $pod_list | awk '{print $1}'
+  get_pod_name "${CONJUR_NAMESPACE_NAME}" 'app=conjur-cli'
 }
 
 runDockerCommand() {
@@ -174,7 +172,7 @@ fetch_ssl_from_conjur() {
     export cert_location="/root/conjur-${CONJUR_ACCOUNT}.pem"
   fi
 
-  export conjur_pod_name=$($cli_with_timeout get pods --selector=$selector --namespace $CONJUR_NAMESPACE_NAME --no-headers | awk '{ print $1 }' | head -1)
+  export conjur_pod_name="$(get_pod_name "${CONJUR_NAMESPACE_NAME}" $selector)"
 }
 
 setup_helm_environment() {
@@ -407,8 +405,7 @@ test_secret_is_provided() {
   deploy_init_env
 
   echo "Verifying pod test_env has environment variable '$environment_variable_name' with value '$secret_value'"
-  $cli_with_timeout "get pods --namespace=$APP_NAMESPACE_NAME --selector app=test-env --no-headers"
-  pod_name="$(get_pod_name "${APP_NAMESPACE_NAME}" 'test-env')"
+  pod_name="$(get_pod_name "${APP_NAMESPACE_NAME}" 'app=test-env')"
   verify_secret_value_in_pod "$pod_name" "$environment_variable_name" "$secret_value"
 }
 
@@ -428,7 +425,7 @@ get_app_logs_container() {
     $cli_without_timeout get pods
 
     if [[ -z "$helm" ]]; then
-      pod_name=$($cli_without_timeout get pods --selector app=test-env --no-headers  | awk '{print $1}' )
+      pod_name="$(get_pod_name "${APP_NAMESPACE_NAME}" app=test-env $cli_without_timeout)"
       echo "pod_name="$pod_name
 
       if [[ $pod_name != "" ]]; then
@@ -437,7 +434,7 @@ get_app_logs_container() {
         $cli_without_timeout logs $pod_name -c cyberark-secrets-provider-for-k8s > "output/$SUMMON_ENV-secrets-provider-logs.txt"
       fi
     else
-      pod_name=$($cli_without_timeout get pods --selector app=test-helm --no-headers | awk '{print $1}' )
+      pod_name="$(get_pod_name "${APP_NAMESPACE_NAME}" app=test-helm $cli_without_timeout)"
       echo "pod_name="$pod_name
 
       if [[ $pod_name != "" ]]; then
@@ -458,8 +455,8 @@ get_conjur_logs_container() {
     fi
 
     $cli_without_timeout get pods
-    $cli_with_timeout get pods --selector=$selector --no-headers
-    pod_list=$($cli_without_timeout get pods --selector=$selector --no-headers | awk '{ print $1 }')
+    get_pod_name "${CONJUR_NAMESPACE_NAME}" $selector
+    pod_list="$(get_pod_name "${CONJUR_NAMESPACE_NAME}" $selector $cli_without_timeout)"
 
     if [[ -z "$pod_list" ]]; then
       echo "Pod doesn't exist. DAP Follower/Conjur logs were unable to be retrieved"
@@ -499,23 +496,23 @@ get_pods_info() {
     --no-headers
 }
 
-# TODO: use this method for all cases that need the pod name
 # Return the pod name of a given namespace and app name
 # For example: 'secret-provider-0'
 get_pod_name() {
   local namespace=$1
-  local app_name=$2
+  local selector=$2
+  local cli=${3-$cli_with_timeout}
 
   pod_name=$(
-    $cli_with_timeout get pods \
+    $cli get pods \
       --namespace=${namespace} \
-      --selector app=${app_name} \
+      --selector ${selector} \
       -o jsonpath='{.items[].metadata.name}'
   )
 
   if [[ -z ${pod_name:-""} ]]; then
     echo "Unable to find ${app_name} pod in namespace ${namespace} - aborting."
-    eval "${cli_with_timeout}" describe pods --namespace="${namespace}"
+    eval "${cli}" describe pods --namespace="${namespace}"
     exit 1
   fi
 
