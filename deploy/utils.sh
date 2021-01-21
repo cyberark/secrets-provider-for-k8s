@@ -479,20 +479,12 @@ get_logs() {
     get_app_logs_container
 }
 
-# TODO: remove this and use get_pods_info instead
-cli_get_pods_test_env() {
-  $cli_with_timeout "get pods --namespace=$APP_NAMESPACE_NAME --selector app=test-env --no-headers"
-}
-
-# Return the pods information of a given namespace and app name without the headers
+# Return the pods information of the test-env without the headers
 # For example: 'test-app-5-fab52b20-0 secret-provider-0 1/1 Running 1 20m'
 get_pods_info() {
-  local namespace=$1
-  local app_name=$2
-
   $cli_with_timeout get pods \
-    --namespace=${namespace} \
-    --selector app=${app_name} \
+    --namespace="$APP_NAMESPACE_NAME" \
+    --selector app=test-env \
     --no-headers
 }
 
