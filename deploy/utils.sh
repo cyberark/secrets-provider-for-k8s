@@ -425,7 +425,7 @@ get_app_logs_container() {
     $cli_without_timeout get pods
 
     if [[ -z "$helm" ]]; then
-      pod_name="$(get_pod_name "$APP_NAMESPACE_NAME" app=test-env "$cli_without_timeout")"
+      pod_name=$($cli_without_timeout get pods --selector app=test-env --no-headers  | awk '{print $1}' )
       echo "pod_name="$pod_name
 
       if [[ $pod_name != "" ]]; then
@@ -434,7 +434,7 @@ get_app_logs_container() {
         $cli_without_timeout logs $pod_name -c cyberark-secrets-provider-for-k8s > "output/$SUMMON_ENV-secrets-provider-logs.txt"
       fi
     else
-      pod_name="$(get_pod_name "$APP_NAMESPACE_NAME" app=test-helm "$cli_without_timeout")"
+      pod_name=$($cli_without_timeout get pods --selector app=test-helm --no-headers | awk '{print $1}' )
       echo "pod_name="$pod_name
 
       if [[ $pod_name != "" ]]; then
@@ -455,8 +455,8 @@ get_conjur_logs_container() {
     fi
 
     $cli_without_timeout get pods
-    get_pod_name "$CONJUR_NAMESPACE_NAME" "$selector"
-    pod_list="$(get_pod_name "$CONJUR_NAMESPACE_NAME" $selector "$cli_without_timeout")"
+    $cli_with_timeout get pods --selector=$selector --no-headers
+    pod_list=$($cli_without_timeout get pods --selector=$selector --no-headers | awk '{ print $1 }')
 
     if [[ -z "$pod_list" ]]; then
       echo "Pod doesn't exist. DAP Follower/Conjur logs were unable to be retrieved"
@@ -493,18 +493,17 @@ get_pods_info() {
 get_pod_name() {
   local namespace=$1
   local selector=$2
-  local cli=${3:-$cli_with_timeout}
 
   pod_name=$(
-    $cli get pods \
-      --namespace=${namespace} \
-      --selector ${selector} \
+    $cli_with_timeout get pods \
+      --namespace="${namespace}" \
+      --selector "${selector}" \
       -o jsonpath='{.items[].metadata.name}'
   )
 
   if [[ -z $pod_name ]]; then
     echo "Unable to find ${selector} in namespace ${namespace} - aborting."
-    eval "${cli}" describe pods --namespace="${namespace}"
+    $cli_with_timeout describe pods --namespace="${namespace}"
     exit 1
   fi
 
