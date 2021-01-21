@@ -33,13 +33,11 @@ helm_chart_name="another-secrets-provider"
 $cli_with_timeout "get job/$helm_chart_name -o=jsonpath='{.status.conditions[*].type}' | grep Complete"
 
 # Verify that another-secrets-provider runs with the correct Service Account
-$cli_with_timeout "get pods --namespace=$APP_NAMESPACE_NAME --selector app=another-test-helm --no-headers | grep another-secrets-provider"
-pod_name=$($cli_with_timeout get pods --namespace=$APP_NAMESPACE_NAME --selector app=test-helm --no-headers | awk '{print $1}' | head -1)
+pod_name="$(get_pod_name "$APP_NAMESPACE_NAME" 'app=test-helm')"
 $cli_with_timeout get pods/$pod_name -o yaml | grep "serviceAccount: secrets-provider-service-account"
 
 # Deploy app to test against
 deploy_helm_app
 
-$cli_with_timeout "get pods --namespace=$APP_NAMESPACE_NAME --selector app=test-env --no-headers | grep Running"
-pod_name=$($cli_with_timeout get pods --namespace=$APP_NAMESPACE_NAME --selector app=test-env --no-headers | awk '{print $1}' | head -1)
+pod_name="$(get_pod_name "$APP_NAMESPACE_NAME" 'app=test-env')"
 verify_secret_value_in_pod $pod_name "TEST_SECRET" "supersecret"

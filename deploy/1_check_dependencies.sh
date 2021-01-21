@@ -4,6 +4,7 @@ set -eo pipefail
 . utils.sh
 
 check_env_var "UNIQUE_TEST_ID"
+check_env_var "TEST_PLATFORM"
 
 check_env_var "CONJUR_APPLIANCE_IMAGE"
 check_env_var "CONJUR_FOLLOWER_COUNT"
@@ -21,6 +22,7 @@ if [[ "${DEV}" = "false" ]]; then
   if [[ "$PLATFORM" = "openshift" ]]; then
     check_env_var "OPENSHIFT_USERNAME"
     check_env_var "OPENSHIFT_PASSWORD"
+    check_env_var "OPENSHIFT_VERSION"
   elif [[ "$PLATFORM" = "kubernetes" ]]; then
     check_env_var "GCLOUD_SERVICE_KEY"
     check_env_var "GCLOUD_CLUSTER_NAME"

@@ -10,7 +10,6 @@ export CONJUR_AUTHN_LOGIN="host/conjur/authn-k8s/${AUTHENTICATOR_ID}/apps/${APP_
 deploy_init_env
 
 echo "Expecting secrets provider to fail with error CSPFK034E Failed to retrieve Conjur secrets"
-$cli_with_timeout "get pods --namespace=$APP_NAMESPACE_NAME --selector app=test-env --no-headers | wc -l | tr -d ' ' | grep '^1$'"
-pod_name=$($cli_with_timeout "get pods --namespace=$APP_NAMESPACE_NAME --selector app=test-env --no-headers" | awk '{print $1}')
+pod_name="$(get_pod_name "$APP_NAMESPACE_NAME" 'app=test-env')"
 
 $cli_with_timeout "logs $pod_name -c cyberark-secrets-provider-for-k8s | grep CSPFK034E"

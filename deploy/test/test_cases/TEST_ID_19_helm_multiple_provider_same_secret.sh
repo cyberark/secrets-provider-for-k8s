@@ -33,6 +33,5 @@ $cli_with_timeout "get job/$helm_chart_name -o=jsonpath='{.status.conditions[*].
 # Deploy app to test against
 deploy_helm_app
 
-$cli_with_timeout "get pods --namespace=$APP_NAMESPACE_NAME --selector app=test-env --no-headers | grep Running"
-pod_name=$($cli_with_timeout get pods --namespace=$APP_NAMESPACE_NAME --selector app=test-env --no-headers | awk '{print $1}' | head -1)
+pod_name="$(get_pod_name "$APP_NAMESPACE_NAME" 'app=test-env')"
 verify_secret_value_in_pod $pod_name "TEST_SECRET" "supersecret"

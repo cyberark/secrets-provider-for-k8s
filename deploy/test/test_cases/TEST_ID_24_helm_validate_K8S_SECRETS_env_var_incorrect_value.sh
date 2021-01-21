@@ -17,7 +17,8 @@ pushd ../../
 popd
 
 echo "Expecting Secrets Provider to fail with debug message 'CSPFK004D Failed to retrieve k8s secret. Reason: secrets K8S_SECRET-non-existent-secret not found'"
-pod_name=$($cli_with_timeout get pods --namespace=$APP_NAMESPACE_NAME --selector app=test-helm --no-headers | awk '{print $1}' )
+pod_name="$(get_pod_name "$APP_NAMESPACE_NAME" 'app=test-helm')"
+
 $cli_with_timeout "logs $pod_name -c cyberark-secrets-provider-for-k8s | grep CSPFK004D"
 
 echo "Expecting Secrets Provider to fail with error 'CSPFK020E Failed to retrieve k8s secret'"

@@ -1,10 +1,13 @@
+#!/bin/bash
+set -euo pipefail
+
 export KEY_VALUE_NOT_EXIST=" "
 mkdir -p output
 
-if [ $PLATFORM = "kubernetes" ]; then
+if [ "${PLATFORM}" = "kubernetes" ]; then
     cli_with_timeout="wait_for_it 300 kubectl"
     cli_without_timeout=kubectl
-elif [ $PLATFORM = "openshift" ]; then
+elif [ "${PLATFORM}" = "openshift" ]; then
     cli_with_timeout="wait_for_it 300 oc"
     cli_without_timeout=oc
 fi
@@ -13,22 +16,25 @@ wait_for_it() {
   local timeout=$1
   local spacer=5
   shift
-  if ! [ $timeout = '-1' ]; then
+  if ! [ "${timeout}" = '-1' ]; then
     local times_to_run=$((timeout / spacer))
 
-    #echo "Waiting for '$@' up to $timeout s"
     for i in $(seq $times_to_run); do
-      eval $*  && return 0
+      if cmd_output=$(eval "$@") ;
+      then
+        echo "$cmd_output"
+        return 0
+      fi
       sleep $spacer
     done
 
     # Last run evaluated. If this fails we return an error exit code to caller
-    eval $*
+    eval "$@"
   else
     echo "Waiting for '$*' forever"
 
-    while ! eval $* > /dev/null; do
-      sleep $spacer
+    while ! eval "$@" > /dev/null; do
+      sleep "${spacer}"
     done
     echo 'Success!'
   fi
@@ -74,13 +80,11 @@ get_master_pod_name() {
   if [ "$CONJUR_DEPLOYMENT" = "oss" ]; then
       app_name=conjur-oss
   fi
-  pod_list=$($cli_with_timeout get pods --selector app=$app_name,role=master --no-headers | awk '{ print $1 }')
-  echo $pod_list | awk '{print $1}'
+  get_pod_name "$CONJUR_NAMESPACE_NAME" app=$app_name,role=master
 }
 
 get_conjur_cli_pod_name() {
-  pod_list=$($cli_with_timeout get pods --selector app=conjur-cli --no-headers | awk '{ print $1 }')
-  echo $pod_list | awk '{print $1}'
+  get_pod_name "$CONJUR_NAMESPACE_NAME" 'app=conjur-cli'
 }
 
 runDockerCommand() {
@@ -96,9 +100,11 @@ runDockerCommand() {
     -e DEPLOY_MASTER_CLUSTER \
     -e CONJUR_NAMESPACE_NAME \
     -e PLATFORM \
+    -e TEST_PLATFORM \
     -e LOCAL_AUTHENTICATOR \
     -e APP_NAMESPACE_NAME \
     -e OPENSHIFT_URL \
+    -e OPENSHIFT_VERSION \
     -e OPENSHIFT_USERNAME \
     -e OPENSHIFT_PASSWORD \
     -e DOCKER_REGISTRY_PATH \
@@ -166,7 +172,7 @@ fetch_ssl_from_conjur() {
     export cert_location="/root/conjur-${CONJUR_ACCOUNT}.pem"
   fi
 
-  export conjur_pod_name=$($cli_with_timeout get pods --selector=$selector --namespace $CONJUR_NAMESPACE_NAME --no-headers | awk '{ print $1 }' | head -1)
+  export conjur_pod_name="$(get_pod_name "$CONJUR_NAMESPACE_NAME" "$selector")"
 }
 
 setup_helm_environment() {
@@ -194,7 +200,7 @@ setup_helm_environment() {
 }
 
 set_image_path() {
-  image_path="${APP_NAMESPACE_NAME}"
+  image_path="$APP_NAMESPACE_NAME"
   if [[ "${PLATFORM}" = "openshift" && "${DEV}" = "false" ]]; then
     # Image path needs to point to internal registry path to access image
     image_path="docker-registry.default.svc:5000/${APP_NAMESPACE_NAME}"
@@ -386,10 +392,6 @@ yaml_print_key_name_value() {
   fi
 }
 
-cli_get_pods_test_env() {
-  $cli_with_timeout "get pods --namespace=$APP_NAMESPACE_NAME --selector app=test-env --no-headers"
-}
-
 test_secret_is_provided() {
   secret_value=$1
   variable_name="${2:-secrets/test_secret}"
@@ -403,8 +405,7 @@ test_secret_is_provided() {
   deploy_init_env
 
   echo "Verifying pod test_env has environment variable '$environment_variable_name' with value '$secret_value'"
-  $cli_with_timeout "get pods --namespace=$APP_NAMESPACE_NAME --selector app=test-env --no-headers"
-  pod_name=$(cli_get_pods_test_env | awk '{print $1}')
+  pod_name="$(get_pod_name "$APP_NAMESPACE_NAME" 'app=test-env')"
   verify_secret_value_in_pod "$pod_name" "$environment_variable_name" "$secret_value"
 }
 
@@ -476,4 +477,35 @@ get_logs() {
     echo "Fetching all success / error logs"
     get_conjur_logs_container
     get_app_logs_container
+}
+
+# Return the pods information of the test-env without the headers
+# For example: 'test-app-5-fab52b20-0 secret-provider-0 1/1 Running 1 20m'
+get_pods_info() {
+  $cli_with_timeout get pods \
+    --namespace="$APP_NAMESPACE_NAME" \
+    --selector app=test-env \
+    --no-headers
+}
+
+# Return the pod name of a given namespace and app name
+# For example: 'secret-provider-0'
+get_pod_name() {
+  local namespace=$1
+  local selector=$2
+
+  pod_name=$(
+    $cli_with_timeout get pods \
+      --namespace="${namespace}" \
+      --selector "${selector}" \
+      -o jsonpath='{.items[].metadata.name}'
+  )
+
+  if [[ -z $pod_name ]]; then
+    echo "Unable to find ${selector} in namespace ${namespace} - aborting."
+    $cli_with_timeout describe pods --namespace="${namespace}"
+    exit 1
+  fi
+
+  echo "${pod_name}"
 }

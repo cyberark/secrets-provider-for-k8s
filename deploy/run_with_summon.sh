@@ -57,7 +57,7 @@ if [ "$CONJUR_DEPLOYMENT" = "oss" ]; then
     selector="app=conjur-cli"
     cert_location="/root/conjur-${CONJUR_ACCOUNT}.pem"
 fi
-conjur_pod_name=$($cli_with_timeout get pods --selector=$selector --namespace $CONJUR_NAMESPACE_NAME --no-headers | awk '{ print $1 }' | head -1)
+conjur_pod_name="$(get_pod_name "$CONJUR_NAMESPACE_NAME" "$selector")"
 ssl_cert=$($cli_with_timeout "exec ${conjur_pod_name} --namespace $CONJUR_NAMESPACE_NAME cat $cert_location")
 
 export CONJUR_SSL_CERTIFICATE=$ssl_cert
