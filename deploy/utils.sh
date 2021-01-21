@@ -16,9 +16,12 @@ wait_for_it() {
   if ! [ $timeout = '-1' ]; then
     local times_to_run=$((timeout / spacer))
 
-    #echo "Waiting for '$@' up to $timeout s"
     for i in $(seq $times_to_run); do
-      eval $*  && return 0
+      if cmd_output=$(eval "$@") ;
+      then
+        echo "$cmd_output"
+        return 0
+      fi
       sleep $spacer
     done
 
