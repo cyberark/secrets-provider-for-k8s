@@ -9,7 +9,7 @@ wait_for_it 600 "$CONFIG_DIR/secrets-access-role-binding.sh.yml | $cli_without_t
 
 deploy_init_env
 
-pod_name1="$(get_pod_name "${APP_NAMESPACE_NAME}" 'app=test-env')"
+pod_name1="$(get_pod_name "$APP_NAMESPACE_NAME" 'app=test-env')"
 
 echo "Verify pod $pod_name1 has environment variable 'TEST_SECRET' with value 'supersecret'"
 verify_secret_value_in_pod $pod_name1 TEST_SECRET supersecret
@@ -33,7 +33,7 @@ elif [ $PLATFORM = "openshift" ]; then
     $cli_with_timeout "delete pod $pod_name1"
 fi
 
-pod_name2="$(get_pod_name "${APP_NAMESPACE_NAME}" 'app=test-env')"
+pod_name2="$(get_pod_name "$APP_NAMESPACE_NAME" 'app=test-env')"
 
 echo "Verify pod $pod_name2 has environment variable 'TEST_SECRET' with value 'secret2'"
 verify_secret_value_in_pod $pod_name2 TEST_SECRET secret2

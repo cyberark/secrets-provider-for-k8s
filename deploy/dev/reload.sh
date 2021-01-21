@@ -35,7 +35,7 @@ main() {
       cert_location="/root/conjur-${CONJUR_ACCOUNT}.pem"
     fi
 
-    conjur_pod_name="$(get_pod_name "${CONJUR_NAMESPACE_NAME}" $selector)"
+    conjur_pod_name="$(get_pod_name "$CONJUR_NAMESPACE_NAME" "$selector")"
     ssl_cert=$($cli_with_timeout "exec ${conjur_pod_name} --namespace $CONJUR_NAMESPACE_NAME cat $cert_location")
 
     export CONJUR_SSL_CERTIFICATE=$ssl_cert

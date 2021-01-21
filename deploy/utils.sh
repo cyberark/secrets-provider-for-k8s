@@ -80,11 +80,11 @@ get_master_pod_name() {
   if [ "$CONJUR_DEPLOYMENT" = "oss" ]; then
       app_name=conjur-oss
   fi
-  get_pod_name "${CONJUR_NAMESPACE_NAME}" app=$app_name,role=master
+  get_pod_name "$CONJUR_NAMESPACE_NAME" app=$app_name,role=master
 }
 
 get_conjur_cli_pod_name() {
-  get_pod_name "${CONJUR_NAMESPACE_NAME}" 'app=conjur-cli'
+  get_pod_name "$CONJUR_NAMESPACE_NAME" 'app=conjur-cli'
 }
 
 runDockerCommand() {
@@ -172,7 +172,7 @@ fetch_ssl_from_conjur() {
     export cert_location="/root/conjur-${CONJUR_ACCOUNT}.pem"
   fi
 
-  export conjur_pod_name="$(get_pod_name "${CONJUR_NAMESPACE_NAME}" $selector)"
+  export conjur_pod_name="$(get_pod_name "$CONJUR_NAMESPACE_NAME" "$selector")"
 }
 
 setup_helm_environment() {
@@ -200,7 +200,7 @@ setup_helm_environment() {
 }
 
 set_image_path() {
-  image_path="${APP_NAMESPACE_NAME}"
+  image_path="$APP_NAMESPACE_NAME"
   if [[ "${PLATFORM}" = "openshift" && "${DEV}" = "false" ]]; then
     # Image path needs to point to internal registry path to access image
     image_path="docker-registry.default.svc:5000/${APP_NAMESPACE_NAME}"
@@ -405,7 +405,7 @@ test_secret_is_provided() {
   deploy_init_env
 
   echo "Verifying pod test_env has environment variable '$environment_variable_name' with value '$secret_value'"
-  pod_name="$(get_pod_name "${APP_NAMESPACE_NAME}" 'app=test-env')"
+  pod_name="$(get_pod_name "$APP_NAMESPACE_NAME" 'app=test-env')"
   verify_secret_value_in_pod "$pod_name" "$environment_variable_name" "$secret_value"
 }
 
@@ -425,7 +425,7 @@ get_app_logs_container() {
     $cli_without_timeout get pods
 
     if [[ -z "$helm" ]]; then
-      pod_name="$(get_pod_name "${APP_NAMESPACE_NAME}" app=test-env $cli_without_timeout)"
+      pod_name="$(get_pod_name "$APP_NAMESPACE_NAME" app=test-env "$cli_without_timeout")"
       echo "pod_name="$pod_name
 
       if [[ $pod_name != "" ]]; then
@@ -434,7 +434,7 @@ get_app_logs_container() {
         $cli_without_timeout logs $pod_name -c cyberark-secrets-provider-for-k8s > "output/$SUMMON_ENV-secrets-provider-logs.txt"
       fi
     else
-      pod_name="$(get_pod_name "${APP_NAMESPACE_NAME}" app=test-helm $cli_without_timeout)"
+      pod_name="$(get_pod_name "$APP_NAMESPACE_NAME" app=test-helm "$cli_without_timeout")"
       echo "pod_name="$pod_name
 
       if [[ $pod_name != "" ]]; then
@@ -455,8 +455,8 @@ get_conjur_logs_container() {
     fi
 
     $cli_without_timeout get pods
-    get_pod_name "${CONJUR_NAMESPACE_NAME}" $selector
-    pod_list="$(get_pod_name "${CONJUR_NAMESPACE_NAME}" $selector $cli_without_timeout)"
+    get_pod_name "$CONJUR_NAMESPACE_NAME" "$selector"
+    pod_list="$(get_pod_name "$CONJUR_NAMESPACE_NAME" $selector "$cli_without_timeout")"
 
     if [[ -z "$pod_list" ]]; then
       echo "Pod doesn't exist. DAP Follower/Conjur logs were unable to be retrieved"
@@ -493,7 +493,7 @@ get_pods_info() {
 get_pod_name() {
   local namespace=$1
   local selector=$2
-  local cli=${3-$cli_with_timeout}
+  local cli=${3:-$cli_with_timeout}
 
   pod_name=$(
     $cli get pods \
@@ -502,8 +502,8 @@ get_pod_name() {
       -o jsonpath='{.items[].metadata.name}'
   )
 
-  if [[ -z ${pod_name:-""} ]]; then
-    echo "Unable to find ${app_name} pod in namespace ${namespace} - aborting."
+  if [[ -z $pod_name ]]; then
+    echo "Unable to find ${selector} in namespace ${namespace} - aborting."
     eval "${cli}" describe pods --namespace="${namespace}"
     exit 1
   fi
