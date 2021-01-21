@@ -1,3 +1,6 @@
+#!/bin/bash
+set -euo pipefail
+
 export KEY_VALUE_NOT_EXIST=" "
 mkdir -p output
 
@@ -13,7 +16,7 @@ wait_for_it() {
   local timeout=$1
   local spacer=5
   shift
-  if ! [ $timeout = '-1' ]; then
+  if ! [ "${timeout}" = '-1' ]; then
     local times_to_run=$((timeout / spacer))
 
     for i in $(seq $times_to_run); do
@@ -26,12 +29,12 @@ wait_for_it() {
     done
 
     # Last run evaluated. If this fails we return an error exit code to caller
-    eval $*
+    eval "$@"
   else
     echo "Waiting for '$*' forever"
 
-    while ! eval $* > /dev/null; do
-      sleep $spacer
+    while ! eval "$@" > /dev/null; do
+      sleep "${spacer}"
     done
     echo 'Success!'
   fi
