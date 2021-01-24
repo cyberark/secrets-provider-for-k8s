@@ -16,6 +16,8 @@ main() {
       -u oauth2accesstoken \
       -p "$(gcloud auth print-access-token)"
   elif [[ "$PLATFORM" = "openshift" ]]; then
+    # Some of the URLs do not have the port loaded in conjurops so we need to
+    # add it manually
     if [[ -n "${OPENSHIFT_URL}" ]] && [[ ! "${OPENSHIFT_URL}" =~ :[[:digit:]] ]]; then
       OPENSHIFT_URL="${OPENSHIFT_URL}:8443"
     fi
