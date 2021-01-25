@@ -6,7 +6,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 ### Security
-- Updated gogo/protobuf to v1.3.2 to address CVE-2021-3121 (PR TBD)
+- Updated gogo/protobuf to v1.3.2 to address CVE-2021-3121
+  [cyberark/secrets-provider-for-k8s#285](https://github.com/cyberark/secrets-provider-for-k8s/pull/285)
 
 ### Added
 - Support for OpenShift 4.5.
