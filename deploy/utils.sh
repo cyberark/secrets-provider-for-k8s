@@ -109,6 +109,8 @@ runDockerCommand() {
     -e OPENSHIFT_PASSWORD \
     -e DOCKER_REGISTRY_PATH \
     -e DOCKER_REGISTRY_URL \
+    -e PULL_DOCKER_REGISTRY_PATH \
+    -e PULL_DOCKER_REGISTRY_URL \
     -e GCLOUD_CLUSTER_NAME \
     -e GCLOUD_ZONE \
     -e GCLOUD_PROJECT_NAME \
@@ -203,7 +205,7 @@ set_image_path() {
   image_path="$APP_NAMESPACE_NAME"
   if [[ "${PLATFORM}" = "openshift" && "${DEV}" = "false" ]]; then
     # Image path needs to point to internal registry path to access image
-    image_path="docker-registry.default.svc:5000/${APP_NAMESPACE_NAME}"
+    image_path="${PULL_DOCKER_REGISTRY_PATH}/${APP_NAMESPACE_NAME}"
   elif [[ "${PLATFORM}" = "kubernetes" && "${DEV}" = "false" ]]; then
     image_path="${DOCKER_REGISTRY_PATH}/${APP_NAMESPACE_NAME}"
   fi

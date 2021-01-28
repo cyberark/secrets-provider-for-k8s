@@ -6,6 +6,14 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Added
+- Support for OpenShift 4.5.
+  [cyberark/secrets-provider-for-k8s#265](https://github.com/cyberark/secrets-provider-for-k8s/issues/265)
+
+### Deprecated
+- Support for OpenShift 3.9 and 3.10 is officially removed as of this release.
+  [cyberark/secrets-provider-for-k8s#265](https://github.com/cyberark/secrets-provider-for-k8s/issues/265)
+
 ## [1.1.1] - 2020-11-24
 ### Added
 - An `edge` tag is published for every successful master build.

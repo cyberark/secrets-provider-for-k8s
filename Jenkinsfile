@@ -96,13 +96,6 @@ pipeline {
                 tasks["Kubernetes GKE, oss"] = {
                   sh "./bin/start --docker --oss --gke"
                 }
-                // tasks["Openshift v3.11, oss"] = {
-                //  sh "./bin/start --docker --oss --oc311"
-                // }
-                // skip oc310 tests until the environment will be ready to use
-                // tasks["Openshift v3.10, oss"] = {
-                //   sh "./bin/start --docker --oss --oc310"
-                // }
               parallel tasks
             }
           }
@@ -118,10 +111,9 @@ pipeline {
                 tasks["Openshift v3.11, DAP"] = {
                   sh "./bin/start --docker --dap --oc311"
                 }
-                // skip oc310 tests until the environment will be ready to use
-                // tasks["Openshift v3.10, DAP"] = {
-                //  sh "./bin/start --docker --dap --oc310"
-                // }
+                tasks["Openshift v4.5, DAP"] = {
+                  sh "./bin/start --docker --dap --oc45"
+                }
               parallel tasks
             }
           }

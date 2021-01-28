@@ -6,7 +6,7 @@ set -euo pipefail
 announce "Creating Application namespace."
 
 if [[ $PLATFORM == openshift && "${DEV}" = "false" ]]; then
-  $cli_with_timeout "login -u $OPENSHIFT_USERNAME"
+  $cli_with_timeout "login -u $OPENSHIFT_USERNAME -p $OPENSHIFT_PASSWORD"
 fi
 
 if has_namespace "$APP_NAMESPACE_NAME"; then
@@ -38,5 +38,5 @@ if [[ $PLATFORM == openshift ]]; then
   $cli_with_timeout "adm policy add-role-to-user admin $OPENSHIFT_USERNAME -n default"
   $cli_with_timeout "adm policy add-role-to-user admin $OPENSHIFT_USERNAME -n $APP_NAMESPACE_NAME"
   echo "Logging in as Conjur Openshift admin. Provide password as needed."
-  $cli_with_timeout "login -u $OPENSHIFT_USERNAME"
+  $cli_with_timeout "login -u $OPENSHIFT_USERNAME -p $OPENSHIFT_PASSWORD"
 fi
