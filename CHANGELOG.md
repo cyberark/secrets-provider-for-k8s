@@ -10,6 +10,12 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - Support for OpenShift 4.5.
   [cyberark/secrets-provider-for-k8s#265](https://github.com/cyberark/secrets-provider-for-k8s/issues/265)
 
+### Fixed
+- The Secrets Provider helm templates are updated to correctly refer to
+  `Release.Namespace` instead of `Release.namespace`. Previously, the namespace
+  value wasn't being interpolated correctly because its name is case sensitive.
+  [cyberark/secrets-provider-for-k8s#290](https://github.com/cyberark/secrets-provider-for-k8s/issues/290)
+
 ### Deprecated
 - Support for OpenShift 3.9 and 3.10 is officially removed as of this release.
   [cyberark/secrets-provider-for-k8s#265](https://github.com/cyberark/secrets-provider-for-k8s/issues/265)
