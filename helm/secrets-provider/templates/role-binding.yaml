@@ -2,11 +2,11 @@
 apiVersion: {{ include "conjur.rbac-api" . }}
 kind: RoleBinding
 metadata:
-  namespace: {{ .Release.namespace }}
+  namespace: {{ .Release.Namespace }}
   name: {{ .Values.rbac.roleBindingName }}
 subjects:
   - kind: ServiceAccount
-    namespace: {{ .Release.namespace }}
+    namespace: {{ .Release.Namespace }}
     name: {{ .Values.rbac.serviceAccount.name }}
 roleRef:
   kind: Role
