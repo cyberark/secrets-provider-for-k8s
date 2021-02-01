@@ -17,7 +17,7 @@ pushd ../../
 popd
 
 helm_chart_name="secrets-provider"
-$cli_with_timeout "get job/$helm_chart_name -o=jsonpath='{.status.conditions[*].type}' | grep Complete"
+wait_for_job $helm_chart_name
 
 deploy_helm_app
 
@@ -38,7 +38,7 @@ popd
 
 # Wait for Job completion
 helm_chart_name="another-secrets-provider"
-$cli_with_timeout "get job/$helm_chart_name -o=jsonpath='{.status.conditions[*].type}' | grep Complete"
+wait_for_job $helm_chart_name
 
 export K8S_SECRET=another-test-k8s-secret
 deploy_helm_app "another-"

@@ -27,4 +27,4 @@ $cli_with_timeout "get rolebinding secrets-provider-role-binding --no-headers 2>
 
 # Job will complete successfully because provided Service Account exists
 helm_chart_name="secrets-provider"
-$cli_with_timeout "get job/$helm_chart_name -o=jsonpath='{.status.conditions[*].type}' | grep Complete"
+wait_for_job $helm_chart_name
