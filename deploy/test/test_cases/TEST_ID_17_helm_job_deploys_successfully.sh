@@ -16,7 +16,7 @@ deploy_helm_app
 
 # Wait for Job completion
 helm_chart_name="secrets-provider"
-$cli_with_timeout "get job/$helm_chart_name -o=jsonpath='{.status.conditions[*].type}' | grep Complete"
+wait_for_job $helm_chart_name
 
 app_pod_name="$(get_pod_name "$APP_NAMESPACE_NAME" 'app=test-env')"
 verify_secret_value_in_pod $app_pod_name "TEST_SECRET" "supersecret"
