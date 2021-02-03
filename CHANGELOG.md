@@ -5,9 +5,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
-### Security
-- Updated gogo/protobuf to v1.3.2 to address CVE-2021-3121
-  [cyberark/secrets-provider-for-k8s#285](https://github.com/cyberark/secrets-provider-for-k8s/pull/285)
+
+## [1.1.2] - 2020-01-29
 
 ### Added
 - Support for OpenShift 4.5.
@@ -22,6 +21,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ### Deprecated
 - Support for OpenShift 3.9 and 3.10 is officially removed as of this release.
   [cyberark/secrets-provider-for-k8s#265](https://github.com/cyberark/secrets-provider-for-k8s/issues/265)
+
+### Security
+- Updated gogo/protobuf to v1.3.2 to address CVE-2021-3121.
+  [cyberark/secrets-provider-for-k8s#285](https://github.com/cyberark/secrets-provider-for-k8s/pull/285)
 
 ## [1.1.1] - 2020-11-24
 ### Added
@@ -91,7 +94,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ### Changed
   - Escape secrets with backslashes before patching in k8s
 
-[Unreleased]: https://github.com/cyberark/secrets-provider-for-k8s/compare/v1.1.1...HEAD
+[Unreleased]: https://github.com/cyberark/secrets-provider-for-k8s/compare/v1.1.2...HEAD
+[1.1.2]: https://github.com/cyberark/secrets-provider-for-k8s/compare/v1.1.1...v1.1.2
 [1.1.1]: https://github.com/cyberark/secrets-provider-for-k8s/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/cyberark/secrets-provider-for-k8s/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/cyberark/secrets-provider-for-k8s/compare/v0.4.0...v1.0.0
