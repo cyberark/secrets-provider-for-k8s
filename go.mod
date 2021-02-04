@@ -5,7 +5,7 @@ go 1.15
 require (
 	github.com/cenkalti/backoff v2.2.1+incompatible
 	github.com/cyberark/conjur-api-go v0.6.0
-	github.com/cyberark/conjur-authn-k8s-client v0.19.0
+	github.com/cyberark/conjur-authn-k8s-client v0.19.1
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/googleapis/gnostic v0.3.1 // indirect
 	github.com/json-iterator/go v1.1.9 // indirect
