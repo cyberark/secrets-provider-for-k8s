@@ -515,6 +515,16 @@ get_pod_name() {
 # Waits until the given job has completed its deployment
 wait_for_job() {
   local job_name=$1
+
+  echo "Waiting for job $job_name to complete"
+
   # we use $cli_without_timeout as we give the timeout as input to the 'wait' command
-  $cli_without_timeout wait --for=condition=complete --timeout=300s job/"$job_name"
+  # In case the job fails to complete we print the error
+  if ! $cli_without_timeout wait --for=condition=complete --timeout=300s job/"$job_name" ; then
+    pod_name="$(get_pod_name "$APP_NAMESPACE_NAME" "job-name=$job_name")"
+    echo "Printing details on the failing job"
+    $cli_without_timeout describe pod "$pod_name"
+    echo "Printing logs of the failing pod"
+    $cli_without_timeout logs "$pod_name"
+  fi
 }
