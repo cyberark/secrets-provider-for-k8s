@@ -77,14 +77,9 @@ func main() {
 
 func provideSecretsToTarget(authn *authenticator.Authenticator, provideConjurSecrets secrets.ProvideConjurSecrets, accessToken *memory.AccessToken) error {
 	log.Info(fmt.Sprintf(messages.CSPFK001I, authn.Config.Username))
-	authnResp, err := authn.Authenticate()
+	err := authn.Authenticate()
 	if err != nil {
 		return log.RecordedError(messages.CSPFK010E)
-	}
-
-	err = authn.ParseAuthenticationResponse(authnResp)
-	if err != nil {
-		return log.RecordedError(messages.CSPFK011E)
 	}
 
 	err = provideConjurSecrets(accessToken)
