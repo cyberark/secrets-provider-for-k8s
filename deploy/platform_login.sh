@@ -12,7 +12,7 @@ main() {
       $GCLOUD_CLUSTER_NAME \
       --zone $GCLOUD_ZONE \
       --project $GCLOUD_PROJECT_NAME
-    docker login $DOCKER_REGISTRY_PATH \
+    docker login $PULL_DOCKER_REGISTRY_URL \
       -u oauth2accesstoken \
       -p "$(gcloud auth print-access-token)"
   elif [[ "$PLATFORM" = "openshift" ]]; then
