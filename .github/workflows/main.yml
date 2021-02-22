@@ -1,0 +1,33 @@
+name: Enforce Git Rules
+
+on:
+  pull_request:
+    branches: [ master ]
+    types: [ opened, synchronize, reopened, edited ]
+
+jobs:
+  rebase_job:
+    runs-on: ubuntu-latest
+    name: Enforce rebasing
+
+    steps:
+    - name: Check out code
+      uses: actions/checkout@v2
+      with:
+        fetch-depth: 0
+    - name: Is Rebased on master?
+      uses: cyberark/enforce-rebase@v2
+
+  commit_style:
+    runs-on: ubuntu-latest
+    name: Enforce commit style
+
+    steps:
+    - name: Checkout the repo
+      uses: actions/checkout@v2
+      with:
+        fetch-depth: 0
+    - name: Check commit style
+      uses: cyberark/enforce-commit-style@v1
+      with:
+        subject-length: 72
