@@ -56,7 +56,7 @@ FROM busybox
 
 # =================== BASE MAIN CONTAINER ===================
 # this layer is used to prepare a common layer for both debug and release containers
-FROM alpine:3.11 as secrets-provider-base
+FROM alpine:3.13 as secrets-provider-base
 MAINTAINER CyberArk Software Ltd.
 
 # copy a few commands from busybox
