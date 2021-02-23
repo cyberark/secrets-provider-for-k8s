@@ -4,9 +4,10 @@ set -euxo pipefail
 # This test verifies that two Secrets Provider Jobs deploy successfully in the same namespace
 setup_helm_environment
 
+secret_value=testing$(openssl rand 10)
 echo "Create second secret"
 create_k8s_secret_for_helm_deployment
-set_conjur_secret secrets/another_test_secret another-some-secret-value
+set_conjur_secret secrets/another_test_secret $secret_value
 
 # Deploy first Secrets Provider Job
 pushd ../../
@@ -47,4 +48,4 @@ pod_name="$(get_pod_name "$APP_NAMESPACE_NAME" 'app=test-env')"
 verify_secret_value_in_pod $pod_name "TEST_SECRET" "supersecret"
 
 pod_name="$(get_pod_name "$APP_NAMESPACE_NAME" 'app=another-test-env')"
-verify_secret_value_in_pod $pod_name "another-TEST_SECRET" "another-some-secret-value"
+verify_secret_value_in_pod $pod_name "another-TEST_SECRET" "$secret_value"

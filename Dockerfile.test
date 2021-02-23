@@ -1,4 +1,4 @@
-FROM golang:1.12.0-alpine3.9
+FROM golang:1.13-alpine
 MAINTAINER Conjur Inc.
 LABEL id="secrets-provider-for-k8s-test-runner"
 

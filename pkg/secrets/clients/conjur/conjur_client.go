@@ -14,7 +14,7 @@ import (
 	The name ConjurClient also improves readability as Client can be ambiguous.
 */
 type ConjurClient interface {
-	RetrieveBatchSecrets([]string) (map[string][]byte, error)
+	RetrieveBatchSecretsSafe([]string) (map[string][]byte, error)
 }
 
 func NewConjurClient(tokenData []byte) (ConjurClient, error) {
