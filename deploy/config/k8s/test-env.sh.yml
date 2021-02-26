@@ -51,6 +51,11 @@ spec:
               secretKeyRef:
                 name: test-k8s-secret
                 key: var_with_pluses
+          - name: BINARY_SECRET
+            valueFrom:
+              secretKeyRef:
+                name: test-k8s-secret
+                key: binary_var
           - name: NON_CONJUR_SECRET
             valueFrom:
               secretKeyRef:

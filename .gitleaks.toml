@@ -184,6 +184,7 @@ files = [
   "demos/full-demo/secrets/(.*)", # since-removed set of demos with ex keys
   "demos/quick-start/docker/etc/(.*)", # demo quick start certs
   "demos/k8s-demo/etc/(.*)", # k8s demo certs
+  "deploy/policy/(.*)", # test infra
   "test/pg_handler/etc/(.*)", # test pg certs
   "test/pg2_handler/etc/(.*)", # random pg test copy certs (since removed)
   "test/ssh_handler/id_(.*)", # test ssh handler certs

@@ -35,5 +35,6 @@ done
 conjur variable values add secrets/test_secret "some-secret"
 conjur variable values add "secrets/var with spaces" "some-secret"
 conjur variable values add "secrets/var+with+pluses" "some-secret"
+conjur variable values add "secrets/binary_var" < policy/binary_data.pem
 
 conjur authn logout
