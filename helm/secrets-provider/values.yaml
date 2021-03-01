@@ -12,7 +12,7 @@ rbac:
 
 secretsProvider:
   image: cyberark/secrets-provider-for-k8s
-  tag: 1.1.2
+  tag: 1.1.3
   imagePullPolicy: IfNotPresent
   name: cyberark-secrets-provider-for-k8s
 

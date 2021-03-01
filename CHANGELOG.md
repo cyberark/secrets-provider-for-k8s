@@ -6,6 +6,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [1.1.3] - 2021-03-01
 ### Changed
 - Update k8s authenticator client version to
   [0.19.1](https://github.com/cyberark/conjur-authn-k8s-client/blob/master/CHANGELOG.md#0191---2021-02-08),
@@ -100,7 +101,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ### Changed
   - Escape secrets with backslashes before patching in k8s
 
-[Unreleased]: https://github.com/cyberark/secrets-provider-for-k8s/compare/v1.1.2...HEAD
+[Unreleased]: https://github.com/cyberark/secrets-provider-for-k8s/compare/v1.1.3...HEAD
+[1.1.3]: https://github.com/cyberark/secrets-provider-for-k8s/compare/v1.1.2...v1.1.3
 [1.1.2]: https://github.com/cyberark/secrets-provider-for-k8s/compare/v1.1.1...v1.1.2
 [1.1.1]: https://github.com/cyberark/secrets-provider-for-k8s/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/cyberark/secrets-provider-for-k8s/compare/v1.0.0...v1.1.0

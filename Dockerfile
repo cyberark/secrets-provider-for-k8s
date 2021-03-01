@@ -1,6 +1,6 @@
 # =================== BASE BUILD LAYER ===================
 # this layer is used to prepare a common layer for both debug and release builds
-FROM golang:1.13 as secrets-provider-builder-base
+FROM golang:1.15 as secrets-provider-builder-base
 MAINTAINER CyberArk Software Ltd.
 
 ENV GOOS=linux \
