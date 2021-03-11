@@ -20,9 +20,13 @@ Usage: ./bin/start [options]
 
     --gke         Run the integration tests on GKE. By default the tests are run on GKE.
 
-    --oc311       Run the integration tests on Openshift v3.11. By default the tests are run on GKE.
+    --oc311 Run the integration tests on Openshift v3.11. By default the tests are run on GKE.
 
-    --oc45       Run the integration tests on Openshift v4.5. By default the tests are run on GKE.
+    --oldest      Run the integration tests on the oldest running Openshift platform. By default the tests are run on GKE.
+
+    --current     Run the integration tests on the currently supported Openshift platform. By default the tests are run on GKE.
+
+    --next        Run the integration tests on the latest Openshift platform. By default the tests are run on GKE.
 
     -h, --help    Shows this help message.
 EOF
@@ -30,7 +34,7 @@ EOF
 }
 
 runScriptWithSummon() {
-    summon --environment $SUMMON_ENV -f ./summon/secrets.yml $1
+    summon --provider summon-conjur --environment $SUMMON_ENV -f ./summon/secrets.yml $1
 }
 
 RUN_IN_DOCKER=false
@@ -49,7 +53,9 @@ while true ; do
     --dap ) CONJUR_DEPLOYMENT=dap ; shift ;;
     --gke ) SUMMON_ENV=gke ; shift ;;
     --oc311 ) SUMMON_ENV=oc311 ; shift ;;
-    --oc45 ) SUMMON_ENV=oc45 ; shift ;;
+    --oldest ) SUMMON_ENV=oldest ; shift ;;
+    --current ) SUMMON_ENV=current ; shift ;;
+    --next ) SUMMON_ENV=next ; shift ;;
     -h | --help ) print_help ; shift ;;
      * ) if [ -z "$1" ]; then break; else echo "$1 is not a valid option"; exit 1; fi;;
   esac

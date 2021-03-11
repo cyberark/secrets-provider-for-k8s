@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ## [Unreleased]
 
 ## [1.1.3] - 2021-03-01
+
+### Added
+- Verified compatibility for OpenShift 4.6.
+  [cyberark/secrets-provider-for-k8s#265](https://github.com/cyberark/secrets-provider-for-k8s/issues/302)
+
 ### Changed
 - Updated k8s authenticator client version to
   [0.19.1](https://github.com/cyberark/conjur-authn-k8s-client/blob/master/CHANGELOG.md#0191---2021-02-08),
