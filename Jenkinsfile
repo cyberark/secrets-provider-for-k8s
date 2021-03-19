@@ -13,6 +13,12 @@ pipeline {
     timeout(time: 3, unit: 'HOURS')
   }
 
+  parameters {
+    booleanParam(name: 'TEST_OCP_NEXT', defaultValue: false, description: 'Run DAP tests against our running "next version" of Openshift')
+
+    booleanParam(name: 'TEST_OCP_OLDEST', defaultValue: false, description: 'Run DAP tests against our running "oldest version" of Openshift')
+  }
+
   stages {
     stage('Validate') {
       parallel {
@@ -105,15 +111,25 @@ pipeline {
           steps {
             script {
               def tasks = [:]
-                tasks["Kubernetes GKE, DAP"] = {
-                  sh "./bin/start --docker --dap --gke"
-                }
-                tasks["Openshift v3.11, DAP"] = {
+              tasks["Kubernetes GKE, DAP"] = {
+                sh "./bin/start --docker --dap --gke"
+              }
+              tasks["Openshift v3.11, DAP"] = {
                   sh "./bin/start --docker --dap --oc311"
+              }
+              if ( params.TEST_OCP_OLDEST ) {
+                tasks["Openshift (Oldest), DAP"] = {
+                  sh "./bin/start --docker --dap --oldest"
                 }
-                tasks["Openshift v4.5, DAP"] = {
-                  sh "./bin/start --docker --dap --oc45"
+              }
+              tasks["Openshift (Current), DAP"] = {
+                sh "./bin/start --docker --dap --current"
+              }
+              if ( params.TEST_OCP_NEXT ) {
+                tasks["Openshift (Next), DAP"] = {
+                  sh "./bin/start --docker --dap --next"
                 }
+              }
               parallel tasks
             }
           }

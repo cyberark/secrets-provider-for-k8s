@@ -33,7 +33,7 @@ To deploy the CyberArk Secrets Provider for Kubernetes as an application contain
 
 - K8s 1.11+
 
-- Openshift 3.11 and 4.5 _*(Conjur Enterprise only)*_
+- Openshift 3.11, 4.5, and 4.6 _*(Conjur Enterprise only)*_
 
 ## Using secrets-provider-for-k8s with Conjur OSS 
 

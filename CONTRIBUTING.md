@@ -165,7 +165,8 @@ To follow [Go testing conventions](https://golang.org/pkg/cmd/go/internal/test/)
 Our integration tests can be run against either a GKE / Openshift remote cluster. To do so, run `./bin/start` and add the proper flags. 
 
 To deploy OSS / DAP, add the `--oss` / `--dap` flags to the above command. By default, the integration tests run DAP, so no flag is required.
-To deploy on GKE / Openshift, add `--gke` / `--oc311` / `--oc45`. By default, the integration tests run on a GKE cluster, so no flag is required.
+To deploy on GKE, add `--gke`. For Openshift, use `--oldest` / `--current` / `--next`. By default, the integration tests run on a GKE cluster,
+so no flag is required.
 
 For example:
 
