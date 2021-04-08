@@ -35,7 +35,7 @@ To work in this codebase, you will want to have Go version 1.12+ installed.
 
 ## Documentation
 
-The full documentation for the Cyberark Secrets Provider for Kubernetes can be found [here](https://docs.cyberark.com/Product-Doc/OnlineHelp/AAM-DAP/Latest/en/Content/Integrations/Kubernetes_deployApplicationsConjur-k8s-Secrets.htm) for DAP and [here](https://docs.conjur.org/Latest/en/Content/Integrations/Kubernetes_deployApplicationsConjur-k8s-Secrets.htm) for OSS.
+The full documentation for the Cyberark Secrets Provider for Kubernetes can be found [here](https://docs.cyberark.com/Product-Doc/OnlineHelp/AAM-DAP/Latest/en/Content/Integrations/Kubernetes_deployApplicationsConjur-k8s-Secrets.htm) for Conjur Enterprise and [here](https://docs.conjur.org/Latest/en/Content/Integrations/Kubernetes_deployApplicationsConjur-k8s-Secrets.htm) for Conjur Open Source.
 
 ### Get up and running
 
@@ -43,15 +43,15 @@ Before you can start contributing to the CyberArk Secrets Provider for Kubernete
 
 1. Setup your environment. 
     
-    a. For detailed instructions on how to setup a DAP env, see [DAP Setup](https://docs.cyberark.com/Product-Doc/OnlineHelp/AAM-DAP/Latest/en/Content/HomeTilesLPs/LP-Tile1.htm).
+    a. For detailed instructions on how to setup a Conjur Enterprise env, see [Conjur Enterprise Setup](https://docs.cyberark.com/Product-Doc/OnlineHelp/AAM-DAP/Latest/en/Content/HomeTilesLPs/LP-Tile1.htm).
     
-    b. For detailed instructions on how to setup an OSS env, see [OSS Setup](https://docs.conjur.org/Latest/en/Content/HomeTilesLPs/LP-Tile1.htm).
+    b. For detailed instructions on how to setup a Conjur Open Source env, see [Conjur Open Source Setup](https://docs.conjur.org/Latest/en/Content/HomeTilesLPs/LP-Tile1.htm).
 
 2. Setup the CyberArk Secrets Provider for Kubernetes
 
-    a. For detailed setup instructions for DAP, see [CyberArk Secrets Provider for Kubernetes for DAP](https://docs.cyberark.com/Product-Doc/OnlineHelp/AAM-DAP/Latest/en/Content/Integrations/Kubernetes_deployApplicationsConjur-k8s-Secrets.htm).
+    a. For detailed setup instructions for Conjur Enterprise, see [CyberArk Secrets Provider for Kubernetes for Conjur Enterprise](https://docs.cyberark.com/Product-Doc/OnlineHelp/AAM-DAP/Latest/en/Content/Integrations/Kubernetes_deployApplicationsConjur-k8s-Secrets.htm).
     
-    b. For detailed setup instructions for OSS, see [CyberArk Secrets Provider for Kubernetes for OSS](https://docs.conjur.org/Latest/en/Content/Integrations/Kubernetes_deployApplicationsConjur-k8s-Secrets.htm).
+    b. For detailed setup instructions for Conjur Open Source, see [CyberArk Secrets Provider for Kubernetes for Conjur Open Source](https://docs.conjur.org/Latest/en/Content/Integrations/Kubernetes_deployApplicationsConjur-k8s-Secrets.htm).
     
 ### Deploy a Local Dev Environment (K8s)
 
@@ -67,10 +67,10 @@ You can now deploy a local development environment for Kubernetes using [Docker 
     
     1. Click on the Kubernetes tab and "Enable Kubernetes"
     
-1. The Secrets Provider for K8s uses the [Kubernetes Conjur deploy](https://github.com/cyberark/kubernetes-conjur-deploy/blob/master/CONTRIBUTING.md) repository to deploy Conjur/DAP on Kubernetes. 
+1. The Secrets Provider for K8s uses the [Kubernetes Conjur deploy](https://github.com/cyberark/kubernetes-conjur-deploy/blob/master/CONTRIBUTING.md) repository to deploy Conjur Enterprise / Conjur Open Source on Kubernetes. 
    By default, 2.0 Gib of memory is allocated to Docker on your computer.
    
-   To successfully deploy a DAP cluster (Master + Followers + Standbys), you will need to increase the memory limit to 6 Gib. To do so, perform the following:
+   To successfully deploy a Conjur Enterprise cluster (Leader + Followers + Standbys), you will need to increase the memory limit to 6 Gib. To do so, perform the following:
    
    1. Navigate to Docker preferences
    
@@ -95,7 +95,7 @@ Run `kubectl config use-context docker-desktop` to switch to a local context. Th
 1. Run `./bin/start --dev`, appending `--oss` or `--dap` according to the environment that needs to be deployed
 
 1. To view the pod(s) that were deployed and the Secrets Provider logs, run `kubectl get pods` and `kubectl logs <pod-name> -c cyberark-secrets-provider-for-k8s` respectively. 
-You can also view Conjur/DAP pod logs by running `kubectl get pods -n local-conjur` and `kubectl logs <conjur-pod-name> -n local-conjur`
+You can also view Conjur Enterprise / Conjur Open Source pod logs by running `kubectl get pods -n local-conjur` and `kubectl logs <conjur-pod-name> -n local-conjur`
 
 1. If a cluster is already locally deployed run `./bin/start --dev --reload` to build your local changes and redeploy them to the local Secrets Provider K8s cluster
 
@@ -164,14 +164,14 @@ To follow [Go testing conventions](https://golang.org/pkg/cmd/go/internal/test/)
 
 Our integration tests can be run against either a GKE / Openshift remote cluster. To do so, run `./bin/start` and add the proper flags. 
 
-To deploy OSS / DAP, add the `--oss` / `--dap` flags to the above command. By default, the integration tests run DAP, so no flag is required.
+To deploy Conjur Enterprise / Conjur Open Source, add the `--oss` / `--dap` flags to the above command. By default, the integration tests run Conjur Enterprise, so no flag is required.
 To deploy on GKE, add `--gke`. For Openshift, use `--oldest` / `--current` / `--next`. By default, the integration tests run on a GKE cluster,
 so no flag is required.
 
 For example:
 
-- Deploy OSS on GKE, run  `./bin/start --oss --gke`
-- Deploy DAP on Openshift, run  `./bin/start --dap --oc311`
+- Deploy Conjur Open Source on GKE, run  `./bin/start --oss --gke`
+- Deploy Conjur Enterprise on Openshift, run  `./bin/start --dap --oc311`
 
 It is also possible to run a single test instead of the full suite. This can be done by running `./bin/start` with the
 flag `--test-prefix=<prefix>`. For example, running with the flag `--test-prefix=TEST_ID_18` will run only the test
