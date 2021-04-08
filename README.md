@@ -3,7 +3,7 @@
 - [Table of Contents](#table-of-contents)
 - [CyberArk Secrets Provider for Kubernetes](#cyberark-secrets-provider-for-kubernetes)
   - [Supported services](#supported-services)
-  - [Using This Project With Conjur-OSS](#using-secrets-provider-for-k8s-with-conjur-oss)
+  - [Using This Project With Conjur Open Source](#using-secrets-provider-for-k8s-with-conjur-oss)
 - [Releases](#releases)
   - [Stable release definition](#stable-release-definition)
 - [Development](#development)
@@ -15,7 +15,7 @@
 # CyberArk Secrets Provider for Kubernetes
 
 The CyberArk Secrets Provider for Kubernetes enables Conjur Enterprise
- (formerly known as DAP) to retrieve secrets stored and managed in the CyberArk Vault.
+ (formerly known as Conjur Enterprise) to retrieve secrets stored and managed in the CyberArk Vault.
  The secrets can be consumed by your Kubernetes or Openshift application containers.
  To retrieve the secrets from Conjur or Conjur Enterprise, 
  the CyberArk Secrets Provider for Kubernetes runs as an init container or application
@@ -26,7 +26,7 @@ To deploy the CyberArk Secrets Provider for Kubernetes as an application contain
 ## Supported Services
 - Conjur Enterprise 11.1+
 
-- Conjur OSS v1.4.2+
+- Conjur Open Source v1.4.2+
 
 ## Supported Platforms
 - GKE
@@ -35,10 +35,10 @@ To deploy the CyberArk Secrets Provider for Kubernetes as an application contain
 
 - Openshift 3.11, 4.5, and 4.6 _*(Conjur Enterprise only)*_
 
-## Using secrets-provider-for-k8s with Conjur OSS 
+## Using secrets-provider-for-k8s with Conjur Open Source 
 
-Are you using this project with [Conjur OSS](https://github.com/cyberark/conjur)? Then we 
-**strongly** recommend choosing the version of this project to use from the latest [Conjur OSS 
+Are you using this project with [Conjur Open Source](https://github.com/cyberark/conjur)? Then we 
+**strongly** recommend choosing the version of this project to use from the latest [Conjur Open Source 
 suite release](https://docs.conjur.org/Latest/en/Content/Overview/Conjur-OSS-Suite-Overview.html). 
 Conjur maintainers perform additional testing on the suite release versions to ensure 
 compatibility. When possible, upgrade your Conjur version to match the 
