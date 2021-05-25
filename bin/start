@@ -34,7 +34,9 @@ EOF
 }
 
 runScriptWithSummon() {
-    summon --provider summon-conjur --environment $SUMMON_ENV -f ./summon/secrets.yml $1
+    # CONJUR_ACCOUNT is set in bootstrap.env to a test value, which isn't valid for
+    # conjurops.
+    CONJUR_ACCOUNT="conjur" summon --provider summon-conjur --environment $SUMMON_ENV -f ./summon/secrets.yml $1
 }
 
 RUN_IN_DOCKER=false
@@ -72,7 +74,7 @@ export DEV
 export SUMMON_ENV
 
 # summon environment variable
-export CONJUR_MAJOR_VERSION=4
+export CONJUR_MAJOR_VERSION=5
 
 source bootstrap.env
 
