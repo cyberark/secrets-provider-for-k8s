@@ -215,7 +215,7 @@ follow the instructions in this section.
    message - and open a PR for review.
    
 ### Add a git tag
-1. Once your changes have been reviewed and merged into master, tag the version
+1. Once your changes have been reviewed and merged into main, tag the version
    using `git tag -s v0.1.1`. Note this requires you to be able to sign releases.
    Consult the [github documentation on signing commits](https://help.github.com/articles/signing-commits-with-gpg/)
    on how to set this up. `vx.y.z` is an acceptable tag message.

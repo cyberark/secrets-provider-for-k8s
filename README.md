@@ -62,7 +62,7 @@ We also push the Major.Minor.Build image to our [Red Hat registry](https://catal
 
 We push the following tags to Dockerhub:
 
-*Edge* - on every successful master build an edge tag is pushed (_cyberark/secrets-provider-for-k8s:edge_).
+*Edge* - on every successful main build an edge tag is pushed (_cyberark/secrets-provider-for-k8s:edge_).
 
 *Latest* - on every release the latest tag will be updated (_cyberark/secrets-provider-for-k8s:latest_). This tag means the Secrets Provider for Kubernetes meets the stability criteria detailed in the following section.
  

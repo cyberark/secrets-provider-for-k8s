@@ -43,7 +43,7 @@ if [ "$GIT_DESCRIPTION" = "v${VERSION}" ]; then
     echo 'Failed to log in to scan.connect.redhat.com'
     exit 1
   fi
-elif [ "$BRANCH_NAME" = "master" ]; then
+elif [ "$BRANCH_NAME" = "main" ]; then
   echo "Successful Master build. Tagging and pushing $REGISTRY/$IMAGE_NAME:edge"
   docker tag "$IMAGE_NAME:$FULL_VERSION_TAG" "$REGISTRY/$IMAGE_NAME:edge"
   docker push "$REGISTRY/$IMAGE_NAME:edge"

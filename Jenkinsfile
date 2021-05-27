@@ -32,7 +32,7 @@ pipeline {
       when {
         // Run tests only when EITHER of the following is true:
         // 1. A non-markdown file has changed.
-        // 2. It's the master branch.
+        // 2. It's the main branch.
         anyOf {
           // Note: You cannot use "when"'s changeset condition here because it's
           // not powerful enough to express "_only_ md files have changed".
@@ -42,14 +42,14 @@ pipeline {
               returnStatus: true,
               // A non-markdown file has changed.
               script: '''
-                git diff  origin/master --name-only |
+                git diff  origin/main --name-only |
                 grep -v "^.*\\.md$" > /dev/null
               '''
             )
           }
 
-          // Always run the full pipeline on master branch
-          branch 'master'
+          // Always run the full pipeline on main branch
+          branch 'main'
         }
       }
       stages {
@@ -183,7 +183,7 @@ pipeline {
     }
     unsuccessful {
       script {
-        if (env.BRANCH_NAME == 'master') {
+        if (env.BRANCH_NAME == 'main') {
           cleanupAndNotify(currentBuild.currentResult, "#development", "@secrets-provider-for-k8s-owners")
         } else {
           cleanupAndNotify(currentBuild.currentResult, "#development")

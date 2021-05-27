@@ -2,7 +2,7 @@ name: Enforce Git Rules
 
 on:
   pull_request:
-    branches: [ master ]
+    branches: [ main ]
     types: [ opened, synchronize, reopened, edited ]
 
 jobs:
@@ -15,7 +15,7 @@ jobs:
       uses: actions/checkout@v2
       with:
         fetch-depth: 0
-    - name: Is Rebased on master?
+    - name: Is Rebased on main?
       uses: cyberark/enforce-rebase@v2
 
   commit_style:

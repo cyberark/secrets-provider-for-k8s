@@ -40,7 +40,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [1.1.1] - 2020-11-24
 ### Added
-- An `edge` tag is published for every successful master build.
+- An `edge` tag is published for every successful main build.
   [cyberark/secrets-provider-for-k8s#234](https://github.com/cyberark/secrets-provider-for-k8s/pull/234)
 
 ### Changed
