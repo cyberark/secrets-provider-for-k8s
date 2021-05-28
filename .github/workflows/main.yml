@@ -17,6 +17,8 @@ jobs:
         fetch-depth: 0
     - name: Is Rebased on main?
       uses: cyberark/enforce-rebase@v2
+      with:
+        default-branch: main
 
   commit_style:
     runs-on: ubuntu-latest
