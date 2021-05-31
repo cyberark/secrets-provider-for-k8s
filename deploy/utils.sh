@@ -88,51 +88,94 @@ get_conjur_cli_pod_name() {
 }
 
 runDockerCommand() {
-  docker run --rm \
-    -i \
-    -e UNIQUE_TEST_ID \
-    -e CONJUR_APPLIANCE_IMAGE \
-    -e CONJUR_LOG_LEVEL \
-    -e CONJUR_FOLLOWER_COUNT \
-    -e CONJUR_ACCOUNT \
-    -e AUTHENTICATOR_ID \
-    -e CONJUR_ADMIN_PASSWORD \
-    -e DEPLOY_MASTER_CLUSTER \
-    -e CONJUR_NAMESPACE_NAME \
-    -e PLATFORM \
-    -e TEST_PLATFORM \
-    -e LOCAL_AUTHENTICATOR \
-    -e APP_NAMESPACE_NAME \
-    -e OPENSHIFT_URL \
-    -e OPENSHIFT_VERSION \
-    -e OPENSHIFT_USERNAME \
-    -e OPENSHIFT_PASSWORD \
-    -e DOCKER_REGISTRY_PATH \
-    -e DOCKER_REGISTRY_URL \
-    -e PULL_DOCKER_REGISTRY_PATH \
-    -e PULL_DOCKER_REGISTRY_URL \
-    -e GCLOUD_CLUSTER_NAME \
-    -e GCLOUD_ZONE \
-    -e GCLOUD_PROJECT_NAME \
-    -e GCLOUD_SERVICE_KEY=/tmp$GCLOUD_SERVICE_KEY \
-    -e MINIKUBE \
-    -e MINISHIFT \
-    -e DEV \
-    -e TEST_NAME_PREFIX \
-    -e CONJUR_DEPLOYMENT \
-    -e RUN_IN_DOCKER \
-    -e SUMMON_ENV \
-    -v $GCLOUD_SERVICE_KEY:/tmp$GCLOUD_SERVICE_KEY \
-    -v /var/run/docker.sock:/var/run/docker.sock \
-    -v ~/.config:/root/.config \
-    -v "$PWD/../helm":/helm \
-    -v "$PWD":/src \
-    -w /src \
-    $TEST_RUNNER_IMAGE:$CONJUR_NAMESPACE_NAME \
-    bash -c "
-      ./platform_login.sh
-      $1
-    "
+  if [ "${PLATFORM}" = "kubernetes" ]; then
+    docker run --rm \
+      -i \
+      -e UNIQUE_TEST_ID \
+      -e CONJUR_APPLIANCE_IMAGE \
+      -e CONJUR_LOG_LEVEL \
+      -e CONJUR_FOLLOWER_COUNT \
+      -e CONJUR_ACCOUNT \
+      -e AUTHENTICATOR_ID \
+      -e CONJUR_ADMIN_PASSWORD \
+      -e DEPLOY_MASTER_CLUSTER \
+      -e CONJUR_NAMESPACE_NAME \
+      -e PLATFORM \
+      -e TEST_PLATFORM \
+      -e LOCAL_AUTHENTICATOR \
+      -e APP_NAMESPACE_NAME \
+      -e OPENSHIFT_URL \
+      -e OPENSHIFT_VERSION \
+      -e OPENSHIFT_USERNAME \
+      -e OPENSHIFT_PASSWORD \
+      -e DOCKER_REGISTRY_PATH \
+      -e DOCKER_REGISTRY_URL \
+      -e PULL_DOCKER_REGISTRY_PATH \
+      -e PULL_DOCKER_REGISTRY_URL \
+      -e GCLOUD_CLUSTER_NAME \
+      -e GCLOUD_ZONE \
+      -e GCLOUD_PROJECT_NAME \
+      -e GCLOUD_SERVICE_KEY=/tmp$GCLOUD_SERVICE_KEY \
+      -e MINIKUBE \
+      -e MINISHIFT \
+      -e DEV \
+      -e TEST_NAME_PREFIX \
+      -e CONJUR_DEPLOYMENT \
+      -e RUN_IN_DOCKER \
+      -e SUMMON_ENV \
+      -v $GCLOUD_SERVICE_KEY:/tmp$GCLOUD_SERVICE_KEY \
+      -v /var/run/docker.sock:/var/run/docker.sock \
+      -v ~/.config:/root/.config \
+      -v "$PWD/../helm":/helm \
+      -v "$PWD":/src \
+      -w /src \
+      $TEST_RUNNER_IMAGE:$CONJUR_NAMESPACE_NAME \
+      bash -c "
+        ./platform_login.sh
+        $1
+      "
+  else
+    docker run --rm \
+      -i \
+      -e UNIQUE_TEST_ID \
+      -e CONJUR_APPLIANCE_IMAGE \
+      -e CONJUR_LOG_LEVEL \
+      -e CONJUR_FOLLOWER_COUNT \
+      -e CONJUR_ACCOUNT \
+      -e AUTHENTICATOR_ID \
+      -e CONJUR_ADMIN_PASSWORD \
+      -e DEPLOY_MASTER_CLUSTER \
+      -e CONJUR_NAMESPACE_NAME \
+      -e PLATFORM \
+      -e TEST_PLATFORM \
+      -e LOCAL_AUTHENTICATOR \
+      -e APP_NAMESPACE_NAME \
+      -e OPENSHIFT_URL \
+      -e OPENSHIFT_VERSION \
+      -e OPENSHIFT_USERNAME \
+      -e OPENSHIFT_PASSWORD \
+      -e DOCKER_REGISTRY_PATH \
+      -e DOCKER_REGISTRY_URL \
+      -e PULL_DOCKER_REGISTRY_PATH \
+      -e PULL_DOCKER_REGISTRY_URL \
+      -e MINIKUBE \
+      -e MINISHIFT \
+      -e DEV \
+      -e TEST_NAME_PREFIX \
+      -e CONJUR_DEPLOYMENT \
+      -e RUN_IN_DOCKER \
+      -e SUMMON_ENV \
+      -v /var/run/docker.sock:/var/run/docker.sock \
+      -v ~/.config:/root/.config \
+      -v "$PWD/../helm":/helm \
+      -v "$PWD":/src \
+      -w /src \
+      $TEST_RUNNER_IMAGE:$CONJUR_NAMESPACE_NAME \
+      bash -c "
+        ./platform_login.sh
+        $1
+      "
+  fi
 }
 
 configure_cli_pod() {
