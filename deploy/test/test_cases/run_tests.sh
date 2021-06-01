@@ -26,7 +26,7 @@ for c in {1..$times}
 do
   for filename in ./$TEST_NAME_PREFIX*.sh; do
     announce "Running '$filename'."
-    # ./test_case_setup.sh
+    ./test_case_setup.sh
     $filename
     ../../teardown_resources.sh
     announce "Test '$filename' ended successfully"
