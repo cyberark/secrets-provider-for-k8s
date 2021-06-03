@@ -48,6 +48,7 @@ else
      --build-arg TAG=$(git_tag) \
      --build-arg VERSION="$FULL_VERSION_TAG" \
      --tag "secrets-provider-for-k8s-redhat:${FULL_VERSION_TAG}" \
+     --tag "secrets-provider-for-k8s-redhat:latest" \
      --target "secrets-provider-for-k8s-redhat" \
      .
 fi

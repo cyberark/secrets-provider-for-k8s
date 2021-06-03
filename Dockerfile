@@ -118,7 +118,7 @@ CMD ["/usr/local/bin/dlv",  \
      "/usr/local/bin/secrets-provider"]
 
 # =================== MAIN CONTAINER (REDHAT) ===================
-FROM registry.access.redhat.com/rhel as secrets-provider-for-k8s-redhat
+FROM registry.access.redhat.com/ubi8/ubi as secrets-provider-for-k8s-redhat
 MAINTAINER CyberArk Software Ltd.
 
 ARG VERSION
