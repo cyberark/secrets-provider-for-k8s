@@ -483,7 +483,24 @@ affected.
 
 ### Test prerequisites
 
-### Test cases 
+### Test cases
+
+#### Error Handling / Recovery / Supportability tests
+
+| | Section | Given | When | Then | Error Code | Test Type (Unit, Integration, E2E) |
+| --- | --- | --- | --- | --- | --- | --- |
+| 1 | Missing secrets destination | You are using SP | You do not provide the secrets destination in an annotation or environment variable | Error: Missing secrets destination. Acceptable values are “k8s” and “file”.<br><br>SP fails to start | | |
+| 2 | Invalid input file type | You are using SP in “file” mode and have provided a value for the conjur.org/ secret-file-type annotation | You have provided an unknown or invalid secret-file-type annotation, which is expected to contain one of the supported types: json, yaml, dotenv. | Error: Invalid output file type: “{value}” for secret group “{value}”. Acceptable values are “json”, “yaml”, and “dotenv”.<br><br>SP fails to start | | |
+| 3 | Conjur variable names collision | You are using SP in “file” mode | Two or more secrets in the same Secret Group share the same name or alias. | Error: Multiple variables in the “{value}” secret group are called “{value}”. Provide a unique alias for each variable in the “{value}” secret group.<br><br>SP fails to start | | |
+| 4 | Unparseable Conjur secrets list | You are using SP in “file” mode | The “conjur-secrets” annotation is not parseable for one or more secret groups. | Error: The list of secrets for the “{value}” secret group is not formatted correctly. Error: “{value}”. Verify that the annotation value is a YAML list with optional keys for each list item.<br><br>SP fails to start | | |
+| 5 | Invalid Conjur secrets path | You are using SP in “file” mode and have provided a value for the conjur.org/conjur-secrets-path annotation | The “conjur-secrets-path" annotation is not parseable as a full secret path prefix. | Error: The Conjur secrets path “{value}” provided for the “{value}” secret group is invalid. | | |
+| 6 | Invalid file template definition – not parseable by Go | You are using SP in “file” mode and have provided a value for the conjur.org/secret-file-template annotation | File template for one or more secret groups cannot be used as written. | Error: The file template for the “{value}” secret group cannot be used as written. Error: “{value}”. Update your template definition to address this and try again.<br><br>SP fails to start | | |
+| 7 | Invalid file template definition – references undefined secret keys | You are using SP in “file” mode and have provided a value for the conjur.org/secret-file-template annotation | File template for one or more secret groups references secrets that do not exist in the secret group. | Error: The file template for the “{value}” secret group references the “{value}” secret, but no such secret is defined in the secret group. Add an alias to set the correct secret name to “{value}”, and try again.<br><br>SP fails | | |
+| 8 | Unable to retrieve Conjur variables | You are using SP in “file” mode | | Error: Failed to provide DAP/Conjur secrets<br><br>SP fails | CSPFK016E | |
+| 9 | Missing volume mounts | You are using SP in “file” mode | One or more volumes cannot be found by Secrets Provider. | Error: Unable to access volume “{value}”. Error: “{value}”. Ensure that the corrrect volumes are defined in the deployment manifest and attached to the Secrets Provider container.<br><br>SP fails to start | | |
+| 10 | File permissions error | You are using SP in “file” mode | Secrets Provider does not have permission to write a secrets file to the specified volume and mount path. | Error: Secrets Provider does not have permission to write the secrets file “{value}”. Please check the volume mount permissions on the Secrets Provider container and try again.<br><br>SP fails | | |
+| 11 | Invalid file path provided | You are using SP in “file” mode and have provided a value for the conjur.org/secret-file-path annotation | The provided file path is not a valid file path. | Error: You have provided an invalid file path “{value}” for the “{value}” secret group.<br><br>SP fails to start | | |
+| 12 | File conflict between two secret groups | You are using SP in "file" mode and have defined multiple secret groups | One or more secret groups have he same ouput file. | Error: You have provided conflicting file paths; secret groups "{value}", "{value}", ... all have output file "{value}".<br><br>SP fails to start | | |
 
 #### Integration / E2E tests
 
