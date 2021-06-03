@@ -1,3 +1,5 @@
+* @cyberark/community-and-integrations-team @cyberark/palmtree
+
 # Changes to .trivyignore require Security Architect approval
 .trivyignore @cyberark/security-architects @conjurinc/security-architects @conjurdemos/security-architects
 
