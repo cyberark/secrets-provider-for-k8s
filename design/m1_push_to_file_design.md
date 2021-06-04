@@ -37,7 +37,7 @@
 <tr class="even">
 <td>Aha Card</td>
 <td><p><a href="https://cyberark.aha.io/epics/SCR-E-76">link</a> (private)</p>
-<p><em>Note: This design document covers work for “Milestone 1: Push to File” as defined in this Aha Card.</em></p></td>
+<p><em>Note: This design document covers work for "Milestone 1: Push to File" as defined in this Aha Card.</em></p></td>
 </tr>
 <tr class="odd">
 <td>Feature Doc</td>
@@ -116,7 +116,7 @@ any particular Secrets Provider setting, then the Pod Annotation configuration
 takes precedence.
 
 _**QUESTION: Should we deprecate the current configuration method that uses
-   environment variable settings?**_
+environment variable settings?**_
 
 Note that Pod Annotation configuration will not be supported for the
 `MY_POD_NAME` and `MY_POD_NAMESPACE` settings. These settings will continue
@@ -174,7 +174,7 @@ for a hypothetical secrets group named `database`:
 ```
     conjur.org/conjur-secrets.database: |
       - prod/backend/url
-      - prod/backend/port 
+      - prod/backend/port
       - prod/backend/password
       - prod/backend/username
 ```
@@ -294,30 +294,30 @@ annotation-based configuration and/or push-to-file mode:
   setting for now.
 - If you are using the Secrets Provider as an init container, and you would
   like to convert from K8s Secrets mode to push-to-file mode:
-  - Add push-to-file annotations:
-    - For each existing Kubernetes Secret, you may wish to create a separate
-      secrets group for push-to-file.
-    - `conjur.org/conjur-secrets.{group}`: Inspect the manifests for the
-      existing Kubernetes Secret(s). The manifests should contain a
-      `stringData` section that contains secrets key/value pairs.
-      Map the `stringData` entries to a YAML list value for conjur-secrets,
-      using the secret names as aliases.
-    - `conjur.org/secret-file-path.{group}`: Configure a target location
-    - `conjur.org/secret-file-type.{group}`: Configure a desired type,
-      depending on how the application will consume the secrets file.
-    - `conjur.org/secret-file-perms.{group}`: Determine desired file
-      permissions (see [Security](#security) section).
-  - Add Pod `securityContext` (see [Security](#security) section).
-  - Delete existing Kubernetes Secrets or their manifests:
-    - If using Helm, delete Kubernetes Secrets manifests and do a
-      `helm upgrade ...`
-    - Otherwise, `kubectl delete ...` the existing Kubernetes Secrets
-  - Delete the `K8S_SECRETS` environment variable setting from the application
-    Deployment (or its manifest).
-  - Modify application to consume secrets as files:
-    - Modify application to consume secrets files directly, or...
-    - Modify the Deployment's spec for the app container so that the
-      `command` entrypoint includes sourcing of a bash-formatted secrets file.
+    - Add push-to-file annotations:
+        - For each existing Kubernetes Secret, you may wish to create a separate
+          secrets group for push-to-file.
+        - `conjur.org/conjur-secrets.{group}`: Inspect the manifests for the
+          existing Kubernetes Secret(s). The manifests should contain a
+          `stringData` section that contains secrets key/value pairs.
+          Map the `stringData` entries to a YAML list value for conjur-secrets,
+          using the secret names as aliases.
+        - `conjur.org/secret-file-path.{group}`: Configure a target location
+        - `conjur.org/secret-file-type.{group}`: Configure a desired type,
+          depending on how the application will consume the secrets file.
+        - `conjur.org/secret-file-perms.{group}`: Determine desired file
+          permissions (see [Security](#security) section).
+    - Add Pod `securityContext` (see [Security](#security) section).
+    - Delete existing Kubernetes Secrets or their manifests:
+        - If using Helm, delete Kubernetes Secrets manifests and do a
+          `helm upgrade ...`
+        - Otherwise, `kubectl delete ...` the existing Kubernetes Secrets
+    - Delete the `K8S_SECRETS` environment variable setting from the application
+      Deployment (or its manifest).
+    - Modify application to consume secrets as files:
+        - Modify application to consume secrets files directly, or...
+        - Modify the Deployment's spec for the app container so that the
+          `command` entrypoint includes sourcing of a bash-formatted secrets file.
 
 ### Project Scope and Limitations
 
@@ -338,7 +338,7 @@ The initial implementation and testing will be limited to:
 - For this release, configuration will only be read upon startup.
 - For this release, annotations are required to have a group.
 
-##  Design 
+##  Design
 
 ### Flow Diagram
 
@@ -382,51 +382,51 @@ var GroupSecrets map[string]GroupSecretsInfo{}
    in a file named `annotations` in a Pod info volume. Each entry in this
    file will be a YAML key/value pair, and can be either:
 
-   - Secrets Provider container/application configuration
-   - Push-to-file configuration
+    - Secrets Provider container/application configuration
+    - Push-to-file configuration
 
 1. Secrets Provider parses the YAML in the `annotations` file, and iterates
    over all entries.
 
-   - For SP container/application configuration, values are written to
-     the SP `Config` structure.
+    - For SP container/application configuration, values are written to
+      the SP `Config` structure.
 
-   - For Push-to-File configuration, each annotation **key** will be parsed and
-     split into three fields:
+    - For Push-to-File configuration, each annotation **key** will be parsed and
+      split into three fields:
 
-     - Annotation type (e.g. `conjur-secrets`, `conjur-secrets-path`, etc)
-     - Secrets group
-     - Annotation value. The annotation value is a string that can be any
-       of the following formats:
+        - Annotation type (e.g. `conjur-secrets`, `conjur-secrets-path`, etc)
+        - Secrets group
+        - Annotation value. The annotation value is a string that can be any
+          of the following formats:
 
-       - Plain string
-       - YAML list of secrets
-       - Secrets file Golang template
+            - Plain string
+            - YAML list of secrets
+            - Secrets file Golang template
 
-   - If the annotation **value** is a YAML list of secrets, the SP will then
-     iterate over each entry in the YAML list. Each entry is parsed into
-     two fields:
+    - If the annotation **value** is a YAML list of secrets, the SP will then
+      iterate over each entry in the YAML list. Each entry is parsed into
+      two fields:
 
-     - Conjur variable path
-     - Secret alias. If not provided explicitly, then the last word in
-       the Conjur variable path is used as an alias. 
+        - Conjur variable path
+        - Secret alias. If not provided explicitly, then the last word in
+          the Conjur variable path is used as an alias.
 
-   - Depending upon the annotation type, values are then written to a
-     per-Group `SecretsGroupMapping` structure (see definition in Appendix).
+    - Depending upon the annotation type, values are then written to a
+      per-Group `SecretsGroupMapping` structure (see definition in Appendix).
 
 
 1. After all annotations have been processed, Secrets Provider iterates
    through the `SecretsGroupMapping` data structures for all secrets groups.
 
    For each secrets group:
-   
-   - If a secrets file Golang template has not been provided explicitly,
-     Secrets Provider will use a "canned" Golang template based on the
-     secrets file type (YAML, JSON, dotenv, or bash).
-   - Secrets Provider connects/authenticates with Conjur and retrieves all
-     secrets for that secrets group.
-   - Secrets Provider then creates and writes a secrets file at the configured
-     destination file path.
+
+    - If a secrets file Golang template has not been provided explicitly,
+      Secrets Provider will use a "canned" Golang template based on the
+      secrets file type (YAML, JSON, dotenv, or bash).
+    - Secrets Provider connects/authenticates with Conjur and retrieves all
+      secrets for that secrets group.
+    - Secrets Provider then creates and writes a secrets file at the configured
+      destination file path.
 
 ## Performance
 
@@ -461,7 +461,7 @@ secrets group.
 
 ## Backwards Compatibility
 
-For backwards compatibility, the Secrets Provider must continue to support 
+For backwards compatibility, the Secrets Provider must continue to support
 the environment-variable based configuration for container and
 Conjur configuration for the Kubernetes Secrets mode of operation. For
 push-to-file mode, only annotation-based configuration will be tested and
@@ -477,32 +477,72 @@ affected.
 
 ### Test environments
 
+To validate support, E2E test cases will need to be run against different versions of
++ Kubernetes
++ Openshift
+
 ### Test assumptions
 
 ### Out of scope
 
 ### Test prerequisites
 
+Unit tests require
++ Assertion library (stretchr/testify)
++ Mocks for Conjur server, parser, secret fecher, and file writer
++ Code is dependency injectable
++ Environment with all the dependencies load. A container image is typically defined that contains all the dependencies for running the tests (Go + tooling) and any postprocessing of results (junit)
+
+E2E tests require
++ Kubernetes/Openshift cluster
++ Conjur setup and ready. Policy will need to be run to define an authenticator, secrets and permissions.
++ Secrets provider image is available to Kubernetes/Openshift cluster
+
 ### Test cases
+
+| | Section | Given | When | Then |
+| --- | --- | --- | --- | --- |
+| 1 | Annotation configuration takes precedence over environment variables | You provide the annotations and environment variables | Parsing is carried out | The internal representation of the parsed configuration prioritised values from the annotations |
+| 2 | Table test for template generation of common file formats | Some common file format (e.g. dotenv) | Generate a file from the template using dummy variables | The generated files matches the format |
+| 3 | Parsing of Conjur secrets list | Valid "conjur-secrets" list annotation containing the literal and the dictionary version of each item  | Parsing is carried out | The internal representation matches expectations  |
+| 4 | Parsing of Conjur secrets list | Valid "conjur-secrets" list annotation containing the literal and the dictionary version of each item  | Parsing is carried out | The result of parsing matches the expected internal representation of a secret list |
+| 5 | Parsing per secret group annotations | Annotations for multiple secret groups | Parsing is carried out | The annotation are divided according to their groups in the internal representation  |
+| 6 | Parsing of secrets provider configuration annotations | Annotations for secrets provider configuration | Parsing is carried out | The annotations map to the internal representation of secrets provider configuration  |
+| 7 | Failure to parse | Dependency injection of writing to file method that errors | Run the push to file flow | Returns a terminal error |
+| 8 | Table of tests to validate secrets, connect and podinfo volumes at startup. NOTE(kumbi): I would like to confirm that (and how) the secrets provider will be informed of the mount paths for these volumes  | One of the volumes | Run validation logic e.g. to ensure it exists and can be written to etc. | Matches expectations in terms of success or failure of validation |
+| 9 | Table of tests to validate secret groups | Some combination of secret groups | Run secret group validation logic (e.g. ensure no  conflicts across groups) | Matches expectations in terms of success or failure of validation |
+| 10 | Ensure secret is fetched once across groups | Some combination of secret groups | Fetch for secret groups | Spies revea that each secret is fetched only once |
+| 11 | Failure to validate | Dependency injection of validation method that errors | Run the push to file flow | Returns a terminal error |
+| 12 | Terminal errors are logged and terminate the process | A terminal error from the push to file flow | Run the application | Terminates process and logs error |
+| 13 | Failure to fetch secrets | Dependency injection of fetch secrets method that errors | Run the push to file flow | Returns a terminal error |
+| 14 | Table of tests for fetch secrets logic | A mock Conjur server exists | Fetch secret logic is run | Returns expected payload or errors  |
 
 #### Error Handling / Recovery / Supportability tests
 
 | | Section | Given | When | Then | Error Code | Test Type (Unit, Integration, E2E) |
 | --- | --- | --- | --- | --- | --- | --- |
-| 1 | Missing secrets destination | You are using SP | You do not provide the secrets destination in an annotation or environment variable | Error: Missing secrets destination. Acceptable values are “k8s” and “file”.<br><br>SP fails to start | | |
-| 2 | Invalid input file type | You are using SP in “file” mode and have provided a value for the conjur.org/ secret-file-type annotation | You have provided an unknown or invalid secret-file-type annotation, which is expected to contain one of the supported types: json, yaml, dotenv. | Error: Invalid output file type: “{value}” for secret group “{value}”. Acceptable values are “json”, “yaml”, and “dotenv”.<br><br>SP fails to start | | |
-| 3 | Conjur variable names collision | You are using SP in “file” mode | Two or more secrets in the same Secret Group share the same name or alias. | Error: Multiple variables in the “{value}” secret group are called “{value}”. Provide a unique alias for each variable in the “{value}” secret group.<br><br>SP fails to start | | |
-| 4 | Unparseable Conjur secrets list | You are using SP in “file” mode | The “conjur-secrets” annotation is not parseable for one or more secret groups. | Error: The list of secrets for the “{value}” secret group is not formatted correctly. Error: “{value}”. Verify that the annotation value is a YAML list with optional keys for each list item.<br><br>SP fails to start | | |
-| 5 | Invalid Conjur secrets path | You are using SP in “file” mode and have provided a value for the conjur.org/conjur-secrets-path annotation | The “conjur-secrets-path" annotation is not parseable as a full secret path prefix. | Error: The Conjur secrets path “{value}” provided for the “{value}” secret group is invalid. | | |
-| 6 | Invalid file template definition – not parseable by Go | You are using SP in “file” mode and have provided a value for the conjur.org/secret-file-template annotation | File template for one or more secret groups cannot be used as written. | Error: The file template for the “{value}” secret group cannot be used as written. Error: “{value}”. Update your template definition to address this and try again.<br><br>SP fails to start | | |
-| 7 | Invalid file template definition – references undefined secret keys | You are using SP in “file” mode and have provided a value for the conjur.org/secret-file-template annotation | File template for one or more secret groups references secrets that do not exist in the secret group. | Error: The file template for the “{value}” secret group references the “{value}” secret, but no such secret is defined in the secret group. Add an alias to set the correct secret name to “{value}”, and try again.<br><br>SP fails | | |
-| 8 | Unable to retrieve Conjur variables | You are using SP in “file” mode | | Error: Failed to provide DAP/Conjur secrets<br><br>SP fails | CSPFK016E | |
-| 9 | Missing volume mounts | You are using SP in “file” mode | One or more volumes cannot be found by Secrets Provider. | Error: Unable to access volume “{value}”. Error: “{value}”. Ensure that the corrrect volumes are defined in the deployment manifest and attached to the Secrets Provider container.<br><br>SP fails to start | | |
-| 10 | File permissions error | You are using SP in “file” mode | Secrets Provider does not have permission to write a secrets file to the specified volume and mount path. | Error: Secrets Provider does not have permission to write the secrets file “{value}”. Please check the volume mount permissions on the Secrets Provider container and try again.<br><br>SP fails | | |
-| 11 | Invalid file path provided | You are using SP in “file” mode and have provided a value for the conjur.org/secret-file-path annotation | The provided file path is not a valid file path. | Error: You have provided an invalid file path “{value}” for the “{value}” secret group.<br><br>SP fails to start | | |
+| 1 | Missing secrets destination | You are using SP | You do not provide the secrets destination in an annotation or environment variable | Error: Missing secrets destination. Acceptable values are "k8s" and "file".<br><br>SP fails to start | | |
+| 2 | Invalid input file type | You are using SP in "file" mode and have provided a value for the conjur.org/ secret-file-type annotation | You have provided an unknown or invalid secret-file-type annotation, which is expected to contain one of the supported types: json, yaml, dotenv. | Error: Invalid output file type: "{value}" for secret group "{value}". Acceptable values are "json", "yaml", and "dotenv".<br><br>SP fails to start | | |
+| 3 | Conjur variable names collision | You are using SP in "file" mode | Two or more secrets in the same Secret Group share the same name or alias. | Error: Multiple variables in the "{value}" secret group are called "{value}". Provide a unique alias for each variable in the "{value}" secret group.<br><br>SP fails to start | | Unit |
+| 4 | Unparseable Conjur secrets list | You are using SP in "file" mode | The "conjur-secrets" annotation is not parseable for one or more secret groups. | Error: The list of secrets for the "{value}" secret group is not formatted correctly. Error: "{value}". Verify that the annotation value is a YAML list with optional keys for each list item.<br><br>SP fails to start | | Unit |
+| 5 | Invalid Conjur secrets path | You are using SP in "file" mode and have provided a value for the conjur.org/conjur-secrets-path annotation | The "conjur-secrets-path" annotation is not parseable as a full secret path prefix. | Error: The Conjur secrets path "{value}" provided for the "{value}" secret group is invalid. | | Unit |
+| 6 | Invalid file template definition – not parseable by Go | You are using SP in "file" mode and have provided a value for the conjur.org/secret-file-template annotation | File template for one or more secret groups cannot be used as written. | Error: The file template for the "{value}" secret group cannot be used as written. Error: "{value}". Update your template definition to address this and try again.<br><br>SP fails to start | | |
+| 7 | Invalid file template definition – references undefined secret keys | You are using SP in "file" mode and have provided a value for the conjur.org/secret-file-template annotation | File template for one or more secret groups references secrets that do not exist in the secret group. | Error: The file template for the "{value}" secret group references the "{value}" secret, but no such secret is defined in the secret group. Add an alias to set the correct secret name to "{value}", and try again.<br><br>SP fails | | |
+| 8 | Unable to retrieve Conjur variables | You are using SP in "file" mode | | Error: Failed to provide DAP/Conjur secrets<br><br>SP fails | CSPFK016E | |
+| 9 | Missing volume mounts | You are using SP in "file" mode | One or more volumes cannot be found by Secrets Provider. | Error: Unable to access volume "{value}". Error: "{value}". Ensure that the correct volumes are defined in the deployment manifest and attached to the Secrets Provider container.<br><br>SP fails to start | | Unit |
+| 10 | File permissions error | You are using SP in "file" mode | Secrets Provider does not have permission to write a secrets file to the specified volume and mount path. | Error: Secrets Provider does not have permission to write the secrets file "{value}". Please check the volume mount permissions on the Secrets Provider container and try again.<br><br>SP fails | | |
+| 11 | Invalid file path provided | You are using SP in "file" mode and have provided a value for the conjur.org/secret-file-path annotation | The provided file path is not a valid file path. | Error: You have provided an invalid file path "{value}" for the "{value}" secret group.<br><br>SP fails to start | | |
 | 12 | File conflict between two secret groups | You are using SP in "file" mode and have defined multiple secret groups | One or more secret groups have he same ouput file. | Error: You have provided conflicting file paths; secret groups "{value}", "{value}", ... all have output file "{value}".<br><br>SP fails to start | | |
 
 #### Integration / E2E tests
+
+E2E tests are expensive. We should try to limit their numbers. There are cheaper ways to validate behavior. For the push to file functionality it will likely be possible to validate the happy path in one fell swoop by using configuration tht captures all the supported annotations and template types.
+
+- [] Happy path, Secret Provider runs as an init container in file mode and successfully injects files. This single test can cover all supported annotations and template types.
+
+The sad path is where things tend to become difficult, because there's a myriad of ways in which failure can occur. A possible way to reduce the need to E2E test failures is to establish a nexus point for all failures in the code so that an error can be validated at the unit/functional testing level.
+
+- [] Sad path, Secret Provider runs as an init container in file mode and fails, thereby preventing the deployment from proceeding. TBC it's possible we don't need this at all.
 
 #### Security testing
 
@@ -589,7 +629,7 @@ different a UID and GID than the default values shown above, then the
 application will not be able to access secrets files that have been
 created using the default attributes.
 
-In these cases, users will want to include a 
+In these cases, users will want to include a
 [Pod Security Context](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.21/#podsecuritycontext-v1-core)
 in their Pod Deployment to change either the user that is running inside
 the Secrets Provider container, or the GID with which secrets files will be
@@ -646,38 +686,38 @@ three phases of development:
 - [ ] Solution design approval
 - [ ] Security review approval
 - [ ] Refactor SP config: Separate SP config into the following:
-  - [ ] Container config:
-    - PodName - MY_POD_NAME
-    - PodNamespace - MY_POD_NAMESPACE
-    - RetryCountLimit - RETRY_COUNT_LIMIT
-    - RetryIntervalSec - RETRY_INTERVAL_SEC
-    - StoreType – SECRETS_DESTINATION
-  - [ ] Kubernetes Secrets config:
-    - RequiredK8sSecrets – K8S_SECRETS
+    - [ ] Container config:
+        - PodName - MY_POD_NAME
+        - PodNamespace - MY_POD_NAMESPACE
+        - RetryCountLimit - RETRY_COUNT_LIMIT
+        - RetryIntervalSec - RETRY_INTERVAL_SEC
+        - StoreType – SECRETS_DESTINATION
+    - [ ] Kubernetes Secrets config:
+        - RequiredK8sSecrets – K8S_SECRETS
 - [ ] Existing SP config options can be set by annotations
-  - [ ] Container config:
-    - PodNamespace - MY_POD_NAMESPACE (still comes from downward API)
-    - RetryCountLimit - conjur.org/retry-count-limit
-    - RetryIntervalSec - conjur.org/retry-interval-sec
-    - StoreType - conjur.org/secrets-destination
-  - [ ] Kubernetes Secrets config:
-    - RequiredK8sSecrets – conjur.org/k8s-secrets
+    - [ ] Container config:
+        - PodNamespace - MY_POD_NAMESPACE (still comes from downward API)
+        - RetryCountLimit - conjur.org/retry-count-limit
+        - RetryIntervalSec - conjur.org/retry-interval-sec
+        - StoreType - conjur.org/secrets-destination
+    - [ ] Kubernetes Secrets config:
+        - RequiredK8sSecrets – conjur.org/k8s-secrets
 - [ ] Refactor Authn Client config: Separate Authn Client config into the following:
-  - Container config
-  - Conjur config
-  - App identity config
+    - Container config
+    - Conjur config
+    - App identity config
 - [ ] Existing Authn Client config options can be set by annotations:
-  - Container config
-  - Conjur config
-  - App identity config
+    - Container config
+    - Conjur config
+    - App identity config
 - [ ] Define data structures for annotation parsing
 - [ ] Given list of secrets with aliases, populate data structure(s)
-  - [ ] Add logic to parse annotation keys: Split annotation keys into:
-    - Secrets group name
-    - Push-to-File Annotation type
-    - Annotation value (can be a YAML formatted string)
-  - [ ] Add logic to parse annotation values:
-    - Parse `conjur.org/conjur-secrets.{secret-group}` (with aliases)
+    - [ ] Add logic to parse annotation keys: Split annotation keys into:
+        - Secrets group name
+        - Push-to-File Annotation type
+        - Annotation value (can be a YAML formatted string)
+    - [ ] Add logic to parse annotation values:
+        - Parse `conjur.org/conjur-secrets.{secret-group}` (with aliases)
 - [ ] Given populated data structure, get secrets and write to YAML file
 - [ ] SP upgrade process has been validated - init container
 - [ ] SP upgrade process has been validated - job
@@ -732,9 +772,9 @@ corresponding to three phases of development:
 - [ ] SP upgrade process has been validated for existing users
 - [ ] Dap-Wiki has been updated with info on the new flows (initial community release)
 - [ ] Any custom upgrade instructions are documented
-- [ ] There is a quick start environment for running SP in “file” mode locally
+- [ ] There is a quick start environment for running SP in "file" mode locally
 - [ ] The UX of the feature has been reviewed
-- [ ] SP has been released with the new “file” functionality, including manual security scans
+- [ ] SP has been released with the new "file" functionality, including manual security scans
 
 ### Definition of Done: Minimally-Featured GA Release
 
@@ -746,10 +786,10 @@ corresponding to three phases of development:
   using the K8s Secrets init container with annotation-based configuration
 - [ ] There is a happy path e2e test in the Secrets Provider test cases to
   validate using the K8s Secrets Job with annotation-based configuration
-- [ ] There are e2e tests in supported OpenShift versions and GKE with Secrets Provider init container in “file” mode running with:
-  - Conjur Open Source
-  - Conjur Enterprise with follower in Kubernetes
-  - Conjur Enterprise with follower outside Kubernetes
+- [ ] There are e2e tests in supported OpenShift versions and GKE with Secrets Provider init container in "file" mode running with:
+    - Conjur Open Source
+    - Conjur Enterprise with follower in Kubernetes
+    - Conjur Enterprise with follower outside Kubernetes
 - [ ] Init container and Job flows have both been tested
 - [ ] There is documentation collateral for the TWs
 - [ ] Dap-Wiki has been updated with info on the new flows
@@ -757,8 +797,8 @@ corresponding to three phases of development:
 - [ ] Any custom upgrade instructions are documented
 - [ ] Instructions for restarting pod on annotations changes have been documented
 - [ ] Documentation is clear about requirements for volume mapping and file permissions
-- [ ] (TBD) Performance of the SP with the “file” flow supported has been measured, and has not appreciably decreased from prior measurements (prior perf tests)
-- [ ] SP has been released with the new “file” functionality, including manual security scans
+- [ ] (TBD) Performance of the SP with the "file" flow supported has been measured, and has not appreciably decreased from prior measurements (prior perf tests)
+- [ ] SP has been released with the new "file" functionality, including manual security scans
 
 ### Full-Featured (Certified) Community Release
 
@@ -779,9 +819,9 @@ corresponding to three phases of development:
   writing of dotenv formatted file
 - [ ] There is a happy path e2e test to validate Helm named templates for init
   container def, volume mounts, and volumes
-- [ ] There is a blog post describing how to transition from an existing application to using the new Secrets Provider “push to file” flow
-- [ ] There is a recorded demo of the new SP “file” functionality
-- [ ] The new SP “file” functionality has been shared at a training session
+- [ ] There is a blog post describing how to transition from an existing application to using the new Secrets Provider "push to file" flow
+- [ ] There is a recorded demo of the new SP "file" functionality
+- [ ] The new SP "file" functionality has been shared at a training session
 
 ## Solution Review
 
@@ -799,7 +839,7 @@ corresponding to three phases of development:
 <td>            </td>
 <td><ul>
 <li><blockquote>
-<p> </p>
+<p> </p>
 </blockquote></li>
 </ul></td>
 </tr>
@@ -808,7 +848,7 @@ corresponding to three phases of development:
 <td>Alex Kalish</td>
 <td><ul>
 <li><blockquote>
-<p> </p>
+<p> </p>
 </blockquote></li>
 </ul></td>
 </tr>
@@ -817,7 +857,7 @@ corresponding to three phases of development:
 <td>Rafi Schwarz</td>
 <td><ul>
 <li><blockquote>
-<p> </p>
+<p> </p>
 </blockquote></li>
 </ul></td>
 </tr>
@@ -826,7 +866,7 @@ corresponding to three phases of development:
 <td>Andy Tinkham</td>
 <td><ul>
 <li><blockquote>
-<p> </p>
+<p> </p>
 </blockquote></li>
 </ul></td>
 </tr>
@@ -835,7 +875,7 @@ corresponding to three phases of development:
 <td>Andy Tinkham</td>
 <td><ul>
 <li><blockquote>
-<p> </p>
+<p> </p>
 </blockquote></li>
 </ul></td>
 </tr>
@@ -900,7 +940,7 @@ spec:
         # here).
         # - boilderplate: no
         # - sidecar-injected: no
-     
+
         # Host ID for authenticating with Conjur. This is traditionally named
         # CONJUR_AUTHN_LOGIN in most clients, but this new name is more
         # obvious.
@@ -927,7 +967,7 @@ spec:
         # Notice that the variable name is used without the path.
         conjur.org/conjur-secrets.database: |
           - /policy/path/to/url
-          - /policy/path/to/port 
+          - /policy/path/to/port
           - /policy/path/to/password
           - /policy/path/to/username
         # Define variables for the unique group "cache".  This example
@@ -969,7 +1009,7 @@ spec:
         # Finally, users can provide completely customized secret file
         # templates using the Golang templating language.  Variables can be
         # referenced via their name (or alias if provided) and are replaced
-        # with their value from Conjur. 
+        # with their value from Conjur.
         conjur.org/secret-template-custom.cache: |
           {
             "cache": {
@@ -1030,7 +1070,7 @@ spec:
         # copy/paste.
         #   - boilerplate: yes
         #   - sidecar-injected: yes
- 
+
         {{ include "conjur-secrets-provider.volumes" . | indent 8 }}
 ```
 
@@ -1073,7 +1113,7 @@ above):
 - name: {{ .Values.conjur.volumes.connect.name }}
   configMap:
     name: {{ .Values.conjur.configMaps.connect }}
-  
+
 - name: {{ .Values.conjur.volumes.podinfo.name }}
   downwardAPI:
     items:
@@ -1102,7 +1142,7 @@ manifest / Helm named tempates above:
 ```
 conjur:
   volumes:
-    secrets: 
+    secrets:
       name: "conjur-secrets"
       mountPath: "/conjur/secrets"
     connect:
@@ -1135,7 +1175,7 @@ Helm chart named templates above:
   annotations:
     description: Apps and services in company cluster.
   body:
-  
+
   - !layer k8s-apps
 
   - &apps
@@ -1144,20 +1184,19 @@ Helm chart named templates above:
       annotations:
         authn-k8s/namespace: my_namespace
         authn-k8s/authentication-container-name: cyberark-secrets-provider-for-k8s
-  
+
   - !grant
     role: !layer k8s-apps
     members: *apps
-  
+
   - &database-variables
     - !variable url
     - !variable port
     - !variable password
     - !variable username
-  
+
   - !permit
     role: !layer k8s-apps
     privileges: [ read, execute ]
     resources: *database-variables
 ```
-
