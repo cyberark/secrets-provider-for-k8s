@@ -6,6 +6,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Changed
+- Update RH base image to `ubi8/ubi` instead of `rhel7/rhel`.
+  [PR cyberark/secrets-provider-for-k8s#328](https://github.com/cyberark/secrets-provider-for-k8s/pull/328)
+
 ## [1.1.3] - 2021-03-01
 
 ### Added
