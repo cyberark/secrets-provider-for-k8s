@@ -3,7 +3,7 @@
 - [Table of Contents](#table-of-contents)
 - [CyberArk Secrets Provider for Kubernetes](#cyberark-secrets-provider-for-kubernetes)
   - [Supported services](#supported-services)
-  - [Using This Project With Conjur Open Source](#using-secrets-provider-for-k8s-with-conjur-oss)
+  - [Using This Project With Conjur Open Source](#using-secrets-provider-for-k8s-with-conjur-open-source)
 - [Releases](#releases)
   - [Stable release definition](#stable-release-definition)
 - [Development](#development)
@@ -38,7 +38,7 @@ To deploy the CyberArk Secrets Provider for Kubernetes as an application contain
 ## Using secrets-provider-for-k8s with Conjur Open Source 
 
 Are you using this project with [Conjur Open Source](https://github.com/cyberark/conjur)? Then we 
-**strongly** recommend choosing the version of this project to use from the latest [Conjur Open Source 
+**strongly** recommend choosing the version of this project to use from the latest [Conjur OSS 
 suite release](https://docs.conjur.org/Latest/en/Content/Overview/Conjur-OSS-Suite-Overview.html). 
 Conjur maintainers perform additional testing on the suite release versions to ensure 
 compatibility. When possible, upgrade your Conjur version to match the 
