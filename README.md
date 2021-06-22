@@ -15,7 +15,7 @@
 # CyberArk Secrets Provider for Kubernetes
 
 The CyberArk Secrets Provider for Kubernetes enables Conjur Enterprise
- (formerly known as Conjur Enterprise) to retrieve secrets stored and managed in the CyberArk Vault.
+ (formerly known as DAP) to retrieve secrets stored and managed in the CyberArk Vault.
  The secrets can be consumed by your Kubernetes or Openshift application containers.
  To retrieve the secrets from Conjur or Conjur Enterprise, 
  the CyberArk Secrets Provider for Kubernetes runs as an init container or application
