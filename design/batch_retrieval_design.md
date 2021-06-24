@@ -282,9 +282,9 @@ The following integration tests will be implemented in Secrets Provider for K8s
 | ---- | ---------------------------------------------------- | ------------------------------------------------------------ | --------- |
 | 1    | Secrets Provider batch retrieval has partial success | Failed to retrieve a portion of the Conjur/DAP secrets: Reason: '%s' | Error     |
 | 2    | Secrets Provider batch retrieval total failure       | Failed to retrieve Conjur/DAP secrets: Reason: '%s'          | Error     |
-| 3    | Secrets Provider batch retrieval has partial success | Skipped Kubernetes Secrets '%s'. Reason: Failed to retrieve DAP/Conjur secrets | Debug     |
+| 3    | Secrets Provider batch retrieval has partial success | Skipped Kubernetes Secrets '%s'. Reason: Failed to retrieve Conjur secrets | Debug     |
 | 4    | Secrets Provider success                             | Successfully updated '%d' out of '%d' Kubernetes Secrets     | Info      |
-| 5    | Old batch retrieval endpoint                         | Warning: Secrets Provider cannot efficiently run because DAP/Conjur is not up to date. Please consider upgrading to the latest version | Warn      |
+| 5    | Old batch retrieval endpoint                         | Warning: Secrets Provider cannot efficiently run because Conjur is not up to date. Please consider upgrading to the latest version | Warn      |
 
 ## Performance tests
 

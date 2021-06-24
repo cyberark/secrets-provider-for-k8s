@@ -35,7 +35,7 @@
 [//]: # (Elaborate on whether your solution will affect the product's performance, and how)
 
 ### Affected Components
-[//]: # (Address the components that will be affected by your solution [Conjur, DAP, clients, integrations, etc.])
+[//]: # (Address the components that will be affected by your solution [Conjur, Conjur Enterprise, clients, integrations, etc.])
 
 ## Security
 [//]: # (Are there any security issues with your solution and how do you plan to mitigate them? Even if you mentioned them somewhere in the doc it may be convenient for the security architect review to have them centralized here)
@@ -62,7 +62,7 @@
 [//]: # (Does this solution require additional audit messages?)
 
 ## Documentation
-[//]: # (Add notes on what should be documented in this solution. Elaborate on where this should be documented. If the change is in open-source projects, we may need to update the docs in github too. If it's in Conjur and/or DAP mention which products are affected by it)
+[//]: # (Add notes on what should be documented in this solution. Elaborate on where this should be documented. If the change is in open-source projects, we may need to update the docs in github too. If it's in Conjur and/or Conjur Enterprise mention which products are affected by it)
 
 ## Open questions
 [//]: # (Add any question that is still open. It makes it easier for the reader to have the open questions accumulated here istead of them being acattered along the doc)
