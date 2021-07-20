@@ -28,12 +28,9 @@ do
     announce "Running '$filename'."
     ./test_case_setup.sh
     $filename
-    ../../teardown_resources.sh
+#    ../../teardown_resources.sh
     announce "Test '$filename' ended successfully"
   done
 done
 
 ENV_FILE=printenv.debug
-if [[ -f "$ENV_FILE" ]]; then
-    rm $ENV_FILE
-fi

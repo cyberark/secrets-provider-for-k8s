@@ -6,13 +6,13 @@ set -xeuo pipefail
 # Clean up when script completes and fails
 finish() {
   announce 'Wrapping up and removing test environment'
-
-  # Stop the running processes
-  runDockerCommand "
-    ./stop && cd kubernetes-conjur-deploy-$UNIQUE_TEST_ID && ./stop
-  "
-  # Remove the deploy directory
-  rm -rf "kubernetes-conjur-deploy-$UNIQUE_TEST_ID"
+#
+#  # Stop the running processes
+#  runDockerCommand "
+#    ./stop && cd kubernetes-conjur-deploy-$UNIQUE_TEST_ID && ./stop
+#  "
+#  # Remove the deploy directory
+#  rm -rf "kubernetes-conjur-deploy-$UNIQUE_TEST_ID"
 }
 trap finish EXIT
 
