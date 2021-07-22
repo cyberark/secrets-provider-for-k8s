@@ -1520,47 +1520,37 @@ corresponding to three phases of development:
 <tbody>
 <tr class="odd">
 <td>Team Leader</td>
-<td>            </td>
+<td>Dane LeBlanc</td>
 <td><ul>
-<li><blockquote>
-<p> </p>
-</blockquote></li>
+<p> ✅</p>
 </ul></td>
 </tr>
 <tr class="even">
 <td>Product Owner</td>
 <td>Alex Kalish</td>
 <td><ul>
-<li><blockquote>
-<p> </p>
-</blockquote></li>
+<p> ✅</p>
 </ul></td>
 </tr>
 <tr class="odd">
 <td>System Architect</td>
 <td>Rafi Schwarz</td>
 <td><ul>
-<li><blockquote>
-<p> </p>
-</blockquote></li>
+<p> ✅</p>
 </ul></td>
 </tr>
 <tr class="even">
 <td>Security Architect</td>
 <td>Andy Tinkham</td>
 <td><ul>
-<li><blockquote>
-<p> </p>
-</blockquote></li>
+<p> ✅</p>
 </ul></td>
 </tr>
 <tr class="odd">
 <td>QA Architect</td>
 <td>Andy Tinkham</td>
 <td><ul>
-<li><blockquote>
-<p> </p>
-</blockquote></li>
+<p> ✅</p>
 </ul></td>
 </tr>
 </tbody>
