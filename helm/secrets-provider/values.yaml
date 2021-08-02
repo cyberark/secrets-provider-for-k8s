@@ -21,21 +21,63 @@ labels: {}
 annotations: {}
 
 environment:
-  # Array of Kubernetes Secret names that applications consume, and whose value is sourced in DAP/Conjur.
-  # For example, [k8s-secret1,k8s-secret2]
-  k8sSecrets:
+  # Array of Kubernetes Secret names that applications consume, and
+  # whose value is sourced in DAP/Conjur.For example, [k8s-secret1,k8s-secret2]
+  # This setting is required.
+  #
+  # k8sSecrets:
+
   conjur:
+    # There are two ways that you can supply the necessary configuration to
+    # allow Secrets Provider to connect with Conjur (listed in order of
+    # precedence):
+    #
+    # 1. Using a Conjur connection ConfigMap that has been installed
+    #    independently of this Helm chart, that contains the following
+    #    connection parameters:
+    #      CONJUR_ACCOUNT
+    #      CONJUR_APPLIANCE_URL
+    #      CONJUR_AUTHENTICATOR_ID
+    #      CONJUR_AUTHN_URL
+    #      CONJUR_SSL_CERTIFICATE
+    #    To make use of an existing Conjur Connection ConfigMap, set this
+    #    chart value:
+    #      environment.conjur.conjurConnConfigMap
+    #
+    # 2. Providing the connection parameters directly by setting the following
+    #    chart values:
+    #      environment.conjur.account
+    #      environment.conjur.applianceUrl
+    #      environment.conjur.authnUrl
+    #      environment.conjur.sslCertificate.*
+    #
+    # conjurConnConfigMap:
+
     # DAP/Conjur account name as defined during initial DAP/Conjur configuration.
-    account:
+    # This setting is required if 'conjurConnConfigMap' is not set.
+    #
+    # account:
+    
     # URL of service defined for DAP Follower/Conjur.
-    applianceUrl:
+    # This setting is required if 'conjurConnConfigMap' is not set.
+    #
+    # applianceUrl:
+ 
     # URL for the Kubernetes authenticator with which the Secrets Provider will authenticate.
-    authnUrl:
-    # Host that authenticates Secrets Provider to DAP/Conjur.
-    authnLogin:
+    # This setting is required if 'conjurConnConfigMap' is not set.
+    #
+    # authnUrl:
+ 
     sslCertificate:
       # Name of ConfigMap that holds the public SSL certificate required for connecting to Follower/Conjur.
       name: cert-config-map
+
       # Value that stores the public SSL certificate required for connecting to Follower/Conjur.
-      # This value should be passed in when installing the chart.
-      value:
+      # This setting is required if 'conjurConnConfigMap' is not set.
+      #
+      # value:
+
+    # : Host that authenticates Secrets Provider to DAP/Conjur.
+    # This setting is required.
+    #
+    # authnLogin:

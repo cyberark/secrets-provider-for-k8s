@@ -1,3 +1,4 @@
+{{- if not .Values.environment.conjur.conjurConnConfigMap }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -5,3 +6,4 @@ metadata:
   namespace: {{ .Release.Namespace }}
 data:
   ssl-certificate: {{ .Values.environment.conjur.sslCertificate.value | quote }}
+{{- end }}

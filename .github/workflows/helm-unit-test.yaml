@@ -1,0 +1,33 @@
+name: Helm Unit Test
+
+on:
+  # Run this on pushes to main
+  push:
+    branches:
+    - main
+
+  # Or when PR operations are done
+  pull_request:
+    types:
+    - opened
+    - reopened
+    - synchronize
+
+jobs:
+  unit_test:
+    name: Run Helm unittest and Schema Validation Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v2
+
+      - name: Install Helm
+        uses: azure/setup-helm@v1
+        with:
+          version: v3.5.3
+
+      - name: Run Helm unittest
+        run: cd ./helm/secrets-provider/tests && ./test-unit
+
+      - name: Run Helm schema validation tests
+        run: cd ./helm/secrets-provider/tests && ./test-schema

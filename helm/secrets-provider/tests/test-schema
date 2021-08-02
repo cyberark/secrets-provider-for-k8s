@@ -1,0 +1,265 @@
+#!/bin/bash
+
+# This script tests the restrictions on chart values as defined in the
+# Helm chart's 'values.schema.json' file.
+#
+# This test uses 'helm lint ...' instead of 'helm unittest ...' because the
+# Helm unittest plugin is apparently agnostic to schema restrictions defined
+# in 'values.schema.json'. For example, when required chart settings are not
+# provided, Helm unittest does not capture this as a schema violation, but
+# instead results in a vague null pointer error in Helm. For this reason,
+# Helm unittest is not well suited for negative schema test scenarios.
+#
+# Requirements:
+#   - Helm v3.5.3 or later
+
+# Execute from the parent (chart) directory as required to run 'helm lint ...'
+cd "../$(dirname "$0")"
+
+source ./tests/utils.sh
+
+# Default testing values for required chart values
+readonly DEFAULT_ACCOUNT_SETTING='environment.conjur.account=myConjurAccount'
+readonly DEFAULT_APPLIANCE_URL_SETTING='environment.conjur.applianceUrl=https://conjur.example.com'
+readonly DEFAULT_AUTHN_LOGIN_SETTING='environment.conjur.authnLogin=host/conjur/authn-k8s/my-authn-id/my-conjur-policy/my-host-id'
+readonly DEFAULT_AUTHN_URL_SETTING='environment.conjur.authnUrl=https://conjur.example.com/authn-k8s/my-authn-id'
+readonly DEFAULT_SSL_CERT_SETTING='environment.conjur.sslCertificate.value="-----BEGIN CERTIFICATE-----\n
+MIIC/ThisIsAFakeThisIsOnlyAFake==\n
+-----END CERTIFICATE-----\n'
+readonly DEFAULT_K8S_SECRETS_SETTING='environment.k8sSecrets={k8s-secret1\,k8s-secret2}'
+
+# Global test state
+num_passed=0
+num_failed=0
+test_failed=false
+
+function conjur_account_test() {
+    helm lint . --strict \
+        --set "environment.conjur.account=$1" \
+        --set "$DEFAULT_APPLIANCE_URL_SETTING" \
+        --set "$DEFAULT_AUTHN_LOGIN_SETTING" \
+        --set "$DEFAULT_AUTHN_URL_SETTING" \
+        --set "$DEFAULT_SSL_CERT_SETTING" \
+        --set "$DEFAULT_K8S_SECRETS_SETTING"
+}
+
+function missing_conjur_account_test() {
+    helm lint . --strict \
+        --set "$DEFAULT_APPLIANCE_URL_SETTING" \
+        --set "$DEFAULT_AUTHN_LOGIN_SETTING" \
+        --set "$DEFAULT_AUTHN_URL_SETTING" \
+        --set "$DEFAULT_SSL_CERT_SETTING" \
+        --set "$DEFAULT_K8S_SECRETS_SETTING"
+}
+
+function conjur_url_test() {
+    helm lint . --strict \
+        --set "$DEFAULT_ACCOUNT_SETTING" \
+        --set "environment.conjur.applianceUrl=$1" \
+        --set "$DEFAULT_AUTHN_LOGIN_SETTING" \
+        --set "$DEFAULT_AUTHN_URL_SETTING" \
+        --set "$DEFAULT_SSL_CERT_SETTING" \
+        --set "$DEFAULT_K8S_SECRETS_SETTING"
+}
+
+function missing_conjur_url_test() {
+    helm lint . --strict \
+        --set "$DEFAULT_ACCOUNT_SETTING" \
+        --set "$DEFAULT_AUTHN_LOGIN_SETTING" \
+        --set "$DEFAULT_AUTHN_URL_SETTING" \
+        --set "$DEFAULT_SSL_CERT_SETTING" \
+        --set "$DEFAULT_K8S_SECRETS_SETTING"
+}
+
+function conjur_authn_login_test() {
+    helm lint . --strict \
+        --set "$DEFAULT_ACCOUNT_SETTING" \
+        --set "$DEFAULT_APPLIANCE_URL_SETTING" \
+        --set "environment.conjur.authnLogin=$1" \
+        --set "$DEFAULT_AUTHN_URL_SETTING" \
+        --set "$DEFAULT_SSL_CERT_SETTING" \
+        --set "$DEFAULT_K8S_SECRETS_SETTING"
+}
+
+function missing_conjur_authn_login_test() {
+    helm lint . --strict \
+        --set "$DEFAULT_ACCOUNT_SETTING" \
+        --set "$DEFAULT_APPLIANCE_URL_SETTING" \
+        --set "$DEFAULT_AUTHN_URL_SETTING" \
+        --set "$DEFAULT_SSL_CERT_SETTING" \
+        --set "$DEFAULT_K8S_SECRETS_SETTING"
+}
+
+function conjur_authn_url_test() {
+    helm lint . --strict \
+        --set "$DEFAULT_ACCOUNT_SETTING" \
+        --set "$DEFAULT_APPLIANCE_URL_SETTING" \
+        --set "$DEFAULT_AUTHN_LOGIN_SETTING" \
+        --set "environment.conjur.authnUrl=$1" \
+        --set "$DEFAULT_SSL_CERT_SETTING" \
+        --set "$DEFAULT_K8S_SECRETS_SETTING"
+}
+
+function missing_conjur_authn_url_test() {
+    helm lint . --strict \
+        --set "$DEFAULT_ACCOUNT_SETTING" \
+        --set "$DEFAULT_APPLIANCE_URL_SETTING" \
+        --set "$DEFAULT_AUTHN_LOGIN_SETTING" \
+        --set "$DEFAULT_SSL_CERT_SETTING" \
+        --set "$DEFAULT_K8S_SECRETS_SETTING"
+}
+
+function conjur_ssl_cert_test() {
+    helm lint . --strict \
+        --set "$DEFAULT_ACCOUNT_SETTING" \
+        --set "$DEFAULT_APPLIANCE_URL_SETTING" \
+        --set "$DEFAULT_AUTHN_LOGIN_SETTING" \
+        --set "$DEFAULT_AUTHN_URL_SETTING" \
+        --set "environment.conjur.sslCertificate.value=\"$1\"" \
+        --set "$DEFAULT_K8S_SECRETS_SETTING"
+}
+
+function missing_conjur_ssl_cert_test() {
+    helm lint . --strict \
+        --set "$DEFAULT_ACCOUNT_SETTING" \
+        --set "$DEFAULT_APPLIANCE_URL_SETTING" \
+        --set "$DEFAULT_AUTHN_LOGIN_SETTING" \
+        --set "$DEFAULT_AUTHN_URL_SETTING" \
+        --set "$DEFAULT_K8S_SECRETS_SETTING"
+}
+
+function k8s_secrets_test() {
+    helm lint . --strict \
+        --set "$DEFAULT_ACCOUNT_SETTING" \
+        --set "$DEFAULT_APPLIANCE_URL_SETTING" \
+        --set "$DEFAULT_AUTHN_LOGIN_SETTING" \
+        --set "$DEFAULT_AUTHN_URL_SETTING" \
+        --set "$DEFAULT_SSL_CERT_SETTING" \
+        --set "environment.k8sSecrets=$1"
+}
+
+function missing_k8s_secrets_test() {
+    helm lint . --strict \
+        --set "$DEFAULT_ACCOUNT_SETTING" \
+        --set "$DEFAULT_APPLIANCE_URL_SETTING" \
+        --set "$DEFAULT_AUTHN_LOGIN_SETTING" \
+        --set "$DEFAULT_AUTHN_URL_SETTING" \
+        --set "$DEFAULT_SSL_CERT_SETTING"
+}
+
+function conjur_conn_configmap_test() {
+    helm lint . --strict \
+        --set "environment.conjur.conjurConnConfigMap=$1" \
+        --set "$DEFAULT_AUTHN_LOGIN_SETTING" \
+        --set "$DEFAULT_K8S_SECRETS_SETTING"
+}
+
+function missing_conjur_conn_configmap_test() {
+    helm lint . --strict \
+        --set "$DEFAULT_AUTHN_LOGIN_SETTING" \
+        --set "$DEFAULT_K8S_SECRETS_SETTING"
+}
+
+function main() {
+    banner $BOLD "Running Helm schema tests for chart \"conjur-config-cluster-prep\""
+    check_helm_version
+
+    announce "Valid Conjur account is accepted"
+    conjur_account_test "a-valid-account"
+    update_results "$?" 
+
+    announce "Null-string Conjur account is rejected"
+    conjur_account_test ""
+    update_results "$?" "$EXPECT_FAILURE"
+
+    announce "Missing Conjur account causes failure"
+    missing_conjur_account_test
+    update_results "$?" "$EXPECT_FAILURE"
+
+    announce "Conjur URL that begins with 'https://' is accepted"
+    conjur_url_test "https://example.com"
+    update_results "$?" 
+
+    announce "Conjur URL that begins with "HTTPS://" is accepted"
+    conjur_url_test "https://example.com"
+    update_results "$?" 
+
+    announce "Conjur URL that is an internal Kubernetes address is accepted"
+    conjur_url_test "https://conjur.conjur-namespace.svc.cluster.local"
+    update_results "$?" 
+
+    announce "Conjur URL that is an IPv4 address is accepted"
+    conjur_url_test "https://192.0.2.1:443"
+    update_results "$?" 
+
+    announce "Conjur URL that is an IPv6 address is accepted"
+    conjur_url_test "https://[2001:DB8::1]:443"
+    update_results "$?" 
+
+    announce "Conjur URL that uses 'localhost' is accepted"
+    conjur_url_test "https://localhost:443"
+    update_results "$?" 
+
+    announce "Conjur URL that has an endpoint is accepted"
+    conjur_url_test "https://conjur.example.com/some-endpoint"
+    update_results "$?" 
+
+    announce "Missing Conjur URL causes failure"
+    missing_conjur_url_test
+    update_results "$?" "$EXPECT_FAILURE"
+
+    announce "Valid Conjur authn login is accepted"
+    conjur_authn_login_test "host/my-authn-id/my-policy/my-host-id"
+    update_results "$?" 
+
+    announce "Null-string Conjur authn login is rejected"
+    conjur_authn_login_test ""
+    update_results "$?" "$EXPECT_FAILURE"
+
+    announce "Missing Conjur authn login causes failure"
+    missing_conjur_authn_login_test
+    update_results "$?" "$EXPECT_FAILURE"
+
+    announce "Conjur authn URL that begins with 'https://' is accepted"
+    conjur_authn_url_test "https://example.com"
+    update_results "$?" 
+
+    announce "Missing Conjur authn URL causes failure"
+    missing_conjur_authn_url_test
+    update_results "$?" "$EXPECT_FAILURE"
+
+    announce "Null-string Conjur SSL cert is rejected"
+    conjur_ssl_cert__test ""
+    update_results "$?" "$EXPECT_FAILURE"
+
+    announce "Missing Conjur SSL cert causes failure"
+    missing_conjur_ssl_cert_test
+    update_results "$?" "$EXPECT_FAILURE"
+
+    announce "Single Kubernetes secret is accepted"
+    k8s_secrets_test "{only-one-k8s-secret}"
+    update_results "$?" 
+
+    announce "Missing Kubernetes secrets list causes failure"
+    missing_k8s_secrets_test
+    update_results "$?" "$EXPECT_FAILURE"
+
+    announce "Valid Conjur connect ConfigMap name is accepted"
+    conjur_conn_configmap_test "name-with-dashes"
+    update_results "$?"
+
+    announce "Null-string Conjur connect ConfigMap name is rejected"
+    conjur_conn_configmap_test ""
+    update_results "$?" "$EXPECT_FAILURE"
+
+    announce "Missing both Conjur connect info and Conjur connect ConfigMap name causes failure"
+    missing_conjur_configmap_name_test
+    update_results "$?" "$EXPECT_FAILURE"
+
+    display_final_results
+    if [ "$num_failed" -ne 0 ]; then
+        exit 1
+    fi
+}
+
+main "$@"
