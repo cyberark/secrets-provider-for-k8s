@@ -7,12 +7,6 @@
   ],
   "properties": {
     "rbac": {
-      "required": [
-        "create",
-        "roleName",
-        "roleBindingName",
-        "serviceAccount"
-      ],
       "properties": {
         "create": {
           "type": "boolean"
@@ -26,9 +20,6 @@
           "minLength": 1
         },
         "serviceAccount": {
-          "required": [
-            "name"
-          ],
           "properties": {
             "name": {
               "type": "string",
@@ -39,12 +30,6 @@
       }
     },
     "secretsProvider": {
-      "required": [
-        "image",
-        "tag",
-        "imagePullPolicy",
-        "name"
-      ],
       "properties": {
         "image": {
           "type": "string",
@@ -86,30 +71,47 @@
           }
         },
         "conjur": {
-          "required": [
-            "account",
-            "applianceUrl",
-            "authnUrl",
-            "authnLogin",
-            "sslCertificate"
+          "anyOf": [
+            {
+              "required": [
+                "authnLogin",
+                "conjurConnConfigMap"
+              ]
+            },{
+              "required": [
+                "authnLogin",
+                "account",
+                "applianceUrl",
+                "authnUrl"
+              ],
+              "properties": {
+                "sslCertificate": {
+                  "required": [ "value" ]
+                }
+              }
+            }
           ],
           "properties": {
             "account": {
-              "type": "string",
+              "type": ["string","null"],
               "minLength": 1
             },
             "applianceUrl": {
-              "type": "string",
+              "type": ["string","null"],
               "minLength": 1,
               "pattern": "^https?://[^\\s/$.?#].[^\\s]*$"
             },
             "authnUrl": {
-              "type": "string",
+              "type": ["string","null"],
               "minLength": 1,
               "pattern": "^https?://[^\\s/$.?#].[^\\s]*$"
             },
             "authnLogin": {
               "type": "string",
+              "minLength": 1
+            },
+            "conjurConnConfigMap": {
+              "type": ["string","null"],
               "minLength": 1
             },
             "retryIntervalSec": {
@@ -122,17 +124,13 @@
             },
             "sslCertificate": {
               "type": "object",
-              "required": [
-                "name",
-                "value"
-              ],
               "properties": {
                 "name": {
-                  "type": "string",
+                  "type": ["string"],
                   "minLength": 1
                 },
                 "value": {
-                  "type": "string",
+                  "type": ["string","null"],
                   "minLength": 1
                 }
               }
