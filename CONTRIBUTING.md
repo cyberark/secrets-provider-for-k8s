@@ -210,6 +210,7 @@ follow the instructions in this section.
     1. [Version file](pkg/secrets/version.go)
     1. [Chart version](helm/secrets-provider/Chart.yaml)
     1. [Default deployed version](helm/secrets-provider/values.yaml)
+    1. [Helm unit test for chart defaults](helm/secrets-provider/tests/secrets_provider_test.yaml)
     1. [Test case hardcoded version](deploy/test/test_cases/TEST_ID_22_helm_rbac_defaults_taken_successfully.sh)
 1. Commit these changes - `Bump version to x.y.z` is an acceptable commit
    message - and open a PR for review.
