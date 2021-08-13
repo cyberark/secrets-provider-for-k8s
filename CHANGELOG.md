@@ -6,6 +6,11 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Security
+- Upgrades base Alpine image used for Secrets Provider container image to
+  v3.14 to resolve CVE-2021-36159.
+  [cyberark/secrets-provider-for-k8s#354](https://github.com/cyberark/secrets-provider-for-k8s/pull/354)
+
 ## [1.1.4] - 2021-06-30
 
 ### Changed
