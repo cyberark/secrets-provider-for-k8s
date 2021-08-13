@@ -6,6 +6,16 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [1.1.5] - 2021-08-13
+
+### Added
+- Adds Helm chart option to use an independently installed Conjur Connect
+  ConfigMap instead of configuring Conjur connection parameters via environment
+  variables.
+  [cyberark/secrets-provider-for-k8s#349](https://github.com/cyberark/secrets-provider-for-k8s/pull/349)
+- Adds Helm chart option to explicitly set the Secrets Provider Job name.
+  [cyberark/secrets-provider-for-k8s#352](https://github.com/cyberark/secrets-provider-for-k8s/pull/352)
+
 ### Security
 - Upgrades base Alpine image used for Secrets Provider container image to
   v3.14 to resolve CVE-2021-36159.
@@ -118,7 +128,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ### Changed
   - Escape secrets with backslashes before patching in k8s
 
-[Unreleased]: https://github.com/cyberark/secrets-provider-for-k8s/compare/v1.1.4...HEAD
+[Unreleased]: https://github.com/cyberark/secrets-provider-for-k8s/compare/v1.1.5...HEAD
+[1.1.5]: https://github.com/cyberark/secrets-provider-for-k8s/compare/v1.1.4...v1.1.5
 [1.1.4]: https://github.com/cyberark/secrets-provider-for-k8s/compare/v1.1.3...v1.1.4
 [1.1.3]: https://github.com/cyberark/secrets-provider-for-k8s/compare/v1.1.2...v1.1.3
 [1.1.2]: https://github.com/cyberark/secrets-provider-for-k8s/compare/v1.1.1...v1.1.2
