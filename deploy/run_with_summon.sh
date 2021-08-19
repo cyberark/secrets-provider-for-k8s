@@ -50,6 +50,11 @@ if [ "${DEV}" = "false"  ]; then
     "${DOCKER_REGISTRY_PATH}/${APP_NAMESPACE_NAME}/secrets-provider"
 
   docker push "${DOCKER_REGISTRY_PATH}/${APP_NAMESPACE_NAME}/secrets-provider"
+
+  # Make sure debian is pushed to the internal registry to avoid Dockerhub pull restrictions
+  docker pull debian:latest
+  docker tag debian:latest "${DOCKER_REGISTRY_PATH}/${APP_NAMESPACE_NAME}/debian:latest"
+  docker push "${DOCKER_REGISTRY_PATH}/${APP_NAMESPACE_NAME}/debian:latest"
 else
   docker tag "secrets-provider-for-k8s:dev" \
     "${APP_NAMESPACE_NAME}/secrets-provider"
