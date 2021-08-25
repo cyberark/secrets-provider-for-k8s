@@ -21,10 +21,18 @@ const (
 // Config defines the configuration parameters
 // for the authentication requests
 type Config struct {
+	ContainerConfig
+	SecretsConfig
+}
+
+type ContainerConfig struct {
 	PodNamespace       string
 	RequiredK8sSecrets []string
 	RetryCountLimit    int
 	RetryIntervalSec   int
+}
+
+type SecretsConfig struct {
 	StoreType          string
 }
 
@@ -61,11 +69,15 @@ func NewFromEnv() (*Config, error) {
 	retryCountLimit := parseIntFromEnvOrDefault("RETRY_COUNT_LIMIT", DEFAULT_RETRY_COUNT_LIMIT, MIN_RETRY_VALUE)
 
 	return &Config{
-		PodNamespace:       podNamespace,
-		RequiredK8sSecrets: requiredK8sSecrets,
-		RetryCountLimit:    retryCountLimit,
-		RetryIntervalSec:   retryIntervalSec,
-		StoreType:          storeType,
+		ContainerConfig: ContainerConfig{
+			PodNamespace:       podNamespace,
+			RequiredK8sSecrets: requiredK8sSecrets,
+			RetryCountLimit:    retryCountLimit,
+			RetryIntervalSec:   retryIntervalSec,
+		},
+		SecretsConfig: SecretsConfig{
+			StoreType:          storeType,
+		},
 	}, nil
 }
 

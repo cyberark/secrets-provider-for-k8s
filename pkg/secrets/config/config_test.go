@@ -35,11 +35,15 @@ func TestConfig(t *testing.T) {
 					})
 
 					expectedConfig := &Config{
-						PodNamespace:       testNamespace,
-						RetryCountLimit:    testRetryCountLimit,
-						RequiredK8sSecrets: testK8sSecretsList,
-						RetryIntervalSec:   testRetryIntervalSec,
-						StoreType:          storeType,
+						ContainerConfig: ContainerConfig{
+							PodNamespace:       testNamespace,
+							RetryCountLimit:    testRetryCountLimit,
+							RequiredK8sSecrets: testK8sSecretsList,
+							RetryIntervalSec:   testRetryIntervalSec,
+						},
+						SecretsConfig: SecretsConfig{
+							StoreType:          storeType,
+						},
 					}
 
 					Convey("Returns the expected config", func() {
