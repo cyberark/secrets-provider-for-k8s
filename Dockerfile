@@ -59,6 +59,9 @@ FROM busybox
 FROM alpine:3.14 as secrets-provider-base
 MAINTAINER CyberArk Software Ltd.
 
+# Ensure openssl development libraries are always up to date
+RUN apk add --no-cache openssl-dev
+
 # copy a few commands from busybox
 COPY --from=busybox /bin/tar /bin/tar
 COPY --from=busybox /bin/sleep /bin/sleep
