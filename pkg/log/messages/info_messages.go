@@ -22,3 +22,4 @@ const CSPFK007I string = "CSPFK007I Attempting to re-authenticate: %d retries ou
 const CSPFK008I string = "CSPFK008I CyberArk Secrets Provider for Kubernetes v%s starting up"
 const CSPFK009I string = "CSPFK009I DAP/Conjur Secrets updated in Kubernetes successfully"
 const CSPFK010I string = "CSPFK010I Updating Kubernetes Secrets: %d retries out of %d"
+const CSPFK011I string = "CSPFK011I Annotation '%s' valid, but not recognized"
