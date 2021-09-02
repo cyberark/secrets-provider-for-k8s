@@ -11,7 +11,7 @@ rbac:
     name: secrets-provider-service-account
 
 secretsProvider:
-  image: cyberark/secrets-provider-for-k8s
+  image: docker.io/cyberark/secrets-provider-for-k8s
   tag: 1.1.5
   imagePullPolicy: IfNotPresent
   # Container name

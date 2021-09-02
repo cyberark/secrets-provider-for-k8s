@@ -21,8 +21,8 @@ RUN wget -O /usr/local/bin/kubectl ${KUBECTL_CLI_URL:-https://storage.googleapis
 ARG OPENSHIFT_CLI_URL
 RUN mkdir -p ocbin && \
     wget -O oc.tar.gz ${OPENSHIFT_CLI_URL:-https://github.com/openshift/origin/releases/download/v3.7.2/openshift-origin-client-tools-v3.7.2-282e43f-linux-64bit.tar.gz} && \
-    tar xvf oc.tar.gz --strip-components=1 -C ocbin && \
-    mv ocbin/oc /usr/local/bin/oc && \
+    tar xvf oc.tar.gz -C ocbin && \
+    cp "$(find ./ocbin -name 'oc' -type f | tail -1)"  /usr/local/bin/oc  && \
     rm -rf ocbin oc.tar.gz
 
 # Install Helm

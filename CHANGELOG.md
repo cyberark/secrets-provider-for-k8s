@@ -6,6 +6,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Added
+- Support for OpenShift 4.8 has been added.
+
 ## [1.1.5] - 2021-08-13
 
 ### Added
