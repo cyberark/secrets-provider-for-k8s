@@ -5,6 +5,9 @@ set -xeuo pipefail
 
 # Clean up when script completes and fails
 finish() {
+  announce 'Checking Kubernetes current context before removing test environment'
+  runDockerCommand "kubectl config current-context"
+
   announce 'Wrapping up and removing test environment'
 
   # Stop the running processes
