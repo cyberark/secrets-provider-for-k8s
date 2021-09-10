@@ -73,4 +73,122 @@ func TestConfig(t *testing.T) {
 			}
 		})
 	})
+
+	Convey("NewFromAnnotations", t, func() {
+		Convey("When \"conjur.org/secrets-destination\" is not set", func() {
+			annotations := map[string]string{
+				"conjur.org/k8s-secrets":        `- k8s-secret-1\n- k8s-secret-2\n`,
+				"conjur.org/retry-count-limit":  "10",
+				"conjur.org/retry-interval-sec": "5",
+			}
+
+			_, err := NewFromAnnotations(annotations)
+
+			Convey("Raises the proper error", func() {
+				So(err.Error(), ShouldEqual, fmt.Sprintf(messages.CSPFK044E, "conjur.org/secrets-destination"))
+			})
+		})
+
+		Convey("When \"conjur.org/secrets-destination\" is set to \"file\"", func() {
+			Convey("When no other annotations are provided", func() {
+				annotations := map[string]string{
+					"conjur.org/secrets-destination": "file",
+				}
+
+				config, err := NewFromAnnotations(annotations)
+				Convey("Don't raise an error", func() {
+					So(err, ShouldBeNil)
+				})
+
+				Convey("Config field values provide defaults", func() {
+					expectedConfig := &Config{
+						PodNamespace:       "",
+						RequiredK8sSecrets: []string{},
+						RetryCountLimit:    5,
+						RetryIntervalSec:   1,
+						StoreType:          "file",
+					}
+
+					So(config, ShouldResemble, expectedConfig)
+				})
+			})
+
+			Convey("When other annotations are provided", func() {
+				annotations := map[string]string{
+					"conjur.org/secrets-destination": "file",
+					"conjur.org/k8s-secrets":         `- k8s-secret-1\n- k8s-secret-2\n`,
+					"conjur.org/retry-count-limit":   "10",
+					"conjur.org/retry-interval-sec":  "5",
+				}
+
+				config, err := NewFromAnnotations(annotations)
+				Convey("Don't raise an error", func() {
+					So(err, ShouldBeNil)
+				})
+
+				Convey("Returns the expected config", func() {
+					expectedConfig := &Config{
+						PodNamespace:       "",
+						RequiredK8sSecrets: []string{},
+						RetryCountLimit:    10,
+						RetryIntervalSec:   5,
+						StoreType:          "file",
+					}
+
+					So(config, ShouldResemble, expectedConfig)
+				})
+			})
+		})
+
+		Convey("When \"conjur.org/secrets-destination\" is set to \"k8s_secrets\"", func() {
+			Convey("When no other annotations are provided", func() {
+				annotations := map[string]string{
+					"conjur.org/secrets-destination": "k8s_secrets",
+				}
+
+				config, err := NewFromAnnotations(annotations)
+				Convey("Don't raise an error", func() {
+					So(err, ShouldBeNil)
+				})
+
+				Convey("Config field values indicate that EnvVar settings should be used", func() {
+					expectedConfig := &Config{
+						PodNamespace:       "",
+						RequiredK8sSecrets: nil,
+						RetryCountLimit:    -1,
+						RetryIntervalSec:   -1,
+						StoreType:          "k8s_secrets",
+					}
+
+					So(config, ShouldResemble, expectedConfig)
+				})
+			})
+
+			Convey("When other annotations are provided", func() {
+				annotations := map[string]string{
+					"conjur.org/secrets-destination": "k8s_secrets",
+					"conjur.org/k8s-secrets":         `- k8s-secret-1\n- k8s-secret-2\n`,
+					"conjur.org/retry-count-limit":   "10",
+					"conjur.org/retry-interval-sec":  "5",
+				}
+
+				config, err := NewFromAnnotations(annotations)
+				Convey("Don't raise an error", func() {
+					So(err, ShouldBeNil)
+				})
+
+				Convey("Returns the expected config", func() {
+					expectedConfig := &Config{
+						PodNamespace:       "",
+						RequiredK8sSecrets: []string{"k8s-secret-1", "k8s-secret-2"},
+						RetryCountLimit:    10,
+						RetryIntervalSec:   5,
+						StoreType:          "k8s_secrets",
+					}
+
+					So(config, ShouldResemble, expectedConfig)
+				})
+			})
+		})
+	})
 }

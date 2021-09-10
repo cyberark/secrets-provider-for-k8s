@@ -12,6 +12,7 @@ import (
 
 const (
 	K8S                        = "k8s_secrets"
+	FILE                       = "file"
 	CONJUR_MAP_KEY             = "conjur-map"
 	DEFAULT_RETRY_COUNT_LIMIT  = 5
 	DEFAULT_RETRY_INTERVAL_SEC = 1
@@ -56,9 +57,9 @@ func NewFromEnv() (*Config, error) {
 		return nil, err
 	}
 
-	retryIntervalSec := parseIntFromEnvOrDefault("RETRY_INTERVAL_SEC", DEFAULT_RETRY_INTERVAL_SEC, MIN_RETRY_VALUE)
+	retryIntervalSec := parseIntFromStringOrDefault(os.Getenv("RETRY_INTERVAL_SEC"), DEFAULT_RETRY_INTERVAL_SEC, MIN_RETRY_VALUE)
 
-	retryCountLimit := parseIntFromEnvOrDefault("RETRY_COUNT_LIMIT", DEFAULT_RETRY_COUNT_LIMIT, MIN_RETRY_VALUE)
+	retryCountLimit := parseIntFromStringOrDefault(os.Getenv("RETRY_COUNT_LIMIT"), DEFAULT_RETRY_COUNT_LIMIT, MIN_RETRY_VALUE)
 
 	return &Config{
 		PodNamespace:       podNamespace,
@@ -69,17 +70,67 @@ func NewFromEnv() (*Config, error) {
 	}, nil
 }
 
-func parseIntFromEnvOrDefault(environmentVariable string, defaultValue int, minValue int) int {
-	envString := os.Getenv(environmentVariable)
-	envValueInt, err := strconv.Atoi(envString)
-	if err != nil || envValueInt < minValue {
+// Returns a new authenticator configuration object, populated from Pod annotations
+func NewFromAnnotations(annotations map[string]string) (*Config, error) {
+
+	// check that the only required variable, Secrets Destination, is set
+	for _, annotation := range []string{
+		"conjur.org/secrets-destination",
+	} {
+		if _, ok := annotations[annotation]; !ok {
+			return nil, log.RecordedError(messages.CSPFK044E, annotation)
+		}
+	}
+
+	storeType := annotations["conjur.org/secrets-destination"]
+
+	var k8sSecretsArray []string
+	var retryIntervalSec int
+	var retryCountLimit int
+
+	switch storeType {
+	// Default values are only assigned to config fields when in Push-to-File mode.
+	// In K8s Secrets mode, these defaults are exchanged for verifiably incorrect values (empty string, -1, nil)
+	// so that they can be replaced by values set by the corresponding environment variable.
+	case "k8s_secrets":
+		// format conjur.org/k8s-secrets as []string, or assign nil if annotation not set
+		if k8sSecretsStr, ok := annotations["conjur.org/k8s-secrets"]; ok {
+			k8sSecretsStr := strings.ReplaceAll(k8sSecretsStr, "- ", "")
+			k8sSecretsArray = strings.Split(k8sSecretsStr, `\n`)
+			k8sSecretsArray = k8sSecretsArray[:len(k8sSecretsArray)-1]
+		} else {
+			k8sSecretsArray = nil
+		}
+
+		retryIntervalSec = parseIntFromStringOrDefault(annotations["conjur.org/retry-interval-sec"], -1, MIN_RETRY_VALUE)
+		retryCountLimit = parseIntFromStringOrDefault(annotations["conjur.org/retry-count-limit"], -1, MIN_RETRY_VALUE)
+	case "file":
+		// "conjur.org/k8s-secrets" is ignored when "conjur.org/secrets-destination" is set to "file"
+		k8sSecretsArray = []string{}
+		retryIntervalSec = parseIntFromStringOrDefault(annotations["conjur.org/retry-interval-sec"], DEFAULT_RETRY_INTERVAL_SEC, MIN_RETRY_VALUE)
+		retryCountLimit = parseIntFromStringOrDefault(annotations["conjur.org/retry-count-limit"], DEFAULT_RETRY_COUNT_LIMIT, MIN_RETRY_VALUE)
+	}
+
+	// Pod Namespace is still retrieved as an environment variable from the downward API
+	return &Config{
+		PodNamespace:       "",
+		RequiredK8sSecrets: k8sSecretsArray,
+		RetryCountLimit:    retryCountLimit,
+		RetryIntervalSec:   retryIntervalSec,
+		StoreType:          storeType,
+	}, nil
+}
+
+func parseIntFromStringOrDefault(value string, defaultValue int, minValue int) int {
+	valueInt, err := strconv.Atoi(value)
+	if err != nil || valueInt < minValue {
 		return defaultValue
 	}
-	return envValueInt
+	return valueInt
 }
 
 func validateStoreType(storeType string) error {
-	validStoreTypes := []string{K8S}
+	validStoreTypes := []string{K8S, FILE}
 	for _, validStoreType := range validStoreTypes {
 		if storeType == validStoreType {
 			return nil
