@@ -121,6 +121,51 @@ func NewFromAnnotations(annotations map[string]string) (*Config, error) {
 	}, nil
 }
 
+// Merge updatedConfig into baseConfig
+func MergeConfig(baseConfig *Config, updatedConfig *Config) *Config {
+	var podNamespace, storeType string
+	var requiredK8sSecrets []string
+	var retryCountLimit, retryIntervalSec int
+
+	if updatedConfig.PodNamespace != "" {
+		podNamespace = updatedConfig.PodNamespace
+	} else {
+		podNamespace = baseConfig.PodNamespace
+	}
+
+	if updatedConfig.RequiredK8sSecrets != nil {
+		requiredK8sSecrets = updatedConfig.RequiredK8sSecrets
+	} else {
+		requiredK8sSecrets = baseConfig.RequiredK8sSecrets
+	}
+
+	if updatedConfig.RetryCountLimit != -1 {
+		retryCountLimit = updatedConfig.RetryCountLimit
+	} else {
+		retryCountLimit = baseConfig.RetryCountLimit
+	}
+
+	if updatedConfig.RetryIntervalSec != -1 {
+		retryIntervalSec = updatedConfig.RetryIntervalSec
+	} else {
+		retryIntervalSec = baseConfig.RetryIntervalSec
+	}
+
+	if updatedConfig.StoreType != "" {
+		storeType = updatedConfig.StoreType
+	} else {
+		storeType = baseConfig.StoreType
+	}
+
+	return &Config{
+		PodNamespace:       podNamespace,
+		RequiredK8sSecrets: requiredK8sSecrets,
+		RetryCountLimit:    retryCountLimit,
+		RetryIntervalSec:   retryIntervalSec,
+		StoreType:          storeType,
+	}
+}
+
 func parseIntFromStringOrDefault(value string, defaultValue int, minValue int) int {
 	valueInt, err := strconv.Atoi(value)
 	if err != nil || valueInt < minValue {

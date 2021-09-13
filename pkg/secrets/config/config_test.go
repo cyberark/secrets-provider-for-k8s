@@ -191,4 +191,47 @@ func TestConfig(t *testing.T) {
 			})
 		})
 	})
+
+	Convey("MergeConfig", t, func() {
+		envConfig := &Config{
+			PodNamespace:       "env-test-namespace",
+			RequiredK8sSecrets: []string{"test-k8s-secret", "other-k8s-secret", "k8s-secret-after-a-space"},
+			RetryCountLimit:    10,
+			RetryIntervalSec:   10,
+			StoreType:          "k8s_secrets",
+		}
+
+		Convey("When given two fully-configured Configs", func() {
+			annotConfig := &Config{
+				PodNamespace:       "annot-test-namespace",
+				RequiredK8sSecrets: []string{},
+				RetryCountLimit:    20,
+				RetryIntervalSec:   20,
+				StoreType:          "file",
+			}
+
+			Convey("The fields from the second argument take precedence", func() {
+				newConfig := MergeConfig(envConfig, annotConfig)
+
+				So(newConfig, ShouldResemble, annotConfig)
+			})
+
+		})
+
+		Convey("When the second Config contains invalid values", func() {
+			annotConfig := &Config{
+				PodNamespace:       "",
+				RequiredK8sSecrets: nil,
+				RetryCountLimit:    -1,
+				RetryIntervalSec:   -1,
+				StoreType:          "",
+			}
+
+			Convey("The the fields from the first argument take precedence", func() {
+				newConfig := MergeConfig(envConfig, annotConfig)
+
+				So(newConfig, ShouldResemble, envConfig)
+			})
+		})
+	})
 }
