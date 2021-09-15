@@ -2,6 +2,7 @@ package annotations
 
 import (
 	"bufio"
+	"io"
 	"os"
 	"strconv"
 	"strings"
@@ -14,7 +15,7 @@ import (
 var secretsProviderAnnotations = map[string][]string{
 	"conjur.org/authn-identity":      {"string"},
 	"conjur.org/container-mode":      {"string", "init", "application"},
-	"conjur.org/secrets-destination": {"string", "file", "k8s-secret"},
+	"conjur.org/secrets-destination": {"string", "file", "k8s_secret"},
 	"conjur.org/k8s-secrets":         {"string"},
 	"conjur.org/retry-count-limit":   {"int"},
 	"conjur.org/retry-interval-sec":  {"int"},
@@ -33,6 +34,15 @@ var pushToFileAnnotationPrefixes = map[string][]string{
 	"conjur.org/secret-file-template.":       {"string"},
 }
 
+func AnnotationsFromFile(path string) (map[string]string, error) {
+	annotationsFile, err := os.OpenFile(path, os.O_RDONLY, os.ModePerm)
+	if err != nil {
+		return nil, log.RecordedError(messages.CSPFK041E, err.Error())
+	}
+	defer annotationsFile.Close()
+	return ParseAnnotations(annotationsFile)
+}
+
 // List and multi-line annotations are formatted as a single string in the annotations file,
 // and this format persists into the Map returned by this function.
 // For example, the following annotation:
@@ -42,13 +52,7 @@ var pushToFileAnnotationPrefixes = map[string][]string{
 //     - admin-username: username
 // Is stored in the annotations file as:
 //   conjur.org/conjur-secrets.cache="- url\n- admin-password: password\n- admin-username: username\n"
-func ParseAnnotations(path string) (map[string]string, error) {
-	annotationsFile, err := os.Open(path)
-	if err != nil {
-		return nil, log.RecordedError(messages.CSPFK041E, err.Error())
-	}
-	defer annotationsFile.Close()
-
+func ParseAnnotations(annotationsFile io.Reader) (map[string]string, error) {
 	var lines []string
 	scanner := bufio.NewScanner(annotationsFile)
 	for scanner.Scan() {
@@ -56,15 +60,23 @@ func ParseAnnotations(path string) (map[string]string, error) {
 	}
 
 	annotationsMap := make(map[string]string)
-	for _, line := range lines {
+	for lineNumber, line := range lines {
 		keyValuePair := strings.SplitN(line, "=", 2)
+		if len(keyValuePair) == 1 {
+			return nil, log.RecordedError(messages.CSPFK045E, lineNumber+1)
+		}
+
 		key := keyValuePair[0]
-		value := strings.Trim(keyValuePair[1], "\"")
+		value, err := strconv.Unquote(keyValuePair[1])
+		if err != nil {
+			return nil, log.RecordedError(messages.CSPFK045E, lineNumber+1)
+		}
+
 		// Validate key against known, properly formatted keys
 		// Here, "match" and "foundMap" are used to make input validation map-agnostic
 		if match, foundMap, ok := validateAnnotationKey(key); ok {
 			acceptedValueInfo := foundMap[match]
-			err = validateAnnotationValue(key, value, acceptedValueInfo)
+			err := validateAnnotationValue(key, value, acceptedValueInfo)
 			if err != nil {
 				return nil, err
 			} else {

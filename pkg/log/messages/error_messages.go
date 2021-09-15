@@ -57,11 +57,10 @@ const CSPFK037E string = "CSPFK037E Failed to parse DAP/Conjur variable IDs"
 const CSPFK038E string = "CSPFK038E Retransmission backoff exhausted"
 const CSPFK039E string = "CSPFK039E Secrets Provider for Kubernetes failed to update Kubernetes Secrets"
 
-// Annotation Parser
+// Annotations
 const CSPFK040E string = "CSPFK040E Failed to parse annotations file"
 const CSPFK041E string = "CSPFK041E Failed to open annotations file. Reason: %s"
 const CSPFK042E string = "CSPFK042E Annotation '%s' does not accept value '%s': must be type %s"
 const CSPFK043E string = "CSPFK043E Annotation '%s' does not accept value '%s': only accepts %v"
-
-// Annotations
 const CSPFK044E string = "CSPFK044E Annotation '%s' must be provided"
+const CSPFK045E string = "CSPFK045E Annotation file line %d is malformed: expecting format \"<key>=<quoted value>\""
