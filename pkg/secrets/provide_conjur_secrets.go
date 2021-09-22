@@ -7,7 +7,7 @@ import (
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/k8s_secrets_storage"
 )
 
-type ProvideConjurSecrets func(AccessToken access_token.AccessToken) error
+type ProvideConjurSecrets func(AccessToken access_token.AccessToken, config *config.Config) error
 
 func GetProvideConjurSecretFunc(storeType string) (ProvideConjurSecrets, error) {
 	var provideConjurSecretFunc ProvideConjurSecrets

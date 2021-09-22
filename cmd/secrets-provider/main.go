@@ -13,27 +13,45 @@ import (
 
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/log/messages"
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/secrets"
+	"github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/annotations"
 	secretsConfigProvider "github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/config"
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/utils"
 )
+
+const annotationsFile = "/conjur/podinfo/annotations"
 
 func main() {
 	var err error
 
 	log.Info(messages.CSPFK008I, secrets.FullVersionName)
 
-	// Initialize configurations
+	// Initialize authn configuration
 	authnConfig, err := authnConfigProvider.NewFromEnv()
 	if err != nil {
 		printErrorAndExit(messages.CSPFK008E)
 	}
 
-	secretsConfig, err := secretsConfigProvider.NewFromEnv()
-	if err != nil {
+	validateContainerMode(authnConfig.ContainerMode)
+
+	var annotationsMap map[string]string
+	if _, err := os.Stat(annotationsFile); err == nil {
+		annotationsMap, err = annotations.AnnotationsFromFile(annotationsFile)
+		if err != nil {
+			printErrorAndExit(messages.CSPFK040E)
+		}
+	}
+
+	secretsProviderSettings := secretsConfigProvider.EnvAndAnnotationSettings(annotationsMap)
+
+	errLogs, infoLogs := secretsConfigProvider.ValidSecretsProviderSettings(secretsProviderSettings)
+	printInfoLogs(infoLogs)
+	if len(errLogs) > 0 {
+		printErrorLogs(errLogs)
 		printErrorAndExit(messages.CSPFK015E)
 	}
 
-	validateContainerMode(authnConfig.ContainerMode)
+	// Initialize Secrets Provider configuration
+	secretsConfig := secretsConfigProvider.NewConfig(secretsProviderSettings)
 
 	provideConjurSecrets, err := secrets.GetProvideConjurSecretFunc(secretsConfig.StoreType)
 	if err != nil {
@@ -59,7 +77,7 @@ func main() {
 			log.Info(fmt.Sprintf(messages.CSPFK010I, limitedBackOff.RetryCount(), limitedBackOff.RetryLimit))
 		}
 
-		return provideSecretsToTarget(authn, provideConjurSecrets, accessToken)
+		return provideSecretsToTarget(authn, provideConjurSecrets, accessToken, secretsConfig)
 	}, limitedBackOff)
 
 	if err != nil {
@@ -75,14 +93,14 @@ func main() {
 	}
 }
 
-func provideSecretsToTarget(authn *authenticator.Authenticator, provideConjurSecrets secrets.ProvideConjurSecrets, accessToken *memory.AccessToken) error {
+func provideSecretsToTarget(authn *authenticator.Authenticator, provideConjurSecrets secrets.ProvideConjurSecrets, accessToken *memory.AccessToken, secretsConfig *secretsConfigProvider.Config) error {
 	log.Info(fmt.Sprintf(messages.CSPFK001I, authn.Config.Username))
 	err := authn.Authenticate()
 	if err != nil {
 		return log.RecordedError(messages.CSPFK010E)
 	}
 
-	err = provideConjurSecrets(accessToken)
+	err = provideConjurSecrets(accessToken, secretsConfig)
 	if err != nil {
 		return log.RecordedError(messages.CSPFK016E)
 	}
@@ -99,6 +117,18 @@ func provideSecretsToTarget(authn *authenticator.Authenticator, provideConjurSec
 func printErrorAndExit(errorMessage string) {
 	log.Error(errorMessage)
 	os.Exit(1)
+}
+
+func printInfoLogs(infoList []error) {
+	for _, err := range infoList {
+		log.Info(err.Error())
+	}
+}
+
+func printErrorLogs(errList []error) {
+	for _, err := range errList {
+		log.Error(err.Error())
+	}
 }
 
 func validateContainerMode(containerMode string) {

@@ -37,12 +37,7 @@ type K8sSecretsMap struct {
 	initialize a K8sSecretsClient and use the internal `run` method.
 	That method receives different structs as inputs so they can be mocked.
 */
-func ProvideConjurSecretsToK8sSecrets(AccessToken access_token.AccessToken) error {
-	config, err := config.NewFromEnv()
-	if err != nil {
-		return err
-	}
-
+func ProvideConjurSecretsToK8sSecrets(AccessToken access_token.AccessToken, config *config.Config) error {
 	return run(
 		k8s.RetrieveK8sSecret,
 		k8s.UpdateK8sSecret,
