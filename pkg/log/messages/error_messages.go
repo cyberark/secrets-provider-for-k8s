@@ -69,3 +69,10 @@ const CSPFK046E string = "CSPFK046E Secret Store Type needs to be configured, ei
 const CSPFK047E string = "CSPFK047E Secrets Provider in Push-to-File mode can only be configured with Pod annotations"
 const CSPFK048E string = "CSPFK048E Secrets Provider in K8s Secrets mode requires either the 'K8S_SECRETS' environment variable or 'conjur.org/k8s-secrets' Pod annotation"
 const CSPFK049E string = "CSPFK049E Failed to validate Pod annotations"
+
+// Push to File
+const CSPFK051E string = "CSPFK051E Failed to unmarshal Push-to-File secrets. Reason: %s in group '%s'"
+const CSPFK052E string = "CSPFK052E Annotation '%s' must contain relative path without leading '/'"
+const CSPFK053E string = "CSPFK053E Annotation '%s' specifies unknown file format '%s'"
+const CSPFK054E string = "CSPFK054E Failed to parse template in annotation '%s'. Reason: %s"
+const CSPFK055E string = "CSPFK055E Push-to-File template specified but directory found in annotation '%s'"
