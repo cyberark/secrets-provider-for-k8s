@@ -56,3 +56,10 @@ const CSPFK037E string = "CSPFK037E Failed to parse DAP/Conjur variable IDs"
 // General
 const CSPFK038E string = "CSPFK038E Retransmission backoff exhausted"
 const CSPFK039E string = "CSPFK039E Secrets Provider for Kubernetes failed to update Kubernetes Secrets"
+
+// Push to File
+const CSPFK051E string = "CSPFK051E Failed to unmarshal Push-to-File secrets. Reason: %s in group '%s'"
+const CSPFK052E string = "CSPFK052E Annotation '%s' must contain relative path without leading '/'"
+const CSPFK053E string = "CSPFK053E Annotation '%s' specifies unknown file format '%s'"
+const CSPFK054E string = "CSPFK054E Failed to parse template in annotation '%s'. Reason: %s"
+const CSPFK055E string = "CSPFK055E Push-to-File template specified but directory found in annotation '%s'"
