@@ -20,20 +20,7 @@ func assertExpectedSecretsGroups(expected SecretsGroups) assertFunc {
 			return
 		}
 
-		assert.Equal(t, len(expected), len(result))
-		for expectedKey, expectedVal := range expected {
-			resultVal, ok := result[expectedKey]
-			assert.True(t, ok)
-
-			assert.Equal(t, expectedVal.Secrets, resultVal.Secrets)
-			assert.Equal(t, expectedVal.FilePath, resultVal.FilePath)
-			assert.Equal(t, expectedVal.FileFormat, resultVal.FileFormat)
-			assert.Equal(t, expectedVal.FilePerms, resultVal.FilePerms)
-
-			if expectedVal.FileTemplate != nil {
-				assert.NotNil(t, resultVal.FileTemplate)
-			}
-		}
+		assert.Equal(t, expected, result)
 	}
 }
 
@@ -73,7 +60,7 @@ var extractSecretsGroupsTestCases = []extractSecretsGroupsTestCase{
 					FilePath:     "/conjur/secrets/this/relative/path",
 					FileFormat:   SecretsFileFormat(FILE_FORMAT_YAML),
 					FilePerms:    DEFAULT_FILE_PERMS,
-					FileTemplate: nil,
+					FileTemplate: "",
 				},
 			},
 		),
@@ -150,7 +137,7 @@ func TestExtractFileFormatFromAnnotations(t *testing.T) {
 			},
 			FilePath:     "/conjur/secrets/this/relative/file",
 			FilePerms:    DEFAULT_FILE_PERMS,
-			FileTemplate: nil,
+			FileTemplate: "",
 		},
 	}
 
@@ -158,12 +145,13 @@ func TestExtractFileFormatFromAnnotations(t *testing.T) {
 		secretsGroupTestCase.contents["conjur.org/secret-file-format.cache"] = tc.input
 		group := resultSecretsGroups["cache"]
 		group.FileFormat = tc.output
-		resultSecretsGroups["cache"] = group
 
 		if tc.hasTemplate {
 			secretsGroupTestCase.contents["conjur.org/secret-file-template.cache"] = someValidTemplate
+			group.FileTemplate = someValidTemplate
 		} else {
 			secretsGroupTestCase.contents["conjur.org/secret-file-template.cache"] = ""
+			group.FileTemplate = ""
 		}
 
 		if tc.valid {
@@ -171,6 +159,8 @@ func TestExtractFileFormatFromAnnotations(t *testing.T) {
 		} else {
 			secretsGroupTestCase.assert = assertProperError("unknown file format")
 		}
+
+		resultSecretsGroups["cache"] = group
 
 		t.Run(secretsGroupTestCase.description, func(t *testing.T) {
 			secretGroups, err := ExtractSecretsGroupsFromAnnotations(secretsGroupTestCase.contents)

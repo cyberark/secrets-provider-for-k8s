@@ -61,5 +61,4 @@ const CSPFK039E string = "CSPFK039E Secrets Provider for Kubernetes failed to up
 const CSPFK051E string = "CSPFK051E Failed to unmarshal Push-to-File secrets. Reason: %s in group '%s'"
 const CSPFK052E string = "CSPFK052E Annotation '%s' must contain relative path without leading '/'"
 const CSPFK053E string = "CSPFK053E Annotation '%s' specifies unknown file format '%s'"
-const CSPFK054E string = "CSPFK054E Failed to parse template in annotation '%s'. Reason: %s"
-const CSPFK055E string = "CSPFK055E Annotation '%s' contains directory instead of file. Destination file name required when template specified."
+const CSPFK054E string = "CSPFK055E Annotation '%s' contains directory instead of file. Destination file name required when template specified."

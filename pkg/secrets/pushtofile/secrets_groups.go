@@ -5,7 +5,6 @@ import (
 	"os"
 	"path"
 	"strings"
-	"text/template"
 
 	"github.com/cyberark/conjur-authn-k8s-client/pkg/log"
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/log/messages"
@@ -45,7 +44,7 @@ type SecretsGroupInfo struct {
 	FilePath     string
 	FileFormat   SecretsFileFormat
 	FilePerms    os.FileMode
-	FileTemplate *template.Template
+	FileTemplate string
 }
 
 // SecretsGroups comprises secrets mapping info for all secret groups
@@ -78,12 +77,9 @@ func ExtractSecretsGroupsFromAnnotations(annotations map[string]string) (Secrets
 				return nil, err
 			}
 
-			fileTemplate, err := parseFileTemplate(groupName, annotations[SECRET_FILE_TEMPLATE_PREFIX+groupName])
-			if err != nil {
-				return nil, err
-			}
+			fileTemplate := annotations[SECRET_FILE_TEMPLATE_PREFIX+groupName]
 
-			if fileTemplate != nil {
+			if fileTemplate != "" {
 				fileFormat = FILE_FORMAT_NONE
 			}
 
@@ -211,25 +207,12 @@ func parseFileFormat(groupName string, fileFormat string) (SecretsFileFormat, er
 	}
 }
 
-func parseFileTemplate(groupName string, fileTemplate string) (*template.Template, error) {
-	if fileTemplate == "" {
-		return nil, nil
-	}
-
-	t, err := template.New("FileTemplate").Parse(fileTemplate)
-	if err != nil {
-		return nil, log.RecordedError(messages.CSPFK054E, fmt.Sprintf("%s%s", SECRET_FILE_TEMPLATE_PREFIX, groupName), err.Error())
-	}
-
-	return t, nil
-}
-
 func validateGroupInfo(groupName string, groupInfo SecretsGroupInfo) error {
 	// If a template is specified, then a secrets
 	// file name is required, not just a directory
-	if groupInfo.FileTemplate != nil {
+	if groupInfo.FileTemplate != "" {
 		if strings.HasSuffix(groupInfo.FilePath, "/") {
-			return log.RecordedError(messages.CSPFK055E, fmt.Sprintf("%s%s", SECRET_FILE_PATH_PREFIX, groupName))
+			return log.RecordedError(messages.CSPFK054E, fmt.Sprintf("%s%s", SECRET_FILE_PATH_PREFIX, groupName))
 		}
 	}
 
