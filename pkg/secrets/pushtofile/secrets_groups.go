@@ -1,4 +1,4 @@
-package secrets_groups
+package pushtofile
 
 import (
 	"fmt"
@@ -12,24 +12,26 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-const SECRETS_GROUP_PREFIX = "conjur.org/conjur-secrets."
-const SECRETS_GROUP_POLICY_PATH_PREFIX = "conjur.org/conjur-secrets-policy-path."
-const SECRETS_GROUP_FILE_PATH_PREFIX = "conjur.org/secret-file-path."
-const SECRETS_GROUP_FILE_TYPE_PREFIX = "conjur.org/secret-file-format."
-const SECRETS_GROUP_FILE_TEMPLATE_PREFIX = "conjur.org/secret-file-template."
+const (
+	CONJUR_SECRETS_PREFIX             = "conjur.org/conjur-secrets."
+	CONJUR_SECRETS_POLICY_PATH_PREFIX = "conjur.org/conjur-secrets-policy-path."
+	SECRET_FILE_PATH_PREFIX           = "conjur.org/secret-file-path."
+	SECRET_FILE_FORMAT_PREFIX         = "conjur.org/secret-file-format."
+	SECRET_FILE_TEMPLATE_PREFIX       = "conjur.org/secret-file-template."
 
-const DEFAULT_FILE_PERMS os.FileMode = 0777
-const DEFAULT_FILE_PATH string = "/conjur/secrets/"
+	DEFAULT_FILE_PERMS os.FileMode = 0777
+	DEFAULT_FILE_PATH  string      = "/conjur/secrets/"
+)
 
-type SecretsFileType int
+type SecretsFileFormat int
 
 const (
-	FILE_TYPE_NONE SecretsFileType = iota
-	FILE_TYPE_YAML
-	FILE_TYPE_JSON
-	FILE_TYPE_DOTENV
-	FILE_TYPE_BASH
-	FILE_TYPE_PLAINTEXT
+	FILE_FORMAT_NONE SecretsFileFormat = iota
+	FILE_FORMAT_YAML
+	FILE_FORMAT_JSON
+	FILE_FORMAT_DOTENV
+	FILE_FORMAT_BASH
+	FILE_FORMAT_PLAINTEXT
 )
 
 // SecretsPaths comprises Conjur variable paths for all secrets in a secrets
@@ -41,7 +43,7 @@ type SecretsPaths map[string]string
 type SecretsGroupInfo struct {
 	Secrets      SecretsPaths
 	FilePath     string
-	FileType     SecretsFileType
+	FileFormat   SecretsFileFormat
 	FilePerms    os.FileMode
 	FileTemplate *template.Template
 }
@@ -53,42 +55,42 @@ func ExtractSecretsGroupsFromAnnotations(annotations map[string]string) (Secrets
 	secretsGroups := make(SecretsGroups)
 
 	for annotation := range annotations {
-		if strings.HasPrefix(annotation, SECRETS_GROUP_PREFIX) {
-			groupName := strings.TrimPrefix(annotation, SECRETS_GROUP_PREFIX)
+		if strings.HasPrefix(annotation, CONJUR_SECRETS_PREFIX) {
+			groupName := strings.TrimPrefix(annotation, CONJUR_SECRETS_PREFIX)
 
-			secretsPathPrefix, err := parseSecretsPathPrefix(groupName, annotations[SECRETS_GROUP_POLICY_PATH_PREFIX+groupName])
+			secretsPathPrefix, err := parseConjurSecretsPathPrefix(groupName, annotations[CONJUR_SECRETS_POLICY_PATH_PREFIX+groupName])
 			if err != nil {
 				return nil, err
 			}
 
-			secrets, err := parseSecretsPaths(groupName, annotations[SECRETS_GROUP_PREFIX+groupName], secretsPathPrefix)
+			secrets, err := parseConjurSecretsPaths(groupName, annotations[CONJUR_SECRETS_PREFIX+groupName], secretsPathPrefix)
 			if err != nil {
 				return nil, err
 			}
 
-			filePath, err := parseFilePath(groupName, annotations[SECRETS_GROUP_FILE_PATH_PREFIX+groupName])
+			filePath, err := parseFilePath(groupName, annotations[SECRET_FILE_PATH_PREFIX+groupName])
 			if err != nil {
 				return nil, err
 			}
 
-			fileType, err := parseFileType(groupName, annotations[SECRETS_GROUP_FILE_TYPE_PREFIX+groupName])
+			fileFormat, err := parseFileFormat(groupName, annotations[SECRET_FILE_FORMAT_PREFIX+groupName])
 			if err != nil {
 				return nil, err
 			}
 
-			fileTemplate, err := parseFileTemplate(groupName, annotations[SECRETS_GROUP_FILE_TEMPLATE_PREFIX+groupName])
+			fileTemplate, err := parseFileTemplate(groupName, annotations[SECRET_FILE_TEMPLATE_PREFIX+groupName])
 			if err != nil {
 				return nil, err
 			}
 
 			if fileTemplate != nil {
-				fileType = FILE_TYPE_NONE
+				fileFormat = FILE_FORMAT_NONE
 			}
 
 			groupInfo := SecretsGroupInfo{
 				Secrets:      secrets,
 				FilePath:     filePath,
-				FileType:     fileType,
+				FileFormat:   fileFormat,
 				FilePerms:    DEFAULT_FILE_PERMS,
 				FileTemplate: fileTemplate,
 			}
@@ -98,12 +100,6 @@ func ExtractSecretsGroupsFromAnnotations(annotations map[string]string) (Secrets
 				return nil, err
 			}
 
-			/*
-				if groupInfo.FileTemplate != nil {
-					groupInfo.FileTemplate.Execute(os.Stdout, groupInfo.Secrets)
-				}
-			*/
-
 			secretsGroups[groupName] = groupInfo
 		}
 	}
@@ -111,7 +107,7 @@ func ExtractSecretsGroupsFromAnnotations(annotations map[string]string) (Secrets
 	return secretsGroups, nil
 }
 
-func parseSecretsPaths(groupName string, secretsPaths string, secretsPathsPrefix string) (SecretsPaths, error) {
+func parseConjurSecretsPaths(groupName string, secretsPaths string, secretsPathsPrefix string) (SecretsPaths, error) {
 	secrets := make(SecretsPaths)
 
 	unpacked := []interface{}{}
@@ -133,7 +129,7 @@ func parseSecretsPaths(groupName string, secretsPaths string, secretsPathsPrefix
 		switch val := secret.(type) {
 		case string:
 			{
-				name := val[strings.LastIndex(val, "/")+1:]
+				name := path.Base(val)
 				if name == "" {
 					return nil, log.RecordedError(messages.CSPFK051E, "Invalid secret name", groupName)
 				}
@@ -165,20 +161,24 @@ func parseSecretsPaths(groupName string, secretsPaths string, secretsPathsPrefix
 	return secrets, nil
 }
 
-func parseSecretsPathPrefix(groupName string, secretsPathPrefix string) (string, error) {
+func parseConjurSecretsPathPrefix(groupName string, secretsPathPrefix string) (string, error) {
+	// By default returns the root policy path '/'
 	secretsPathPrefix = path.Clean("/" + secretsPathPrefix)
 	if secretsPathPrefix == "." || secretsPathPrefix == "/" {
 		return "/", nil
 	}
 
+	// Ensure policy path ends with '/'
 	return secretsPathPrefix + "/", nil
 }
 
 func parseFilePath(groupName string, filePath string) (string, error) {
+	// File path must be relative and can not contain a leading '/'
 	if strings.HasPrefix(filePath, "/") {
-		return "", log.RecordedError(messages.CSPFK052E, fmt.Sprintf("%s%s", SECRETS_GROUP_FILE_PATH_PREFIX, groupName))
+		return "", log.RecordedError(messages.CSPFK052E, fmt.Sprintf("%s%s", SECRET_FILE_PATH_PREFIX, groupName))
 	}
 
+	// File path can be a directory (ending in /) or a file name (not ending in /)
 	if strings.HasSuffix(filePath, "/") {
 		filePath = path.Clean(filePath) + "/"
 	} else {
@@ -192,22 +192,22 @@ func parseFilePath(groupName string, filePath string) (string, error) {
 	return DEFAULT_FILE_PATH + filePath, nil
 }
 
-func parseFileType(groupName string, fileType string) (SecretsFileType, error) {
-	switch strings.ToLower(fileType) {
+func parseFileFormat(groupName string, fileFormat string) (SecretsFileFormat, error) {
+	switch strings.ToLower(fileFormat) {
 	case "":
-		return FILE_TYPE_YAML, nil
+		return FILE_FORMAT_YAML, nil
 	case "yaml":
-		return FILE_TYPE_YAML, nil
+		return FILE_FORMAT_YAML, nil
 	case "json":
-		return FILE_TYPE_JSON, nil
+		return FILE_FORMAT_JSON, nil
 	case "dotenv":
-		return FILE_TYPE_DOTENV, nil
+		return FILE_FORMAT_DOTENV, nil
 	case "bash":
-		return FILE_TYPE_BASH, nil
+		return FILE_FORMAT_BASH, nil
 	case "plaintext":
-		return FILE_TYPE_PLAINTEXT, nil
+		return FILE_FORMAT_PLAINTEXT, nil
 	default:
-		return FILE_TYPE_NONE, log.RecordedError(messages.CSPFK053E, fmt.Sprintf("%s%s", SECRETS_GROUP_FILE_TYPE_PREFIX, groupName), fileType)
+		return FILE_FORMAT_NONE, log.RecordedError(messages.CSPFK053E, fmt.Sprintf("%s%s", SECRET_FILE_FORMAT_PREFIX, groupName), fileFormat)
 	}
 }
 
@@ -218,16 +218,18 @@ func parseFileTemplate(groupName string, fileTemplate string) (*template.Templat
 
 	t, err := template.New("FileTemplate").Parse(fileTemplate)
 	if err != nil {
-		return nil, log.RecordedError(messages.CSPFK054E, fmt.Sprintf("%s%s", SECRETS_GROUP_FILE_TEMPLATE_PREFIX, groupName), err.Error())
+		return nil, log.RecordedError(messages.CSPFK054E, fmt.Sprintf("%s%s", SECRET_FILE_TEMPLATE_PREFIX, groupName), err.Error())
 	}
 
 	return t, nil
 }
 
 func validateGroupInfo(groupName string, groupInfo SecretsGroupInfo) error {
+	// If a template is specified, then a secrets
+	// file name is required, not just a directory
 	if groupInfo.FileTemplate != nil {
 		if strings.HasSuffix(groupInfo.FilePath, "/") {
-			return log.RecordedError(messages.CSPFK055E, fmt.Sprintf("%s%s", SECRETS_GROUP_FILE_PATH_PREFIX, groupName))
+			return log.RecordedError(messages.CSPFK055E, fmt.Sprintf("%s%s", SECRET_FILE_PATH_PREFIX, groupName))
 		}
 	}
 

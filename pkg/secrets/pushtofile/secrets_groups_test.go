@@ -1,4 +1,4 @@
-package secrets_groups
+package pushtofile
 
 import (
 	"testing"
@@ -6,13 +6,15 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+type assertFunc func(*testing.T, SecretsGroups, error)
+
 type extractSecretsGroupsTestCase struct {
 	description string
 	contents    map[string]string
-	assert      func(t *testing.T, result SecretsGroups, err error)
+	assert      assertFunc
 }
 
-func assertValidSecretsGroups(expected SecretsGroups) func(*testing.T, SecretsGroups, error) {
+func assertExpectedSecretsGroups(expected SecretsGroups) assertFunc {
 	return func(t *testing.T, result SecretsGroups, err error) {
 		if !assert.NoError(t, err) {
 			return
@@ -25,7 +27,7 @@ func assertValidSecretsGroups(expected SecretsGroups) func(*testing.T, SecretsGr
 
 			assert.Equal(t, expectedVal.Secrets, resultVal.Secrets)
 			assert.Equal(t, expectedVal.FilePath, resultVal.FilePath)
-			assert.Equal(t, expectedVal.FileType, resultVal.FileType)
+			assert.Equal(t, expectedVal.FileFormat, resultVal.FileFormat)
 			assert.Equal(t, expectedVal.FilePerms, resultVal.FilePerms)
 
 			if expectedVal.FileTemplate != nil {
@@ -35,7 +37,7 @@ func assertValidSecretsGroups(expected SecretsGroups) func(*testing.T, SecretsGr
 	}
 }
 
-func assertProperError(expectedErr string) func(*testing.T, SecretsGroups, error) {
+func assertProperError(expectedErr string) assertFunc {
 	return func(t *testing.T, result SecretsGroups, err error) {
 		assert.Nil(t, result)
 		assert.Contains(t, err.Error(), expectedErr)
@@ -60,7 +62,7 @@ var extractSecretsGroupsTestCases = []extractSecretsGroupsTestCase{
 			"conjur.org/secret-file-path.cache":           "this/relative/path",
 			"conjur.org/conjur-secrets-policy-path.cache": "some/policy/path",
 		},
-		assert: assertValidSecretsGroups(
+		assert: assertExpectedSecretsGroups(
 			SecretsGroups{
 				"cache": {
 					Secrets: SecretsPaths{
@@ -69,7 +71,7 @@ var extractSecretsGroupsTestCases = []extractSecretsGroupsTestCase{
 						"url":           "/some/policy/path/test/url",
 					},
 					FilePath:     "/conjur/secrets/this/relative/path",
-					FileType:     SecretsFileType(FILE_TYPE_YAML),
+					FileFormat:   SecretsFileFormat(FILE_FORMAT_YAML),
 					FilePerms:    DEFAULT_FILE_PERMS,
 					FileTemplate: nil,
 				},
@@ -91,7 +93,7 @@ var extractSecretsGroupsTestCases = []extractSecretsGroupsTestCase{
 			"conjur.org/secret-file-path.cache":     "this/relative/directory/",
 			"conjur.org/secret-file-template.cache": someValidTemplate,
 		},
-		assert: assertProperError("template specified but directory found"),
+		assert: assertProperError("contains directory instead of file"),
 	},
 }
 
@@ -105,29 +107,29 @@ func TestExtractSecretsGroupsFromAnnotations(t *testing.T) {
 	}
 }
 
-func TestExtractFileTypeFromAnnotations(t *testing.T) {
-	type fileTypeTestCase struct {
+func TestExtractFileFormatFromAnnotations(t *testing.T) {
+	type fileFormatTestCase struct {
 		input       string
-		output      SecretsFileType
+		output      SecretsFileFormat
 		valid       bool
 		hasTemplate bool
 	}
 
-	fileTypeTestCases := []fileTypeTestCase{
-		{input: "", output: SecretsFileType(FILE_TYPE_YAML), valid: true, hasTemplate: false},
-		{input: "YAML", output: SecretsFileType(FILE_TYPE_YAML), valid: true, hasTemplate: false},
-		{input: "yaml", output: SecretsFileType(FILE_TYPE_YAML), valid: true, hasTemplate: false},
-		{input: "JSON", output: SecretsFileType(FILE_TYPE_JSON), valid: true, hasTemplate: false},
-		{input: "json", output: SecretsFileType(FILE_TYPE_JSON), valid: true, hasTemplate: false},
-		{input: "DOTENV", output: SecretsFileType(FILE_TYPE_DOTENV), valid: true, hasTemplate: false},
-		{input: "dotenv", output: SecretsFileType(FILE_TYPE_DOTENV), valid: true, hasTemplate: false},
-		{input: "BASH", output: SecretsFileType(FILE_TYPE_BASH), valid: true, hasTemplate: false},
-		{input: "bash", output: SecretsFileType(FILE_TYPE_BASH), valid: true, hasTemplate: false},
-		{input: "PLAINTEXT", output: SecretsFileType(FILE_TYPE_PLAINTEXT), valid: true, hasTemplate: false},
-		{input: "plaintext", output: SecretsFileType(FILE_TYPE_PLAINTEXT), valid: true, hasTemplate: false},
-		{input: "invalid", output: SecretsFileType(FILE_TYPE_NONE), valid: false, hasTemplate: false},
-		{input: "dotenv", output: SecretsFileType(FILE_TYPE_NONE), valid: true, hasTemplate: true},
-		{input: "invalid", output: SecretsFileType(FILE_TYPE_NONE), valid: false, hasTemplate: true},
+	fileFormatTestCases := []fileFormatTestCase{
+		{input: "", output: SecretsFileFormat(FILE_FORMAT_YAML), valid: true, hasTemplate: false},
+		{input: "YAML", output: SecretsFileFormat(FILE_FORMAT_YAML), valid: true, hasTemplate: false},
+		{input: "yaml", output: SecretsFileFormat(FILE_FORMAT_YAML), valid: true, hasTemplate: false},
+		{input: "JSON", output: SecretsFileFormat(FILE_FORMAT_JSON), valid: true, hasTemplate: false},
+		{input: "json", output: SecretsFileFormat(FILE_FORMAT_JSON), valid: true, hasTemplate: false},
+		{input: "DOTENV", output: SecretsFileFormat(FILE_FORMAT_DOTENV), valid: true, hasTemplate: false},
+		{input: "dotenv", output: SecretsFileFormat(FILE_FORMAT_DOTENV), valid: true, hasTemplate: false},
+		{input: "BASH", output: SecretsFileFormat(FILE_FORMAT_BASH), valid: true, hasTemplate: false},
+		{input: "bash", output: SecretsFileFormat(FILE_FORMAT_BASH), valid: true, hasTemplate: false},
+		{input: "PLAINTEXT", output: SecretsFileFormat(FILE_FORMAT_PLAINTEXT), valid: true, hasTemplate: false},
+		{input: "plaintext", output: SecretsFileFormat(FILE_FORMAT_PLAINTEXT), valid: true, hasTemplate: false},
+		{input: "invalid", output: SecretsFileFormat(FILE_FORMAT_NONE), valid: false, hasTemplate: false},
+		{input: "dotenv", output: SecretsFileFormat(FILE_FORMAT_NONE), valid: true, hasTemplate: true},
+		{input: "invalid", output: SecretsFileFormat(FILE_FORMAT_NONE), valid: false, hasTemplate: true},
 	}
 
 	secretsGroupTestCase := extractSecretsGroupsTestCase{
@@ -152,10 +154,10 @@ func TestExtractFileTypeFromAnnotations(t *testing.T) {
 		},
 	}
 
-	for _, tc := range fileTypeTestCases {
+	for _, tc := range fileFormatTestCases {
 		secretsGroupTestCase.contents["conjur.org/secret-file-format.cache"] = tc.input
 		group := resultSecretsGroups["cache"]
-		group.FileType = tc.output
+		group.FileFormat = tc.output
 		resultSecretsGroups["cache"] = group
 
 		if tc.hasTemplate {
@@ -165,7 +167,7 @@ func TestExtractFileTypeFromAnnotations(t *testing.T) {
 		}
 
 		if tc.valid {
-			secretsGroupTestCase.assert = assertValidSecretsGroups(resultSecretsGroups)
+			secretsGroupTestCase.assert = assertExpectedSecretsGroups(resultSecretsGroups)
 		} else {
 			secretsGroupTestCase.assert = assertProperError("unknown file format")
 		}
