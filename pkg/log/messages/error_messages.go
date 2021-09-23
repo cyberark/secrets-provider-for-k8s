@@ -67,5 +67,5 @@ const CSPFK045E string = "CSPFK045E Annotation file line %d is malformed: expect
 
 const CSPFK046E string = "CSPFK046E Secret Store Type needs to be configured, either with SECRETS_DESTINATION environment variable or 'conjur.org/secrets-destination' Pod annotation"
 const CSPFK047E string = "CSPFK047E Secrets Provider in Push-to-File mode can only be configured with Pod annotations"
-const CSPFK048E string = "CSPFK048E Secrets Provider in K8s Secrets mode requires either the K8S_SECRETS environment variable or 'conjur.org/k8s-secrets' Pod annotation"
-const CSPFK049E string = "CSPFK049E Secrets Provider setting '%s' set by both environment variable '%s' and annotation '%s'"
+const CSPFK048E string = "CSPFK048E Secrets Provider in K8s Secrets mode requires either the 'K8S_SECRETS' environment variable or 'conjur.org/k8s-secrets' Pod annotation"
+const CSPFK049E string = "CSPFK049E Failed to validate Pod annotations"

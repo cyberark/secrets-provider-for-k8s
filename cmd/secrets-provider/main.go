@@ -33,7 +33,7 @@ func main() {
 
 	validateContainerMode(authnConfig.ContainerMode)
 
-	var annotationsMap map[string]string
+	annotationsMap := map[string]string{}
 	if _, err := os.Stat(annotationsFile); err == nil {
 		annotationsMap, err = annotations.AnnotationsFromFile(annotationsFile)
 		if err != nil {
@@ -41,9 +41,16 @@ func main() {
 		}
 	}
 
-	secretsProviderSettings := secretsConfigProvider.EnvAndAnnotationSettings(annotationsMap)
+	errLogs, infoLogs := secretsConfigProvider.ValidateAnnotations(annotationsMap)
+	printInfoLogs(infoLogs)
+	if len(errLogs) > 0 {
+		printErrorLogs(errLogs)
+		printErrorAndExit(messages.CSPFK049E)
+	}
 
-	errLogs, infoLogs := secretsConfigProvider.ValidSecretsProviderSettings(secretsProviderSettings)
+	secretsProviderSettings := secretsConfigProvider.GatherSecretsProviderSettings(annotationsMap)
+
+	errLogs, infoLogs = secretsConfigProvider.ValidateSecretsProviderSettings(secretsProviderSettings)
 	printInfoLogs(infoLogs)
 	if len(errLogs) > 0 {
 		printErrorLogs(errLogs)

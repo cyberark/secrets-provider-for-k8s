@@ -61,14 +61,37 @@ var validEnvVars = []string{
 	"RETRY_COUNT_LIMIT",
 }
 
-func EnvAndAnnotationSettings(annotations map[string]string) map[string]string {
+func ValidateAnnotations(annotations map[string]string) ([]error, []error) {
+	// Confirm proper annotation format, value and value type
+	// Returns a list of error logs, and a list of info logs
+	errorList := []error{}
+	infoList := []error{}
+
+	for key, value := range annotations {
+		if match, foundMap, err := validateAnnotationKey(key); err == nil {
+			acceptedValueInfo := foundMap[match]
+			err := validateAnnotationValue(key, value, acceptedValueInfo)
+			if err != nil {
+				errorList = append(errorList, err)
+			}
+		} else {
+			infoList = append(infoList, err)
+		}
+	}
+
+	return errorList, infoList
+}
+
+func GatherSecretsProviderSettings(annotations map[string]string) map[string]string {
 	// Return a master map of supplied Secrets Provider Config settings
-	// Returned map contains envVar settings and all annotations
+	// Consolidated from envVar and annotations
 
 	masterMap := make(map[string]string)
 
 	for annotation, value := range annotations {
-		masterMap[annotation] = value
+		if secretsProviderAnnotations[annotation] != nil {
+			masterMap[annotation] = value
+		}
 	}
 
 	for _, envVar := range validEnvVars {
@@ -81,13 +104,13 @@ func EnvAndAnnotationSettings(annotations map[string]string) map[string]string {
 	return masterMap
 }
 
-func ValidSecretsProviderSettings(envAndAnnots map[string]string) ([]error, []error) {
-	// Validate that required environment variables exist
-	// Returns two lists of errors: one of Error level, and one of Info level
-
+func ValidateSecretsProviderSettings(envAndAnnots map[string]string) ([]error, []error) {
+	// Confirm that the provided envVar and annotation settings yield a valid Secrets Provider Config
+	// Returns a list of error logs, and a list of info logs
 	errorList := []error{}
 	infoList := []error{}
 
+	// PodNamespace must be configured by envVar
 	if envAndAnnots["MY_POD_NAMESPACE"] == "" {
 		errorList = append(errorList, fmt.Errorf(messages.CSPFK004E, "MY_POD_NAMESPACE"))
 	}
@@ -98,27 +121,22 @@ func ValidSecretsProviderSettings(envAndAnnots map[string]string) ([]error, []er
 
 	if annotStoreType == "" {
 		switch envStoreType {
-		case "":
-			errorList = append(errorList, errors.New(messages.CSPFK046E))
-		case FILE:
-			errorList = append(errorList, errors.New(messages.CSPFK047E))
 		case K8S:
 			storeType = envStoreType
+		case FILE:
+			errorList = append(errorList, errors.New(messages.CSPFK047E))
+		case "":
+			errorList = append(errorList, errors.New(messages.CSPFK046E))
+		default:
+			errorList = append(errorList, fmt.Errorf(messages.CSPFK005E, "SECRETS_DESTINATION"))
 		}
 	} else if validStoreType(annotStoreType) {
 		if validStoreType(envStoreType) {
-			infoList = append(infoList, fmt.Errorf(messages.CSPFK049E, "StoreType", "SECRETS_DESTINATION", "conjur.org/secrets-destination"))
+			infoList = append(infoList, fmt.Errorf(messages.CSPFK013I, "StoreType", "SECRETS_DESTINATION", "conjur.org/secrets-destination"))
 		}
 		storeType = annotStoreType
 	} else {
-		annotError := fmt.Errorf(messages.CSPFK043E, "conjur.org/secrets-destination", annotStoreType, []string{FILE, K8S})
-		if validStoreType(envStoreType) {
-			storeType = envStoreType
-			infoList = append(infoList, annotError)
-		} else if envStoreType != "" {
-			errorList = append(errorList, annotError)
-			errorList = append(errorList, fmt.Errorf(messages.CSPFK005E, "SECRETS_DESTINATION"))
-		}
+		errorList = append(errorList, fmt.Errorf(messages.CSPFK043E, "conjur.org/secrets-destination", annotStoreType, []string{FILE, K8S}))
 	}
 
 	envK8sSecretsStr := envAndAnnots["K8S_SECRETS"]
@@ -127,34 +145,20 @@ func ValidSecretsProviderSettings(envAndAnnots map[string]string) ([]error, []er
 		if envK8sSecretsStr == "" && annotK8sSecretsStr == "" {
 			errorList = append(errorList, errors.New(messages.CSPFK048E))
 		} else if envK8sSecretsStr != "" && annotK8sSecretsStr != "" {
-			infoList = append(infoList, fmt.Errorf(messages.CSPFK049E, "RequiredK8sSecrets", "K8S_SECRETS", "conjur.org/k8s-secrets"))
+			infoList = append(infoList, fmt.Errorf(messages.CSPFK013I, "RequiredK8sSecrets", "K8S_SECRETS", "conjur.org/k8s-secrets"))
 		}
 	}
 
 	annotRetryCountLimit := envAndAnnots["conjur.org/retry-count-limit"]
 	envRetryCountLimit := envAndAnnots["RETRY_COUNT_LIMIT"]
 	if annotRetryCountLimit != "" && envRetryCountLimit != "" {
-		infoList = append(infoList, fmt.Errorf(messages.CSPFK049E, "RetryCountLimit", "RETRY_COUNT_LIMIT", "conjur.org/retry-count-limit"))
+		infoList = append(infoList, fmt.Errorf(messages.CSPFK013I, "RetryCountLimit", "RETRY_COUNT_LIMIT", "conjur.org/retry-count-limit"))
 	}
 
 	annotRetryIntervalSec := envAndAnnots["conjur.org/retry-interval-sec"]
 	envRetryIntervalSec := envAndAnnots["RETRY_INTERVAL_SEC"]
 	if annotRetryIntervalSec != "" && envRetryIntervalSec != "" {
-		infoList = append(infoList, fmt.Errorf(messages.CSPFK049E, "RetryIntervalSec", "RETRY_INTERVAL_SEC", "conjur.org/retry-interval-sec"))
-	}
-
-	for setting, value := range envAndAnnots {
-		if !valueInArray(setting, validEnvVars) {
-			if match, foundMap, err := validateAnnotationKey(setting); err == nil {
-				acceptedValueInfo := foundMap[match]
-				err := validateAnnotationValue(setting, value, acceptedValueInfo)
-				if err != nil {
-					errorList = append(errorList, err)
-				}
-			} else {
-				infoList = append(infoList, err)
-			}
-		}
+		infoList = append(infoList, fmt.Errorf(messages.CSPFK013I, "RetryIntervalSec", "RETRY_INTERVAL_SEC", "conjur.org/retry-interval-sec"))
 	}
 
 	return errorList, infoList
@@ -221,7 +225,7 @@ func validateAnnotationKey(key string) (string, map[string][]string, error) {
 		return "", nil, fmt.Errorf(messages.CSPFK011I, key)
 	}
 
-	if valueInMapKeys(key, secretsProviderAnnotations) {
+	if _, ok := secretsProviderAnnotations[key]; ok {
 		return key, secretsProviderAnnotations, nil
 	} else if prefix, ok := valuePrefixInMapKeys(key, pushToFileAnnotationPrefixes); ok {
 		return prefix, pushToFileAnnotationPrefixes, nil
@@ -251,14 +255,6 @@ func validateAnnotationValue(key string, value string, acceptedValueInfo []strin
 		}
 	}
 	return nil
-}
-
-func valueInMapKeys(value string, searchMap map[string][]string) bool {
-	if _, ok := searchMap[value]; ok {
-		return true
-	} else {
-		return false
-	}
 }
 
 func valuePrefixInMapKeys(value string, searchMap map[string][]string) (string, bool) {

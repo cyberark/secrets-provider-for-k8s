@@ -41,20 +41,78 @@ func assertInfoInList(err error) func(*testing.T, []error, []error) {
 	}
 }
 
-type envAndAnnotationsSettingsTestCase struct {
+type validateAnnotationsTestCase struct {
+	description string
+	annotations map[string]string
+	assert      func(t *testing.T, errorList []error, infoList []error)
+}
+
+var validateAnnotationsTestCases = []validateAnnotationsTestCase{
+	{
+		description: "given properly formatted annotations, no error or info logs are returned",
+		annotations: map[string]string{
+			"conjur.org/authn-identity":                "host/conjur/authn-k8s/cluster/apps/inventory-api",
+			"conjur.org/container-mode":                "init",
+			"conjur.org/secret-destination":            "file",
+			"conjur.org/k8s-secrets":                   "- secret-1\n- secret-2\n- secret-3\n",
+			"conjur.org/retry-count-limit":             "12",
+			"conjur.org/retry-interval-sec":            "2",
+			"conjur.org/conjur-secrets.this-group":     "- test/url\n- test-password: test/password\n- test-username: test/username\n",
+			"conjur.org/secret-file-path.this-group":   "this-relative-path",
+			"conjur.org/secret-file-format.this-group": "yaml",
+		},
+		assert: assertEmptyErrorList(),
+	},
+	{
+		description: "if an annotation is not properly formatted with the 'conjur.org/' prefix, an info-level error is returned",
+		annotations: map[string]string{
+			"invalid-annotation": "abc",
+		},
+		assert: assertInfoInList(fmt.Errorf(messages.CSPFK011I, "invalid-annotation")),
+	},
+	{
+		description: "if an annotation has the 'conjur.org/' prefix, but is not a supported annotation, an info-level error is returned",
+		annotations: map[string]string{
+			"conjur.org/valid-but-unrecognized": "def",
+		},
+		assert: assertInfoInList(fmt.Errorf(messages.CSPFK012I, "conjur.org/valid-but-unrecognized")),
+	},
+	{
+		description: "if an annotation is configured with an invalid value, an error is returned",
+		annotations: map[string]string{
+			"conjur.org/secrets-destination": "invalid",
+		},
+		assert: assertErrorInList(fmt.Errorf(messages.CSPFK043E, "conjur.org/secrets-destination", "invalid", []string{"file", "k8s_secrets"})),
+	},
+	{
+		description: "when an annotation expects an integer but is given a non-integer value, an error is returned",
+		annotations: map[string]string{
+			"conjur.org/retry-count-limit": "seven",
+		},
+		assert: assertErrorInList(fmt.Errorf(messages.CSPFK042E, "conjur.org/retry-count-limit", "seven", "Integer")),
+	},
+	{
+		description: "when an annotation expects a boolean but is given a non-boolean value, an error is returned",
+		annotations: map[string]string{
+			"conjur.org/debug-logging": "not-a-boolean",
+		},
+		assert: assertErrorInList(fmt.Errorf(messages.CSPFK042E, "conjur.org/debug-logging", "not-a-boolean", "Boolean")),
+	},
+}
+
+type gatherSecretsProviderSettingsTestCase struct {
 	description string
 	annotations map[string]string
 	env         map[string]string
 	assert      func(t *testing.T, result map[string]string)
 }
 
-var envAndAnnotationsSettingsTestCases = []envAndAnnotationsSettingsTestCase{
+var gatherSecretsProviderSettingsTestCases = []gatherSecretsProviderSettingsTestCase{
 	{
-		description: "the resulting map will be a union of the annotations map and those environment variables pertaining to Secrets Provider config",
+		description: "the resulting map will those annotations and envvars pertaining to Secrets Provider config",
 		annotations: map[string]string{
 			"conjur.org/secrets-destination": "file",
 			"conjur.org/container-mode":      "init",
-			"unrelated-annotation":           "unrelated",
 		},
 		env: map[string]string{
 			"SECRETS_DESTINATION": "file",
@@ -64,7 +122,6 @@ var envAndAnnotationsSettingsTestCases = []envAndAnnotationsSettingsTestCase{
 		assert: assertGoodMap(map[string]string{
 			"conjur.org/secrets-destination": "file",
 			"conjur.org/container-mode":      "init",
-			"unrelated-annotation":           "unrelated",
 			"SECRETS_DESTINATION":            "file",
 			"RETRY_COUNT_LIMIT":              "5",
 		}),
@@ -92,24 +149,41 @@ var envAndAnnotationsSettingsTestCases = []envAndAnnotationsSettingsTestCase{
 		annotations: map[string]string{
 			"conjur.org/secrets-destination": "file",
 			"conjur.org/container-mode":      "init",
-			"unrelated-annotation":           "unrelated",
 		},
 		env: map[string]string{},
 		assert: assertGoodMap(map[string]string{
 			"conjur.org/secrets-destination": "file",
 			"conjur.org/container-mode":      "init",
-			"unrelated-annotation":           "unrelated",
+		}),
+	},
+	{
+		description: "annotations and envvars not related to Secrets Provider config are omitted",
+		annotations: map[string]string{
+			"conjur.org/secrets-destination": "file",
+			"conjur.org/container-mode":      "init",
+			"conjur.org/unrelated-annot":     "unrelated-value",
+		},
+		env: map[string]string{
+			"MY_POD_NAMESPACE":  "test-namespace",
+			"RETRY_COUNT_LIMIT": "5",
+			"UNRELATED_ENVVAR":  "unrelated-value",
+		},
+		assert: assertGoodMap(map[string]string{
+			"conjur.org/secrets-destination": "file",
+			"conjur.org/container-mode":      "init",
+			"MY_POD_NAMESPACE":               "test-namespace",
+			"RETRY_COUNT_LIMIT":              "5",
 		}),
 	},
 }
 
-type validSecretsProviderSettingsTestCase struct {
+type validateSecretsProviderSettingsTestCase struct {
 	description  string
 	envAndAnnots map[string]string
 	assert       func(t *testing.T, errorResults []error, infoResults []error)
 }
 
-var validSecretsProviderSettingsTestCases = []validSecretsProviderSettingsTestCase{
+var validateSecretsProviderSettingsTestCases = []validateSecretsProviderSettingsTestCase{
 	{
 		description: "given a valid configuration of annotations, no errors are returned",
 		envAndAnnots: map[string]string{
@@ -117,7 +191,7 @@ var validSecretsProviderSettingsTestCases = []validSecretsProviderSettingsTestCa
 			"conjur.org/secrets-destination": "file",
 			"conjur.org/retry-count-limit":   "10",
 			"conjur.org/retry-interval-sec":  "20",
-			"conjur.org/k8s-secrets":         `- secret-1\n- secret-2\n- secret-3\n`,
+			"conjur.org/k8s-secrets":         "- secret-1\n- secret-2\n- secret-3\n",
 		},
 		assert: assertEmptyErrorList(),
 	},
@@ -131,6 +205,45 @@ var validSecretsProviderSettingsTestCases = []validSecretsProviderSettingsTestCa
 			"K8S_SECRETS":         "secret-1,secret-2,secret-3",
 		},
 		assert: assertEmptyErrorList(),
+	},
+	{
+		description: "if StoreType is configured with both its annotation and envVar, an info-level error is returned",
+		envAndAnnots: map[string]string{
+			"MY_POD_NAMESPACE":               "test-namespace",
+			"SECRETS_DESTINATION":            "k8s_secrets",
+			"conjur.org/secrets-destination": "file",
+		},
+		assert: assertInfoInList(fmt.Errorf(messages.CSPFK013I, "StoreType", "SECRETS_DESTINATION", "conjur.org/secrets-destination")),
+	},
+	{
+		description: "if RequiredK8sSecrets is configured with both its annotation and envVar, an info-level error is returned",
+		envAndAnnots: map[string]string{
+			"MY_POD_NAMESPACE":               "test-namespace",
+			"conjur.org/secrets-destination": "k8s_secrets",
+			"conjur.org/k8s-secrets":         "- secret-1\n- secret-2\n",
+			"K8S_SECRETS":                    "another-secret-1,another-secret-2",
+		},
+		assert: assertInfoInList(fmt.Errorf(messages.CSPFK013I, "RequiredK8sSecrets", "K8S_SECRETS", "conjur.org/k8s-secrets")),
+	},
+	{
+		description: "if RetryCountLimit is configured with both its annotation and envVar, an info-level error is returned",
+		envAndAnnots: map[string]string{
+			"MY_POD_NAMESPACE":               "test-namespace",
+			"conjur.org/secrets-destination": "file",
+			"conjur.org/retry-count-limit":   "10",
+			"RETRY_COUNT_LIMIT":              "12",
+		},
+		assert: assertInfoInList(fmt.Errorf(messages.CSPFK013I, "RetryCountLimit", "RETRY_COUNT_LIMIT", "conjur.org/retry-count-limit")),
+	},
+	{
+		description: "if RetryIntervalSec is configured with both its annotation and envVar, an info-level error is returned",
+		envAndAnnots: map[string]string{
+			"MY_POD_NAMESPACE":               "test-namespace",
+			"conjur.org/secrets-destination": "file",
+			"conjur.org/retry-interval-sec":  "2",
+			"RETRY_INTERVAL_SEC":             "7",
+		},
+		assert: assertInfoInList(fmt.Errorf(messages.CSPFK013I, "RetryIntervalSec", "RETRY_INTERVAL_SEC", "conjur.org/retry-interval-sec")),
 	},
 	{
 		description:  "if MY_POD_NAMESPACE envVar is not set, an error is returned",
@@ -153,21 +266,12 @@ var validSecretsProviderSettingsTestCases = []validSecretsProviderSettingsTestCa
 		assert: assertErrorInList(errors.New(messages.CSPFK047E)),
 	},
 	{
-		description: "if a setting is configured with both it's annotation and envVar, an info-level error is returned",
-		envAndAnnots: map[string]string{
-			"MY_POD_NAMESPACE":               "test-namespace",
-			"SECRETS_DESTINATION":            "k8s_secrets",
-			"conjur.org/secrets-destination": "file",
-		},
-		assert: assertInfoInList(fmt.Errorf(messages.CSPFK049E, "StoreType", "SECRETS_DESTINATION", "conjur.org/secrets-destination")),
-	},
-	{
-		description: "if StoreType is configured with an invalid annotation value, and error is returned",
+		description: "if 'conjur.org/secrets-destination' is provided and malformed, an error is returned",
 		envAndAnnots: map[string]string{
 			"MY_POD_NAMESPACE":               "test-namespace",
 			"conjur.org/secrets-destination": "invalid",
 		},
-		assert: assertErrorInList(fmt.Errorf(messages.CSPFK043E, "conjur.org/secrets-destination", "invalid", []string{"file", "k8s_secrets"})),
+		assert: assertErrorInList(fmt.Errorf(messages.CSPFK043E, "conjur.org/secrets-destination", "invalid", []string{FILE, K8S})),
 	},
 	{
 		description: "if RequiredK8sSecrets is not configured in K8s Secrets mode, an error is returned",
@@ -178,31 +282,12 @@ var validSecretsProviderSettingsTestCases = []validSecretsProviderSettingsTestCa
 		assert: assertErrorInList(errors.New(messages.CSPFK048E)),
 	},
 	{
-		description: "an annotation without 'conjur.org/' prefix is results in an info-level error",
+		description: "if envVar 'SECRETS_DESTINATION' is malformed in the absence of annotation 'conjur.org/secrets-destination', an error is returned",
 		envAndAnnots: map[string]string{
-			"MY_POD_NAMESPACE":               "test-namespace",
-			"conjur.org/secrets-destination": "file",
-			"bad-format":                     "bad-value",
+			"MY_POD_NAMESPACE":    "test-namespace",
+			"SECRETS_DESTINATION": "invalid",
 		},
-		assert: assertInfoInList(fmt.Errorf(messages.CSPFK011I, "bad-format")),
-	},
-	{
-		description: "an annotation with the 'conjur.org/' prefix that is unrecognized results in an info-level error",
-		envAndAnnots: map[string]string{
-			"MY_POD_NAMESPACE":               "test-namespace",
-			"conjur.org/secrets-destination": "file",
-			"conjur.org/bad-annotation":      "bad-value",
-		},
-		assert: assertInfoInList(fmt.Errorf(messages.CSPFK012I, "conjur.org/bad-annotation")),
-	},
-	{
-		description: "an annotation given a value of an improper type results in an error",
-		envAndAnnots: map[string]string{
-			"MY_POD_NAMESPACE":               "test-namespace",
-			"conjur.org/secrets-destination": "file",
-			"conjur.org/retry-count-limit":   "seven",
-		},
-		assert: assertErrorInList(fmt.Errorf(messages.CSPFK042E, "conjur.org/retry-count-limit", "seven", "Integer")),
+		assert: assertErrorInList(fmt.Errorf(messages.CSPFK005E, "SECRETS_DESTINATION")),
 	},
 }
 
@@ -218,7 +303,7 @@ var newConfigTestCases = []newConfigTestCase{
 		settings: map[string]string{
 			"MY_POD_NAMESPACE":               "test-namespace",
 			"conjur.org/secrets-destination": "k8s_secrets",
-			"conjur.org/k8s-secrets":         `- secret-1\n- secret-2\n- secret-3\n`,
+			"conjur.org/k8s-secrets":         "- secret-1\n- secret-2\n- secret-3\n",
 			"conjur.org/retry-count-limit":   "10",
 			"conjur.org/retry-interval-sec":  "20",
 		},
@@ -265,14 +350,23 @@ var newConfigTestCases = []newConfigTestCase{
 	},
 }
 
-func TestEnvAndAnnotationsSettings(t *testing.T) {
-	for _, tc := range envAndAnnotationsSettingsTestCases {
+func TestValidateAnnotations(t *testing.T) {
+	for _, tc := range validateAnnotationsTestCases {
+		t.Run(tc.description, func(t *testing.T) {
+			errorLogs, infoLogs := ValidateAnnotations(tc.annotations)
+			tc.assert(t, errorLogs, infoLogs)
+		})
+	}
+}
+
+func TestGatherSecretsProviderSettings(t *testing.T) {
+	for _, tc := range gatherSecretsProviderSettingsTestCases {
 		t.Run(tc.description, func(t *testing.T) {
 			for envVar, value := range tc.env {
 				os.Setenv(envVar, value)
 			}
 
-			settingsMap := EnvAndAnnotationSettings(tc.annotations)
+			settingsMap := GatherSecretsProviderSettings(tc.annotations)
 			tc.assert(t, settingsMap)
 
 			for envVar := range tc.env {
@@ -282,10 +376,10 @@ func TestEnvAndAnnotationsSettings(t *testing.T) {
 	}
 }
 
-func TestValidSecretsProviderSettings(t *testing.T) {
-	for _, tc := range validSecretsProviderSettingsTestCases {
+func TestValidateSecretsProviderSettings(t *testing.T) {
+	for _, tc := range validateSecretsProviderSettingsTestCases {
 		t.Run(tc.description, func(t *testing.T) {
-			errorList, infoList := ValidSecretsProviderSettings(tc.envAndAnnots)
+			errorList, infoList := ValidateSecretsProviderSettings(tc.envAndAnnots)
 			tc.assert(t, errorList, infoList)
 		})
 	}
