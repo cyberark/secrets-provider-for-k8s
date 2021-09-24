@@ -11,21 +11,23 @@ import (
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/log/messages"
 )
 
-func assertEmptyErrorList() func(*testing.T, []error, []error) {
+type errorAssertFunc func(*testing.T, []error, []error)
+
+func assertEmptyErrorList() errorAssertFunc {
 	return func(t *testing.T, errorList []error, infoList []error) {
 		assert.Empty(t, errorList)
 	}
 }
 
-func assertErrorInList(err error) func(*testing.T, []error, []error) {
+func assertInfoInList(err error) errorAssertFunc {
 	return func(t *testing.T, errorList []error, infoList []error) {
-		assert.Contains(t, errorList, err)
+		assert.Contains(t, infoList, err)
 	}
 }
 
-func assertGoodConfig(expected *Config) func(*testing.T, *Config) {
-	return func(t *testing.T, result *Config) {
-		assert.Equal(t, expected, result)
+func assertErrorInList(err error) errorAssertFunc {
+	return func(t *testing.T, errorList []error, infoList []error) {
+		assert.Contains(t, errorList, err)
 	}
 }
 
@@ -35,16 +37,16 @@ func assertGoodMap(expected map[string]string) func(*testing.T, map[string]strin
 	}
 }
 
-func assertInfoInList(err error) func(*testing.T, []error, []error) {
-	return func(t *testing.T, errorList []error, infoList []error) {
-		assert.Contains(t, infoList, err)
+func assertGoodConfig(expected *Config) func(*testing.T, *Config) {
+	return func(t *testing.T, result *Config) {
+		assert.Equal(t, expected, result)
 	}
 }
 
 type validateAnnotationsTestCase struct {
 	description string
 	annotations map[string]string
-	assert      func(t *testing.T, errorList []error, infoList []error)
+	assert      errorAssertFunc
 }
 
 var validateAnnotationsTestCases = []validateAnnotationsTestCase{
@@ -64,18 +66,18 @@ var validateAnnotationsTestCases = []validateAnnotationsTestCase{
 		assert: assertEmptyErrorList(),
 	},
 	{
-		description: "if an annotation is not properly formatted with the 'conjur.org/' prefix, an info-level error is returned",
+		description: "if an annotation does not have the 'conjur.org/' prefix, it is ignored",
 		annotations: map[string]string{
-			"invalid-annotation": "abc",
+			"no-prefix": "some-value",
 		},
-		assert: assertInfoInList(fmt.Errorf(messages.CSPFK011I, "invalid-annotation")),
+		assert: assertEmptyErrorList(),
 	},
 	{
 		description: "if an annotation has the 'conjur.org/' prefix, but is not a supported annotation, an info-level error is returned",
 		annotations: map[string]string{
 			"conjur.org/valid-but-unrecognized": "def",
 		},
-		assert: assertInfoInList(fmt.Errorf(messages.CSPFK012I, "conjur.org/valid-but-unrecognized")),
+		assert: assertInfoInList(fmt.Errorf(messages.CSPFK011I, "conjur.org/valid-but-unrecognized")),
 	},
 	{
 		description: "if an annotation is configured with an invalid value, an error is returned",
@@ -213,7 +215,7 @@ var validateSecretsProviderSettingsTestCases = []validateSecretsProviderSettings
 			"SECRETS_DESTINATION":            "k8s_secrets",
 			"conjur.org/secrets-destination": "file",
 		},
-		assert: assertInfoInList(fmt.Errorf(messages.CSPFK013I, "StoreType", "SECRETS_DESTINATION", "conjur.org/secrets-destination")),
+		assert: assertInfoInList(fmt.Errorf(messages.CSPFK012I, "StoreType", "SECRETS_DESTINATION", "conjur.org/secrets-destination")),
 	},
 	{
 		description: "if RequiredK8sSecrets is configured with both its annotation and envVar, an info-level error is returned",
@@ -223,7 +225,7 @@ var validateSecretsProviderSettingsTestCases = []validateSecretsProviderSettings
 			"conjur.org/k8s-secrets":         "- secret-1\n- secret-2\n",
 			"K8S_SECRETS":                    "another-secret-1,another-secret-2",
 		},
-		assert: assertInfoInList(fmt.Errorf(messages.CSPFK013I, "RequiredK8sSecrets", "K8S_SECRETS", "conjur.org/k8s-secrets")),
+		assert: assertInfoInList(fmt.Errorf(messages.CSPFK012I, "RequiredK8sSecrets", "K8S_SECRETS", "conjur.org/k8s-secrets")),
 	},
 	{
 		description: "if RetryCountLimit is configured with both its annotation and envVar, an info-level error is returned",
@@ -233,7 +235,7 @@ var validateSecretsProviderSettingsTestCases = []validateSecretsProviderSettings
 			"conjur.org/retry-count-limit":   "10",
 			"RETRY_COUNT_LIMIT":              "12",
 		},
-		assert: assertInfoInList(fmt.Errorf(messages.CSPFK013I, "RetryCountLimit", "RETRY_COUNT_LIMIT", "conjur.org/retry-count-limit")),
+		assert: assertInfoInList(fmt.Errorf(messages.CSPFK012I, "RetryCountLimit", "RETRY_COUNT_LIMIT", "conjur.org/retry-count-limit")),
 	},
 	{
 		description: "if RetryIntervalSec is configured with both its annotation and envVar, an info-level error is returned",
@@ -243,7 +245,7 @@ var validateSecretsProviderSettingsTestCases = []validateSecretsProviderSettings
 			"conjur.org/retry-interval-sec":  "2",
 			"RETRY_INTERVAL_SEC":             "7",
 		},
-		assert: assertInfoInList(fmt.Errorf(messages.CSPFK013I, "RetryIntervalSec", "RETRY_INTERVAL_SEC", "conjur.org/retry-interval-sec")),
+		assert: assertInfoInList(fmt.Errorf(messages.CSPFK012I, "RetryIntervalSec", "RETRY_INTERVAL_SEC", "conjur.org/retry-interval-sec")),
 	},
 	{
 		description:  "if MY_POD_NAMESPACE envVar is not set, an error is returned",

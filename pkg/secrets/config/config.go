@@ -29,27 +29,40 @@ type Config struct {
 	StoreType          string
 }
 
+type annotationType int
+
+const (
+	TYPESTRING annotationType = iota
+	TYPEINT
+	TYPEBOOL
+)
+
+type annotationRestraints struct {
+	allowedType   annotationType
+	allowedValues []string
+}
+
 // Define supported annotation keys for Secrets Provider config, as well as value restraints for each
-var secretsProviderAnnotations = map[string][]string{
-	"conjur.org/authn-identity":      {"string"},
-	"conjur.org/container-mode":      {"string", "init", "application"},
-	"conjur.org/secrets-destination": {"string", "file", "k8s_secrets"},
-	"conjur.org/k8s-secrets":         {"string"},
-	"conjur.org/retry-count-limit":   {"int"},
-	"conjur.org/retry-interval-sec":  {"int"},
-	"conjur.org/debug-logging":       {"bool"},
+var secretsProviderAnnotations = map[string]annotationRestraints{
+	"conjur.org/authn-identity":      {TYPESTRING, []string{}},
+	"conjur.org/container-mode":      {TYPESTRING, []string{"init", "application"}},
+	"conjur.org/secrets-destination": {TYPESTRING, []string{"file", "k8s_secrets"}},
+	"conjur.org/k8s-secrets":         {TYPESTRING, []string{}},
+	"conjur.org/retry-count-limit":   {TYPEINT, []string{}},
+	"conjur.org/retry-interval-sec":  {TYPEINT, []string{}},
+	"conjur.org/debug-logging":       {TYPEBOOL, []string{}},
 }
 
 // Define supported annotation key prefixes for Push to File config, as well as value restraints for each.
 // In use, Push to File keys include a secret group ("conjur.org/conjur-secrets.{secret-group}").
 // The values listed here will confirm hardcoded formatting, dynamic annotation content will
 // be validated when used.
-var pushToFileAnnotationPrefixes = map[string][]string{
-	"conjur.org/conjur-secrets.":             {"string"},
-	"conjur.org/conjur-secrets-policy-path.": {"string"},
-	"conjur.org/secret-file-path.":           {"string"},
-	"conjur.org/secret-file-format.":         {"string", "yaml", "json", "dotenv", "bash"},
-	"conjur.org/secret-file-template.":       {"string"},
+var pushToFileAnnotationPrefixes = map[string]annotationRestraints{
+	"conjur.org/conjur-secrets.":             {TYPESTRING, []string{}},
+	"conjur.org/conjur-secrets-policy-path.": {TYPESTRING, []string{}},
+	"conjur.org/secret-file-path.":           {TYPESTRING, []string{}},
+	"conjur.org/secret-file-format.":         {TYPESTRING, []string{"yaml", "json", "dotenv", "bash"}},
+	"conjur.org/secret-file-template":        {TYPESTRING, []string{}},
 }
 
 // Define environment variables used in Secrets Provider config
@@ -61,9 +74,11 @@ var validEnvVars = []string{
 	"RETRY_COUNT_LIMIT",
 }
 
+// ValidateAnnotations confirms that the provided annotations are properly
+// formated, have the proper value type, and if the annotation in question
+// had a defined set of accepted values, the provided value is confirmed.
+// Function returns a list of Error logs, and a list of Info logs.
 func ValidateAnnotations(annotations map[string]string) ([]error, []error) {
-	// Confirm proper annotation format, value and value type
-	// Returns a list of error logs, and a list of info logs
 	errorList := []error{}
 	infoList := []error{}
 
@@ -82,14 +97,13 @@ func ValidateAnnotations(annotations map[string]string) ([]error, []error) {
 	return errorList, infoList
 }
 
+// GatherSecretsProviderSettings returns a string-to-string map of all provided environment
+// variables and parsed, valid annotations that are concerned with Secrets Provider Config.
 func GatherSecretsProviderSettings(annotations map[string]string) map[string]string {
-	// Return a master map of supplied Secrets Provider Config settings
-	// Consolidated from envVar and annotations
-
 	masterMap := make(map[string]string)
 
 	for annotation, value := range annotations {
-		if secretsProviderAnnotations[annotation] != nil {
+		if _, ok := secretsProviderAnnotations[annotation]; ok {
 			masterMap[annotation] = value
 		}
 	}
@@ -104,9 +118,10 @@ func GatherSecretsProviderSettings(annotations map[string]string) map[string]str
 	return masterMap
 }
 
+// ValidateSecretsProviderSettings confirms that the provided environment variable and annotation
+// settings yield a valid Secrets Provider configuration. Returns a list of Error logs, and a list
+// of Info logs.
 func ValidateSecretsProviderSettings(envAndAnnots map[string]string) ([]error, []error) {
-	// Confirm that the provided envVar and annotation settings yield a valid Secrets Provider Config
-	// Returns a list of error logs, and a list of info logs
 	errorList := []error{}
 	infoList := []error{}
 
@@ -132,7 +147,7 @@ func ValidateSecretsProviderSettings(envAndAnnots map[string]string) ([]error, [
 		}
 	} else if validStoreType(annotStoreType) {
 		if validStoreType(envStoreType) {
-			infoList = append(infoList, fmt.Errorf(messages.CSPFK013I, "StoreType", "SECRETS_DESTINATION", "conjur.org/secrets-destination"))
+			infoList = append(infoList, fmt.Errorf(messages.CSPFK012I, "StoreType", "SECRETS_DESTINATION", "conjur.org/secrets-destination"))
 		}
 		storeType = annotStoreType
 	} else {
@@ -145,29 +160,28 @@ func ValidateSecretsProviderSettings(envAndAnnots map[string]string) ([]error, [
 		if envK8sSecretsStr == "" && annotK8sSecretsStr == "" {
 			errorList = append(errorList, errors.New(messages.CSPFK048E))
 		} else if envK8sSecretsStr != "" && annotK8sSecretsStr != "" {
-			infoList = append(infoList, fmt.Errorf(messages.CSPFK013I, "RequiredK8sSecrets", "K8S_SECRETS", "conjur.org/k8s-secrets"))
+			infoList = append(infoList, fmt.Errorf(messages.CSPFK012I, "RequiredK8sSecrets", "K8S_SECRETS", "conjur.org/k8s-secrets"))
 		}
 	}
 
 	annotRetryCountLimit := envAndAnnots["conjur.org/retry-count-limit"]
 	envRetryCountLimit := envAndAnnots["RETRY_COUNT_LIMIT"]
 	if annotRetryCountLimit != "" && envRetryCountLimit != "" {
-		infoList = append(infoList, fmt.Errorf(messages.CSPFK013I, "RetryCountLimit", "RETRY_COUNT_LIMIT", "conjur.org/retry-count-limit"))
+		infoList = append(infoList, fmt.Errorf(messages.CSPFK012I, "RetryCountLimit", "RETRY_COUNT_LIMIT", "conjur.org/retry-count-limit"))
 	}
 
 	annotRetryIntervalSec := envAndAnnots["conjur.org/retry-interval-sec"]
 	envRetryIntervalSec := envAndAnnots["RETRY_INTERVAL_SEC"]
 	if annotRetryIntervalSec != "" && envRetryIntervalSec != "" {
-		infoList = append(infoList, fmt.Errorf(messages.CSPFK013I, "RetryIntervalSec", "RETRY_INTERVAL_SEC", "conjur.org/retry-interval-sec"))
+		infoList = append(infoList, fmt.Errorf(messages.CSPFK012I, "RetryIntervalSec", "RETRY_INTERVAL_SEC", "conjur.org/retry-interval-sec"))
 	}
 
 	return errorList, infoList
 }
 
+// NewConfig creates a new Secrets Provider configuration for a validated
+// map of environment variable and annotation settings.
 func NewConfig(settings map[string]string) *Config {
-	// Create a new config from environment variable and annotation settings
-	// Provided annotations are already validated in format and value
-
 	podNamespace := settings["MY_POD_NAMESPACE"]
 
 	storeType := settings["conjur.org/secrets-destination"]
@@ -210,46 +224,37 @@ func NewConfig(settings map[string]string) *Config {
 	}
 }
 
-func validateAnnotationKey(key string) (string, map[string][]string, error) {
-	// Validate that a given annotation key is formatted as "conjur.org/xyz"
-	// Record Info level log if a key conforms to the formatting standard but
-	// is not recognized as either a Secrets Provider config or Push to File config annotation
-	//
-	// If the annotation is for Push to File config, the ValidAnnotations function
-	// needs to be aware of the annotation's valid prefix in order to perform input validation,
-	// so this function returns:
-	//   - either the key, or the key's valid prefix
-	//   - the Map in which the key or prefix was found
-	//   - the success status of the operation
-	if !strings.HasPrefix(key, "conjur.org/") {
-		return "", nil, fmt.Errorf(messages.CSPFK011I, key)
+// If the annotation being validated is for Push to File config, the ValidAnnotations function
+// needs to be aware of the annotation's valid prefix in order to perform input validation,
+// so this function returns:
+//   - either the key, or the key's valid prefix
+//   - the Map in which the key or prefix was found
+//   - the success status of the operation
+func validateAnnotationKey(key string) (string, map[string]annotationRestraints, error) {
+	if strings.HasPrefix(key, "conjur.org/") {
+		if _, ok := secretsProviderAnnotations[key]; ok {
+			return key, secretsProviderAnnotations, nil
+		} else if prefix, ok := valuePrefixInMapKeys(key, pushToFileAnnotationPrefixes); ok {
+			return prefix, pushToFileAnnotationPrefixes, nil
+		} else {
+			return "", nil, fmt.Errorf(messages.CSPFK011I, key)
+		}
 	}
-
-	if _, ok := secretsProviderAnnotations[key]; ok {
-		return key, secretsProviderAnnotations, nil
-	} else if prefix, ok := valuePrefixInMapKeys(key, pushToFileAnnotationPrefixes); ok {
-		return prefix, pushToFileAnnotationPrefixes, nil
-	} else {
-		return "", nil, fmt.Errorf(messages.CSPFK012I, key)
-	}
+	return "", nil, nil
 }
 
-func validateAnnotationValue(key string, value string, acceptedValueInfo []string) error {
-	// given a key/value pair, where the key is confirmed to be a Secrets Provider config annotation
-	// validated that the value is of valid type, or confirm that the value is
-	// in the range of enumerated and acceptable values
-	switch targetType := acceptedValueInfo[0]; targetType {
-	case "int":
-		_, err := strconv.Atoi(value)
-		if err != nil {
+func validateAnnotationValue(key string, value string, acceptedValueInfo annotationRestraints) error {
+	switch targetType := acceptedValueInfo.allowedType; targetType {
+	case TYPEINT:
+		if _, err := strconv.Atoi(value); err != nil {
 			return fmt.Errorf(messages.CSPFK042E, key, value, "Integer")
 		}
-	case "bool":
-		if value != "true" && value != "false" {
+	case TYPEBOOL:
+		if _, err := strconv.ParseBool(value); err != nil {
 			return fmt.Errorf(messages.CSPFK042E, key, value, "Boolean")
 		}
-	case "string":
-		acceptedValues := acceptedValueInfo[1:]
+	case TYPESTRING:
+		acceptedValues := acceptedValueInfo.allowedValues
 		if len(acceptedValues) > 0 && !valueInArray(value, acceptedValues) {
 			return fmt.Errorf(messages.CSPFK043E, key, value, acceptedValues)
 		}
@@ -257,7 +262,7 @@ func validateAnnotationValue(key string, value string, acceptedValueInfo []strin
 	return nil
 }
 
-func valuePrefixInMapKeys(value string, searchMap map[string][]string) (string, bool) {
+func valuePrefixInMapKeys(value string, searchMap map[string]annotationRestraints) (string, bool) {
 	for key := range searchMap {
 		if strings.HasPrefix(value, key) {
 			return key, true

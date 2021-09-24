@@ -11,17 +11,24 @@ import (
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/log/messages"
 )
 
+// AnnotationsFromFile reads and parses and annotations file that has been created
+// by Kubernetes via the Downward API, based on Pod annotations that are defined
+// in a deployment manifest.
 func AnnotationsFromFile(path string) (map[string]string, error) {
 	annotationsFile, err := os.OpenFile(path, os.O_RDONLY, os.ModePerm)
 	if err != nil {
-		return nil, log.RecordedError(messages.CSPFK041E, err.Error())
+		return nil, log.RecordedError(messages.CSPFK041E, path, err.Error())
 	}
 	defer annotationsFile.Close()
 	return ParseAnnotations(annotationsFile)
 }
 
+// ParseAnnotations parses an input stream representing an annotations file that
+// had been created by Kubernetes via the Downward API, returning a string-to-string
+// map of annotations key-value pairs.
+//
 // List and multi-line annotations are formatted as a single string in the annotations file,
-// and this format persists into the Map returned by this function.
+// and this format persists into the map returned by this function.
 // For example, the following annotation:
 //   conjur.org/conjur-secrets.cache: |
 //     - url

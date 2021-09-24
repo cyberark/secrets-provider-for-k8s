@@ -7,13 +7,15 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+type assertFunc func(t *testing.T, result map[string]string, err error)
+
 type parseAnnotationsTestCase struct {
 	description string
 	contents    string
-	assert      func(t *testing.T, result map[string]string, err error)
+	assert      assertFunc
 }
 
-func assertGoodAnnotations(expected map[string]string) func(*testing.T, map[string]string, error) {
+func assertGoodAnnotations(expected map[string]string) assertFunc {
 	return func(t *testing.T, result map[string]string, err error) {
 		if !assert.NoError(t, err) {
 			return
@@ -23,7 +25,7 @@ func assertGoodAnnotations(expected map[string]string) func(*testing.T, map[stri
 	}
 }
 
-func assertEmptyMap() func(*testing.T, map[string]string, error) {
+func assertEmptyMap() assertFunc {
 	return func(t *testing.T, result map[string]string, err error) {
 		if !assert.NoError(t, err) {
 			return
@@ -33,7 +35,7 @@ func assertEmptyMap() func(*testing.T, map[string]string, error) {
 	}
 }
 
-func assertProperError(expectedErr string) func(*testing.T, map[string]string, error) {
+func assertProperError(expectedErr string) assertFunc {
 	return func(t *testing.T, result map[string]string, err error) {
 		assert.Nil(t, result)
 		assert.Contains(t, err.Error(), expectedErr)
@@ -67,6 +69,11 @@ conjur.org/secret-file-format.this-group="yaml"`,
 				"conjur.org/secret-file-format.this-group": "yaml",
 			},
 		),
+	},
+	{
+		description: "an empty annotations file results in an empty map",
+		contents:    "",
+		assert:      assertEmptyMap(),
 	},
 	{
 		description: "malformed annotation file line with unquoted value",

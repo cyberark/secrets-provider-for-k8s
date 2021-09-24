@@ -42,20 +42,12 @@ func main() {
 	}
 
 	errLogs, infoLogs := secretsConfigProvider.ValidateAnnotations(annotationsMap)
-	printInfoLogs(infoLogs)
-	if len(errLogs) > 0 {
-		printErrorLogs(errLogs)
-		printErrorAndExit(messages.CSPFK049E)
-	}
+	logErrorsAndConditionalExit(errLogs, infoLogs, messages.CSPFK049E)
 
 	secretsProviderSettings := secretsConfigProvider.GatherSecretsProviderSettings(annotationsMap)
 
 	errLogs, infoLogs = secretsConfigProvider.ValidateSecretsProviderSettings(secretsProviderSettings)
-	printInfoLogs(infoLogs)
-	if len(errLogs) > 0 {
-		printErrorLogs(errLogs)
-		printErrorAndExit(messages.CSPFK015E)
-	}
+	logErrorsAndConditionalExit(errLogs, infoLogs, messages.CSPFK015E)
 
 	// Initialize Secrets Provider configuration
 	secretsConfig := secretsConfigProvider.NewConfig(secretsProviderSettings)
@@ -100,7 +92,8 @@ func main() {
 	}
 }
 
-func provideSecretsToTarget(authn *authenticator.Authenticator, provideConjurSecrets secrets.ProvideConjurSecrets, accessToken *memory.AccessToken, secretsConfig *secretsConfigProvider.Config) error {
+func provideSecretsToTarget(authn *authenticator.Authenticator, provideConjurSecrets secrets.ProvideConjurSecrets,
+	accessToken *memory.AccessToken, secretsConfig *secretsConfigProvider.Config) error {
 	log.Info(fmt.Sprintf(messages.CSPFK001I, authn.Config.Username))
 	err := authn.Authenticate()
 	if err != nil {
@@ -126,15 +119,15 @@ func printErrorAndExit(errorMessage string) {
 	os.Exit(1)
 }
 
-func printInfoLogs(infoList []error) {
-	for _, err := range infoList {
+func logErrorsAndConditionalExit(errLogs []error, infoLogs []error, failureMsg string) {
+	for _, err := range infoLogs {
 		log.Info(err.Error())
 	}
-}
-
-func printErrorLogs(errList []error) {
-	for _, err := range errList {
-		log.Error(err.Error())
+	if len(errLogs) > 0 {
+		for _, err := range errLogs {
+			log.Error(err.Error())
+		}
+		printErrorAndExit(failureMsg)
 	}
 }
 
