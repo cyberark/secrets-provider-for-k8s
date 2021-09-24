@@ -35,7 +35,7 @@ func main() {
 
 	annotationsMap := map[string]string{}
 	if _, err := os.Stat(annotationsFile); err == nil {
-		annotationsMap, err = annotations.AnnotationsFromFile(annotationsFile)
+		annotationsMap, err = annotations.FromFile(annotationsFile)
 		if err != nil {
 			printErrorAndExit(messages.CSPFK040E)
 		}

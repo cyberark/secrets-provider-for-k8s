@@ -9,7 +9,7 @@ import (
 
 type assertFunc func(t *testing.T, result map[string]string, err error)
 
-type parseAnnotationsTestCase struct {
+type parseReaderTestCase struct {
 	description string
 	contents    string
 	assert      assertFunc
@@ -42,7 +42,7 @@ func assertProperError(expectedErr string) assertFunc {
 	}
 }
 
-var parseAnnotationsTestCases = []parseAnnotationsTestCase{
+var parseReaderTestCases = []parseReaderTestCase{
 	{
 		description: "valid file",
 		contents: `conjur.org/authn-identity="host/conjur/authn-k8s/cluster/apps/inventory-api"
@@ -88,10 +88,10 @@ conjur.org/retry-count-limit: 5`,
 	},
 }
 
-func TestParseAnnotation(t *testing.T) {
-	for _, tc := range parseAnnotationsTestCases {
+func TestParseReader(t *testing.T) {
+	for _, tc := range parseReaderTestCases {
 		t.Run(tc.description, func(t *testing.T) {
-			annotations, err := ParseAnnotations(strings.NewReader(tc.contents))
+			annotations, err := ParseReader(strings.NewReader(tc.contents))
 			tc.assert(t, annotations, err)
 		})
 	}

@@ -273,7 +273,7 @@ var validateSecretsProviderSettingsTestCases = []validateSecretsProviderSettings
 			"MY_POD_NAMESPACE":               "test-namespace",
 			"conjur.org/secrets-destination": "invalid",
 		},
-		assert: assertErrorInList(fmt.Errorf(messages.CSPFK043E, "conjur.org/secrets-destination", "invalid", []string{FILE, K8S})),
+		assert: assertErrorInList(fmt.Errorf(messages.CSPFK043E, "conjur.org/secrets-destination", "invalid", []string{File, K8s})),
 	},
 	{
 		description: "if RequiredK8sSecrets is not configured in K8s Secrets mode, an error is returned",
@@ -346,8 +346,8 @@ var newConfigTestCases = []newConfigTestCase{
 			PodNamespace:       "test-namespace",
 			StoreType:          "file",
 			RequiredK8sSecrets: []string{},
-			RetryCountLimit:    DEFAULT_RETRY_COUNT_LIMIT,
-			RetryIntervalSec:   DEFAULT_RETRY_INTERVAL_SEC,
+			RetryCountLimit:    DefaultRetryCountLimit,
+			RetryIntervalSec:   DefaultRetryIntervalSec,
 		}),
 	},
 }

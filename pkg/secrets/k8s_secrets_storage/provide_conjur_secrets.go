@@ -99,9 +99,9 @@ func RetrieveRequiredK8sSecrets(retrieveSecretFunc k8s.RetrieveK8sSecretFunc, na
 		}
 
 		// If K8s secret has no "conjur-map" data entry, return an error
-		if _, ok := k8sSecret.Data[config.CONJUR_MAP_KEY]; !ok {
+		if _, ok := k8sSecret.Data[config.ConjurMapKey]; !ok {
 			// Error messages returned from K8s should be printed only in debug mode
-			log.Debug(messages.CSPFK008D, secretName, config.CONJUR_MAP_KEY)
+			log.Debug(messages.CSPFK008D, secretName, config.ConjurMapKey)
 			return nil, log.RecordedError(messages.CSPFK028E, secretName)
 		}
 
@@ -110,22 +110,22 @@ func RetrieveRequiredK8sSecrets(retrieveSecretFunc k8s.RetrieveK8sSecretFunc, na
 		newDataEntriesMap := make(map[string][]byte)
 		conjurMap := make(map[string]string)
 		for key, value := range k8sSecret.Data {
-			if key == config.CONJUR_MAP_KEY {
+			if key == config.ConjurMapKey {
 				if len(value) == 0 {
 					// Error messages returned from K8s should be printed only in debug mode
-					log.Debug(messages.CSPFK006D, secretName, config.CONJUR_MAP_KEY)
+					log.Debug(messages.CSPFK006D, secretName, config.ConjurMapKey)
 					return nil, log.RecordedError(messages.CSPFK028E, secretName)
 				}
 
-				log.Debug(messages.CSPFK009D, config.CONJUR_MAP_KEY, secretName)
+				log.Debug(messages.CSPFK009D, config.ConjurMapKey, secretName)
 				err := yaml.Unmarshal(value, &conjurMap)
 				if err != nil {
 					// Error messages returned from K8s should be printed only in debug mode
-					log.Debug(messages.CSPFK007D, secretName, config.CONJUR_MAP_KEY, err.Error())
+					log.Debug(messages.CSPFK007D, secretName, config.ConjurMapKey, err.Error())
 					return nil, log.RecordedError(messages.CSPFK028E, secretName)
-				} else if conjurMap == nil || len(conjurMap) == 0 {
+				} else if len(conjurMap) == 0 {
 					// Error messages returned from K8s should be printed only in debug mode
-					log.Debug(messages.CSPFK007D, secretName, config.CONJUR_MAP_KEY, "value is empty")
+					log.Debug(messages.CSPFK007D, secretName, config.ConjurMapKey, "value is empty")
 					return nil, log.RecordedError(messages.CSPFK028E, secretName)
 				}
 

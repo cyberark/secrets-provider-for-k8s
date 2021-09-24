@@ -11,19 +11,19 @@ import (
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/log/messages"
 )
 
-// AnnotationsFromFile reads and parses and annotations file that has been created
+// FromFile reads and parses and annotations file that has been created
 // by Kubernetes via the Downward API, based on Pod annotations that are defined
 // in a deployment manifest.
-func AnnotationsFromFile(path string) (map[string]string, error) {
+func FromFile(path string) (map[string]string, error) {
 	annotationsFile, err := os.OpenFile(path, os.O_RDONLY, os.ModePerm)
 	if err != nil {
 		return nil, log.RecordedError(messages.CSPFK041E, path, err.Error())
 	}
 	defer annotationsFile.Close()
-	return ParseAnnotations(annotationsFile)
+	return ParseReader(annotationsFile)
 }
 
-// ParseAnnotations parses an input stream representing an annotations file that
+// ParseReader parses an input stream representing an annotations file that
 // had been created by Kubernetes via the Downward API, returning a string-to-string
 // map of annotations key-value pairs.
 //
@@ -36,7 +36,7 @@ func AnnotationsFromFile(path string) (map[string]string, error) {
 //     - admin-username: username
 // Is stored in the annotations file as:
 //   conjur.org/conjur-secrets.cache="- url\n- admin-password: password\n- admin-username: username\n"
-func ParseAnnotations(annotationsFile io.Reader) (map[string]string, error) {
+func ParseReader(annotationsFile io.Reader) (map[string]string, error) {
 	var lines []string
 	scanner := bufio.NewScanner(annotationsFile)
 	for scanner.Scan() {

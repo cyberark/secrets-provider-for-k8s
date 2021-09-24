@@ -11,7 +11,7 @@ type ProvideConjurSecrets func(AccessToken access_token.AccessToken, config *con
 
 func GetProvideConjurSecretFunc(storeType string) (ProvideConjurSecrets, error) {
 	var provideConjurSecretFunc ProvideConjurSecrets
-	if storeType == config.K8S {
+	if storeType == config.K8s {
 		provideConjurSecretFunc = k8s_secrets_storage.ProvideConjurSecretsToK8sSecrets
 	}
 

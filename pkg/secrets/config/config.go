@@ -10,13 +10,15 @@ import (
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/log/messages"
 )
 
+// Constants for Secrets Provider operation modes,
+// and Defaults for some SP settings
 const (
-	K8S                        = "k8s_secrets"
-	FILE                       = "file"
-	CONJUR_MAP_KEY             = "conjur-map"
-	DEFAULT_RETRY_COUNT_LIMIT  = 5
-	DEFAULT_RETRY_INTERVAL_SEC = 1
-	MIN_RETRY_VALUE            = 0
+	K8s                     = "k8s_secrets"
+	File                    = "file"
+	ConjurMapKey            = "conjur-map"
+	DefaultRetryCountLimit  = 5
+	DefaultRetryIntervalSec = 1
+	MinRetryValue           = 0
 )
 
 // Config defines the configuration parameters
@@ -31,6 +33,8 @@ type Config struct {
 
 type annotationType int
 
+// Represents each annotation input value type,
+// used during input value validation
 const (
 	TYPESTRING annotationType = iota
 	TYPEINT
@@ -136,9 +140,9 @@ func ValidateSecretsProviderSettings(envAndAnnots map[string]string) ([]error, [
 
 	if annotStoreType == "" {
 		switch envStoreType {
-		case K8S:
+		case K8s:
 			storeType = envStoreType
-		case FILE:
+		case File:
 			errorList = append(errorList, errors.New(messages.CSPFK047E))
 		case "":
 			errorList = append(errorList, errors.New(messages.CSPFK046E))
@@ -151,7 +155,7 @@ func ValidateSecretsProviderSettings(envAndAnnots map[string]string) ([]error, [
 		}
 		storeType = annotStoreType
 	} else {
-		errorList = append(errorList, fmt.Errorf(messages.CSPFK043E, "conjur.org/secrets-destination", annotStoreType, []string{FILE, K8S}))
+		errorList = append(errorList, fmt.Errorf(messages.CSPFK043E, "conjur.org/secrets-destination", annotStoreType, []string{File, K8s}))
 	}
 
 	envK8sSecretsStr := envAndAnnots["K8S_SECRETS"]
@@ -207,13 +211,13 @@ func NewConfig(settings map[string]string) *Config {
 	if retryCountLimitStr == "" {
 		retryCountLimitStr = settings["RETRY_COUNT_LIMIT"]
 	}
-	retryCountLimit := parseIntFromStringOrDefault(retryCountLimitStr, DEFAULT_RETRY_COUNT_LIMIT, MIN_RETRY_VALUE)
+	retryCountLimit := parseIntFromStringOrDefault(retryCountLimitStr, DefaultRetryCountLimit, MinRetryValue)
 
 	retryIntervalSecStr := settings["conjur.org/retry-interval-sec"]
 	if retryIntervalSecStr == "" {
 		retryIntervalSecStr = settings["RETRY_INTERVAL_SEC"]
 	}
-	retryIntervalSec := parseIntFromStringOrDefault(retryIntervalSecStr, DEFAULT_RETRY_INTERVAL_SEC, MIN_RETRY_VALUE)
+	retryIntervalSec := parseIntFromStringOrDefault(retryIntervalSecStr, DefaultRetryIntervalSec, MinRetryValue)
 
 	return &Config{
 		PodNamespace:       podNamespace,
@@ -289,7 +293,7 @@ func parseIntFromStringOrDefault(value string, defaultValue int, minValue int) i
 }
 
 func validStoreType(storeType string) bool {
-	validStoreTypes := []string{K8S, FILE}
+	validStoreTypes := []string{K8s, File}
 	for _, validStoreType := range validStoreTypes {
 		if storeType == validStoreType {
 			return true
