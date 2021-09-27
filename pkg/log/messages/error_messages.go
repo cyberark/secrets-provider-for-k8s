@@ -56,3 +56,16 @@ const CSPFK037E string = "CSPFK037E Failed to parse DAP/Conjur variable IDs"
 // General
 const CSPFK038E string = "CSPFK038E Retransmission backoff exhausted"
 const CSPFK039E string = "CSPFK039E Secrets Provider for Kubernetes failed to update Kubernetes Secrets"
+
+// Annotations
+const CSPFK040E string = "CSPFK040E Failed to parse annotations file"
+const CSPFK041E string = "CSPFK041E Failed to open annotations file '%s'. Reason: %s"
+const CSPFK042E string = "CSPFK042E Annotation '%s' does not accept value '%s': must be type %s"
+const CSPFK043E string = "CSPFK043E Annotation '%s' does not accept value '%s': only accepts %v"
+const CSPFK044E string = "CSPFK044E Annotation '%s' must be provided"
+const CSPFK045E string = "CSPFK045E Annotation file line %d is malformed: expecting format \"<key>=<quoted value>\""
+
+const CSPFK046E string = "CSPFK046E Secret Store Type needs to be configured, either with 'SECRETS_DESTINATION' environment variable or 'conjur.org/secrets-destination' Pod annotation"
+const CSPFK047E string = "CSPFK047E Secrets Provider in Push-to-File mode can only be configured with Pod annotations"
+const CSPFK048E string = "CSPFK048E Secrets Provider in K8s Secrets mode requires either the 'K8S_SECRETS' environment variable or 'conjur.org/k8s-secrets' Pod annotation"
+const CSPFK049E string = "CSPFK049E Failed to validate Pod annotations"

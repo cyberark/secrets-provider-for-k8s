@@ -12,7 +12,7 @@ deploy_init_env
 echo "Expecting for CrashLoopBackOff state of pod test-env"
 wait_for_it 600 "get_pods_info | grep CrashLoopBackOff"
 
-echo "Expecting Secrets provider to fail with error 'CSPFK004E Environment variable K8S_SECRETS must be provided'"
+echo "Expecting secrets provider to fail with error 'CSPFK048E Secrets Provider in K8s Secrets mode requires either 'K8S_SECRETS' environment variable or 'conjur.org/k8s-secrets' Pod annotation'"
 pod_name="$(get_pod_name "$APP_NAMESPACE_NAME" 'app=test-env')"
 
-$cli_with_timeout "logs $pod_name -c cyberark-secrets-provider-for-k8s | grep CSPFK004E"
+$cli_with_timeout "logs $pod_name -c cyberark-secrets-provider-for-k8s | grep CSPFK048E"

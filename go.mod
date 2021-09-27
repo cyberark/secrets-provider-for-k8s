@@ -13,6 +13,7 @@ require (
 	github.com/onsi/ginkgo v1.14.0 // indirect
 	github.com/smartystreets/goconvey v0.0.0-20190731233626-505e41936337
 	github.com/spf13/pflag v1.0.5 // indirect
+	github.com/stretchr/testify v1.3.0
 	golang.org/x/crypto v0.0.0-20201216223049-8b5274cf687f // indirect
 	golang.org/x/oauth2 v0.0.0-20191202225959-858c2ad4c8b6 // indirect
 	golang.org/x/time v0.0.0-20191024005414-555d28b269f0 // indirect
