@@ -54,10 +54,9 @@ func NewConjurMockClient() ConjurMockClient {
 }
 
 func (c ConjurMockClient) AddSecret(
-        secretName string,
-        secret     string,
+	secrets map[string]string,
 ) {
-
-        c.Database[secretName] = secret
+	for id, secret := range secrets {
+		c.Database[id] = secret
+	}
 }
-
