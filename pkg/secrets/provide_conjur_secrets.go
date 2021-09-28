@@ -7,11 +7,11 @@ import (
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/k8s_secrets_storage"
 )
 
-type ProvideConjurSecrets func(AccessToken access_token.AccessToken) error
+type ProvideConjurSecrets func(AccessToken access_token.AccessToken, config *config.Config) error
 
 func GetProvideConjurSecretFunc(storeType string) (ProvideConjurSecrets, error) {
 	var provideConjurSecretFunc ProvideConjurSecrets
-	if storeType == config.K8S {
+	if storeType == config.K8s {
 		provideConjurSecretFunc = k8s_secrets_storage.ProvideConjurSecretsToK8sSecrets
 	}
 

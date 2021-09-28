@@ -11,5 +11,5 @@ deploy_init_env
 
 pod_name="$(get_pod_name "$APP_NAMESPACE_NAME" 'app=test-env')"
 
-echo "Expecting secrets provider to fail with error 'CSPFK004E Environment variable 'SECRETS_DESTINATION' must be provided'"
-$cli_with_timeout "logs $pod_name -c cyberark-secrets-provider-for-k8s | grep CSPFK004E"
+echo "Expecting secrets provider to fail with error 'CSPFK046E Secret Store Type needs to be configured, either with 'SECRETS_DESTINATION' environment variable or 'conjur.org/secrets-destination' Pod annotation'"
+$cli_with_timeout "logs $pod_name -c cyberark-secrets-provider-for-k8s | grep CSPFK046E"

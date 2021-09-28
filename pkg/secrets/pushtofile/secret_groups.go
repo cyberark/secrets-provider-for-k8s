@@ -85,6 +85,6 @@ func parseFileFormat(fileFormat string) (string, error) {
 	case "":
 		return "yaml", nil
 	default:
-		return "", log.RecordedError(messages.CSPFK052E, fileFormat)
+		return "", log.RecordedError(messages.CSPFK051E, fileFormat)
 	}
 }

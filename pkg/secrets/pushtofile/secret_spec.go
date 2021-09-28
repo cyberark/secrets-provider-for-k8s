@@ -35,7 +35,7 @@ func (t *SecretSpec) UnmarshalYAML(unmarshal func(v interface{}) error) error {
 	err = unmarshal(&mapValue)
 	if err == nil {
 		if len(mapValue) != 1 {
-			return log.RecordedError(messages.CSPFK051E, "expected single key-value pair for secret specification")
+			return log.RecordedError(messages.CSPFK050E, "expected single key-value pair for secret specification")
 		}
 
 		for k, v := range mapValue {
@@ -47,14 +47,14 @@ func (t *SecretSpec) UnmarshalYAML(unmarshal func(v interface{}) error) error {
 	}
 
 	// ELSE
-	return log.RecordedError(messages.CSPFK051E, "unrecognized format for secret spec")
+	return log.RecordedError(messages.CSPFK050E, "unrecognized format for secret spec")
 }
 
 func NewSecretSpecs(raw []byte) ([]SecretSpec, error) {
 	var secretSpecs []SecretSpec
 	err := yaml.Unmarshal(raw, &secretSpecs)
 	if err != nil {
-		return nil, log.RecordedError(messages.CSPFK051E, fmt.Sprintf("failed to parse yaml list: %v", err))
+		return nil, log.RecordedError(messages.CSPFK050E, fmt.Sprintf("failed to parse yaml list: %v", err))
 	}
 
 	return secretSpecs, nil
