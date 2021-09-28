@@ -6,22 +6,10 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-type assertFunc func(*testing.T, SecretGroups, error)
-
 type extractSecretGroupsTestCase struct {
-	description string
-	contents    map[string]string
-	assert      assertFunc
-}
-
-func assertExpectedSecretGroups(expected SecretGroups) assertFunc {
-	return func(t *testing.T, result SecretGroups, err error) {
-		if !assert.NoError(t, err) {
-			return
-		}
-
-		assert.Equal(t, expected, result)
-	}
+	description    string
+	input          map[string]string
+	expectedOutput SecretGroups
 }
 
 const someValidSecrets = "- test/url\n- test-password: test/password\n- test-username: test/username\n"
@@ -29,7 +17,7 @@ const someValidSecrets = "- test/url\n- test-password: test/password\n- test-use
 var extractSecretGroupsTestCases = []extractSecretGroupsTestCase{
 	{
 		description: "valid annotations map",
-		contents: map[string]string{
+		input: map[string]string{
 			"conjur.org/authn-identity":                   "host/conjur/authn-k8s/cluster/apps/inventory-api",
 			"conjur.org/container-mode":                   "application",
 			"conjur.org/secret-destination":               "file",
@@ -43,78 +31,53 @@ var extractSecretGroupsTestCases = []extractSecretGroupsTestCase{
 			"conjur.org/secret-file-template.cache":       "some-template",
 			"conjur.org/secret-file-format.cache":         "yaml",
 		},
-		assert: assertExpectedSecretGroups(
-			SecretGroups{
-				{
-					Label:                  "cache",
-					FilePath:               "this/relative/path",
-					FileTemplate:           "some-template",
-					ConjurSecretPathPrefix: "some/policy/path",
-					SecretSpecs: []SecretSpec{
-						{Id: "test/url", Alias: "url"},
-						{Id: "test/password", Alias: "test-password"},
-						{Id: "test/username", Alias: "test-username"},
-					},
-					FileFormat: "yaml",
-					FilePerms:  defaultFilePerms,
+		expectedOutput: SecretGroups{
+			{
+				Label:                  "cache",
+				FilePath:               "this/relative/path",
+				FileTemplate:           "some-template",
+				ConjurSecretPathPrefix: "some/policy/path",
+				SecretSpecs: []SecretSpec{
+					{Id: "test/url", Alias: "url"},
+					{Id: "test/password", Alias: "test-password"},
+					{Id: "test/username", Alias: "test-username"},
 				},
+				FileFormat: "yaml",
+				FilePerms:  defaultFilePerms,
 			},
-		),
-	},
-	{
-		description: "valid annotations map",
-		contents: map[string]string{
-			"conjur.org/conjur-secrets.cache":             someValidSecrets,
-			"conjur.org/secret-file-path.cache":           "this/relative/path",
-			"conjur.org/conjur-secrets-policy-path.cache": "some/policy/path",
-			"conjur.org/secret-file-template.cache":       "some-template",
-			"conjur.org/secret-file-format.cache":         "yaml",
 		},
-		assert: assertExpectedSecretGroups(
-			SecretGroups{
-				{
-					Label:                  "cache",
-					FilePath:               "this/relative/path",
-					FileTemplate:           "some-template",
-					ConjurSecretPathPrefix: "some/policy/path",
-					SecretSpecs: []SecretSpec{
-						{Id: "test/url", Alias: "url"},
-						{Id: "test/password", Alias: "test-password"},
-						{Id: "test/username", Alias: "test-username"},
-					},
-					FileFormat: "yaml",
-					FilePerms:  defaultFilePerms,
-				},
-			},
-		),
 	},
 }
 
 func TestNewSecretGroupsFromAnnotations(t *testing.T) {
 	for _, tc := range extractSecretGroupsTestCases {
 		t.Run(tc.description, func(t *testing.T) {
-			secretGroups, err := NewSecretGroupsFromAnnotations(tc.contents)
+			resultSecretGroups, err := NewSecretGroupsFromAnnotations(tc.input)
 
-			tc.assert(t, secretGroups, err)
+			if !assert.NoError(t, err) {
+				return
+			}
+
+			assert.Equal(t, tc.expectedOutput, resultSecretGroups)
 		})
 	}
 }
 
 func TestExtractFileFormatFromAnnotations(t *testing.T) {
 	type fileFormatTestCase struct {
-		input  string
-		output string
-		valid  bool
+		input          string
+		expectedOutput string
+		valid          bool
 	}
 
 	fileFormatTestCases := []fileFormatTestCase{
-		{input: "", output: "yaml", valid: true},
-		{input: "yaml", output: "yaml", valid: true},
-		{input: "json", output: "json", valid: true},
-		{input: "dotenv", output: "dotenv", valid: true},
-		{input: "bash", output: "bash", valid: true},
-		{input: "plaintext", output: "plaintext", valid: true},
-		{input: "invalid", output: "", valid: false},
+		{input: "", expectedOutput: "yaml", valid: true},
+		{input: "yaml", expectedOutput: "yaml", valid: true},
+		{input: "json", expectedOutput: "json", valid: true},
+		{input: "dotenv", expectedOutput: "dotenv", valid: true},
+		{input: "bash", expectedOutput: "bash", valid: true},
+		{input: "plaintext", expectedOutput: "plaintext", valid: true},
+		{input: "invalid", expectedOutput: "", valid: false},
 	}
 
 	someValidAnnotationsMap := map[string]string{
@@ -130,7 +93,7 @@ func TestExtractFileFormatFromAnnotations(t *testing.T) {
 
 			if tc.valid {
 				assert.NoError(t, err)
-				assert.Equal(t, tc.output, secretGroups[0].FileFormat)
+				assert.Equal(t, tc.expectedOutput, secretGroups[0].FileFormat)
 			} else {
 				assert.Nil(t, secretGroups)
 				assert.Contains(t, err.Error(), "Unknown file format")
