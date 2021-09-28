@@ -33,21 +33,21 @@ func (t *SecretSpec) UnmarshalYAML(unmarshal func(v interface{}) error) error {
 	// MAP
 	var mapValue map[string]string
 	err = unmarshal(&mapValue)
-	if err == nil {
-		if len(mapValue) != 1 {
-			return log.RecordedError(messages.CSPFK050E, "expected single key-value pair for secret specification")
-		}
-
-		for k, v := range mapValue {
-			t.Id = v
-			t.Alias = k
-		}
-
-		return nil
+	if err != nil {
+		return log.RecordedError(messages.CSPFK050E, "unrecognized format for secret spec")
 	}
 
-	// ELSE
-	return log.RecordedError(messages.CSPFK050E, "unrecognized format for secret spec")
+	if len(mapValue) != 1 {
+		return log.RecordedError(messages.CSPFK050E, "expected single key-value pair for secret specification")
+	}
+
+	for k, v := range mapValue {
+		t.Id = v
+		t.Alias = k
+	}
+
+	return nil
+
 }
 
 func NewSecretSpecs(raw []byte) ([]SecretSpec, error) {

@@ -72,15 +72,7 @@ func NewSecretGroupsFromAnnotations(annotations map[string]string) (SecretGroups
 
 func parseFileFormat(fileFormat string) (string, error) {
 	switch fileFormat {
-	case "yaml":
-		fallthrough
-	case "json":
-		fallthrough
-	case "dotenv":
-		fallthrough
-	case "bash":
-		fallthrough
-	case "plaintext":
+	case "yaml", "json", "dotenv", "bash", "plaintext":
 		return fileFormat, nil
 	case "":
 		return "yaml", nil
