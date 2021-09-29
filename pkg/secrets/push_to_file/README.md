@@ -7,3 +7,9 @@ on secrets group)
 a file info data struct
 - Write secrets files to a shared volume
 
+Run tests 
+```shell
+go test -v -coverprofile cover.out -count 1 ./... \
+ && go tool cover -html=cover.out -o cover.html \
+ && open ./cover.html
+```

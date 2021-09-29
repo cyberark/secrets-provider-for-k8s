@@ -1,0 +1,7 @@
+conjur.org/secret-file-path.cache="./testdata/redis.json"
+conjur.org/secret-file-format.cache="json"
+conjur.org/conjur-secrets.db="- url\n- password\n- username\n"
+conjur.org/conjur-secrets-policy-path.db="dev/database"
+conjur.org/secret-file-path.db="./testdata/db.js"
+conjur.org/secret-file-template.db="\nexport const url={{ printf \"%q\" (secret \"password\") }}\nexport const username={{ printf \"%q\" (secret \"password\") }}\nexport const password={{ printf \"%q\" (secret \"password\") }}\n"
+conjur.org/conjur-secrets.cache="- dev/redis/api-url\n- admin-username: dev/redis/username\n- admin-password: dev/redis/password\n"
