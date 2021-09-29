@@ -1,4 +1,4 @@
-package pushtofile
+package push_to_file
 
 import (
 	"testing"
@@ -12,7 +12,7 @@ type secretsSpecTestCase struct {
 	assert      func(t *testing.T, result []SecretSpec, err error)
 }
 
-func assertGoodSecretSpecs(expectedResult []SecretSpec) func(*testing.T, []SecretSpec, error) {
+func assertGoodSecretSpecs(expectedResult []SecretSpec) func (*testing.T, []SecretSpec, error) {
 	return func(t *testing.T, result []SecretSpec, err error) {
 		if !assert.NoError(t, err) {
 			return
@@ -36,11 +36,11 @@ var secretsSpecTestCases = []secretsSpecTestCase{
 		assert: assertGoodSecretSpecs(
 			[]SecretSpec{
 				{
-					Id:    "dev/openshift/api-url",
+					Path:  "dev/openshift/api-url",
 					Alias: "api-url",
 				},
 				{
-					Id:    "dev/openshift/password",
+					Path:  "dev/openshift/password",
 					Alias: "admin-password",
 				},
 			},
@@ -70,6 +70,11 @@ another-password: dev/openshift/password
 }
 
 func TestNewSecretSpecs(t *testing.T) {
+	t.Run("normal test", func(t *testing.T) {
+		res := 1 + 1
+		assert.Equal(t, 2, res)
+	})
+
 	for _, tc := range secretsSpecTestCases {
 		t.Run(tc.description, func(t *testing.T) {
 			secretsSpecs, err := NewSecretSpecs([]byte(tc.contents))

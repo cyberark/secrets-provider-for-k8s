@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/cyberark/conjur-authn-k8s-client/pkg/log"
+
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/log/messages"
 )
 
@@ -38,7 +39,7 @@ func NewAnnotationsFromFile(path string) (map[string]string, error) {
 func newAnnotationsFromFile(fo fileOpener, path string) (map[string]string, error) {
 	annotationsFile, err := fo(path, os.O_RDONLY, os.ModePerm)
 	if err != nil {
-		return nil, log.RecordedError(messages.CSPFK041E, path, err.Error())
+		return nil, err
 	}
 	defer annotationsFile.Close()
 	return newAnnotationsFromReader(annotationsFile)

@@ -33,12 +33,9 @@ func main() {
 
 	validateContainerMode(authnConfig.ContainerMode)
 
-	annotationsMap := map[string]string{}
-	if _, err := os.Stat(annotationsFile); err == nil {
-		annotationsMap, err = annotations.NewAnnotationsFromFile(annotationsFile)
-		if err != nil {
-			printErrorAndExit(messages.CSPFK040E)
-		}
+	annotationsMap, err := annotations.NewAnnotationsFromFile(annotationsFile)
+	if err != nil {
+		printErrorAndExit(messages.CSPFK040E)
 	}
 
 	errLogs, infoLogs := secretsConfigProvider.ValidateAnnotations(annotationsMap)
