@@ -11,32 +11,53 @@ import (
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/log/messages"
 )
 
-// FromFile reads and parses and annotations file that has been created
-// by Kubernetes via the Downward API, based on Pod annotations that are defined
-// in a deployment manifest.
-func FromFile(path string) (map[string]string, error) {
-	annotationsFile, err := os.OpenFile(path, os.O_RDONLY, os.ModePerm)
+// fileOpener is a function type that captures dependency injection for
+// filesystem operations. It returns an instantiation of the 'io.ReadCloser'
+// interface, which incorporates the only two filesystem operations that we
+// need for parsing an annotations file:
+//   - File closer
+//   - IO reader
+type fileOpener func(name string, flag int, perm os.FileMode) (io.ReadCloser, error)
+
+// osFileOpener is a 'fileOpener' that uses standard OS.
+func osFileOpener(name string, flag int, perm os.FileMode) (io.ReadCloser, error) {
+	return os.OpenFile(name, flag, perm)
+}
+
+// NewAnnotationsFromFile reads and parses an annotations file that has been
+// created by Kubernetes via the Downward API, based on Pod annotations that
+// are defined in a deployment manifest.
+func NewAnnotationsFromFile(path string) (map[string]string, error) {
+	// Use standard OS
+	return newAnnotationsFromFile(osFileOpener, path)
+}
+
+// newAnnotationsFromFile performs the work of NewAnnotationsFromFile(), and
+// provides a function entrypoint that allows filesystem mocking for test
+// purposes.
+func newAnnotationsFromFile(fo fileOpener, path string) (map[string]string, error) {
+	annotationsFile, err := fo(path, os.O_RDONLY, os.ModePerm)
 	if err != nil {
 		return nil, log.RecordedError(messages.CSPFK041E, path, err.Error())
 	}
 	defer annotationsFile.Close()
-	return ParseReader(annotationsFile)
+	return newAnnotationsFromReader(annotationsFile)
 }
 
-// ParseReader parses an input stream representing an annotations file that
-// had been created by Kubernetes via the Downward API, returning a string-to-string
-// map of annotations key-value pairs.
+// newAnnotationsFromReader parses an input stream representing an annotations file that
+// had been created by Kubernetes via the Downward API, returning a
+// string-to-string map of annotations key-value pairs.
 //
-// List and multi-line annotations are formatted as a single string in the annotations file,
-// and this format persists into the map returned by this function.
-// For example, the following annotation:
+// List and multi-line annotations are formatted as a single string in the
+// annotations file, and this format persists into the map returned by this
+// function. For example, the following annotation:
 //   conjur.org/conjur-secrets.cache: |
 //     - url
 //     - admin-password: password
 //     - admin-username: username
 // Is stored in the annotations file as:
 //   conjur.org/conjur-secrets.cache="- url\n- admin-password: password\n- admin-username: username\n"
-func ParseReader(annotationsFile io.Reader) (map[string]string, error) {
+func newAnnotationsFromReader(annotationsFile io.Reader) (map[string]string, error) {
 	var lines []string
 	scanner := bufio.NewScanner(annotationsFile)
 	for scanner.Scan() {
