@@ -1,15 +1,77 @@
 package annotations
 
 import (
+	"fmt"
+	"io"
+	"io/ioutil"
+	"os"
 	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 )
 
+// mockReadCloser returns an instantiation of the io.ReadCloser interface
+// that does a no-op for file closing, and returns specified content
+// for read operations.
+func mockReadCloser(contents string) io.ReadCloser {
+	return ioutil.NopCloser(strings.NewReader(contents))
+}
+
+func mockFileOpenerGenerator(store map[string]io.ReadCloser) fileOpener {
+	return func(name string, flag int, perm os.FileMode) (io.ReadCloser, error) {
+		rc, ok := store[name]
+		if ok {
+			return rc, nil
+		}
+		return nil, fmt.Errorf("file not found")
+	}
+}
+
+func TestNewAnnotationsFromFile(t *testing.T) {
+	// Create a mock 'fileOpener' that supports reading of a sample valid
+	// annotations file.
+	validFilePath := "/podinfo/annotations"
+	content := `conjur.org/conjur-secrets.test="- test-password: test/password\n"`
+	mockOpener := mockFileOpenerGenerator(
+		map[string]io.ReadCloser{
+			validFilePath: mockReadCloser(content),
+		})
+
+	nonexistentFilePath := "/podinfo/nonexistent-file"
+
+	// Define test cases
+	testCases := []struct {
+		description string
+		filePath    string
+		expError    string
+	}{
+		{
+			description: "Valid annotations file",
+			filePath:    validFilePath,
+			expError:    "",
+		}, {
+			description: "Nonexistent annotations file",
+			filePath:    nonexistentFilePath,
+			expError:    "Failed to open annotations file",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.description, func(t *testing.T) {
+			_, err := newAnnotationsFromFile(mockOpener, tc.filePath)
+			if tc.expError == "" {
+				assert.NoError(t, err)
+			} else {
+				assert.Contains(t, err.Error(), tc.expError)
+			}
+		})
+	}
+}
+
 type assertFunc func(t *testing.T, result map[string]string, err error)
 
-type parseReaderTestCase struct {
+type newAnnotationsFromReaderTestCase struct {
 	description string
 	contents    string
 	assert      assertFunc
@@ -42,7 +104,7 @@ func assertProperError(expectedErr string) assertFunc {
 	}
 }
 
-var parseReaderTestCases = []parseReaderTestCase{
+var newAnnotationsFromReaderTestCases = []newAnnotationsFromReaderTestCase{
 	{
 		description: "valid file",
 		contents: `conjur.org/authn-identity="host/conjur/authn-k8s/cluster/apps/inventory-api"
@@ -88,10 +150,11 @@ conjur.org/retry-count-limit: 5`,
 	},
 }
 
-func TestParseReader(t *testing.T) {
-	for _, tc := range parseReaderTestCases {
+func TestNewAnnotationsFromReader(t *testing.T) {
+	for _, tc := range newAnnotationsFromReaderTestCases {
 		t.Run(tc.description, func(t *testing.T) {
-			annotations, err := ParseReader(strings.NewReader(tc.contents))
+			annotations, err := newAnnotationsFromReader(
+				strings.NewReader(tc.contents))
 			tc.assert(t, annotations, err)
 		})
 	}
