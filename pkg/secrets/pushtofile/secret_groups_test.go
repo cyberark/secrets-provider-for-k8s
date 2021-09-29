@@ -54,10 +54,7 @@ func TestNewSecretGroupsFromAnnotations(t *testing.T) {
 		t.Run(tc.description, func(t *testing.T) {
 			resultSecretGroups, err := NewSecretGroupsFromAnnotations(tc.input)
 
-			if !assert.NoError(t, err) {
-				return
-			}
-
+			assert.NoError(t, err)
 			assert.Equal(t, tc.expectedOutput, resultSecretGroups)
 		})
 	}
