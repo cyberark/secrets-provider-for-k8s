@@ -90,6 +90,24 @@ func main() {
 		}
 		printErrorAndExit(messages.CSPFK039E)
 	}
+
+	secretsGroups, err := pushtofile.ExtractSecretsGroupsFromAnnotations(
+		annotationsMap)
+	if err != nil {
+		log.Error("***TEMP*** Error extracting secrets groups: %v", err)
+		os.Exit(1)
+	}
+	fmt.Printf("***TEMP*** Secrets Groups:\n%v\n", secretsGroups)
+
+	// Modify config files for each group as specified in Pod Annotations.
+	// NOTE: For now, just pass an empty map of secrets values, since
+	// those values will be mocked (for demo purposes) until support for
+	// retrieving secrets from Conjur is implemented.
+	err = ModifyConfigFiles(secretsGroups, map[string]string{})
+	if err != nil {
+		log.Error("***TEMP*** Error modifying config files: %v", err)
+		os.Exit(1)
+	}
 }
 
 func provideSecretsToTarget(authn *authenticator.Authenticator, provideConjurSecrets secrets.ProvideConjurSecrets,

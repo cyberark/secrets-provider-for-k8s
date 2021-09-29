@@ -76,3 +76,4 @@ const CSPFK052E string = "CSPFK052E Annotation '%s' must contain relative path w
 const CSPFK053E string = "CSPFK053E Annotation '%s' specifies unknown file format '%s'"
 const CSPFK054E string = "CSPFK054E Failed to parse template in annotation '%s'. Reason: %s"
 const CSPFK055E string = "CSPFK055E Push-to-File template specified but directory found in annotation '%s'"
+const CSPFK056E string = "CSPFK056E Config file path should not be a directory: '%s'"

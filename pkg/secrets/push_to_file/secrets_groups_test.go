@@ -1,4 +1,4 @@
-package secrets_groups
+package pushtofile
 
 import (
 	"testing"

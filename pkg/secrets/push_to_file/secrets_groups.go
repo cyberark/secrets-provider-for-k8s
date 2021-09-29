@@ -1,4 +1,4 @@
-package secrets_groups
+package pushtofile
 
 import (
 	"fmt"
@@ -83,6 +83,16 @@ func ExtractSecretsGroupsFromAnnotations(annotations map[string]string) (Secrets
 
 			if fileTemplate != nil {
 				fileType = FILE_TYPE_NONE
+			}
+
+			configFileSrcPath, err := parseConfigFilePath(annotations, groupName, SECRETS_GROUP_CONFIG_FILE_SRC_PATH_PREFIX)
+			if err != nil {
+				return nil, err
+			}
+
+			configfileDestPath, err := parseConfigFilePath(annotations, groupName, SECRETS_GROUP_CONFIG_FILE_DEST_PATH_PREFIX)
+			if err != nil {
+				return nil, err
 			}
 
 			groupInfo := SecretsGroupInfo{
@@ -222,6 +232,14 @@ func parseFileTemplate(groupName string, fileTemplate string) (*template.Templat
 	}
 
 	return t, nil
+}
+
+func parseConfigFilePath(annotations map[string]string, groupName, prefix string) error {
+	annotationID := prefix + groupName
+	filePath := annotations[annotationID]
+	if strings.HasSuffix(filePath, "/") {
+		return log.RecordedError(messages.CSPFK056E, fmt.Sprintf(annotationID))
+	}
 }
 
 func validateGroupInfo(groupName string, groupInfo SecretsGroupInfo) error {
