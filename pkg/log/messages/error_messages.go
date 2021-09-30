@@ -69,3 +69,7 @@ const CSPFK046E string = "CSPFK046E Secret Store Type needs to be configured, ei
 const CSPFK047E string = "CSPFK047E Secrets Provider in Push-to-File mode can only be configured with Pod annotations"
 const CSPFK048E string = "CSPFK048E Secrets Provider in K8s Secrets mode requires either the 'K8S_SECRETS' environment variable or 'conjur.org/k8s-secrets' Pod annotation"
 const CSPFK049E string = "CSPFK049E Failed to validate Pod annotations"
+
+// Push to File
+const CSPFK050E string = "CSPFK050E Failed to unmarshal Push-to-File secrets. Reason: %s"
+const CSPFK051E string = "CSPFK051E Unknown file format '%s'"
