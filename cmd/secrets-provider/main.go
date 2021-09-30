@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"io/ioutil"
 	"os"
 	"time"
 
@@ -20,36 +21,56 @@ import (
 
 const annotationsFile = "/conjur/podinfo/annotations"
 
+type Annotations map[string]string
+
+func (a Annotations) GetEnv(key string) string {
+	annotationKey := envAnnotationsConversion[key]
+	return a[annotationKey]
+}
+
+var annotationsMap Annotations
+
+// Define supported annotation keys for Secrets Provider config, as well as value restraints for each
+var envAnnotationsConversion = map[string]string{
+	"CONJUR_AUTHN_LOGIN":  "conjur.org/authn-identity",
+	"CONTAINER_MODE":      "conjur.org/container-mode",
+	"SECRETS_DESTINATION": "conjur.org/secrets-destination",
+	"K8S_SECRETS":         "conjur.org/k8s-secrets",
+	"RETRY_COUNT_LIMIT":   "conjur.org/retry-count-limit",
+	"RETRY_INTERVAL_SEC":  "conjur.org/retry-interval-sec",
+	"DEBUG":               "conjur.org/debug-logging",
+}
+
 func main() {
 	var err error
 
 	log.Info(messages.CSPFK008I, secrets.FullVersionName)
 
-	// Initialize authn configuration
-	authnConfig, err := authnConfigProvider.NewFromEnv()
-	if err != nil {
-		printErrorAndExit(messages.CSPFK008E)
-	}
-
-	validateContainerMode(authnConfig.ContainerMode)
-
-	annotationsMap := map[string]string{}
 	if _, err := os.Stat(annotationsFile); err == nil {
 		annotationsMap, err = annotations.NewAnnotationsFromFile(annotationsFile)
 		if err != nil {
 			printErrorAndExit(messages.CSPFK040E)
 		}
+
+		errLogs, infoLogs := secretsConfigProvider.ValidateAnnotations(annotationsMap)
+		logErrorsAndConditionalExit(errLogs, infoLogs, messages.CSPFK049E)
 	}
 
-	errLogs, infoLogs := secretsConfigProvider.ValidateAnnotations(annotationsMap)
-	logErrorsAndConditionalExit(errLogs, infoLogs, messages.CSPFK049E)
+	// Initialize authn configuration
+	authnSettings := authnConfigProvider.GatherSettings(annotationsMap.GetEnv, os.Getenv)
 
-	secretsProviderSettings := secretsConfigProvider.GatherSecretsProviderSettings(annotationsMap)
+	errLogs := authnSettings.Validate(ioutil.ReadFile)
+	logErrorsAndConditionalExit(errLogs, nil, messages.CSPFK008E)
 
-	errLogs, infoLogs = secretsConfigProvider.ValidateSecretsProviderSettings(secretsProviderSettings)
-	logErrorsAndConditionalExit(errLogs, infoLogs, messages.CSPFK015E)
+	authnConfig := authnSettings.NewConfig()
+	validateContainerMode(authnConfig.ContainerMode)
 
 	// Initialize Secrets Provider configuration
+	secretsProviderSettings := secretsConfigProvider.GatherSecretsProviderSettings(annotationsMap)
+
+	errLogs, infoLogs := secretsConfigProvider.ValidateSecretsProviderSettings(secretsProviderSettings)
+	logErrorsAndConditionalExit(errLogs, infoLogs, messages.CSPFK015E)
+
 	secretsConfig := secretsConfigProvider.NewConfig(secretsProviderSettings)
 
 	provideConjurSecrets, err := secrets.GetProvideConjurSecretFunc(secretsConfig.StoreType)
