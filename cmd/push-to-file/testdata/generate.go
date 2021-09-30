@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+
+	"gopkg.in/yaml.v2"
 )
 
 var (
@@ -27,25 +29,18 @@ func FormatMap(m map[string]string) (fmtStr string) {
 }
 
 func main() {
-	annotations := FormatMap(map[string]string{
-		"conjur.org/conjur-secrets.cache": `- dev/redis/api-url
-- admin-username: dev/redis/username
-- admin-password: dev/redis/password
-`,
-		"conjur.org/secret-file-path.cache": "./testdata/redis.json",
-		"conjur.org/secret-file-format.cache": "json",
-		"conjur.org/conjur-secrets.db": `- url
-- password
-- username
-`,
-		"conjur.org/conjur-secrets-policy-path.db": `dev/database`,
-		"conjur.org/secret-file-path.db": "./testdata/db.js",
-		"conjur.org/secret-file-template.db": `
-export const url={{ printf "%q" (secret "password") }}
-export const username={{ printf "%q" (secret "password") }}
-export const password={{ printf "%q" (secret "password") }}
-`,
-	})
+	contents, err := ioutil.ReadFile("./annotations.yml")
+	if err != nil {
+		panic(err)
+	}
+
+	var annotationsMap map[string]string
+	err = yaml.Unmarshal(contents, &annotationsMap)
+	if err != nil {
+		panic(err)
+	}
+
+	annotations := FormatMap(annotationsMap)
 
 	annotationsFilePath, _ := filepath.Rel(workingdir, filepath.Join(basepath, "./annotations.txt"))
 	fmt.Println("Generating " + annotationsFilePath)

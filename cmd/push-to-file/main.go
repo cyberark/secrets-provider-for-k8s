@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"os"
 
@@ -11,9 +12,14 @@ import (
 )
 
 func main() {
+	var annotationFilePath string
+	flag.StringVar(&annotationFilePath, "f", "", "path to annotation file")
+
+	flag.Parse()
+
 	// Parse annotations from downward API
 	log.Info("Parse annotations from downward API")
-	annotations, err := annotations.NewAnnotationsFromFile("./testdata/annotations.txt")
+	annotations, err := annotations.NewAnnotationsFromFile(annotationFilePath)
 	if err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
