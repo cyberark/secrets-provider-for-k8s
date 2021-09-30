@@ -14,6 +14,9 @@ const (
 	secretFilePathPrefix          = "conjur.org/secret-file-path."
 	secretFileFormatPrefix        = "conjur.org/secret-file-format."
 	secretFileTemplatePrefix      = "conjur.org/secret-file-template."
+	configFileSrcPathPrefix       = "conjur.org/config-file-src-path."
+	configFileDestPathPrefix      = "conjur.org/config-file-dest-path."
+	configFileModsPrefix          = "conjur.org/config-file-modifications."
 
 	defaultFilePerms os.FileMode = 0777
 )
@@ -25,6 +28,9 @@ type SecretGroup struct {
 	FilePath               string
 	FileTemplate           string
 	ConjurSecretPathPrefix string
+	ConfigFileSrcPath      string
+	ConfigFileDestPath     string
+	ConfigFileMods         string
 	SecretSpecs            []SecretSpec
 	FileFormat             string
 	FilePerms              os.FileMode
@@ -42,6 +48,9 @@ func NewSecretGroupsFromAnnotations(annotations map[string]string) (SecretGroups
 			conjurSecretPathPrefix := annotations[conjurSecretsPolicyPathPrefix+groupName]
 			filePath := annotations[secretFilePathPrefix+groupName]
 			fileTemplate := annotations[secretFileTemplatePrefix+groupName]
+			configFileSrcPath := annotations[configFileSrcPathPrefix+groupName]
+			configFileDestPath := annotations[configFileDestPathPrefix+groupName]
+			configFileMods := annotations[configFileModsPrefix+groupName]
 
 			fileFormat, err := parseFileFormat(annotations[secretFileFormatPrefix+groupName])
 			if err != nil {
@@ -57,6 +66,9 @@ func NewSecretGroupsFromAnnotations(annotations map[string]string) (SecretGroups
 				Label:                  groupName,
 				FilePath:               filePath,
 				FileTemplate:           fileTemplate,
+				ConfigFileSrcPath:      configFileSrcPath,
+				ConfigFileDestPath:     configFileDestPath,
+				ConfigFileMods:         configFileMods,
 				ConjurSecretPathPrefix: conjurSecretPathPrefix,
 				SecretSpecs:            secrets,
 				FileFormat:             fileFormat,

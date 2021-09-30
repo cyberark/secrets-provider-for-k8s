@@ -1,0 +1,18 @@
+spec:
+  template:
+    metadata:
+      annotations:
+        conjur.org/conjur-secrets.payroll: |
+          - owner-name: prod/payroll/owner/name
+          - owner-org:  prod/payroll/owner/org
+          - db-server:  prod/payroll/db/server
+          - db-port:    prod/payroll/db/port
+        conjur.org/config-file-src-path.payroll: /run/payroll/payroll.ini
+        conjur.org/config-file-dest-path.payroll: /etc/payroll/payroll.ini
+        conjur.org/config-file-modifications.payroll: |
+          - s/last modified.*/last modified {{date}}/
+          - s/name=.*/name={{$owner-name}}/
+          - s/organization=.*/organization={{$owner-org}}/
+          - s/server=.*/server={{$db-server}}/
+          - s/port=.*/name={{$db-port}}/
+          - s/cert=.*/cert="{{$db-cert | b64dec}}"/

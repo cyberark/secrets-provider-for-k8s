@@ -15,6 +15,7 @@ import (
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/secrets"
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/annotations"
 	secretsConfigProvider "github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/config"
+	"github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/pushtofile"
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/utils"
 )
 
@@ -89,6 +90,23 @@ func main() {
 			log.Error(messages.CSPFK003E, err)
 		}
 		printErrorAndExit(messages.CSPFK039E)
+	}
+
+	secretsGroups, err := pushtofile.NewSecretGroupsFromAnnotations(annotationsMap)
+	if err != nil {
+		log.Error("***TEMP*** Error extracting secrets groups: %v", err)
+		os.Exit(1)
+	}
+	fmt.Printf("***TEMP*** Secrets Groups:\n%v\n", secretsGroups)
+
+	// Modify config files for each group as specified in Pod Annotations.
+	// NOTE: For now, just pass an empty map of secrets values, since
+	// those values will be mocked (for demo purposes) until support for
+	// retrieving secrets from Conjur is implemented.
+	err = pushtofile.ModifyConfigFiles(secretsGroups, map[string]string{})
+	if err != nil {
+		log.Error("***TEMP*** Error modifying config files: %v", err)
+		os.Exit(1)
 	}
 }
 
