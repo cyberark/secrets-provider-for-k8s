@@ -4,8 +4,6 @@ import (
 	"io"
 	"os"
 	"text/template"
-
-	"gopkg.in/yaml.v3"
 )
 
 // templateData describes the form in which data is presented to push-to-file templates
@@ -62,14 +60,14 @@ func pushToWriter(
 			panic("secret alias not present in specified secrets for group")
 		},
 		// toYaml marshals a given value to YAML
-		"toYaml": func(value interface{}) string {
-			d, err := yaml.Marshal(&value)
-			if err != nil {
-				panic(err)
-			}
-
-			return string(d)
-		},
+		//"toYaml": func(value interface{}) string {
+		//	d, err := yaml.Marshal(&value)
+		//	if err != nil {
+		//		panic(err)
+		//	}
+		//
+		//	return string(d)
+		//},
 	}).Parse(groupTemplate)
 	if err != nil {
 		return err

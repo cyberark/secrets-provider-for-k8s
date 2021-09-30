@@ -14,6 +14,19 @@ type pushToWriterTestCase struct {
 	assert      func (*testing.T, string, error)
 }
 
+func (tc pushToWriterTestCase) Run(t *testing.T) {
+	t.Run(tc.description, func(t *testing.T) {
+		buf := new(bytes.Buffer)
+		err := pushToWriter(
+			buf,
+			"group path",
+			tc.template,
+			tc.secrets,
+		)
+		tc.assert(t, buf.String(), err)
+	})
+}
+
 func assertGoodOutput(expected string) func (*testing.T, string, error) {
 	return func(t *testing.T, actual string, err error) {
 		if !assert.NoError(t, err) {
@@ -48,16 +61,7 @@ var writeToFileTestCases = []pushToWriterTestCase{
 
 func Test_pushToWriter(t *testing.T) {
 	for _, tc := range writeToFileTestCases {
-		t.Run(tc.description, func(t *testing.T) {
-			buf := new(bytes.Buffer)
-			err := pushToWriter(
-				buf,
-				"group path",
-				tc.template,
-				tc.secrets,
-			)
-			tc.assert(t, buf.String(), err)
-		})
+		tc.Run(t)
 	}
 }
 

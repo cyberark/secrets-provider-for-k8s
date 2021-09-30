@@ -31,6 +31,10 @@ type SecretGroup struct {
 }
 
 func (s *SecretGroup) ResolvedSecretSpecs() []SecretSpec {
+	if len(s.PolicyPathPrefix) == 0 {
+		return s.SecretSpecs
+	}
+
 	specs := make([]SecretSpec, len(s.SecretSpecs))
 	copy(specs, s.SecretSpecs)
 
@@ -54,16 +58,23 @@ func (s *SecretGroup) pushToFileWithDeps(
 	pushToWriter toWriterPusher,
 	openWriteCloser toWriteCloserOpener,
 	secrets []*Secret) error {
+	//// Validations
+
+	// At least one secret must be set ?
 	if len(secrets) == 0 {
 		return fmt.Errorf("%s", "list of resolved secrets on group is empty")
 	}
 
+	// One of file format or file template must be set
 	if len(s.FileTemplate)+len(s.FileFormat) == 0 {
 		return fmt.Errorf("%s", `missing one of "file template" or "file format" for group`)
 	}
 
 	fileTemplate := s.FileTemplate
 
+	// fileTemplate is only modified when
+	// 1. fileTemplate is not set. fileTemplate takes precedence
+	// 2. fileFormat is set
 	if len(fileTemplate) == 0 && len(s.FileFormat) > 0 {
 		stdTemplate, ok := standardTemplates[s.FileFormat]
 		if !ok {
@@ -80,6 +91,7 @@ func (s *SecretGroup) pushToFileWithDeps(
 		fileTemplate = stdTemplate.Template
 	}
 
+	//// Open and push to file
 	wc, err := openWriteCloser(s.FilePath, s.FilePermissions)
 	if err != nil {
 		return err
@@ -107,6 +119,11 @@ func NewSecretGroups(annotations map[string]string) ([]*SecretGroup, []error) {
 			secretSpecs, err := NewSecretSpecs([]byte(v))
 			if err != nil {
 				// Accumulate errors
+				err = fmt.Errorf(
+					`cannot create secret specs from annotation "%s": %s`,
+						k,
+						err,
+					)
 				errors = append(errors, err)
 				continue
 			}

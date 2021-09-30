@@ -1,17 +1,80 @@
 package push_to_file
 
 import (
-	"bytes"
 	"fmt"
-	"io"
+	"io/ioutil"
 	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 )
 
+type pushToFileWithDepsTestCase struct {
+	description            string
+	group                  SecretGroup
+	secrets                []*Secret
+	toWriterPusherErr      error
+	toWriteCloserOpenerErr error
+	assert                 func(t *testing.T, spyOpen toWriteCloserOpenerSpy, closableBuf *ClosableBuffer, spyPush toWriterPusherSpy, err error)
+}
+
+func (tc *pushToFileWithDepsTestCase) Run(t *testing.T) {
+	t.Run(tc.description, func(t *testing.T) {
+		// Input
+		group := tc.group
+
+		// Setup mocks
+		closableBuf := new(ClosableBuffer)
+		spyPushToWriter := toWriterPusherSpy{
+			err: tc.toWriterPusherErr,
+		}
+		spyOpenWriteCloser := toWriteCloserOpenerSpy{
+			writeCloser: closableBuf,
+			err:         tc.toWriteCloserOpenerErr,
+		}
+
+		// Exercise
+		err := group.pushToFileWithDeps(
+			spyPushToWriter.Call,
+			spyOpenWriteCloser.Call,
+			tc.secrets)
+
+		tc.assert(t, spyOpenWriteCloser, closableBuf, spyPushToWriter, err)
+	})
+}
+
+func modifyGoodGroup(modifiers ...func(SecretGroup) SecretGroup) SecretGroup {
+	group := SecretGroup{
+		Name:            "groupname",
+		FilePath:        "path/to/file",
+		FileTemplate:    "filetemplate",
+		FileFormat:      "yaml",
+		FilePermissions: 123,
+		SecretSpecs:     nil,
+	}
+
+	for _, modifier := range modifiers {
+		group = modifier(group)
+	}
+
+	return group
+}
+
+func goodSecrets() []*Secret {
+	return []*Secret{
+		{
+			Alias: "alias1",
+			Value: "value1",
+		},
+		{
+			Alias: "alias2",
+			Value: "value2",
+		},
+	}
+}
+
 func TestNewSecretGroups(t *testing.T) {
-	t.Run("normal test", func(t *testing.T) {
+	t.Run("valid annotations", func(t *testing.T) {
 		secretGroups, errs := NewSecretGroups(map[string]string{
 			"conjur.org/conjur-secrets.first": `- path/to/secret/first1
 - aliasfirst2: path/to/secret/first2`,
@@ -58,120 +121,28 @@ func TestNewSecretGroups(t *testing.T) {
 		})
 
 	})
-}
 
-type ClosableBuffer struct {
-	bytes.Buffer
-	CloseErr error
-}
+	t.Run("invalid secret specs annotation", func(t *testing.T) {
+		_, errs := NewSecretGroups(map[string]string{
+			"conjur.org/conjur-secrets.first": `gibberish`,
+			"conjur.org/secret-file-path.first":      "firstfilepath",
+			"conjur.org/secret-file-template.first":  `firstfiletemplate`,
+			"conjur.org/conjur-secrets.second":       "- path/to/secret/second",
+			"conjur.org/secret-file-path.second":     "secondfilepath",
+			"conjur.org/secret-file-template.second": `secondfiletemplate`,
+		})
 
-func (c ClosableBuffer) Close() error { return c.CloseErr }
-
-type toWriterPusherArgs struct {
-	writer        io.Writer
-	groupName     string
-	groupTemplate string
-	groupSecrets  []*Secret
-}
-
-type toWriterPusherSpy struct {
-	args   toWriterPusherArgs
-	err    error
-	_calls int
-}
-
-func (spy *toWriterPusherSpy) Call(
-	writer io.Writer,
-	groupName string,
-	groupTemplate string,
-	groupSecrets []*Secret,
-) error {
-	spy._calls++
-	if spy._calls > 1 {
-		panic("spy called more than once")
-	}
-
-	spy.args = toWriterPusherArgs{
-		writer:        writer,
-		groupName:     groupName,
-		groupTemplate: groupTemplate,
-		groupSecrets:  groupSecrets,
-	}
-
-	return spy.err
-}
-
-type toWriteCloserOpenerArgs struct {
-	path        string
-	permissions os.FileMode
-}
-
-type toWriteCloserOpenerSpy struct {
-	args        toWriteCloserOpenerArgs
-	writeCloser io.WriteCloser
-	err         error
-	_calls      int
-}
-
-func (spy *toWriteCloserOpenerSpy) Call(path string, permissions os.FileMode) (io.WriteCloser, error) {
-	spy._calls++
-	if spy._calls > 1 {
-		panic("spy called more than once")
-	}
-
-	spy.args = toWriteCloserOpenerArgs{
-		path:        path,
-		permissions: permissions,
-	}
-
-	return spy.writeCloser, spy.err
-}
-
-type pushToFileWithDepsTestCase struct {
-	description string
-	group       SecretGroup
-	secrets     []*Secret
-	assert      func(t *testing.T, spyOpen toWriteCloserOpenerSpy, closableBuf *ClosableBuffer, spyPush toWriterPusherSpy, err error)
-}
-
-func (tc *pushToFileWithDepsTestCase) Run(t *testing.T) {
-	t.Run(tc.description, func(t *testing.T) {
-		// Input
-		group := tc.group
-
-		// Setup mocks
-		closableBuf := new(ClosableBuffer)
-		spyPushToWriter := toWriterPusherSpy{}
-		spyOpenWriteCloser := toWriteCloserOpenerSpy{
-			writeCloser: closableBuf,
-		}
-
-		// Exercise
-		err := group.pushToFileWithDeps(
-			spyPushToWriter.Call,
-			spyOpenWriteCloser.Call,
-			tc.secrets)
-
-		tc.assert(t, spyOpenWriteCloser, closableBuf, spyPushToWriter, err)
+		assert.Len(t, errs, 1)
+		assert.Contains(t, errs[0].Error(), `cannot create secret specs from annotation "conjur.org/conjur-secrets.first"`)
+		assert.Contains(t, errs[0].Error(), "cannot unmarshall to list of secret specs")
 	})
 }
 
 var pushToFileWithDepsTestCases = []pushToFileWithDepsTestCase{
 	{
 		description: "happy path",
-		group: SecretGroup{
-			Name:            "group path",
-			FilePath:        "path/to/file",
-			FileTemplate:    "{ xyz }",
-			FileFormat:      "json",
-			FilePermissions: 123,
-		},
-		secrets: []*Secret{
-			{
-				Alias: "alias1",
-				Value: "value1",
-			},
-		},
+		group:       modifyGoodGroup(),
+		secrets:     goodSecrets(),
 		assert: func(
 			t *testing.T,
 			spyOpen toWriteCloserOpenerSpy,
@@ -182,13 +153,17 @@ var pushToFileWithDepsTestCases = []pushToFileWithDepsTestCase{
 			// Assertions
 			assert.NoError(t, err)
 			// Assert on toWriterPusher
-			assert.Equal(t, spyPush.args.groupName, "group path")
+			assert.Equal(t, spyPush.args.groupName, "groupname")
 			assert.Equal(t, spyPush.args.writer, closableBuf)
-			assert.Equal(t, spyPush.args.groupTemplate, `{ xyz }`)
+			assert.Equal(t, spyPush.args.groupTemplate, `filetemplate`)
 			assert.Equal(t, spyPush.args.groupSecrets, []*Secret{
 				{
 					Alias: "alias1",
 					Value: "value1",
+				},
+				{
+					Alias: "alias2",
+					Value: "value2",
 				},
 			})
 			// Assert on WriteCloserOpener
@@ -198,19 +173,13 @@ var pushToFileWithDepsTestCases = []pushToFileWithDepsTestCase{
 	},
 	{
 		description: "missing format or template",
-		group: SecretGroup{
-			Name:            "group path",
-			FilePath:        "path/to/file",
-			FileTemplate:    "",
-			FileFormat:      "",
-			FilePermissions: 123,
-		},
-		secrets: []*Secret{
-			{
-				Alias: "alias1",
-				Value: "value1",
-			},
-		},
+		group: modifyGoodGroup(func(group SecretGroup) SecretGroup {
+			group.FileTemplate = ""
+			group.FileFormat = ""
+
+			return group
+		}),
+		secrets: goodSecrets(),
 		assert: func(
 			t *testing.T,
 			spyOpen toWriteCloserOpenerSpy,
@@ -224,16 +193,9 @@ var pushToFileWithDepsTestCases = []pushToFileWithDepsTestCase{
 		},
 	},
 	{
-		description: "0 secrets",
-		group: SecretGroup{
-			Name:            "group path",
-			FilePath:        "path/to/file",
-			FileTemplate:    "x",
-			FileFormat:      "",
-			FilePermissions: 123,
-			SecretSpecs:     nil,
-		},
-		secrets: nil,
+		description: "secrets list is empty",
+		group:       modifyGoodGroup(),
+		secrets:     nil,
 		assert: func(
 			t *testing.T,
 			spyOpen toWriteCloserOpenerSpy,
@@ -246,6 +208,29 @@ var pushToFileWithDepsTestCases = []pushToFileWithDepsTestCase{
 				return
 			}
 			assert.Contains(t, err.Error(), `empty`)
+		},
+	},
+	{
+		description: "file template precedence",
+		group: modifyGoodGroup(func(group SecretGroup) SecretGroup {
+			group.FileTemplate = "setfiletemplate"
+			group.FileFormat = "setfileformat"
+
+			return group
+		}),
+		secrets: goodSecrets(),
+		assert: func(
+			t *testing.T,
+			spyOpen toWriteCloserOpenerSpy,
+			closableBuf *ClosableBuffer,
+			spyPush toWriterPusherSpy,
+			err error,
+		) {
+			// Assertions
+			if !assert.NoError(t, err) {
+				return
+			}
+			assert.Equal(t, spyPush.args.groupTemplate, `setfiletemplate`)
 		},
 	},
 }
@@ -265,7 +250,7 @@ func TestSecretGroup_pushToFileWithDeps(t *testing.T) {
 				FileFormat:      format,
 				FilePermissions: 123,
 			},
-			secrets: []*Secret{{}},
+			secrets: goodSecrets(),
 			assert: func(
 				t *testing.T,
 				spyOpen toWriteCloserOpenerSpy,
@@ -283,4 +268,46 @@ func TestSecretGroup_pushToFileWithDeps(t *testing.T) {
 
 		tc.Run(t)
 	}
+}
+
+func TestSecretGroup_PushToFile(t *testing.T) {
+	// Create temp directory
+	dir, err := ioutil.TempDir("", "")
+	assert.NoError(t, err)
+	defer os.Remove(dir)
+	filePath := dir + "file."
+
+	// Create a group, and push to file
+	group := SecretGroup{
+		Name:            "groupname",
+		FilePath:        filePath,
+		FileTemplate:    "",
+		FileFormat:      "yaml",
+		FilePermissions: 0744,
+	}
+	err = group.PushToFile([]*Secret{
+		{
+			Alias: "alias1",
+			Value: "value1",
+		},
+		{
+			Alias: "alias2",
+			Value: "value2",
+		},
+	})
+	assert.NoError(t, err)
+
+	// Read file contents and metadata
+	contentBytes, err := ioutil.ReadFile(filePath)
+	assert.NoError(t, err)
+	f, err := os.Stat(filePath)
+	assert.NoError(t, err)
+
+	// Assert on file contents and metadata
+	assert.EqualValues(t, f.Mode(), 0744)
+	assert.Equal(t,
+		`"alias1": "value1"
+"alias2": "value2"`,
+		string(contentBytes),
+	)
 }
