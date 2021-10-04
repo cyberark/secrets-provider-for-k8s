@@ -172,7 +172,7 @@ var pushToFileWithDepsTestCases = []pushToFileWithDepsTestCase{
 		},
 	},
 	{
-		description: "missing format or template",
+		description: "missing file format or template",
 		group: modifyGoodGroup(func(group SecretGroup) SecretGroup {
 			group.FileTemplate = ""
 			group.FileFormat = ""
