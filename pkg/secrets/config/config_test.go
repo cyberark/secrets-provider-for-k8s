@@ -284,6 +284,15 @@ var validateSecretsProviderSettingsTestCases = []validateSecretsProviderSettings
 		assert: assertErrorInList(errors.New(messages.CSPFK048E)),
 	},
 	{
+		description: "if RequiredK8sSecrets is set to a null string in K8s Secrets mode, an error is returned",
+		envAndAnnots: map[string]string{
+			"MY_POD_NAMESPACE":    "test-namespace",
+			"SECRETS_DESTINATION": "k8s_secrets",
+			"K8S_SECRETS":         "",
+		},
+		assert: assertErrorInList(errors.New(messages.CSPFK048E)),
+	},
+	{
 		description: "if envVar 'SECRETS_DESTINATION' is malformed in the absence of annotation 'conjur.org/secrets-destination', an error is returned",
 		envAndAnnots: map[string]string{
 			"MY_POD_NAMESPACE":    "test-namespace",
