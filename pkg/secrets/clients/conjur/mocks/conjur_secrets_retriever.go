@@ -53,3 +53,11 @@ func NewConjurMockClient() ConjurMockClient {
 	}
 }
 
+func (c ConjurMockClient) AddSecret(
+        secretName string,
+        secret     string,
+) {
+
+        c.Database[secretName] = secret
+}
+
