@@ -41,6 +41,7 @@ func main() {
 
 	log.Info(messages.CSPFK008I, secrets.FullVersionName)
 
+	// Only attempt to populate from annotations if the annotations file exists
 	if _, err := os.Stat(annotationsFile); err == nil {
 		annotationsMap, err = annotations.NewAnnotationsFromFile(annotationsFile)
 		if err != nil {
