@@ -31,14 +31,11 @@ func mockFileOpenerGenerator(store map[string]io.ReadCloser) fileOpener {
 func TestNewAnnotationsFromFile(t *testing.T) {
 	// Create a mock 'fileOpener' that supports reading of a sample valid
 	// annotations file.
-	validFilePath := "/podinfo/annotations"
 	content := `conjur.org/conjur-secrets.test="- test-password: test/password\n"`
 	mockOpener := mockFileOpenerGenerator(
 		map[string]io.ReadCloser{
-			validFilePath: mockReadCloser(content),
+			"/podinfo/existent-file": mockReadCloser(content),
 		})
-
-	nonexistentFilePath := "/podinfo/nonexistent-file"
 
 	// Define test cases
 	testCases := []struct {
@@ -48,12 +45,12 @@ func TestNewAnnotationsFromFile(t *testing.T) {
 	}{
 		{
 			description: "Valid annotations file",
-			filePath:    validFilePath,
+			filePath:    "/podinfo/existent-file",
 			expError:    "",
 		}, {
 			description: "Nonexistent annotations file",
-			filePath:    nonexistentFilePath,
-			expError:    "Failed to open annotations file",
+			filePath:    "/podinfo/nonexistent-file",
+			expError:    "file not found",
 		},
 	}
 
