@@ -25,7 +25,9 @@ var standardTemplates = map[string]StandardTemplate{
 	"bash": { Template: bashTemplate },
 }
 
-func StandardFileTemplate(
+// FileTemplateForFormat returns the template for a file format, after ensuring the
+// standard template exists and validating secret spec aliases against it
+func FileTemplateForFormat(
 	fileFormat string,
 	secretSpecs []SecretSpec,
 ) (string, error) {

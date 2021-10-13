@@ -68,7 +68,7 @@ func (s *SecretGroup) pushToFileWithDeps(
 	// 1. File template
 	// 2. File format
 	// 3. Secret specs (user to validate file template)
-	fileTemplate, err := determineFileTemplate(
+	fileTemplate, err := maybeFileTemplateFromFormat(
 		s.FileTemplate,
 		s.FileFormat,
 		s.SecretSpecs,
@@ -129,7 +129,7 @@ func validateSecretsAgainstSpecs(
 	return nil
 }
 
-func determineFileTemplate(
+func maybeFileTemplateFromFormat(
 	fileTemplate string,
 	fileFormat string,
 	secretSpecs []SecretSpec,
@@ -145,7 +145,7 @@ func determineFileTemplate(
 	if len(fileTemplate) == 0 && len(fileFormat) > 0 {
 		var err error
 
-		fileTemplate, err = StandardFileTemplate(
+		fileTemplate, err = FileTemplateForFormat(
 			fileFormat,
 			secretSpecs,
 		)
@@ -183,7 +183,7 @@ func NewSecretGroups(annotations map[string]string) ([]*SecretGroup, []error) {
 			policyPathPrefix := annotations[secretGroupPolicyPathPrefix+groupName]
 
 			if len(fileFormat) > 0 {
-				_, err := StandardFileTemplate(fileFormat, secretSpecs)
+				_, err := FileTemplateForFormat(fileFormat, secretSpecs)
 				if err != nil {
 					// Accumulate errors
 					err = fmt.Errorf(
