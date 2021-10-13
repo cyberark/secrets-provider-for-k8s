@@ -104,7 +104,7 @@ func setupAuthnConfig() *authnConfigProvider.Config {
 	customEnv := func(key string) string {
 		if annotation, ok := envAnnotationsConversion[key]; ok {
 			if value := annotationsMap[annotation]; value != "" {
-				log.Info(messages.CSPFK014I, key, fmt.Sprintf("annotation '%s'", annotation))
+				log.Info(messages.CSPFK014I, key, fmt.Sprintf("annotation %s", annotation))
 				return value
 			}
 
