@@ -102,14 +102,35 @@ pipeline {
             ccCoverage("gocov", "--prefix github.com/cyberark/secrets-provider-for-k8s")
           }
         }
-
-        stage ("Run Integration Tests on DAP") {
+        
+        
+        stage ("DAP Integration Tests on GKE") {
           steps {
             script {
               def tasks = [:]
               tasks["Kubernetes GKE, DAP"] = {
                 sh "./bin/start --docker --dap --gke"
               }
+              parallel tasks
+            }
+          }
+        }
+
+        stage ("DAP Integration Tests on OpenShift") {
+          when {
+            // Run integration tests against OpenShift only on the main branch
+            //
+            // There's been a lot of flakiness around OpenShift, which has the negative effect of impeding developer velocity.
+            // Generally speaking the integration tests for this repository interact with the generic Kubernetes API, for
+            // scheduling and giving identity to workloads. There is no platform-specifc functionality within the secrets provider.
+            // We can reasonably assume that if a branch is green in GKE then it will likely be green for OpenShift.
+            // With that in mind, for now we have chosen to run Openshift integration tests only on the main branch while we figure
+            // out a better way to address the flakiness.
+            branch 'main'
+          }
+          steps {
+            script {
+              def tasks = [:]
               tasks["Openshift v3.11, DAP"] = {
                   sh "./bin/start --docker --dap --oc311"
               }
@@ -134,7 +155,7 @@ pipeline {
         // We want to avoid running in parallel.
         // When we have 2 build running on the same environment (gke env only) in parallel,
         // we get the error "gcloud crashed : database is locked"
-        stage ("Run Integration Tests on oss") {
+        stage ("OSS Integration Tests on GKE") {
           steps {
             script {
               def tasks = [:]
