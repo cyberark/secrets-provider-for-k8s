@@ -1,5 +1,7 @@
 package push_to_file
 
+import "fmt"
+
 type StandardTemplate struct {
 	Template string
 	FileFormat string
@@ -21,4 +23,27 @@ var standardTemplates = map[string]StandardTemplate{
 	"json": { Template: jsonTemplate },
 	"dotenv": { Template: dotenvTemplate },
 	"bash": { Template: bashTemplate },
+}
+
+func StandardFileTemplate(
+	fileFormat string,
+	secretSpecs []SecretSpec,
+) (string, error) {
+	stdTemplate, ok := standardTemplates[fileFormat]
+	if !ok {
+		return "", fmt.Errorf(`unrecognized standard file format, "%s"`, fileFormat)
+	}
+
+	for _, s := range secretSpecs {
+		err := stdTemplate.ValidateAlias(s.Alias)
+		if err != nil {
+			return "", fmt.Errorf(
+				"alias %q failed standard file format validation: %s",
+				s.Alias,
+				err,
+			)
+		}
+	}
+
+	return stdTemplate.Template, nil
 }
