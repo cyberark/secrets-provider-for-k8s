@@ -23,40 +23,48 @@ const invalidSecretSpecErr = `expected a "string (path)" or "single entry map of
 func (t *SecretSpec) UnmarshalYAML(node *yaml.Node) error {
 	switch node.Kind {
 	case yaml.ScalarNode:
-		var literalValue string
-		err := node.Decode(&literalValue)
-
-		// Scalar node but not a string
-		if err != nil {
-			return fmt.Errorf(invalidSecretSpecErr, node.Line)
-		}
-
-		t.Path = literalValue
-		t.Alias = literalValue[strings.LastIndex(literalValue, "/")+1:]
-		return nil
+		return t.unmarshalFromLiteralString(node)
 	case yaml.MappingNode:
-		var mapValue map[string]string
-
-		err := node.Decode(&mapValue)
-		// Mapping node but not string to string
-		if err != nil {
-			return fmt.Errorf(invalidSecretSpecErr, node.Line)
-		}
-
-		// Mapping node but has multiple entries
-		if len(mapValue) != 1 {
-			return fmt.Errorf(invalidSecretSpecErr, node.Line)
-		}
-
-		for k, v := range mapValue {
-			t.Path = v
-			t.Alias = k
-		}
-
-		return nil
+		return t.unmarshalFromMap(node)
 	}
 
 	return fmt.Errorf(invalidSecretSpecErr, node.Line)
+}
+
+func (t *SecretSpec) unmarshalFromLiteralString(node *yaml.Node) error {
+	var literalValue string
+	err := node.Decode(&literalValue)
+
+	// Scalar node but not a string
+	if err != nil {
+		return fmt.Errorf(invalidSecretSpecErr, node.Line)
+	}
+
+	t.Path = literalValue
+	t.Alias = literalValue[strings.LastIndex(literalValue, "/")+1:]
+	return nil
+}
+
+func (t *SecretSpec) unmarshalFromMap(node *yaml.Node) error {
+	var mapValue map[string]string
+
+	err := node.Decode(&mapValue)
+	// Mapping node but not string to string
+	if err != nil {
+		return fmt.Errorf(invalidSecretSpecErr, node.Line)
+	}
+
+	// Mapping node but has multiple entries
+	if len(mapValue) != 1 {
+		return fmt.Errorf(invalidSecretSpecErr, node.Line)
+	}
+
+	for k, v := range mapValue {
+		t.Path = v
+		t.Alias = k
+	}
+
+	return nil
 }
 
 func NewSecretSpecs(raw []byte) ([]SecretSpec, error) {
