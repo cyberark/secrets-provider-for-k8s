@@ -33,9 +33,14 @@ func main() {
 
 	validateContainerMode(authnConfig.ContainerMode)
 
-	annotationsMap, err := annotations.NewAnnotationsFromFile(annotationsFile)
-	if err != nil {
-		printErrorAndExit(messages.CSPFK040E)
+
+	annotationsMap := map[string]string{}
+	// Only attempt to populate from annotations if the annotations file exists
+	if _, err := os.Stat(annotationsFile); err == nil {
+		annotationsMap, err = annotations.NewAnnotationsFromFile(annotationsFile)
+		if err != nil {
+			printErrorAndExit(messages.CSPFK040E)
+		}
 	}
 
 	errLogs, infoLogs := secretsConfigProvider.ValidateAnnotations(annotationsMap)
