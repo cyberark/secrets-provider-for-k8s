@@ -58,37 +58,23 @@ func (s *SecretGroup) pushToFileWithDeps(
 	pushToWriter toWriterPusher,
 	openWriteCloser toWriteCloserOpener,
 	secrets []*Secret) error {
-	//// Validations
-
-	// At least one secret must be set ?
-	if len(secrets) == 0 {
-		return fmt.Errorf("%s", "list of resolved secrets on group is empty")
+	// Make sure all the secret specs are accounted for
+	err := validateSecretsAgainstSpecs(secrets, s.SecretSpecs)
+	if err != nil {
+		return err
 	}
 
-	// One of file format or file template must be set
-	if len(s.FileTemplate)+len(s.FileFormat) == 0 {
-		return fmt.Errorf("%s", `missing one of "file template" or "file format" for group`)
-	}
-
-	fileTemplate := s.FileTemplate
-
-	// fileTemplate is only modified when
-	// 1. fileTemplate is not set. fileTemplate takes precedence
-	// 2. fileFormat is set
-	if len(fileTemplate) == 0 && len(s.FileFormat) > 0 {
-		stdTemplate, ok := standardTemplates[s.FileFormat]
-		if !ok {
-			return fmt.Errorf(`unrecognized file format provided, "%s"`, s.FileFormat)
-		}
-
-		for _, s := range secrets {
-			err := stdTemplate.ValidateAlias(s.Alias)
-			if err != nil {
-				return err
-			}
-		}
-
-		fileTemplate = stdTemplate.Template
+	// Determine file template from
+	// 1. File template
+	// 2. File format
+	// 3. Secret specs (user to validate file template)
+	fileTemplate, err := determineFileTemplate(
+		s.FileTemplate,
+		s.FileFormat,
+		s.SecretSpecs,
+	)
+	if err != nil {
+		return err
 	}
 
 	//// Open and push to file
@@ -106,6 +92,69 @@ func (s *SecretGroup) pushToFileWithDeps(
 		fileTemplate,
 		secrets,
 	)
+}
+
+func validateSecretsAgainstSpecs(
+	secrets []*Secret,
+	specs []SecretSpec,
+) error {
+	if len(secrets) != len(specs) {
+		return fmt.Errorf(
+			"number of secrets (%d) does not match number of secret specs (%d)",
+			len(secrets),
+			len(specs),
+		)
+	}
+
+	// Secrets should match SecretSpecs
+	var aliasInSecrets = map[string]struct{}{}
+	for _, secret := range secrets {
+		aliasInSecrets[secret.Alias] = struct{}{}
+	}
+
+	var missingAliases []string
+	for _, spec := range specs {
+		if _, ok := aliasInSecrets[spec.Alias]; !ok {
+			missingAliases = append(missingAliases, spec.Alias)
+		}
+	}
+
+	// Sort strings to ensure deterministic behavior of the method
+	sort.Strings(missingAliases)
+
+	if len(missingAliases) > 0 {
+		return fmt.Errorf("some secret specs are not present in secrets %q", strings.Join(missingAliases, ""))
+	}
+
+	return nil
+}
+
+func determineFileTemplate(
+	fileTemplate string,
+	fileFormat string,
+	secretSpecs []SecretSpec,
+) (string, error) {
+	// One of file format or file template must be set
+	if len(fileTemplate)+len(fileFormat) == 0 {
+		return "", fmt.Errorf("%s", `missing one of "file template" or "file format" for group`)
+	}
+
+	// fileTemplate is only modified when
+	// 1. fileTemplate is not set. fileTemplate takes precedence
+	// 2. fileFormat is set
+	if len(fileTemplate) == 0 && len(fileFormat) > 0 {
+		var err error
+
+		fileTemplate, err = StandardFileTemplate(
+			fileFormat,
+			secretSpecs,
+		)
+		if err != nil {
+			return "", err
+		}
+	}
+
+	return fileTemplate, nil
 }
 
 // NewSecretGroups creates a collection of secret groups from a map of annotations
@@ -132,6 +181,20 @@ func NewSecretGroups(annotations map[string]string) ([]*SecretGroup, []error) {
 			filePath := annotations[secretGroupFilePathPrefix+groupName]
 			fileFormat := annotations[secretGroupFileFormatPrefix+groupName]
 			policyPathPrefix := annotations[secretGroupPolicyPathPrefix+groupName]
+
+			if len(fileFormat) > 0 {
+				_, err := StandardFileTemplate(fileFormat, secretSpecs)
+				if err != nil {
+					// Accumulate errors
+					err = fmt.Errorf(
+						`unable to process file format annotation %q for group: %s`,
+						fileFormat,
+						err,
+					)
+					errors = append(errors, err)
+					continue
+				}
+			}
 
 			sgs = append(sgs, &SecretGroup{
 				Name:            groupName,

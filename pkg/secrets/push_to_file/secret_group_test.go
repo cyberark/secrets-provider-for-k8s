@@ -12,7 +12,7 @@ import (
 type pushToFileWithDepsTestCase struct {
 	description            string
 	group                  SecretGroup
-	secrets                []*Secret
+	overrideSecrets        []*Secret // Overrides secrets generated from group secret specs
 	toWriterPusherErr      error
 	toWriteCloserOpenerErr error
 	assert                 func(t *testing.T, spyOpen toWriteCloserOpenerSpy, closableBuf *ClosableBuffer, spyPush toWriterPusherSpy, err error)
@@ -33,11 +33,25 @@ func (tc *pushToFileWithDepsTestCase) Run(t *testing.T) {
 			err:         tc.toWriteCloserOpenerErr,
 		}
 
+		// Use secrets from group or override
+		var secrets []*Secret
+		if tc.overrideSecrets != nil {
+			secrets = tc.overrideSecrets
+		} else {
+			secrets = make([]*Secret, len(group.SecretSpecs))
+			for i, spec := range group.SecretSpecs {
+				secrets[i] = &Secret{
+					Alias: spec.Alias,
+					Value: "value-" + spec.Path,
+				}
+			}
+		}
+
 		// Exercise
 		err := group.pushToFileWithDeps(
 			spyPushToWriter.Call,
 			spyOpenWriteCloser.Call,
-			tc.secrets)
+			secrets)
 
 		tc.assert(t, spyOpenWriteCloser, closableBuf, spyPushToWriter, err)
 	})
@@ -50,7 +64,7 @@ func modifyGoodGroup(modifiers ...func(SecretGroup) SecretGroup) SecretGroup {
 		FileTemplate:    "filetemplate",
 		FileFormat:      "yaml",
 		FilePermissions: 123,
-		SecretSpecs:     nil,
+		SecretSpecs:     goodSecretSpecs(),
 	}
 
 	for _, modifier := range modifiers {
@@ -60,15 +74,15 @@ func modifyGoodGroup(modifiers ...func(SecretGroup) SecretGroup) SecretGroup {
 	return group
 }
 
-func goodSecrets() []*Secret {
-	return []*Secret{
+func goodSecretSpecs() []SecretSpec {
+	return []SecretSpec{
 		{
 			Alias: "alias1",
-			Value: "value1",
+			Path: "path1",
 		},
 		{
 			Alias: "alias2",
-			Value: "value2",
+			Path: "path2",
 		},
 	}
 }
@@ -140,9 +154,9 @@ func TestNewSecretGroups(t *testing.T) {
 
 var pushToFileWithDepsTestCases = []pushToFileWithDepsTestCase{
 	{
-		description: "happy path",
-		group:       modifyGoodGroup(),
-		secrets:     goodSecrets(),
+		description:     "happy path",
+		group:           modifyGoodGroup(),
+		overrideSecrets: nil,
 		assert: func(
 			t *testing.T,
 			spyOpen toWriteCloserOpenerSpy,
@@ -153,17 +167,17 @@ var pushToFileWithDepsTestCases = []pushToFileWithDepsTestCase{
 			// Assertions
 			assert.NoError(t, err)
 			// Assert on toWriterPusher
-			assert.Equal(t, spyPush.args.groupName, "groupname")
-			assert.Equal(t, spyPush.args.writer, closableBuf)
-			assert.Equal(t, spyPush.args.groupTemplate, `filetemplate`)
+			assert.Equal(t, "groupname", spyPush.args.groupName, )
+			assert.Equal(t, closableBuf, spyPush.args.writer)
+			assert.Equal(t, "filetemplate", spyPush.args.groupTemplate)
 			assert.Equal(t, spyPush.args.groupSecrets, []*Secret{
 				{
 					Alias: "alias1",
-					Value: "value1",
+					Value: "value-path1",
 				},
 				{
 					Alias: "alias2",
-					Value: "value2",
+					Value: "value-path2",
 				},
 			})
 			// Assert on WriteCloserOpener
@@ -179,7 +193,7 @@ var pushToFileWithDepsTestCases = []pushToFileWithDepsTestCase{
 
 			return group
 		}),
-		secrets: goodSecrets(),
+		overrideSecrets: nil,
 		assert: func(
 			t *testing.T,
 			spyOpen toWriteCloserOpenerSpy,
@@ -193,9 +207,9 @@ var pushToFileWithDepsTestCases = []pushToFileWithDepsTestCase{
 		},
 	},
 	{
-		description: "secrets list is empty",
-		group:       modifyGoodGroup(),
-		secrets:     nil,
+		description:     "secrets list is empty",
+		group:           modifyGoodGroup(),
+		overrideSecrets: []*Secret{},
 		assert: func(
 			t *testing.T,
 			spyOpen toWriteCloserOpenerSpy,
@@ -207,7 +221,7 @@ var pushToFileWithDepsTestCases = []pushToFileWithDepsTestCase{
 			if !assert.Error(t, err) {
 				return
 			}
-			assert.Contains(t, err.Error(), `empty`)
+			assert.Contains(t, err.Error(), `number of secrets (0) does not match number of secret specs (2)`)
 		},
 	},
 	{
@@ -218,7 +232,7 @@ var pushToFileWithDepsTestCases = []pushToFileWithDepsTestCase{
 
 			return group
 		}),
-		secrets: goodSecrets(),
+		overrideSecrets: nil,
 		assert: func(
 			t *testing.T,
 			spyOpen toWriteCloserOpenerSpy,
@@ -243,14 +257,13 @@ func TestSecretGroup_pushToFileWithDeps(t *testing.T) {
 	for _, format := range []string{"json", "yaml", "bash", "dotenv"} {
 		tc := pushToFileWithDepsTestCase{
 			description: fmt.Sprintf("%s format", format),
-			group: SecretGroup{
-				Name:            "group path",
-				FilePath:        "path/to/file",
-				FileTemplate:    "",
-				FileFormat:      format,
-				FilePermissions: 123,
-			},
-			secrets: goodSecrets(),
+			group: modifyGoodGroup(func(group SecretGroup) SecretGroup {
+				group.FileTemplate = ""
+				group.FileFormat = format
+				fmt.Println(group.SecretSpecs)
+				return group
+			}),
+			overrideSecrets: nil,
 			assert: func(
 				t *testing.T,
 				spyOpen toWriteCloserOpenerSpy,
@@ -284,6 +297,16 @@ func TestSecretGroup_PushToFile(t *testing.T) {
 		FileTemplate:    "",
 		FileFormat:      "yaml",
 		FilePermissions: 0744,
+		SecretSpecs: []SecretSpec{
+			{
+				Alias: "alias1",
+				Path:  "path1",
+			},
+			{
+				Alias: "alias2",
+				Path:  "path2",
+			},
+		},
 	}
 	err = group.PushToFile([]*Secret{
 		{
