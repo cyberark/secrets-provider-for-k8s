@@ -168,7 +168,7 @@ var pushToFileWithDepsTestCases = []pushToFileWithDepsTestCase{
 		) {
 			// Assertions
 			assert.NoError(t, err)
-			// Assert on toWriterPusher
+			// Assert on pushToWriterFunc
 			assert.Equal(t, "groupname", spyPush.args.groupName, )
 			assert.Equal(t, closableBuf, spyPush.args.writer)
 			assert.Equal(t, "filetemplate", spyPush.args.groupTemplate)

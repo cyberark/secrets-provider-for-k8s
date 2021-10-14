@@ -9,6 +9,7 @@ import (
 
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/log/messages"
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/clients/conjur"
+	"github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/clients/k8s"
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/config"
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/k8s_secrets_storage"
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/push_to_file"
@@ -35,7 +36,7 @@ func RetriableSecretProvider(
 		}, limitedBackOff)
 
 		if err != nil {
-			log.Error(messages.CSPFK038E)
+			log.Error(messages.CSPFK038E, err)
 		}
 		return err
 	}
@@ -43,10 +44,21 @@ func RetriableSecretProvider(
 
 type ProviderFunc func(fetchSecrets conjur.FetchSecretsFunc) error
 
-func NewProviderForType(storeType string, settings map[string]string) (ProviderFunc, error) {
+func NewProviderForType(
+	// deps
+	retrievek8sSecret k8s.RetrieveK8sSecretFunc,
+	updatek8sSecret k8s.UpdateK8sSecretFunc,
+	// args
+	storeType string,
+	settings map[string]string,
+) (ProviderFunc, error) {
 	switch storeType {
 	case config.K8s:
-		return k8s_secrets_storage.NewProvider(settings).Provide, nil
+		return k8s_secrets_storage.NewProvider(
+			retrievek8sSecret,
+			updatek8sSecret,
+			settings,
+		).Provide, nil
 	case config.File:
 		provider, err := push_to_file.NewProvider(settings)
 		if err != nil {

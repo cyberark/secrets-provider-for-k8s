@@ -15,11 +15,11 @@ func FetchSecretsForGroups(
 	for _, group := range secretGroups {
 		specs := group.ResolvedSecretSpecs()
 		for _, spec := range specs {
-			if _, ok := uniqueSecretPaths[spec.Path]; !ok {
-				uniqueSecretPaths[spec.Path] = struct{}{}
+			if _, ok := uniqueSecretPaths[spec.Path]; ok {
 				continue
 			}
 
+			uniqueSecretPaths[spec.Path] = struct{}{}
 			secretPaths = append(secretPaths, spec.Path)
 		}
 	}

@@ -13,7 +13,7 @@ type ClosableBuffer struct {
 
 func (c ClosableBuffer) Close() error { return c.CloseErr }
 
-//// toWriterPusher
+//// pushToWriterFunc
 type toWriterPusherArgs struct {
 	writer        io.Writer
 	groupName     string
@@ -48,7 +48,7 @@ func (spy *toWriterPusherSpy) Call(
 	return spy.err
 }
 
-//// toWriteCloserOpener
+//// openWriteCloserFunc
 type toWriteCloserOpenerArgs struct {
 	path        string
 	permissions os.FileMode

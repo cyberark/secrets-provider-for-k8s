@@ -12,18 +12,18 @@ type templateData struct {
 	SecretsMap   map[string]*Secret
 }
 
-// toWriterPusher is the func definition for pushToWriter. It allows switching out pushToWriter
+// pushToWriterFunc is the func definition for pushToWriter. It allows switching out pushToWriter
 // for a mock implementation
-type toWriterPusher func(
+type pushToWriterFunc func(
 	writer io.Writer,
 	groupName string,
 	groupTemplate string,
 	groupSecrets []*Secret,
 ) error
 
-// toWriteCloserOpener is the func definition for openFileToWriterCloser. It allows switching
+// openWriteCloserFunc is the func definition for openFileToWriterCloser. It allows switching
 // out openFileToWriterCloser for a mock implementation
-type toWriteCloserOpener func(
+type openWriteCloserFunc func(
 	path string,
 	permissions os.FileMode,
 ) (io.WriteCloser, error)

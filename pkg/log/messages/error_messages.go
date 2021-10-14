@@ -54,8 +54,8 @@ const CSPFK036E string = "CSPFK036E Variable ID '%s' is not in the format '<acco
 const CSPFK037E string = "CSPFK037E Failed to parse DAP/Conjur variable IDs"
 
 // General
-const CSPFK038E string = "CSPFK038E Retransmission backoff exhausted"
-const CSPFK039E string = "CSPFK039E Secrets Provider failed to provide secrets to %s"
+const CSPFK038E string = "CSPFK038E Retransmission backoff exhausted: %s"
+const CSPFK039E string = "CSPFK039E Secrets Provider failed to provide secrets to %q"
 
 // Annotations
 const CSPFK040E string = "CSPFK040E Failed to parse annotations file"

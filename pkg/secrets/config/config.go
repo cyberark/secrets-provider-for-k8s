@@ -49,7 +49,6 @@ var secretsProviderAnnotations = map[string]annotationRestraints{
 	"conjur.org/authn-identity":      {TYPESTRING, []string{}},
 	"conjur.org/container-mode":      {TYPESTRING, []string{"init", "application"}},
 	"conjur.org/secrets-destination": {TYPESTRING, []string{"file", "k8s_secrets"}},
-	"conjur.org/k8s-secrets":         {TYPESTRING, []string{}},
 	"conjur.org/retry-count-limit":   {TYPEINT, []string{}},
 	"conjur.org/retry-interval-sec":  {TYPEINT, []string{}},
 	"conjur.org/debug-logging":       {TYPEBOOL, []string{}},

@@ -14,15 +14,6 @@ type RetrieveK8sSecretFunc func(namespace string, secretName string) (*v1.Secret
 type UpdateK8sSecretFunc func(namespace string, secretName string, originalK8sSecret *v1.Secret, stringDataEntriesMap map[string][]byte) error
 
 func RetrieveK8sSecret(namespace string, secretName string) (*v1.Secret, error) {
-	// TODO: dependency inject this at the entrypoint level ?
-	//	return &v1.Secret{
-	//		Data: map[string][]byte{
-	//			"conjur-map": []byte(`
-	//secret: account:variable:secrets/test_secret
-	//`),
-	//		},
-	//	}, nil
-
 	// get K8s client object
 	kubeClient, err := configK8sClient()
 	if err != nil {
@@ -41,17 +32,14 @@ func RetrieveK8sSecret(namespace string, secretName string) (*v1.Secret, error) 
 }
 
 func UpdateK8sSecret(namespace string, secretName string, originalK8sSecret *v1.Secret, stringDataEntriesMap map[string][]byte) error {
-	// TODO: dependency inject this at the entrypoint level ?
-	// return nil
-
 	// get K8s client object
 	kubeClient, err := configK8sClient()
 	if err != nil {
 		return err
 	}
 
-	for secretName, secretValue := range stringDataEntriesMap {
-		originalK8sSecret.Data[secretName] = secretValue
+	for sName, sVal := range stringDataEntriesMap {
+		originalK8sSecret.Data[sName] = sVal
 	}
 
 	log.Info(messages.CSPFK006I, secretName, namespace)

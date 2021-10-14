@@ -67,6 +67,11 @@ func newAnnotationsFromReader(annotationsFile io.Reader) (map[string]string, err
 
 	annotationsMap := make(map[string]string)
 	for lineNumber, line := range lines {
+		// Ignore lines made up of only space
+		if len(strings.TrimSpace(line)) == 0 {
+			continue
+		}
+
 		keyValuePair := strings.SplitN(line, "=", 2)
 		if len(keyValuePair) == 1 {
 			return nil, log.RecordedError(messages.CSPFK045E, lineNumber+1)

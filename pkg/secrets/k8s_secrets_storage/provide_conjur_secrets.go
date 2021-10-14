@@ -34,11 +34,17 @@ type K8sSecretsMap struct {
 
 // k8sProvider represents the provider for pushing secrets to Kubernetes
 type k8sProvider struct {
-	podNamespace string
+	retrievek8sSecret  k8s.RetrieveK8sSecretFunc
+	updatek8sSecret    k8s.UpdateK8sSecretFunc
+	podNamespace       string
 	requiredK8sSecrets []string
 }
 
-func NewProvider(settings map[string]string) k8sProvider  {
+func NewProvider(
+	retrievek8sSecret k8s.RetrieveK8sSecretFunc,
+	updatek8sSecret k8s.UpdateK8sSecretFunc,
+	settings map[string]string,
+) k8sProvider  {
 	podNamespace := settings["MY_POD_NAMESPACE"]
 
 	var k8sSecretsArr []string
@@ -57,6 +63,8 @@ func NewProvider(settings map[string]string) k8sProvider  {
 	}
 
 	return k8sProvider{
+		retrievek8sSecret:  retrievek8sSecret,
+		updatek8sSecret:    updatek8sSecret,
 		podNamespace:       podNamespace,
 		requiredK8sSecrets: k8sSecretsArr,
 	}
@@ -69,8 +77,8 @@ func NewProvider(settings map[string]string) k8sProvider  {
 */
 func (p k8sProvider) Provide(fetchSecrets conjur.FetchSecretsFunc) error {
 	return provideConjurSecretsToK8sSecrets(
-		k8s.RetrieveK8sSecret,
-		k8s.UpdateK8sSecret,
+		p.retrievek8sSecret,
+		p.updatek8sSecret,
 		p.podNamespace,
 		p.requiredK8sSecrets,
 		fetchSecrets,
@@ -206,14 +214,9 @@ func getVariableIDsToRetrieve(pathMap map[string][]string) ([]string, error) {
 }
 
 func updateK8sSecretsMapWithConjurSecrets(k8sSecretsMap *K8sSecretsMap, conjurSecrets map[string][]byte) error {
-	var err error
-
 	// Update K8s map by replacing variable IDs with their corresponding secret values
 	for variableId, secret := range conjurSecrets {
-		variableId, err = parseVariableID(variableId)
-		if err != nil {
-			return log.RecordedError(messages.CSPFK035E)
-		}
+		variableId = normaliseVariableId(variableId)
 
 		for _, locationInK8sSecretsMap := range k8sSecretsMap.PathMap[variableId] {
 			locationInK8sSecretsMap := strings.Split(locationInK8sSecretsMap, ":")
@@ -226,12 +229,14 @@ func updateK8sSecretsMapWithConjurSecrets(k8sSecretsMap *K8sSecretsMap, conjurSe
 	return nil
 }
 
-// The variable ID is in the format "<account>:variable:<variable_id>". we need only the last part.
-func parseVariableID(fullVariableId string) (string, error) {
-	variableIdParts := strings.Split(fullVariableId, ":")
-	if len(variableIdParts) != 3 {
-		return "", log.RecordedError(messages.CSPFK036E, fullVariableId)
+// The variable ID can be in the format "<account>:variable:<variable_id>". This function
+// just makes sure that if a variable is of the form "<account>:variable:<variable_id>"
+// we normalise it to "<variable_id>", otherwise we just leave it be!
+func normaliseVariableId(fullVariableId string) string {
+	variableIdParts := strings.SplitN(fullVariableId, ":", 3)
+	if len(variableIdParts) == 3 {
+		return variableIdParts[2]
 	}
 
-	return variableIdParts[2], nil
+	return fullVariableId
 }

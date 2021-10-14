@@ -55,8 +55,8 @@ func (s *SecretGroup) PushToFile(secrets []*Secret) error {
 }
 
 func (s *SecretGroup) pushToFileWithDeps(
-	pushToWriter toWriterPusher,
-	openWriteCloser toWriteCloserOpener,
+	pushToWriter pushToWriterFunc, // TODO: maybe don't dependency inject this one ?
+	openWriteCloser openWriteCloserFunc,
 	secrets []*Secret) error {
 	// Make sure all the secret specs are accounted for
 	err := validateSecretsAgainstSpecs(secrets, s.SecretSpecs)
