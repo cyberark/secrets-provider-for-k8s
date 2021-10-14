@@ -312,16 +312,12 @@ var newConfigTestCases = []newConfigTestCase{
 	{
 		description: "a valid map of annotation-based Secrets Provider settings returns a valid Config",
 		settings: map[string]string{
-			"MY_POD_NAMESPACE":               "test-namespace",
 			"conjur.org/secrets-destination": "k8s_secrets",
-			"conjur.org/k8s-secrets":         "- secret-1\n- secret-2\n- secret-3\n",
 			"conjur.org/retry-count-limit":   "10",
 			"conjur.org/retry-interval-sec":  "20",
 		},
 		assert: assertGoodConfig(&Config{
-			PodNamespace:       "test-namespace",
 			StoreType:          "k8s_secrets",
-			RequiredK8sSecrets: []string{"secret-1", "secret-2", "secret-3"},
 			RetryCountLimit:    10,
 			RetryIntervalSec:   20,
 		}),
@@ -336,9 +332,7 @@ var newConfigTestCases = []newConfigTestCase{
 			"RETRY_INTERVAL_SEC":  "20",
 		},
 		assert: assertGoodConfig(&Config{
-			PodNamespace:       "test-namespace",
 			StoreType:          "k8s_secrets",
-			RequiredK8sSecrets: []string{"secret-1", "secret-2", "secret-3"},
 			RetryCountLimit:    10,
 			RetryIntervalSec:   20,
 		}),
@@ -346,15 +340,11 @@ var newConfigTestCases = []newConfigTestCase{
 	{
 		description: "settings configured with both annotations and envVars defer to the annotation value",
 		settings: map[string]string{
-			"MY_POD_NAMESPACE":               "test-namespace",
-			"SECRETS_DESTINATION":            "k8s_secrets",
 			"conjur.org/secrets-destination": "file",
 			"K8S_SECRETS":                    "secret-1,secret-2,secret-3",
 		},
 		assert: assertGoodConfig(&Config{
-			PodNamespace:       "test-namespace",
 			StoreType:          "file",
-			RequiredK8sSecrets: []string{},
 			RetryCountLimit:    DefaultRetryCountLimit,
 			RetryIntervalSec:   DefaultRetryIntervalSec,
 		}),

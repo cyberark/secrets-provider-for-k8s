@@ -19,7 +19,7 @@ type ConjurMockClient struct {
 	Database   map[string]string
 }
 
-func (c ConjurMockClient) RetrieveSecrets (accessToken []byte, variableIDs []string) (map[string][]byte, error) {
+func (c ConjurMockClient) RetrieveSecrets (variableIDs []string) (map[string][]byte, error) {
 	conjurSecrets := make(map[string][]byte)
 
 	if !c.CanExecute {

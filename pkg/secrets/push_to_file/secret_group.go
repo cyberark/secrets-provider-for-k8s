@@ -158,22 +158,20 @@ func maybeFileTemplateFromFormat(
 }
 
 // NewSecretGroups creates a collection of secret groups from a map of annotations
-func NewSecretGroups(annotations map[string]string) ([]*SecretGroup, []error) {
+func NewSecretGroups(annotations map[string]string) ([]*SecretGroup, error) {
 	var sgs []*SecretGroup
 
-	var errors []error
+	// TODO: perhaps accumulate errors
 	for k, v := range annotations {
 		if strings.HasPrefix(k, secretGroupPrefix) {
 			groupName := strings.TrimPrefix(k, secretGroupPrefix)
 			secretSpecs, err := NewSecretSpecs([]byte(v))
 			if err != nil {
-				// Accumulate errors
-				err = fmt.Errorf(
-					`cannot create secret specs from annotation "%s": %s`,
+				return nil, fmt.Errorf(
+					"unable to create secret specs from annotation %q: %s",
 						k,
 						err,
 					)
-				errors = append(errors, err)
 				continue
 			}
 
@@ -185,13 +183,11 @@ func NewSecretGroups(annotations map[string]string) ([]*SecretGroup, []error) {
 			if len(fileFormat) > 0 {
 				_, err := FileTemplateForFormat(fileFormat, secretSpecs)
 				if err != nil {
-					// Accumulate errors
-					err = fmt.Errorf(
+					return nil, fmt.Errorf(
 						`unable to process file format annotation %q for group: %s`,
 						fileFormat,
 						err,
 					)
-					errors = append(errors, err)
 					continue
 				}
 			}
@@ -206,10 +202,6 @@ func NewSecretGroups(annotations map[string]string) ([]*SecretGroup, []error) {
 				SecretSpecs:     secretSpecs,
 			})
 		}
-	}
-
-	if len(errors) > 0 {
-		return nil, errors
 	}
 
 	// Sort secret groups for deterministic order based on group path

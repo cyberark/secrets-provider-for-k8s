@@ -24,8 +24,6 @@ const (
 // Config defines the configuration parameters
 // for the authentication requests
 type Config struct {
-	PodNamespace       string
-	RequiredK8sSecrets []string
 	RetryCountLimit    int
 	RetryIntervalSec   int
 	StoreType          string
@@ -186,25 +184,9 @@ func ValidateSecretsProviderSettings(envAndAnnots map[string]string) ([]error, [
 // NewConfig creates a new Secrets Provider configuration for a validated
 // map of environment variable and annotation settings.
 func NewConfig(settings map[string]string) *Config {
-	podNamespace := settings["MY_POD_NAMESPACE"]
-
 	storeType := settings["conjur.org/secrets-destination"]
 	if storeType == "" {
 		storeType = settings["SECRETS_DESTINATION"]
-	}
-
-	k8sSecretsArr := []string{}
-	if storeType != "file" {
-		k8sSecretsStr := settings["conjur.org/k8s-secrets"]
-		if k8sSecretsStr != "" {
-			k8sSecretsStr := strings.ReplaceAll(k8sSecretsStr, "- ", "")
-			k8sSecretsArr = strings.Split(k8sSecretsStr, "\n")
-			k8sSecretsArr = k8sSecretsArr[:len(k8sSecretsArr)-1]
-		} else {
-			k8sSecretsStr = settings["K8S_SECRETS"]
-			k8sSecretsStr = strings.ReplaceAll(k8sSecretsStr, " ", "")
-			k8sSecretsArr = strings.Split(k8sSecretsStr, ",")
-		}
 	}
 
 	retryCountLimitStr := settings["conjur.org/retry-count-limit"]
@@ -220,8 +202,6 @@ func NewConfig(settings map[string]string) *Config {
 	retryIntervalSec := parseIntFromStringOrDefault(retryIntervalSecStr, DefaultRetryIntervalSec, MinRetryValue)
 
 	return &Config{
-		PodNamespace:       podNamespace,
-		RequiredK8sSecrets: k8sSecretsArr,
 		RetryCountLimit:    retryCountLimit,
 		RetryIntervalSec:   retryIntervalSec,
 		StoreType:          storeType,

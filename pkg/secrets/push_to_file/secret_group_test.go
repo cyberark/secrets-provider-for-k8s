@@ -89,7 +89,7 @@ func goodSecretSpecs() []SecretSpec {
 
 func TestNewSecretGroups(t *testing.T) {
 	t.Run("valid annotations", func(t *testing.T) {
-		secretGroups, errs := NewSecretGroups(map[string]string{
+		secretGroups, err := NewSecretGroups(map[string]string{
 			"conjur.org/conjur-secrets.first": `- path/to/secret/first1
 - aliasfirst2: path/to/secret/first2`,
 			"conjur.org/secret-file-path.first":      "firstfilepath",
@@ -99,7 +99,7 @@ func TestNewSecretGroups(t *testing.T) {
 			"conjur.org/secret-file-template.second": `secondfiletemplate`,
 		})
 
-		if !assert.Empty(t, errs) {
+		if !assert.NoError(t, err) {
 			return
 		}
 		assert.Len(t, secretGroups, 2)
@@ -137,7 +137,7 @@ func TestNewSecretGroups(t *testing.T) {
 	})
 
 	t.Run("invalid secret specs annotation", func(t *testing.T) {
-		_, errs := NewSecretGroups(map[string]string{
+		_, err := NewSecretGroups(map[string]string{
 			"conjur.org/conjur-secrets.first": `gibberish`,
 			"conjur.org/secret-file-path.first":      "firstfilepath",
 			"conjur.org/secret-file-template.first":  `firstfiletemplate`,
@@ -146,9 +146,11 @@ func TestNewSecretGroups(t *testing.T) {
 			"conjur.org/secret-file-template.second": `secondfiletemplate`,
 		})
 
-		assert.Len(t, errs, 1)
-		assert.Contains(t, errs[0].Error(), `cannot create secret specs from annotation "conjur.org/conjur-secrets.first"`)
-		assert.Contains(t, errs[0].Error(), "cannot unmarshall to list of secret specs")
+		if !assert.Error(t, err) {
+			return
+		}
+		assert.Contains(t, err.Error(), `unable to create secret specs from annotation "conjur.org/conjur-secrets.first"`)
+		assert.Contains(t, err.Error(), "cannot unmarshall to list of secret specs")
 	})
 }
 
