@@ -1,6 +1,8 @@
 package push_to_file
 
 import (
+	"path"
+
 	"github.com/cyberark/conjur-authn-k8s-client/pkg/log"
 
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/clients/conjur"
@@ -8,16 +10,23 @@ import (
 
 // fileProvider represents the provider for pushing secrets to Kubernetes
 type fileProvider struct {
+	secretsBasePath string
 	secretGroups []*SecretGroup
 }
 
-func NewProvider(annotations map[string]string) (*fileProvider, error)  {
+func NewProvider(
+	secretsBasePath string,
+	annotations map[string]string,
+) (*fileProvider, error)  {
 	secretGroups, err := NewSecretGroups(annotations)
 	if err != nil {
 		return nil, err
 	}
 
-	return &fileProvider{secretGroups: secretGroups}, nil
+	return &fileProvider{
+		secretsBasePath: secretsBasePath,
+		secretGroups:    secretGroups,
+	}, nil
 }
 
 // This method is implemented for implementing the Provider interface.
@@ -38,9 +47,13 @@ func (p fileProvider) Provide(fetchSecrets conjur.FetchSecretsFunc) error {
 
 	// Write secrets to file
 	for _, group := range secretGroups {
-		log.Info("Processing template for group %q to file path %q\n", group.Name, group.FilePath)
+		log.Info(
+			"Processing template for group %q to file path %q\n",
+			group.Name,
+			path.Join(p.secretsBasePath, group.FilePath),
+		)
 
-		err := group.PushToFile(secretsByGroup[group.Name])
+		err := group.PushToFile(p.secretsBasePath, secretsByGroup[group.Name])
 		// TODO: accumulate errors instead of sending only one. This probably needs the
 		// Provider interface to change
 		if err != nil {

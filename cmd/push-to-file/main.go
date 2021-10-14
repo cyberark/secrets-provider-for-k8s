@@ -62,7 +62,7 @@ func main() {
 	for _, group := range secretGroups {
 		log.Info("Process template for %s to %s\n", group.Name, group.FilePath)
 
-		err := group.PushToFile(secretsByGroup[group.Name])
+		err := group.PushToFile("", secretsByGroup[group.Name])
 		if err != nil {
 			log.Error(err.Error())
 			exitStatus = 1

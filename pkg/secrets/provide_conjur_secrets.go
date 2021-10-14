@@ -48,6 +48,7 @@ func NewProviderForType(
 	// deps
 	retrievek8sSecret k8s.RetrieveK8sSecretFunc,
 	updatek8sSecret k8s.UpdateK8sSecretFunc,
+	fileSecretsBasePath string,
 	// args
 	storeType string,
 	settings map[string]string,
@@ -60,7 +61,10 @@ func NewProviderForType(
 			settings,
 		).Provide, nil
 	case config.File:
-		provider, err := push_to_file.NewProvider(settings)
+		provider, err := push_to_file.NewProvider(
+			fileSecretsBasePath,
+			settings,
+		)
 		if err != nil {
 			return nil, err
 		}

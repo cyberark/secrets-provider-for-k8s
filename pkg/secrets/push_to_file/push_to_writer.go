@@ -21,15 +21,15 @@ type pushToWriterFunc func(
 	groupSecrets []*Secret,
 ) error
 
-// openWriteCloserFunc is the func definition for openFileToWriterCloser. It allows switching
-// out openFileToWriterCloser for a mock implementation
+// openWriteCloserFunc is the func definition for openWriteCloser. It allows switching
+// out openFile for a mock implementation
 type openWriteCloserFunc func(
 	path string,
 	permissions os.FileMode,
 ) (io.WriteCloser, error)
 
-// openFileToWriterCloser opens a file to write-to with some permissions.
-func openFileToWriterCloser(path string, permissions os.FileMode) (io.WriteCloser, error) {
+// openFile opens a file to write-to with some permissions.
+func openFile(path string, permissions os.FileMode) (io.WriteCloser, error) {
 	return os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, permissions)
 }
 

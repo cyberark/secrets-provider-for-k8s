@@ -32,6 +32,7 @@ K8S_SECRETS=secretwithconjurmap \
 DEBUG=true \
   go run ./main.go \
     -test=true \
+    -s ./testdata \
     -f ./example-annotations \
     "$@"
 

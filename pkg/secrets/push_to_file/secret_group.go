@@ -3,6 +3,7 @@ package push_to_file
 import (
 	"fmt"
 	"os"
+	"path"
 	"sort"
 	"strings"
 )
@@ -50,16 +51,31 @@ func (s *SecretGroup) ResolvedSecretSpecs() []SecretSpec {
 
 // PushToFile uses the configuration on a secret group to inject secrets into a template
 // and write the result to a file.
-func (s *SecretGroup) PushToFile(secrets []*Secret) error {
-	return s.pushToFileWithDeps(pushToWriter, openFileToWriterCloser, secrets)
+func (s *SecretGroup) PushToFile(
+	secretsBasePath string,
+	secrets []*Secret,
+) error {
+	return s.pushToFileWithDeps(
+		secretsBasePath,
+		pushToWriter,
+		openFile,
+		secrets,
+	)
 }
 
 func (s *SecretGroup) pushToFileWithDeps(
+	secretsBasePath string,
 	pushToWriter pushToWriterFunc, // TODO: maybe don't dependency inject this one ?
 	openWriteCloser openWriteCloserFunc,
 	secrets []*Secret) error {
+	// Make sure file path is relative
+	err := validateFilePath(s.FilePath)
+	if err != nil {
+		return err
+	}
+
 	// Make sure all the secret specs are accounted for
-	err := validateSecretsAgainstSpecs(secrets, s.SecretSpecs)
+	err = validateSecretsAgainstSpecs(secrets, s.SecretSpecs)
 	if err != nil {
 		return err
 	}
@@ -78,7 +94,8 @@ func (s *SecretGroup) pushToFileWithDeps(
 	}
 
 	//// Open and push to file
-	wc, err := openWriteCloser(s.FilePath, s.FilePermissions)
+	filePath := path.Join(secretsBasePath, s.FilePath)
+	wc, err := openWriteCloser(filePath, s.FilePermissions)
 	if err != nil {
 		return err
 	}
@@ -192,14 +209,19 @@ func NewSecretGroups(annotations map[string]string) ([]*SecretGroup, error) {
 				}
 			}
 
+			err = validateFilePath(filePath)
+			if err != nil {
+				return nil, err
+			}
+
 			sgs = append(sgs, &SecretGroup{
-				Name:            groupName,
-				FilePath:        filePath,
-				FileTemplate:    fileTemplate,
-				FileFormat:      fileFormat,
-				FilePermissions: defaultFilePermissions,
+				Name:             groupName,
+				FilePath:         filePath,
+				FileTemplate:     fileTemplate,
+				FileFormat:       fileFormat,
+				FilePermissions:  defaultFilePermissions,
 				PolicyPathPrefix: policyPathPrefix,
-				SecretSpecs:     secretSpecs,
+				SecretSpecs:      secretSpecs,
 			})
 		}
 	}
@@ -210,4 +232,14 @@ func NewSecretGroups(annotations map[string]string) ([]*SecretGroup, error) {
 	})
 
 	return sgs, nil
+}
+
+func validateFilePath(filePath string) (error) {
+	if path.IsAbs(filePath) {
+		return fmt.Errorf(
+			"file path annotation must be relative, got %q",
+			filePath,
+		)
+	}
+	return nil
 }

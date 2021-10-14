@@ -49,6 +49,7 @@ func (tc *pushToFileWithDepsTestCase) Run(t *testing.T) {
 
 		// Exercise
 		err := group.pushToFileWithDeps(
+			"",
 			spyPushToWriter.Call,
 			spyOpenWriteCloser.Call,
 			secrets)

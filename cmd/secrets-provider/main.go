@@ -19,11 +19,14 @@ import (
 )
 
 const defaultAnnotationFilePath = "/conjur/podinfo/annotations"
+const defaultFileSecretsBasePath = "/conjur/secrets"
 
 func main() {
 	var annotationFilePath string
+	var fileSecretsBasePath string
 	var testMode bool
 	flag.StringVar(&annotationFilePath, "f", defaultAnnotationFilePath, "path to annotation file")
+	flag.StringVar(&fileSecretsBasePath, "s", defaultFileSecretsBasePath, "base path for push to file secrets")
 	flag.BoolVar(&testMode, "test", false, "running in test mode where deps are mocked")
 	flag.Parse()
 
@@ -75,6 +78,8 @@ func main() {
 	var updateK8sSecret k8s.UpdateK8sSecretFunc
 	var fetchSecrets conjur.FetchSecretsFunc
 
+	// TODO: maybe a better way to manage dependencies is to have a registry
+	// 	instead of threading them down through methods that couldn't care less
 	if testMode {
 		retrieveK8sSecret = func(namespace string, secretName string) (*v1.Secret, error) {
 			log.Debug(
@@ -141,6 +146,7 @@ key1: path/to/key1/in/conjur/from/secret/%s/in/namespace/%s
 	provideSecrets, err := secrets.NewProviderForType(
 		retrieveK8sSecret,
 		updateK8sSecret,
+		fileSecretsBasePath,
 		secretsConfig.StoreType,
 		annotationsMap,
 	)
