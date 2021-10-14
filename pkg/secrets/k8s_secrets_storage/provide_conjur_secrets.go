@@ -216,8 +216,6 @@ func getVariableIDsToRetrieve(pathMap map[string][]string) ([]string, error) {
 func updateK8sSecretsMapWithConjurSecrets(k8sSecretsMap *K8sSecretsMap, conjurSecrets map[string][]byte) error {
 	// Update K8s map by replacing variable IDs with their corresponding secret values
 	for variableId, secret := range conjurSecrets {
-		variableId = normaliseVariableId(variableId)
-
 		for _, locationInK8sSecretsMap := range k8sSecretsMap.PathMap[variableId] {
 			locationInK8sSecretsMap := strings.Split(locationInK8sSecretsMap, ":")
 			k8sSecretName := locationInK8sSecretsMap[0]
@@ -229,14 +227,3 @@ func updateK8sSecretsMapWithConjurSecrets(k8sSecretsMap *K8sSecretsMap, conjurSe
 	return nil
 }
 
-// The variable ID can be in the format "<account>:variable:<variable_id>". This function
-// just makes sure that if a variable is of the form "<account>:variable:<variable_id>"
-// we normalise it to "<variable_id>", otherwise we just leave it be!
-func normaliseVariableId(fullVariableId string) string {
-	variableIdParts := strings.SplitN(fullVariableId, ":", 3)
-	if len(variableIdParts) == 3 {
-		return variableIdParts[2]
-	}
-
-	return fullVariableId
-}
