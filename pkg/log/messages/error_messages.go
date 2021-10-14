@@ -73,3 +73,4 @@ const CSPFK049E string = "CSPFK049E Failed to validate Pod annotations"
 // Push to File
 const CSPFK050E string = "CSPFK050E Failed to unmarshal Push-to-File secrets. Reason: %s"
 const CSPFK051E string = "CSPFK051E Unknown file format '%s'"
+const CSPFK052E string = "CSPFK052E Failed to retrieve secrets. Reason: %s"
