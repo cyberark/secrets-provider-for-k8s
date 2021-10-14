@@ -5,8 +5,6 @@ import (
 	"os"
 	"time"
 
-	"github.com/cyberark/conjur-authn-k8s-client/pkg/access_token/memory"
-	"github.com/cyberark/conjur-authn-k8s-client/pkg/authenticator"
 	authnConfigProvider "github.com/cyberark/conjur-authn-k8s-client/pkg/authenticator/config"
 	"github.com/cyberark/conjur-authn-k8s-client/pkg/log"
 
@@ -30,6 +28,7 @@ func main() {
 		printErrorAndExit(messages.CSPFK008E)
 	}
 
+	// Parse annotations
 	annotationsMap := map[string]string{}
 	// Only attempt to populate from annotations if the annotations file exists
 	if _, err := os.Stat(annotationsFile); err == nil {
@@ -47,10 +46,10 @@ func main() {
 	errLogs, infoLogs = secretsConfigProvider.ValidateSecretsProviderSettings(secretsProviderSettings)
 	logErrorsAndConditionalExit(errLogs, infoLogs, messages.CSPFK015E)
 
-	// Initialize Secrets ProviderFunc configuration
+	// Initialize Secrets Provider configuration
 	secretsConfig := secretsConfigProvider.NewConfig(secretsProviderSettings)
 
-	// Select ProviderFunc
+	// Select Provider
 	provideSecrets, err := secrets.NewProviderForType(
 		secretsConfig.StoreType,
 		secretsProviderSettings,
@@ -59,32 +58,27 @@ func main() {
 		printErrorAndExit(fmt.Sprintf(messages.CSPFK014E, err.Error()))
 	}
 
-	accessToken, err := memory.NewAccessToken()
-	// Always delete access token. The deletion idempotent and never fails
-	defer accessToken.Delete()
-	if err != nil {
-		printErrorAndExit(messages.CSPFK001E)
-	}
-
-	authn, err := authenticator.NewWithAccessToken(*authnConfig, accessToken)
-	if err != nil {
-		printErrorAndExit(messages.CSPFK009E)
-	}
-
-	// TODO^: construction of authenticator can take place in an independent method
-	secretFetcher := conjur.NewConjurSecretFetcher(authn)
-
-	// Make provider retriable
+	// Make Provider retriable
 	provideSecrets = secrets.RetriableSecretProvider(
 		time.Duration(secretsConfig.RetryIntervalSec)*time.Second,
 		secretsConfig.RetryCountLimit,
 		provideSecrets,
 	)
 
-	err = provideSecrets(secretFetcher.Fetch)
+	// Create Conjur secret fetcher
+	var fetchSecrets conjur.FetchSecretsFunc
+	secretFetcher, err := conjur.NewConjurSecretFetcher(*authnConfig)
 	if err != nil {
-		printErrorAndExit(messages.CSPFK039E)
+		printErrorAndExit(err.Error())
 	}
+	fetchSecrets = secretFetcher.Fetch
+
+	// Provide secrets
+	err = provideSecrets(fetchSecrets)
+	if err != nil {
+		printErrorAndExit(fmt.Sprintf(messages.CSPFK039E, secretsConfig.StoreType))
+	}
+	log.Info(fmt.Sprintf(messages.CSPFK009I, secretsConfig.StoreType))
 }
 
 func printErrorAndExit(errorMessage string) {
