@@ -24,3 +24,5 @@ const CSPFK009I string = "CSPFK009I DAP/Conjur Secrets updated in Kubernetes suc
 const CSPFK010I string = "CSPFK010I Updating Kubernetes Secrets: %d retries out of %d"
 const CSPFK011I string = "CSPFK011I Annotation '%s' valid, but not recognized"
 const CSPFK012I string = "CSPFK012I Secrets Provider setting '%s' set by both environment variable '%s' and annotation '%s'"
+const CSPFK013I string = "CSPFK013I Gathering settings for Authenticator client configuration..."
+const CSPFK014I string = "CSPFK014I Authenticator setting %s provided by %s"

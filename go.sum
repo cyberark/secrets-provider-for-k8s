@@ -12,6 +12,8 @@ github.com/cyberark/conjur-authn-k8s-client v0.19.1 h1:/o7De4Br4p1j2p9gOPQuurkdj
 github.com/cyberark/conjur-authn-k8s-client v0.19.1/go.mod h1:tD6+rie3c7LFclihIzg12vVK6+yKm0NB+3+0Pmau/A4=
 github.com/cyberark/conjur-authn-k8s-client v0.22.0 h1:ZAY96+k0UR4ABp2QBcjkUCXgF/scNC+ItR19tAY9yKM=
 github.com/cyberark/conjur-authn-k8s-client v0.22.0/go.mod h1:tD6+rie3c7LFclihIzg12vVK6+yKm0NB+3+0Pmau/A4=
+github.com/cyberark/conjur-authn-k8s-client v0.22.1-0.20211013211359-5ca23711965d h1:Ix6ya+uGlacPZ44qZ2mhxixjZxu1X89YxX+Kl8twDX8=
+github.com/cyberark/conjur-authn-k8s-client v0.22.1-0.20211013211359-5ca23711965d/go.mod h1:84L7z7UqBBxesjmbkUjcElGzJEPmoMLmtgWlClK8RN0=
 github.com/cyberark/secrets-provider-for-k8s v1.1.5 h1:ntoCJ+lEopdbda2XO/B0bjoxBaGdZ+imdhNNSoVnqiA=
 github.com/cyberark/secrets-provider-for-k8s v1.1.5/go.mod h1:JvqaYzj+2XdzDVb6clEh0+ppzpj48oiMTW3UGGXGs6A=
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
