@@ -767,33 +767,66 @@ considered a nice-to-have feature.
 At a high level, converting an existing Secrets Provider deployment to use
 annotation-based configuration and/or push-to-file mode:
 
-- Inspect the existing application Deployment manifest (if available) or
-  use `kubectl edit` to inspect the application Deployment.
+- Inspect the existing application Deployment manifest (if available) or use
+  ```
+  kubectl get deployment $DEPLOYMENT_NAME -o yaml
+  ```
+  to inspect the application Deployment.
 - Convert the Service Provider container/Conjur environment variable settings
-  to the equivalent annotation-based setting. Retain the `K8S_SECRETS`
-  setting for now.
+  to the equivalent annotation-based setting. See the [Solution](#solution) section for the annotation tables. Edit the deployment with
+  ```
+  kubectl edit deployment $DEPLOYMENT_NAME
+  ```
 - If you are using the Secrets Provider as an init container, and you would
   like to convert from K8s Secrets mode to push-to-file mode:
     - Add push-to-file annotations:
-        - For each existing Kubernetes Secret, you may wish to create a separate
-          secrets group for push-to-file.
+        - For each existing Kubernetes Secret, you may wish to create a separate secrets group for push-to-file.
+        - `conjur.org/secrets-destination: file`: Enable push-to-file mode
         - `conjur.org/conjur-secrets.{group}`: Inspect the manifests for the
           existing Kubernetes Secret(s). The manifests should contain a
-          `stringData` section that contains secrets key/value pairs.
-          Map the `stringData` entries to a YAML list value for conjur-secrets,
+          `stringData` section that contains secrets key/value pairs. Map the `stringData` entries to a YAML list value for conjur-secrets,
           using the secret names as aliases.
+          - Alternatively, for existing deployments, this mapping can be obtained with the command
+            ```
+            kubectl get secret $SECRET_NAME -o jsonpath={.data.conjur-map} | base64 --decode
+            ```
+          
         - `conjur.org/secret-file-path.{group}`: Configure a target location
         - `conjur.org/secret-file-format.{group}`: Configure a desired type,
           depending on how the application will consume the secrets file.
-        - `conjur.org/secret-file-perms.{group}`: Determine desired file
-          permissions (see [Security](#security) section).
-    - Add Pod `securityContext` (see [Security](#security) section).
+    - Add push-to-file volumes:
+        ```
+        volumes:
+          - name: podinfo
+            downwardAPI:
+              items:
+                - path: annotations
+                  fieldRef:
+                    fieldPath: metadata.annotations
+          - name: conjur-secrets
+            emptyDir:
+              medium: Memory
+        ```
+    - Add push-to-file volume mounts to the Secrets Provider init container:
+        ```
+        volumeMounts:
+          - name: podinfo
+            mountPath: /conjur/podinfo
+          - name: conjur-secrets
+            mountPath: /conjur/secrets
+        ```
+    - Add push-to-file volume mount to the application container:
+        ```
+        volumeMounts:
+          - name: conjur-secrets
+            mountPath: /conjur/secrets
+        ```
+    - Remove environment variables used for Secrets Provider configuration from the init container (see annotations tables)
+    - Remove environment variables referencing Kubernetes Secrets from the application container
     - Delete existing Kubernetes Secrets or their manifests:
         - If using Helm, delete Kubernetes Secrets manifests and do a
           `helm upgrade ...`
         - Otherwise, `kubectl delete ...` the existing Kubernetes Secrets
-    - Delete the `K8S_SECRETS` environment variable setting from the application
-      Deployment (or its manifest).
     - Modify application to consume secrets as files:
         - Modify application to consume secrets files directly, or...
         - Modify the Deployment's spec for the app container so that the
