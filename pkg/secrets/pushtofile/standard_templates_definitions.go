@@ -1,4 +1,4 @@
-package push_to_file
+package pushtofile
 
 const jsonTemplate = `{
 {{- range $index, $secret := .SecretsArray }}

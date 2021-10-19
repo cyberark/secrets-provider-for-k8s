@@ -4,18 +4,15 @@ import (
 	"flag"
 	"os"
 
-	"github.com/cyberark/conjur-authn-k8s-client/pkg/access_token"
 	"github.com/cyberark/conjur-authn-k8s-client/pkg/log"
 
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/annotations"
-	"github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/clients/conjur"
-	"github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/k8s_secrets_storage/mocks"
-	"github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/push_to_file"
+	"github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/pushtofile"
 )
 
 func main() {
 	var annotationFilePath string
-	flag.StringVar(&annotationFilePath, "f", "", "path to annotation file")
+	flag.StringVar(&annotationFilePath, "f", "./annotations", "path to annotation file")
 
 	flag.Parse()
 
@@ -30,7 +27,7 @@ func main() {
 
 	// Generate secret Groups
 	log.Info("Generate secret Groups")
-	secretGroups, errs := push_to_file.NewSecretGroups(annotations)
+	secretGroups, errs := pushtofile.NewSecretGroups(annotations)
 	if len(errs) > 0 {
 		for _, err := range errs {
 			log.Error(err.Error())
@@ -45,9 +42,16 @@ func main() {
 	// TODO: secret fetching should be concurrent and where possible parallel
 	log.Info("Fetching secrets")
 
-	atoken := mocks.MockAccessToken{}
 	secretsByGroup, err := fetchSecretsForGroups(
-		atoken, nil, secretGroups)
+		func(variableIDs []string) (map[string][]byte, error) {
+			var res = map[string][]byte{}
+			for _, id := range variableIDs {
+				log.Info("Processing secret %s", id)
+				res[id] = []byte("value-" + id)
+			}
+
+			return res, nil
+		}, secretGroups)
 	if err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
@@ -69,23 +73,23 @@ func main() {
 }
 
 func fetchSecretsForGroups(
-	accessToken access_token.AccessToken,
-	retrieveConjurSecrets conjur.RetrieveConjurSecretsFunc,
-	secretGroups []*push_to_file.SecretGroup,
-) (map[string][]*push_to_file.Secret, error) {
+	retrieveConjurSecrets func(variableIDs []string) (map[string][]byte, error),
+	secretGroups []*pushtofile.SecretGroup,
+) (map[string][]*pushtofile.Secret, error) {
 // map[group name] => group secret vales
 
 	// Gather secret paths
 	var secretPaths []string
 	var uniqueSecretPaths = map[string]struct{}{}
 	for _, group := range secretGroups {
+		log.Info("Processing group", group)
 		specs := group.ResolvedSecretSpecs()
 		for _, spec := range specs {
-			if _, ok := uniqueSecretPaths[spec.Path]; !ok {
-				uniqueSecretPaths[spec.Path] = struct{}{}
+			if _, ok := uniqueSecretPaths[spec.Path]; ok {
 				continue
 			}
 
+			uniqueSecretPaths[spec.Path] = struct{}{}
 			secretPaths = append(secretPaths, spec.Path)
 		}
 	}
@@ -95,27 +99,21 @@ func fetchSecretsForGroups(
 	// TODO: create better abstraction that hides authenticator and retry logic from the
 	// rest of the code
 	//
-	// TODO: provide a single interface that this method takes as input
-	// the interface should hide access tokens etc.
-	accessTokenData, err := accessToken.Read()
-	if err != nil {
-		return nil, err
-	}
-	secretValueByPath, err := retrieveConjurSecrets(accessTokenData, secretPaths)
+	secretValueByPath, err := retrieveConjurSecrets(secretPaths)
 	if err != nil {
 		return nil, err
 	}
 
 	// Gather secret values
-	var secretsByGroup = map[string][]*push_to_file.Secret{}
+	var secretsByGroup = map[string][]*pushtofile.Secret{}
 	for _, group := range secretGroups {
 		specs := group.ResolvedSecretSpecs()
 
-		groupSecrets := make([]*push_to_file.Secret, len(specs))
+		groupSecrets := make([]*pushtofile.Secret, len(specs))
 
 		for i, spec := range specs {
 			secretValue := secretValueByPath[spec.Path]
-			groupSecrets[i] = &push_to_file.Secret{
+			groupSecrets[i] = &pushtofile.Secret{
 				Alias: spec.Alias,
 				Value: string(secretValue),
 			}

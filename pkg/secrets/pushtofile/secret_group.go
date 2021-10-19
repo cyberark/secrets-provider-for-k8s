@@ -1,4 +1,4 @@
-package push_to_file
+package pushtofile
 
 import (
 	"fmt"
@@ -51,12 +51,12 @@ func (s *SecretGroup) ResolvedSecretSpecs() []SecretSpec {
 // PushToFile uses the configuration on a secret group to inject secrets into a template
 // and write the result to a file.
 func (s *SecretGroup) PushToFile(secrets []*Secret) error {
-	return s.pushToFileWithDeps(pushToWriter, openFileToWriterCloser, secrets)
+	return s.pushToFileWithDeps(openFileAsWriteCloser, pushToWriter, secrets)
 }
 
 func (s *SecretGroup) pushToFileWithDeps(
-	pushToWriter toWriterPusher,
-	openWriteCloser toWriteCloserOpener,
+	openWriteCloser openWriteCloserFunc,
+	pushToWriter pushToWriterFunc,
 	secrets []*Secret) error {
 	// Make sure all the secret specs are accounted for
 	err := validateSecretsAgainstSpecs(secrets, s.SecretSpecs)
@@ -139,10 +139,9 @@ func maybeFileTemplateFromFormat(
 		return "", fmt.Errorf("%s", `missing one of "file template" or "file format" for group`)
 	}
 
-	// fileTemplate is only modified when
-	// 1. fileTemplate is not set. fileTemplate takes precedence
-	// 2. fileFormat is set
-	if len(fileTemplate) == 0 && len(fileFormat) > 0 {
+	// fileFormat is used to set fileTemplate when fileTemplate is not
+	// already set
+	if len(fileTemplate) == 0 {
 		var err error
 
 		fileTemplate, err = FileTemplateForFormat(

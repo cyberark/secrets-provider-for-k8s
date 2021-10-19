@@ -1,4 +1,4 @@
-package push_to_file
+package pushtofile
 
 import (
 	"io"
@@ -12,24 +12,24 @@ type templateData struct {
 	SecretsMap   map[string]*Secret
 }
 
-// toWriterPusher is the func definition for pushToWriter. It allows switching out pushToWriter
+// pushToWriterFunc is the func definition for pushToWriter. It allows switching out pushToWriter
 // for a mock implementation
-type toWriterPusher func(
+type pushToWriterFunc func(
 	writer io.Writer,
 	groupName string,
 	groupTemplate string,
 	groupSecrets []*Secret,
 ) error
 
-// toWriteCloserOpener is the func definition for openFileToWriterCloser. It allows switching
-// out openFileToWriterCloser for a mock implementation
-type toWriteCloserOpener func(
+// openWriteCloserFunc is the func definition for openFileAsWriteCloser. It allows switching
+// out openFileAsWriteCloser for a mock implementation
+type openWriteCloserFunc func(
 	path string,
 	permissions os.FileMode,
 ) (io.WriteCloser, error)
 
-// openFileToWriterCloser opens a file to write-to with some permissions.
-func openFileToWriterCloser(path string, permissions os.FileMode) (io.WriteCloser, error) {
+// openFileAsWriteCloser opens a file to write-to with some permissions.
+func openFileAsWriteCloser(path string, permissions os.FileMode) (io.WriteCloser, error) {
 	return os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, permissions)
 }
 
@@ -48,7 +48,7 @@ func pushToWriter(
 
 	t, err := template.New(groupName).Funcs(template.FuncMap{
 		// secret is a custom utility function for streamlined access to secret values.
-		// It panics for errors not specified on the group.
+		// It panics for secrets aliases not specified on the group.
 		"secret": func(label string) string {
 			v, ok := secretsMap[label]
 			if ok {
@@ -59,15 +59,6 @@ func pushToWriter(
 			// when the template is executed.
 			panic("secret alias not present in specified secrets for group")
 		},
-		// toYaml marshals a given value to YAML
-		//"toYaml": func(value interface{}) string {
-		//	d, err := yaml.Marshal(&value)
-		//	if err != nil {
-		//		panic(err)
-		//	}
-		//
-		//	return string(d)
-		//},
 	}).Parse(groupTemplate)
 	if err != nil {
 		return err

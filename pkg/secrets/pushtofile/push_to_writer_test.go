@@ -1,4 +1,4 @@
-package push_to_file
+package pushtofile
 
 import (
 	"bytes"

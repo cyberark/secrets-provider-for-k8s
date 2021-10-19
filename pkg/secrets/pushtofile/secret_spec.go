@@ -1,4 +1,4 @@
-package push_to_file
+package pushtofile
 
 import (
 	"fmt"
@@ -18,8 +18,9 @@ func (t SecretSpec) MarshalYAML() (interface{}, error) {
 
 const invalidSecretSpecErr = `expected a "string (path)" or "single entry map of string to string (alias to path)" on line %d`
 
-// UnmarshalYAML is a custom unmarshaller for SecretSpec that allows it to unmarshal
-// from different yaml types by trying each one
+// UnmarshalYAML is a custom unmarshaller for SecretSpec that allows us to
+// unmarshal from different YAML node representations i.e. literal string or
+// map.
 func (t *SecretSpec) UnmarshalYAML(node *yaml.Node) error {
 	switch node.Kind {
 	case yaml.ScalarNode:

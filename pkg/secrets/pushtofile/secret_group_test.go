@@ -1,4 +1,4 @@
-package push_to_file
+package pushtofile
 
 import (
 	"fmt"
@@ -15,7 +15,7 @@ type pushToFileWithDepsTestCase struct {
 	overrideSecrets        []*Secret // Overrides secrets generated from group secret specs
 	toWriterPusherErr      error
 	toWriteCloserOpenerErr error
-	assert                 func(t *testing.T, spyOpen toWriteCloserOpenerSpy, closableBuf *ClosableBuffer, spyPush toWriterPusherSpy, err error)
+	assert                 func(t *testing.T, spyOpen openWriteCloserSpy, closableBuf *ClosableBuffer, spyPush pushToWriterSpy, err error)
 }
 
 func (tc *pushToFileWithDepsTestCase) Run(t *testing.T) {
@@ -25,10 +25,10 @@ func (tc *pushToFileWithDepsTestCase) Run(t *testing.T) {
 
 		// Setup mocks
 		closableBuf := new(ClosableBuffer)
-		spyPushToWriter := toWriterPusherSpy{
+		spyPushToWriter := pushToWriterSpy{
 			err: tc.toWriterPusherErr,
 		}
-		spyOpenWriteCloser := toWriteCloserOpenerSpy{
+		spyOpenWriteCloser := openWriteCloserSpy{
 			writeCloser: closableBuf,
 			err:         tc.toWriteCloserOpenerErr,
 		}
@@ -49,8 +49,8 @@ func (tc *pushToFileWithDepsTestCase) Run(t *testing.T) {
 
 		// Exercise
 		err := group.pushToFileWithDeps(
-			spyPushToWriter.Call,
 			spyOpenWriteCloser.Call,
+			spyPushToWriter.Call,
 			secrets)
 
 		tc.assert(t, spyOpenWriteCloser, closableBuf, spyPushToWriter, err)
@@ -159,14 +159,14 @@ var pushToFileWithDepsTestCases = []pushToFileWithDepsTestCase{
 		overrideSecrets: nil,
 		assert: func(
 			t *testing.T,
-			spyOpen toWriteCloserOpenerSpy,
+			spyOpen openWriteCloserSpy,
 			closableBuf *ClosableBuffer,
-			spyPush toWriterPusherSpy,
+			spyPush pushToWriterSpy,
 			err error,
 		) {
 			// Assertions
 			assert.NoError(t, err)
-			// Assert on toWriterPusher
+			// Assert on pushToWriterFunc
 			assert.Equal(t, "groupname", spyPush.args.groupName, )
 			assert.Equal(t, closableBuf, spyPush.args.writer)
 			assert.Equal(t, "filetemplate", spyPush.args.groupTemplate)
@@ -196,9 +196,9 @@ var pushToFileWithDepsTestCases = []pushToFileWithDepsTestCase{
 		overrideSecrets: nil,
 		assert: func(
 			t *testing.T,
-			spyOpen toWriteCloserOpenerSpy,
+			spyOpen openWriteCloserSpy,
 			closableBuf *ClosableBuffer,
-			spyPush toWriterPusherSpy,
+			spyPush pushToWriterSpy,
 			err error,
 		) {
 			// Assertions
@@ -212,9 +212,9 @@ var pushToFileWithDepsTestCases = []pushToFileWithDepsTestCase{
 		overrideSecrets: []*Secret{},
 		assert: func(
 			t *testing.T,
-			spyOpen toWriteCloserOpenerSpy,
+			spyOpen openWriteCloserSpy,
 			closableBuf *ClosableBuffer,
-			spyPush toWriterPusherSpy,
+			spyPush pushToWriterSpy,
 			err error,
 		) {
 			// Assertions
@@ -235,9 +235,9 @@ var pushToFileWithDepsTestCases = []pushToFileWithDepsTestCase{
 		overrideSecrets: nil,
 		assert: func(
 			t *testing.T,
-			spyOpen toWriteCloserOpenerSpy,
+			spyOpen openWriteCloserSpy,
 			closableBuf *ClosableBuffer,
-			spyPush toWriterPusherSpy,
+			spyPush pushToWriterSpy,
 			err error,
 		) {
 			// Assertions
@@ -266,9 +266,9 @@ func TestSecretGroup_pushToFileWithDeps(t *testing.T) {
 			overrideSecrets: nil,
 			assert: func(
 				t *testing.T,
-				spyOpen toWriteCloserOpenerSpy,
+				spyOpen openWriteCloserSpy,
 				closableBuf *ClosableBuffer,
-				spyPush toWriterPusherSpy,
+				spyPush pushToWriterSpy,
 				err error,
 			) {
 				// Assertions

@@ -1,4 +1,4 @@
-package push_to_file
+package pushtofile
 
 import (
 	"testing"
@@ -61,7 +61,7 @@ another-password: dev/openshift/password
 `,
 		assert: func(t *testing.T, result []SecretSpec, err error) {
 			assert.Contains(t, err.Error(), "cannot unmarshal")
-			assert.Contains(t, err.Error(), "into []push_to_file.SecretSpec")
+			assert.Contains(t, err.Error(), "into []pushtofile.SecretSpec")
 		},
 	},
 	{
