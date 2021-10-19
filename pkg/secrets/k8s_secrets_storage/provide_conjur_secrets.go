@@ -181,7 +181,6 @@ func updateK8sSecretsMapWithConjurSecrets(k8sSecretsMap *K8sSecretsMap, conjurSe
 
 	// Update K8s map by replacing variable IDs with their corresponding secret values
 	for variableId, secret := range conjurSecrets {
-		variableId, err = parseVariableID(variableId)
 		if err != nil {
 			return log.RecordedError(messages.CSPFK035E)
 		}
@@ -195,14 +194,4 @@ func updateK8sSecretsMapWithConjurSecrets(k8sSecretsMap *K8sSecretsMap, conjurSe
 	}
 
 	return nil
-}
-
-// The variable ID is in the format "<account>:variable:<variable_id>". we need only the last part.
-func parseVariableID(fullVariableId string) (string, error) {
-	variableIdParts := strings.Split(fullVariableId, ":")
-	if len(variableIdParts) != 3 {
-		return "", log.RecordedError(messages.CSPFK036E, fullVariableId)
-	}
-
-	return variableIdParts[2], nil
 }

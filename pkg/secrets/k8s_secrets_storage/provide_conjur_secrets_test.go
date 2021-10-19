@@ -49,7 +49,7 @@ func TestProvideConjurSecrets(t *testing.T) {
 	Convey("updateK8sSecretsMapWithConjurSecrets", t, func() {
 		Convey("Given one K8s secret with one Conjur secret", func() {
 			conjurSecrets := map[string][]byte{
-				"account:variable:allowed/username": []byte("super"),
+				"allowed/username": []byte("super"),
 			}
 
 			k8sSecretsMap := map[string]map[string][]byte{
@@ -76,7 +76,7 @@ func TestProvideConjurSecrets(t *testing.T) {
 
 		Convey("Given 2 k8s secrets that need the same Conjur secret", func() {
 			conjurSecrets := map[string][]byte{
-				"account:variable:allowed/username": []byte("super"),
+				"allowed/username": []byte("super"),
 			}
 			dataEntriesMap := map[string][]byte{
 				"username": []byte("allowed/username"),
