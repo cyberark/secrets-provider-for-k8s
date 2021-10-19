@@ -13,23 +13,28 @@ type retrieveSecretsTestCase struct {
 	assert      func(t *testing.T, result map[string][]*secret, err error)
 }
 
-func (tc retrieveSecretsTestCase) Run(t *testing.T, mockSecretFetch MockSecretFetch) {
+func (tc retrieveSecretsTestCase) Run(
+	t *testing.T,
+	depFetchSecrets FetchSecretsFunc,
+) {
 	t.Run(tc.description, func(t *testing.T) {
 		s := createSecretGroups(tc.secretSpecs)
-		ret, err := fetchSecretsForGroups(mockSecretFetch, &s)
+		ret, err := FetchSecretsForGroups(depFetchSecrets, s)
+
 		tc.assert(t, ret, err)
 	})
 }
 
-func createSecretGroups(groupSpecs map[string][]SecretSpec) SecretGroups {
-	secretGroups := SecretGroups{}
-	for label, secretSpecs := range groupSpecs {
-		secretGroup := SecretGroup{
-			Label:       label,
+func createSecretGroups(groupSpecs map[string][]SecretSpec) []*SecretGroup {
+	var secretGroups []*SecretGroup
+	for name, secretSpecs := range groupSpecs {
+		secretGroup := &SecretGroup{
+			Name:       name,
 			SecretSpecs: secretSpecs,
 		}
 		secretGroups = append(secretGroups, secretGroup)
 	}
+
 	return secretGroups
 }
 
@@ -39,15 +44,16 @@ func findGroupValues(group map[string][]*secret, label string) []*secret {
 			return secretGroup
 		}
 	}
+
 	return nil
 }
 
 func assertGoodResults(expectedGroupValues map[string][]*secret) func(*testing.T, map[string][]*secret, error) {
 	return func(t *testing.T, result map[string][]*secret, err error) {
-
 		if !assert.NoError(t, err) {
 			return
 		}
+
 		for groupLabel, expValues := range expectedGroupValues {
 			actualValues := findGroupValues(result, groupLabel)
 			assert.NotNil(t, actualValues)
@@ -61,14 +67,14 @@ var retrieveSecretsTestCases = []retrieveSecretsTestCase{
 		description: "Happy Case",
 		secretSpecs: map[string][]SecretSpec{
 			"cache": []SecretSpec{
-				{Alias: "api-url", Id: "dev/openshift/api-url"},
-				{Alias: "username", Id: "dev/openshift/username"},
-				{Alias: "password", Id: "dev/openshift/password"},
+				{Alias: "api-url", Path: "dev/openshift/api-url"},
+				{Alias: "username", Path: "dev/openshift/username"},
+				{Alias: "password", Path: "dev/openshift/password"},
 			},
 			"db": []SecretSpec{
-				{Alias: "api-url", Id: "ci/openshift/api-url"},
-				{Alias: "username", Id: "ci/openshift/username"},
-				{Alias: "password", Id: "ci/openshift/password"},
+				{Alias: "api-url", Path: "ci/openshift/api-url"},
+				{Alias: "username", Path: "ci/openshift/username"},
+				{Alias: "password", Path: "ci/openshift/password"},
 			},
 		},
 		assert: assertGoodResults(map[string][]*secret{
@@ -88,50 +94,53 @@ var retrieveSecretsTestCases = []retrieveSecretsTestCase{
 		description: "Bad ID",
 		secretSpecs: map[string][]SecretSpec{
 			"cache": []SecretSpec{
-				{Alias: "api-url", Id: "foo/openshift/bar"},
-				{Alias: "username", Id: "dev/openshift/username"},
-				{Alias: "password", Id: "dev/openshift/password"},
+				{Alias: "api-url", Path: "foo/openshift/bar"},
+				{Alias: "username", Path: "dev/openshift/username"},
+				{Alias: "password", Path: "dev/openshift/password"},
 			},
 			"db": []SecretSpec{
-				{Alias: "api-url", Id: "ci/openshift/api-url"},
-				{Alias: "username", Id: "ci/openshift/username"},
-				{Alias: "password", Id: "ci/openshift/password"},
+				{Alias: "api-url", Path: "ci/openshift/api-url"},
+				{Alias: "username", Path: "ci/openshift/username"},
+				{Alias: "password", Path: "ci/openshift/password"},
 			},
 		},
 		assert: func(t *testing.T, result map[string][]*secret, err error) {
-			assert.Contains(t, err.Error(), "Failed to retrieve secrets")
+			assert.Contains(t, err.Error(), "no_conjur_secret_error")
 		},
 	},
 }
 
-type MockSecretFetch struct {
-	accessToken      conjurMocks.MockAccessToken
+type mockSecretFetcher struct {
 	conjurMockClient conjurMocks.ConjurMockClient
 }
 
-func (s MockSecretFetch) SecretFetcher(secretIds []string) (map[string][]byte, error) {
-
-	accessTokenData, _ := s.accessToken.Read()
-	return s.conjurMockClient.RetrieveSecrets(accessTokenData, secretIds)
+func (s mockSecretFetcher) Fetch(secretPaths []string) (map[string][]byte, error) {
+	return s.conjurMockClient.RetrieveSecrets(nil, secretPaths)
 }
 
-func mockInit(s *MockSecretFetch) {
-	s.conjurMockClient = conjurMocks.NewConjurMockClient()
-	mockSecrets := map[string]string{
-		"dev/openshift/api-url":  "https://postgres.example.com",
-		"dev/openshift/username": "admin",
-		"dev/openshift/password": "open-$e$ame",
-		"ci/openshift/api-url":   "https://ci.postgres.example.com",
-		"ci/openshift/username":  "administrator",
-		"ci/openshift/password":  "open-$e$ame",
+func newMockSecretFetcher() mockSecretFetcher {
+	m := mockSecretFetcher{
+		conjurMockClient: conjurMocks.NewConjurMockClient(),
 	}
-	s.conjurMockClient.AddSecret(mockSecrets)
+
+	m.conjurMockClient.AddSecrets(
+		map[string]string{
+			"dev/openshift/api-url":  "https://postgres.example.com",
+			"dev/openshift/username": "admin",
+			"dev/openshift/password": "open-$e$ame",
+			"ci/openshift/api-url":   "https://ci.postgres.example.com",
+			"ci/openshift/username":  "administrator",
+			"ci/openshift/password":  "open-$e$ame",
+		},
+	)
+
+	return m
 }
 
 func TestRetrieveSecrets(t *testing.T) {
-	var mockSecretFetch MockSecretFetch
-	mockInit(&mockSecretFetch)
+	m := newMockSecretFetcher()
+
 	for _, tc := range retrieveSecretsTestCases {
-		tc.Run(t, mockSecretFetch)
+		tc.Run(t, m.Fetch)
 	}
 }

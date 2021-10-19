@@ -2,7 +2,6 @@ package mocks
 
 import (
 	"errors"
-	"fmt"
 )
 
 /*
@@ -19,25 +18,24 @@ type ConjurMockClient struct {
 	Database   map[string]string
 }
 
-func (c ConjurMockClient) RetrieveSecrets (accessToken []byte, variableIDs []string) (map[string][]byte, error) {
-	conjurSecrets := make(map[string][]byte)
+func (c ConjurMockClient) RetrieveSecrets (accessToken []byte, secretIds []string) (map[string][]byte, error) {
+	res := make(map[string][]byte)
 
 	if !c.CanExecute {
 		return nil, errors.New("custom error")
 	}
 
-	for _, variableId := range variableIDs {
+	for _, secretId := range secretIds {
 		// Check if the secret exists in the mock Conjur DB
-		variableData, ok := c.Database[variableId]
+		variableData, ok := c.Database[secretId]
 		if !ok {
 			return nil, errors.New("no_conjur_secret_error")
 		}
 
-		fullVariableId := fmt.Sprintf("account:variable:%s", variableId)
-		conjurSecrets[fullVariableId] = []byte(variableData)
+		res[secretId] = []byte(variableData)
 	}
 
-	return conjurSecrets, nil
+	return res, nil
 }
 
 func NewConjurMockClient() ConjurMockClient {
@@ -53,7 +51,7 @@ func NewConjurMockClient() ConjurMockClient {
 	}
 }
 
-func (c ConjurMockClient) AddSecret(
+func (c ConjurMockClient) AddSecrets(
 	secrets map[string]string,
 ) {
 	for id, secret := range secrets {

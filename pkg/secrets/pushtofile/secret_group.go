@@ -55,8 +55,8 @@ func (s *SecretGroup) PushToFile(secrets []*Secret) error {
 }
 
 func (s *SecretGroup) pushToFileWithDeps(
-	openWriteCloser openWriteCloserFunc,
-	pushToWriter pushToWriterFunc,
+	depOpenWriteCloser openWriteCloserFunc,
+	depPushToWriter pushToWriterFunc,
 	secrets []*Secret) error {
 	// Make sure all the secret specs are accounted for
 	err := validateSecretsAgainstSpecs(secrets, s.SecretSpecs)
@@ -78,7 +78,7 @@ func (s *SecretGroup) pushToFileWithDeps(
 	}
 
 	//// Open and push to file
-	wc, err := openWriteCloser(s.FilePath, s.FilePermissions)
+	wc, err := depOpenWriteCloser(s.FilePath, s.FilePermissions)
 	if err != nil {
 		return err
 	}
@@ -86,7 +86,7 @@ func (s *SecretGroup) pushToFileWithDeps(
 		_ = wc.Close()
 	}()
 
-	return pushToWriter(
+	return depPushToWriter(
 		wc,
 		s.Name,
 		fileTemplate,

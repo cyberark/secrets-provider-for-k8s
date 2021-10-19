@@ -260,7 +260,7 @@ func TestSecretGroup_pushToFileWithDeps(t *testing.T) {
 			group: modifyGoodGroup(func(group SecretGroup) SecretGroup {
 				group.FileTemplate = ""
 				group.FileFormat = format
-				fmt.Println(group.SecretSpecs)
+
 				return group
 			}),
 			overrideSecrets: nil,
