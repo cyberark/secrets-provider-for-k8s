@@ -1,16 +1,65 @@
 package conjur
 
 import (
+	"fmt"
 	"strings"
 
+	"github.com/cyberark/conjur-authn-k8s-client/pkg/access_token/memory"
+	"github.com/cyberark/conjur-authn-k8s-client/pkg/authenticator"
+	"github.com/cyberark/conjur-authn-k8s-client/pkg/authenticator/config"
 	"github.com/cyberark/conjur-authn-k8s-client/pkg/log"
 
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/log/messages"
 )
 
-type RetrieveConjurSecretsFunc func(accessToken []byte, variableIDs []string) (map[string][]byte, error)
+type conjurSecretRetriever struct {
+	authn *authenticator.Authenticator
+}
 
-func RetrieveConjurSecrets(accessToken []byte, variableIDs []string) (map[string][]byte, error) {
+// RetrieveSecretsFunc defines a function type for retrieving secrets.
+type RetrieveSecretsFunc func(variableIDs []string) (map[string][]byte, error)
+
+// NewConjurSecretRetriever creates a new conjurSecretRetriever and Authenticator
+// given an authenticator config.
+func NewConjurSecretRetriever(authnConfig config.Config) (*conjurSecretRetriever, error) {
+	accessToken, err := memory.NewAccessToken()
+	if err != nil {
+		return nil, fmt.Errorf("%s", messages.CSPFK001E)
+	}
+
+	authn, err := authenticator.NewWithAccessToken(authnConfig, accessToken)
+	if err != nil {
+		return nil, fmt.Errorf("%s", messages.CSPFK009E)
+	}
+
+	return &conjurSecretRetriever{
+		authn: authn,
+	}, nil
+}
+
+// Retrieve implements a RetrieveSecretsFunc for a given conjurSecretRetriever.
+// Authenticates the client, and retrieves a given batch of variables from Conjur.
+func (retriever conjurSecretRetriever) Retrieve(variableIDs []string) (map[string][]byte, error) {
+	authn := retriever.authn
+
+	// Only get the access token when it is needed
+	err := authn.Authenticate()
+	if err != nil {
+		return nil, log.RecordedError(messages.CSPFK010E)
+	}
+
+	// NOTE: the token is cleanup up by whoever created it!
+	accessTokenData, err := authn.AccessToken.Read()
+	if err != nil {
+		return nil, log.RecordedError(messages.CSPFK002E)
+	}
+	// Always delete the access token. The deletion idempotent and never fails
+	defer authn.AccessToken.Delete()
+
+	return retrieveConjurSecrets(accessTokenData, variableIDs)
+}
+
+func retrieveConjurSecrets(accessToken []byte, variableIDs []string) (map[string][]byte, error) {
 	log.Info(messages.CSPFK003I, variableIDs)
 
 	conjurClient, err := NewConjurClient(accessToken)

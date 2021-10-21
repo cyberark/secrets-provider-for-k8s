@@ -2,27 +2,28 @@ package pushtofile
 
 import (
 	"fmt"
+
+	"github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/clients/conjur"
 )
 
-type secret struct {
+// Secret describes how Conjur secrets are represented in the Push-to-File context.
+type Secret struct {
 	Alias string
 	Value string
 }
-
-type FetchSecretsFunc func(secretPaths []string) (map[string][]byte, error)
 
 // FetchSecretsForGroups fetches the secrets for all the groups and returns
 // map of [group name] to [a slice of secrets for the group]. Callers of this
 // function should decorate any errors with messages.CSPFK052E
 func FetchSecretsForGroups(
-	depFetchSecrets FetchSecretsFunc,
+	depRetrieveSecrets conjur.RetrieveSecretsFunc,
 	secretGroups []*SecretGroup,
-) (map[string][]*secret, error) {
+) (map[string][]*Secret, error) {
 	var err error
-	secretsByGroup := map[string][]*secret{}
+	secretsByGroup := map[string][]*Secret{}
 
 	secretPaths := getAllPaths(secretGroups)
-	secretValueById, err := depFetchSecrets(secretPaths)
+	secretValueById, err := depRetrieveSecrets(secretPaths)
 	if err != nil {
 		return nil, err
 	}
@@ -31,7 +32,7 @@ func FetchSecretsForGroups(
 		for _, spec := range group.SecretSpecs {
 			sValue, ok := secretValueById[spec.Path]
 			if !ok {
-				 err = fmt.Errorf(
+				err = fmt.Errorf(
 					"secret with alias %q not present in fetched secrets",
 					spec.Alias,
 				)
@@ -40,7 +41,7 @@ func FetchSecretsForGroups(
 
 			secretsByGroup[group.Name] = append(
 				secretsByGroup[group.Name],
-				&secret{
+				&Secret{
 					Alias: spec.Alias,
 					Value: string(sValue),
 				},
