@@ -55,7 +55,7 @@ const CSPFK037E string = "CSPFK037E Failed to parse DAP/Conjur variable IDs"
 
 // General
 const CSPFK038E string = "CSPFK038E Retransmission backoff exhausted"
-const CSPFK039E string = "CSPFK039E Secrets Provider for Kubernetes failed to update Kubernetes Secrets"
+const CSPFK039E string = "CSPFK039E Secrets Provider for Kubernetes failed to update secrets in %s mode"
 
 // Annotations
 const CSPFK040E string = "CSPFK040E Failed to parse annotations file"
@@ -74,3 +74,6 @@ const CSPFK049E string = "CSPFK049E Failed to validate Pod annotations"
 const CSPFK050E string = "CSPFK050E Failed to unmarshal Push-to-File secrets. Reason: %s"
 const CSPFK051E string = "CSPFK051E Unknown file format '%s'"
 const CSPFK052E string = "CSPFK052E Failed to retrieve secrets. Reason: %s"
+
+const CSPFK053E string = "CSPFK053E Unable to initialize Secrets Provider: unable to create secret group collection"
+const CSPFK054E string = "CSPFK054E Unable to initialize Secrets Provider: unrecognized Store Type '%s'"

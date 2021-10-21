@@ -6,22 +6,21 @@ import (
 	"os"
 	"time"
 
-	"github.com/cenkalti/backoff"
-	"github.com/cyberark/conjur-authn-k8s-client/pkg/access_token/memory"
-	"github.com/cyberark/conjur-authn-k8s-client/pkg/authenticator"
 	authnConfigProvider "github.com/cyberark/conjur-authn-k8s-client/pkg/authenticator/config"
 	"github.com/cyberark/conjur-authn-k8s-client/pkg/log"
 
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/log/messages"
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/secrets"
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/annotations"
+	"github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/clients/conjur"
+	"github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/clients/k8s"
 	secretsConfigProvider "github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/config"
-	"github.com/cyberark/secrets-provider-for-k8s/pkg/utils"
 )
 
 const (
-	annotationsFile      = "/conjur/podinfo/annotations"
-	defaultContainerMode = "init"
+	defaultAnnotationsFile = "/conjur/podinfo/annotations"
+	defaultContainerMode   = "init"
+	defaultSecretBasePath  = "/conjur/secrets"
 )
 
 var annotationsMap map[string]string
@@ -37,15 +36,13 @@ var envAnnotationsConversion = map[string]string{
 }
 
 func main() {
-	var err error
-
 	log.Info(messages.CSPFK008I, secrets.FullVersionName)
 
 	// Only attempt to populate from annotations if the annotations file exists
 	// TODO: Figure out strategy for dealing with explicit annotation file path
-	// 	set by user. In that case we can't just ignore that the file is missing.
-	if _, err := os.Stat(annotationsFile); err == nil {
-		annotationsMap, err = annotations.NewAnnotationsFromFile(annotationsFile)
+	// set by user. In that case we can't just ignore that the file is missing.
+	if _, err := os.Stat(defaultAnnotationsFile); err == nil {
+		annotationsMap, err = annotations.NewAnnotationsFromFile(defaultAnnotationsFile)
 		if err != nil {
 			printErrorAndExit(messages.CSPFK040E)
 		}
@@ -54,50 +51,36 @@ func main() {
 		logErrorsAndConditionalExit(errLogs, infoLogs, messages.CSPFK049E)
 	}
 
-	// Initialize Authenticator configuration
+	// Initialize Authenticator and Secrets Provider configurations
 	authnConfig := setupAuthnConfig()
 	validateContainerMode(authnConfig.ContainerMode)
-
-	// Initialize Secrets Provider configuration
 	secretsConfig := setupSecretsConfig()
 
-	provideConjurSecrets, err := secrets.GetProvideConjurSecretFunc(secretsConfig.StoreType)
+	// Initialize a Conjur Secret Fetcher
+	secretRetriver, err := conjur.NewConjurSecretRetriever(*authnConfig)
 	if err != nil {
-		printErrorAndExit(fmt.Sprintf(messages.CSPFK014E, err.Error()))
+		printErrorAndExit(err.Error())
 	}
 
-	accessToken, err := memory.NewAccessToken()
+	provideSecrets, errs := secrets.NewProviderForType(
+		k8s.RetrieveK8sSecret,
+		k8s.UpdateK8sSecret,
+		secretRetriver.Retrieve,
+		secretsConfig.RequiredK8sSecrets,
+		secretsConfig.StoreType,
+		annotationsMap,
+	)
+	logErrorsAndConditionalExit(errs, nil, messages.CSPFK053E)
+
+	provideSecrets = secrets.RetryableSecretProvider(
+		time.Duration(secretsConfig.RetryIntervalSec),
+		secretsConfig.RetryCountLimit,
+		provideSecrets,
+	)
+
+	err = provideSecrets()
 	if err != nil {
-		printErrorAndExit(messages.CSPFK001E)
-	}
-
-	authn, err := authenticator.NewWithAccessToken(*authnConfig, accessToken)
-	if err != nil {
-		printErrorAndExit(messages.CSPFK009E)
-	}
-
-	limitedBackOff := utils.NewLimitedBackOff(
-		time.Duration(secretsConfig.RetryIntervalSec)*time.Second,
-		secretsConfig.RetryCountLimit)
-
-	err = backoff.Retry(func() error {
-		if limitedBackOff.RetryCount() > 0 {
-			log.Info(fmt.Sprintf(messages.CSPFK010I, limitedBackOff.RetryCount(), limitedBackOff.RetryLimit))
-		}
-
-		return provideSecretsToTarget(authn, provideConjurSecrets, accessToken, secretsConfig)
-	}, limitedBackOff)
-
-	if err != nil {
-		log.Error(messages.CSPFK038E)
-
-		// Deleting the retrieved Conjur access token in case we got an error after retrieval.
-		// if the access token is already deleted the action should not fail
-		err = accessToken.Delete()
-		if err != nil {
-			log.Error(messages.CSPFK003E, err)
-		}
-		printErrorAndExit(messages.CSPFK039E)
+		printErrorAndExit(fmt.Sprintf(messages.CSPFK039E, secretsConfig.StoreType))
 	}
 }
 
@@ -138,28 +121,6 @@ func setupSecretsConfig() *secretsConfigProvider.Config {
 	logErrorsAndConditionalExit(errLogs, infoLogs, messages.CSPFK015E)
 
 	return secretsConfigProvider.NewConfig(secretsProviderSettings)
-}
-
-func provideSecretsToTarget(authn *authenticator.Authenticator, provideConjurSecrets secrets.ProvideConjurSecrets,
-	accessToken *memory.AccessToken, secretsConfig *secretsConfigProvider.Config) error {
-	log.Info(fmt.Sprintf(messages.CSPFK001I, authn.Config.Username))
-	err := authn.Authenticate()
-	if err != nil {
-		return log.RecordedError(messages.CSPFK010E)
-	}
-
-	err = provideConjurSecrets(accessToken, secretsConfig)
-	if err != nil {
-		return log.RecordedError(messages.CSPFK016E)
-	}
-
-	err = accessToken.Delete()
-	if err != nil {
-		return log.RecordedError(messages.CSPFK003E, err.Error())
-	}
-
-	log.Info(messages.CSPFK009I)
-	return nil
 }
 
 func printErrorAndExit(errorMessage string) {
