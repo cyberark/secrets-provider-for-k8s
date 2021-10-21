@@ -8,8 +8,8 @@ import (
 	. "github.com/smartystreets/goconvey/convey"
 
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/log/messages"
-	secretsStorageMocks "github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/k8s_secrets_storage/mocks"
 	conjurMocks "github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/clients/conjur/mocks"
+	secretsStorageMocks "github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/k8s_secrets_storage/mocks"
 )
 
 func TestProvideConjurSecrets(t *testing.T) {
@@ -82,7 +82,7 @@ func TestProvideConjurSecrets(t *testing.T) {
 				"username": []byte("allowed/username"),
 			}
 			k8sSecretsMap := map[string]map[string][]byte{
-				"secret": dataEntriesMap,
+				"secret":         dataEntriesMap,
 				"another-secret": dataEntriesMap,
 			}
 
@@ -230,8 +230,6 @@ func TestProvideConjurSecrets(t *testing.T) {
 	})
 
 	Convey("run", t, func() {
-		var mockAccessToken conjurMocks.MockAccessToken
-
 		Convey("Given 2 k8s secrets that only one is required by the pod", func() {
 			conjurMockClient := conjurMocks.NewConjurMockClient()
 
@@ -240,12 +238,11 @@ func TestProvideConjurSecrets(t *testing.T) {
 			kubeMockClient.AddSecret("k8s_secret2", "secret_key2", "conjur_variable2")
 			requiredSecrets := []string{"k8s_secret1"}
 
-			err := run(
+			err := ProvideConjurSecretsToK8sSecrets(
 				kubeMockClient.RetrieveSecret,
 				kubeMockClient.UpdateSecret,
 				"someNameSpace",
 				requiredSecrets,
-				mockAccessToken,
 				conjurMockClient.RetrieveSecrets,
 			)
 
@@ -268,16 +265,15 @@ func TestProvideConjurSecrets(t *testing.T) {
 			conjurMockClient := conjurMocks.NewConjurMockClient()
 
 			kubeMockClient := secretsStorageMocks.NewKubeSecretsMockClient()
-			kubeMockClient.AddSecret("k8s_secret1","secret_key1","conjur_variable1")
-			kubeMockClient.AddSecret("k8s_secret2", "secret_key2","conjur_variable2")
+			kubeMockClient.AddSecret("k8s_secret1", "secret_key1", "conjur_variable1")
+			kubeMockClient.AddSecret("k8s_secret2", "secret_key2", "conjur_variable2")
 			requiredSecrets := []string{"k8s_secret1", "k8s_secret2"}
 
-			err := run(
+			err := ProvideConjurSecretsToK8sSecrets(
 				kubeMockClient.RetrieveSecret,
 				kubeMockClient.UpdateSecret,
 				"someNameSpace",
 				requiredSecrets,
-				mockAccessToken,
 				conjurMockClient.RetrieveSecrets,
 			)
 
@@ -300,12 +296,11 @@ func TestProvideConjurSecrets(t *testing.T) {
 
 			requiredSecrets := []string{"k8s_secret1", "k8s_secret2"}
 
-			err := run(
+			err := ProvideConjurSecretsToK8sSecrets(
 				kubeMockClient.RetrieveSecret,
 				kubeMockClient.UpdateSecret,
 				"someNameSpace",
 				requiredSecrets,
-				mockAccessToken,
 				conjurMockClient.RetrieveSecrets,
 			)
 
@@ -327,12 +322,11 @@ func TestProvideConjurSecrets(t *testing.T) {
 
 			requiredSecrets := []string{"k8s_secret1"}
 
-			err := run(
+			err := ProvideConjurSecretsToK8sSecrets(
 				kubeMockClient.RetrieveSecret,
 				kubeMockClient.UpdateSecret,
 				"someNameSpace",
 				requiredSecrets,
-				mockAccessToken,
 				conjurMockClient.RetrieveSecrets,
 			)
 
@@ -348,12 +342,11 @@ func TestProvideConjurSecrets(t *testing.T) {
 			kubeMockClient.AddSecret("k8s_secret_with_empty_conjur_variable", "secret_key", "conjur_variable_empty_secret")
 			requiredSecrets := []string{"k8s_secret_with_empty_conjur_variable"}
 
-			err := run(
+			err := ProvideConjurSecretsToK8sSecrets(
 				kubeMockClient.RetrieveSecret,
 				kubeMockClient.UpdateSecret,
 				"someNameSpace",
 				requiredSecrets,
-				mockAccessToken,
 				conjurMockClient.RetrieveSecrets,
 			)
 
@@ -375,12 +368,11 @@ func TestProvideConjurSecrets(t *testing.T) {
 			kubeMockClient.AddSecret("k8s_secret_with_no_permission_conjur_variable", "secret_key", "no_execute_permission_conjur_secret")
 			requiredSecrets := []string{"k8s_secret_with_no_permission_conjur_variable"}
 
-			err := run(
+			err := ProvideConjurSecretsToK8sSecrets(
 				kubeMockClient.RetrieveSecret,
 				kubeMockClient.UpdateSecret,
 				"someNameSpace",
 				requiredSecrets,
-				mockAccessToken,
 				conjurMockClient.RetrieveSecrets,
 			)
 
