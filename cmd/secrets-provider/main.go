@@ -74,7 +74,7 @@ func main() {
 	logErrorsAndConditionalExit(errs, nil, messages.CSPFK053E)
 
 	provideSecrets = secrets.RetryableSecretProvider(
-		time.Duration(secretsConfig.RetryIntervalSec),
+		time.Duration(secretsConfig.RetryIntervalSec)*time.Second,
 		secretsConfig.RetryCountLimit,
 		provideSecrets,
 	)
