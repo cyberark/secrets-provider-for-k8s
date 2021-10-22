@@ -45,13 +45,13 @@ func NewProvider(
 	updatek8sSecret k8s.UpdateK8sSecretFunc,
 	retrieveSecretsFunc conjur.RetrieveSecretsFunc,
 	requiredK8sSecrets []string,
-	settings map[string]string,
+	podNamespace string,
 ) k8sProvider {
 	return k8sProvider{
 		retrieveK8sSecret:   retrievek8sSecret,
 		updateK8sSecret:     updatek8sSecret,
 		retrieveSecretsFunc: retrieveSecretsFunc,
-		podNamespace:        settings["MY_POD_NAMESPACE"],
+		podNamespace:        podNamespace,
 		requiredK8sSecrets:  requiredK8sSecrets,
 	}
 }

@@ -25,8 +25,9 @@ func NewProviderForType(
 	retrievek8sSecret k8s.RetrieveK8sSecretFunc,
 	updatek8sSecret k8s.UpdateK8sSecretFunc,
 	secretsRetrieverFunc conjur.RetrieveSecretsFunc,
-	requiredK8sSecrets []string,
 	storeType string,
+	podNamespace string,
+	requiredK8sSecrets []string,
 	settings map[string]string,
 ) (ProviderFunc, []error) {
 	switch storeType {
@@ -36,7 +37,7 @@ func NewProviderForType(
 			updatek8sSecret,
 			secretsRetrieverFunc,
 			requiredK8sSecrets,
-			settings,
+			podNamespace,
 		)
 		return provider.Provide, nil
 	case config.File:

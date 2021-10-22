@@ -66,8 +66,9 @@ func main() {
 		k8s.RetrieveK8sSecret,
 		k8s.UpdateK8sSecret,
 		secretRetriver.Retrieve,
-		secretsConfig.RequiredK8sSecrets,
 		secretsConfig.StoreType,
+		secretsConfig.PodNamespace,
+		secretsConfig.RequiredK8sSecrets,
 		annotationsMap,
 	)
 	logErrorsAndConditionalExit(errs, nil, messages.CSPFK053E)
