@@ -26,15 +26,31 @@ func NewProvider(retrieveSecretsFunc conjur.RetrieveSecretsFunc, annotations map
 
 // Provide implements a ProviderFunc to retrieve and push secrets to the filesystem.
 func (p fileProvider) Provide() error {
-	secretGroups := p.secretGroups
+	return provideWithDeps(
+		p.secretGroups,
+		p.retrieveSecretsFunc,
+		openFileAsWriteCloser,
+		pushToWriter,
+	)
+}
 
-	secretsByGroup, err := FetchSecretsForGroups(p.retrieveSecretsFunc, secretGroups)
+func provideWithDeps(
+	groups []*SecretGroup,
+	retrieveSecretsFunc conjur.RetrieveSecretsFunc,
+	depOpenWriteCloser openWriteCloserFunc,
+	depPushToWriter pushToWriterFunc,
+) error {
+	secretsByGroup, err := FetchSecretsForGroups(retrieveSecretsFunc, groups)
 	if err != nil {
 		return err
 	}
 
-	for _, group := range secretGroups {
-		err := group.PushToFile(secretsByGroup[group.Name])
+	for _, group := range groups {
+		err := group.pushToFileWithDeps(
+			depOpenWriteCloser,
+			depPushToWriter,
+			secretsByGroup[group.Name],
+		)
 		if err != nil {
 			return err
 		}
