@@ -7,7 +7,7 @@ import (
 var standardTemplateTestCases = []pushToWriterTestCase{
 	{
 		description: "json",
-		template: standardTemplates["json"].Template,
+		template: standardTemplates["json"].template,
 		secrets: []*Secret{
 			{Alias: "alias 1", Value: "secret value 1"},
 			{"alias 2", "secret value 2"},
@@ -16,7 +16,7 @@ var standardTemplateTestCases = []pushToWriterTestCase{
 	},
 	{
 		description: "yaml",
-		template: standardTemplates["yaml"].Template,
+		template: standardTemplates["yaml"].template,
 		secrets: []*Secret{
 			{Alias: "alias 1", Value: "secret value 1"},
 			{"alias 2", "secret value 2"},
@@ -26,7 +26,7 @@ var standardTemplateTestCases = []pushToWriterTestCase{
 	},
 	{
 		description: "dotenv",
-		template: standardTemplates["dotenv"].Template,
+		template: standardTemplates["dotenv"].template,
 		secrets: []*Secret{
 			{Alias: "alias1", Value: "secret value 1"},
 			{"alias2", "secret value 2"},
@@ -36,7 +36,7 @@ alias2="secret value 2"`),
 	},
 	{
 		description: "bash",
-		template: standardTemplates["bash"].Template,
+		template: standardTemplates["bash"].template,
 		secrets: []*Secret{
 			{Alias: "alias1", Value: "secret value 1"},
 			{"alias2", "secret value 2"},

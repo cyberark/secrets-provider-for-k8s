@@ -2,27 +2,27 @@ package pushtofile
 
 import "fmt"
 
-type StandardTemplate struct {
-	Template string
-	FileFormat string
-	Validator func(alias string) error
+type standardTemplate struct {
+	template      string
+	fileFormat    string
+	validateAlias func(alias string) error
 }
 
-func (s StandardTemplate) ValidateAlias(alias string) error {
-	if s.Validator == nil {
+func (s standardTemplate) ValidateAlias(alias string) error {
+	if s.validateAlias == nil {
 		return nil
 	}
 
-	return s.Validator(alias)
+	return s.validateAlias(alias)
 }
 
-var standardTemplates = map[string]StandardTemplate{
-	"yaml": { Template: yamlTemplate, Validator: func(alias string) error {
+var standardTemplates = map[string]standardTemplate{
+	"yaml": {template: yamlTemplate, validateAlias: func(alias string) error {
 		return nil
 	}},
-	"json": { Template: jsonTemplate },
-	"dotenv": { Template: dotenvTemplate },
-	"bash": { Template: bashTemplate },
+	"json":   {template: jsonTemplate},
+	"dotenv": {template: dotenvTemplate},
+	"bash":   {template: bashTemplate},
 }
 
 // FileTemplateForFormat returns the template for a file format, after ensuring the
@@ -47,5 +47,5 @@ func FileTemplateForFormat(
 		}
 	}
 
-	return stdTemplate.Template, nil
+	return stdTemplate.template, nil
 }

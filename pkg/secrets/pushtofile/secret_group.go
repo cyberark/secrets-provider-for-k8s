@@ -13,7 +13,7 @@ const secretGroupFileTemplatePrefix = "conjur.org/secret-file-template."
 const secretGroupFilePathPrefix = "conjur.org/secret-file-path."
 const secretGroupFileFormatPrefix = "conjur.org/secret-file-format."
 
-const defaultFilePermissions os.FileMode = 0660
+const defaultFilePermissions os.FileMode = 0664
 
 type Secret struct {
 	Alias string

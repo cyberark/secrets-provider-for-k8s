@@ -275,7 +275,7 @@ func TestSecretGroup_pushToFileWithDeps(t *testing.T) {
 				if !assert.NoError(t, err) {
 					return
 				}
-				assert.Equal(t, spyPush.args.groupTemplate, standardTemplates[format].Template)
+				assert.Equal(t, spyPush.args.groupTemplate, standardTemplates[format].template)
 			},
 		}
 
