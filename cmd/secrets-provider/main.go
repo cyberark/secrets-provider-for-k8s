@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"io/ioutil"
 	"os"
 	"time"
 
@@ -18,39 +19,44 @@ import (
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/utils"
 )
 
-const annotationsFile = "/conjur/podinfo/annotations"
+const (
+	annotationsFile      = "/conjur/podinfo/annotations"
+	defaultContainerMode = "init"
+)
+
+var annotationsMap map[string]string
+
+var envAnnotationsConversion = map[string]string{
+	"CONJUR_AUTHN_LOGIN":  "conjur.org/authn-identity",
+	"CONTAINER_MODE":      "conjur.org/container-mode",
+	"SECRETS_DESTINATION": "conjur.org/secrets-destination",
+	"K8S_SECRETS":         "conjur.org/k8s-secrets",
+	"RETRY_COUNT_LIMIT":   "conjur.org/retry-count-limit",
+	"RETRY_INTERVAL_SEC":  "conjur.org/retry-interval-sec",
+	"DEBUG":               "conjur.org/debug-logging",
+}
 
 func main() {
 	var err error
 
 	log.Info(messages.CSPFK008I, secrets.FullVersionName)
 
-	// Initialize authn configuration
-	authnConfig, err := authnConfigProvider.NewFromEnv()
-	if err != nil {
-		printErrorAndExit(messages.CSPFK008E)
-	}
-
-	validateContainerMode(authnConfig.ContainerMode)
-
-	annotationsMap := map[string]string{}
 	if _, err := os.Stat(annotationsFile); err == nil {
 		annotationsMap, err = annotations.NewAnnotationsFromFile(annotationsFile)
 		if err != nil {
 			printErrorAndExit(messages.CSPFK040E)
 		}
+
+		errLogs, infoLogs := secretsConfigProvider.ValidateAnnotations(annotationsMap)
+		logErrorsAndConditionalExit(errLogs, infoLogs, messages.CSPFK049E)
 	}
 
-	errLogs, infoLogs := secretsConfigProvider.ValidateAnnotations(annotationsMap)
-	logErrorsAndConditionalExit(errLogs, infoLogs, messages.CSPFK049E)
-
-	secretsProviderSettings := secretsConfigProvider.GatherSecretsProviderSettings(annotationsMap)
-
-	errLogs, infoLogs = secretsConfigProvider.ValidateSecretsProviderSettings(secretsProviderSettings)
-	logErrorsAndConditionalExit(errLogs, infoLogs, messages.CSPFK015E)
+	// Initialize Authenticator configuration
+	authnConfig := setupAuthnConfig()
+	validateContainerMode(authnConfig.ContainerMode)
 
 	// Initialize Secrets Provider configuration
-	secretsConfig := secretsConfigProvider.NewConfig(secretsProviderSettings)
+	secretsConfig := setupSecretsConfig()
 
 	provideConjurSecrets, err := secrets.GetProvideConjurSecretFunc(secretsConfig.StoreType)
 	if err != nil {
@@ -90,6 +96,45 @@ func main() {
 		}
 		printErrorAndExit(messages.CSPFK039E)
 	}
+}
+
+func setupAuthnConfig() *authnConfigProvider.Config {
+	// Provides a custom env for authenticator settings retrieval.
+	// Log the origin of settings which have multiple possible sources.
+	customEnv := func(key string) string {
+		if annotation, ok := envAnnotationsConversion[key]; ok {
+			if value := annotationsMap[annotation]; value != "" {
+				log.Info(messages.CSPFK014I, key, fmt.Sprintf("annotation %s", annotation))
+				return value
+			}
+
+			if value := os.Getenv(key); value == "" && key == "CONTAINER_MODE" {
+				log.Info(messages.CSPFK014I, key, "default")
+				return defaultContainerMode
+			}
+
+			log.Info(messages.CSPFK014I, key, "environment")
+		}
+
+		return os.Getenv(key)
+	}
+
+	log.Info(messages.CSPFK013I)
+	authnSettings := authnConfigProvider.GatherSettings(customEnv)
+
+	errLogs := authnSettings.Validate(ioutil.ReadFile)
+	logErrorsAndConditionalExit(errLogs, nil, messages.CSPFK008E)
+
+	return authnSettings.NewConfig()
+}
+
+func setupSecretsConfig() *secretsConfigProvider.Config {
+	secretsProviderSettings := secretsConfigProvider.GatherSecretsProviderSettings(annotationsMap)
+
+	errLogs, infoLogs := secretsConfigProvider.ValidateSecretsProviderSettings(secretsProviderSettings)
+	logErrorsAndConditionalExit(errLogs, infoLogs, messages.CSPFK015E)
+
+	return secretsConfigProvider.NewConfig(secretsProviderSettings)
 }
 
 func provideSecretsToTarget(authn *authenticator.Authenticator, provideConjurSecrets secrets.ProvideConjurSecrets,
