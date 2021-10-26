@@ -15,7 +15,7 @@ type pushToFileWithDepsTestCase struct {
 	overrideSecrets        []*Secret // Overrides secrets generated from group secret specs
 	toWriterPusherErr      error
 	toWriteCloserOpenerErr error
-	assert                 func(t *testing.T, spyOpen openWriteCloserSpy, closableBuf *ClosableBuffer, spyPush pushToWriterSpy, err error)
+	assert                 func(t *testing.T, spyOpenWriteCloser openWriteCloserSpy, closableBuf *ClosableBuffer, spyPushToWriter pushToWriterSpy, err error)
 }
 
 func (tc *pushToFileWithDepsTestCase) Run(t *testing.T) {
@@ -159,30 +159,42 @@ var pushToFileWithDepsTestCases = []pushToFileWithDepsTestCase{
 		overrideSecrets: nil,
 		assert: func(
 			t *testing.T,
-			spyOpen openWriteCloserSpy,
+			spyOpenWriteCloser openWriteCloserSpy,
 			closableBuf *ClosableBuffer,
-			spyPush pushToWriterSpy,
+			spyPushToWriter pushToWriterSpy,
 			err error,
 		) {
 			// Assertions
 			assert.NoError(t, err)
 			// Assert on pushToWriterFunc
-			assert.Equal(t, "groupname", spyPush.args.groupName, )
-			assert.Equal(t, closableBuf, spyPush.args.writer)
-			assert.Equal(t, "filetemplate", spyPush.args.groupTemplate)
-			assert.Equal(t, spyPush.args.groupSecrets, []*Secret{
-				{
-					Alias: "alias1",
-					Value: "value-path1",
+			assert.Equal(
+				t,
+				pushToWriterArgs{
+					writer:        closableBuf,
+					groupName:     "groupname",
+					groupTemplate: "filetemplate",
+					groupSecrets:  []*Secret{
+						{
+							Alias: "alias1",
+							Value: "value-path1",
+						},
+						{
+							Alias: "alias2",
+							Value: "value-path2",
+						},
+					},
 				},
-				{
-					Alias: "alias2",
-					Value: "value-path2",
-				},
-			})
+				spyPushToWriter.args,
+			)
 			// Assert on WriteCloserOpener
-			assert.Equal(t, spyOpen.args.path, "path/to/file")
-			assert.EqualValues(t, spyOpen.args.permissions, 123)
+			assert.Equal(
+				t,
+				openWriteCloserArgs{
+					path:        "path/to/file",
+					permissions: 123,
+				},
+				spyOpenWriteCloser.args,
+			)
 		},
 	},
 	{
@@ -196,14 +208,17 @@ var pushToFileWithDepsTestCases = []pushToFileWithDepsTestCase{
 		overrideSecrets: nil,
 		assert: func(
 			t *testing.T,
-			spyOpen openWriteCloserSpy,
+			spyOpenWriteCloser openWriteCloserSpy,
 			closableBuf *ClosableBuffer,
-			spyPush pushToWriterSpy,
+			spyPushToWriter pushToWriterSpy,
 			err error,
 		) {
 			// Assertions
-			assert.Error(t, err)
-			assert.Equal(t, err.Error(), `missing one of "file template" or "file format" for group`)
+			if !assert.NoError(t, err) {
+				return
+			}
+			// Defaults to yaml
+			spyPushToWriter.args.groupTemplate = yamlTemplate
 		},
 	},
 	{
@@ -212,9 +227,9 @@ var pushToFileWithDepsTestCases = []pushToFileWithDepsTestCase{
 		overrideSecrets: []*Secret{},
 		assert: func(
 			t *testing.T,
-			spyOpen openWriteCloserSpy,
+			spyOpenWriteCloser openWriteCloserSpy,
 			closableBuf *ClosableBuffer,
-			spyPush pushToWriterSpy,
+			spyPushToWriter pushToWriterSpy,
 			err error,
 		) {
 			// Assertions
@@ -235,16 +250,16 @@ var pushToFileWithDepsTestCases = []pushToFileWithDepsTestCase{
 		overrideSecrets: nil,
 		assert: func(
 			t *testing.T,
-			spyOpen openWriteCloserSpy,
+			spyOpenWriteCloser openWriteCloserSpy,
 			closableBuf *ClosableBuffer,
-			spyPush pushToWriterSpy,
+			spyPushToWriter pushToWriterSpy,
 			err error,
 		) {
 			// Assertions
 			if !assert.NoError(t, err) {
 				return
 			}
-			assert.Equal(t, spyPush.args.groupTemplate, `setfiletemplate`)
+			assert.Equal(t, spyPushToWriter.args.groupTemplate, `setfiletemplate`)
 		},
 	},
 }
@@ -266,16 +281,16 @@ func TestSecretGroup_pushToFileWithDeps(t *testing.T) {
 			overrideSecrets: nil,
 			assert: func(
 				t *testing.T,
-				spyOpen openWriteCloserSpy,
+				spyOpenWriteCloser openWriteCloserSpy,
 				closableBuf *ClosableBuffer,
-				spyPush pushToWriterSpy,
+				spyPushToWriter pushToWriterSpy,
 				err error,
 			) {
 				// Assertions
 				if !assert.NoError(t, err) {
 					return
 				}
-				assert.Equal(t, spyPush.args.groupTemplate, standardTemplates[format].template)
+				assert.Equal(t, spyPushToWriter.args.groupTemplate, standardTemplates[format].template)
 			},
 		}
 

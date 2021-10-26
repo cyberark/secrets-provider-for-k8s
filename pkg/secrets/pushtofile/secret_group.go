@@ -136,7 +136,7 @@ func maybeFileTemplateFromFormat(
 ) (string, error) {
 	// One of file format or file template must be set
 	if len(fileTemplate)+len(fileFormat) == 0 {
-		return "", fmt.Errorf("%s", `missing one of "file template" or "file format" for group`)
+		fileFormat = "yaml"
 	}
 
 	// fileFormat is used to set fileTemplate when fileTemplate is not
