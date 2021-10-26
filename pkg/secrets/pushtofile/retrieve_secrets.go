@@ -1,74 +1,62 @@
 package pushtofile
 
 import (
-	"strings"
-
-	"github.com/cyberark/conjur-authn-k8s-client/pkg/access_token"
-	"github.com/cyberark/conjur-authn-k8s-client/pkg/log"
-	"github.com/cyberark/secrets-provider-for-k8s/pkg/log/messages"
-	"github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/clients/conjur"
+	"fmt"
 )
 
 type secret struct {
 	Alias string
 	Value string
 }
-type fetcher interface {
-	SecretFetcher(secretIds []string) (map[string][]byte, error)
-}
 
-type conjurSecretFetch struct {
-	accessToken access_token.AccessToken
-}
+type FetchSecretsFunc func(secretPaths []string) (map[string][]byte, error)
 
-func (s conjurSecretFetch) SecretFetcher(secretIds []string) (map[string][]byte, error) {
-	accessTokenData, err := s.accessToken.Read()
+// FetchSecretsForGroups fetches the secrets for all the groups and returns
+// map of [group name] to [a slice of secrets for the group]. Callers of this
+// function should decorate any errors with messages.CSPFK052E
+func FetchSecretsForGroups(
+	depFetchSecrets FetchSecretsFunc,
+	secretGroups []*SecretGroup,
+) (map[string][]*secret, error) {
+	var err error
+	secretsByGroup := map[string][]*secret{}
+
+	secretPaths := getAllPaths(secretGroups)
+	secretValueById, err := depFetchSecrets(secretPaths)
 	if err != nil {
-		return nil, log.RecordedError(messages.CSPFK002E)
+		return nil, err
 	}
-	return conjur.RetrieveConjurSecrets(accessTokenData, secretIds)
-}
 
-// FetchSecretsForGroups parses the SecretsGroup, gets
-// the secrets from Conjur and updates the SecretsGroup with the secret
-func FetchSecretsForGroups(secretGroups *SecretGroups,
-	accessToken access_token.AccessToken) (map[string][]*secret, error) {
-	var conjurSecretFetcher = conjurSecretFetch{accessToken}
-	return fetchSecretsForGroups(conjurSecretFetcher, secretGroups)
-}
-
-func getAllIds(secretGroups *SecretGroups) []string {
-	ids := []string{}
-	for _, group := range *secretGroups {
+	for _, group := range secretGroups {
 		for _, spec := range group.SecretSpecs {
-			ids = append(ids, spec.Id)
+			sValue, ok := secretValueById[spec.Path]
+			if !ok {
+				 err = fmt.Errorf(
+					"secret with alias %q not present in fetched secrets",
+					spec.Alias,
+				)
+				return nil, err
+			}
+
+			secretsByGroup[group.Name] = append(
+				secretsByGroup[group.Name],
+				&secret{
+					Alias: spec.Alias,
+					Value: string(sValue),
+				},
+			)
+		}
+	}
+
+	return secretsByGroup, err
+}
+
+func getAllPaths(secretGroups []*SecretGroup) []string {
+	var ids []string
+	for _, group := range secretGroups {
+		for _, spec := range group.SecretSpecs {
+			ids = append(ids, spec.Path)
 		}
 	}
 	return ids
-}
-
-func fetchSecretsForGroups(secretsFetcherFunc fetcher,
-	secretGroups *SecretGroups,
-) (map[string][]*secret, error) {
-
-	secretsValues := map[string][]*secret{}
-
-	ids := getAllIds(secretGroups)
-	retrieved, err := secretsFetcherFunc.SecretFetcher(ids)
-	if err != nil {
-		return nil, log.RecordedError(messages.CSPFK052E, err.Error())
-	}
-	for _, group := range *secretGroups {
-		for _, spec := range group.SecretSpecs {
-			for id, retSecret := range retrieved {
-				if strings.Contains(id, spec.Id) {
-					fetchedSecret := new(secret)
-					fetchedSecret.Alias = spec.Alias
-					fetchedSecret.Value = string(retSecret)
-					secretsValues[group.Label] = append(secretsValues[group.Label], fetchedSecret)
-				}
-			}
-		}
-	}
-	return secretsValues, err
 }

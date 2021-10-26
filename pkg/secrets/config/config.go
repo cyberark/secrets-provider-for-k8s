@@ -126,8 +126,8 @@ func GatherSecretsProviderSettings(annotations map[string]string) map[string]str
 // settings yield a valid Secrets Provider configuration. Returns a list of Error logs, and a list
 // of Info logs.
 func ValidateSecretsProviderSettings(envAndAnnots map[string]string) ([]error, []error) {
-	errorList := []error{}
-	infoList := []error{}
+	var errorList []error
+	var infoList []error
 
 	// PodNamespace must be configured by envVar
 	if envAndAnnots["MY_POD_NAMESPACE"] == "" {

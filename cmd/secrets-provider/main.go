@@ -41,6 +41,9 @@ func main() {
 
 	log.Info(messages.CSPFK008I, secrets.FullVersionName)
 
+	// Only attempt to populate from annotations if the annotations file exists
+	// TODO: Figure out strategy for dealing with explicit annotation file path
+	// 	set by user. In that case we can't just ignore that the file is missing.
 	if _, err := os.Stat(annotationsFile); err == nil {
 		annotationsMap, err = annotations.NewAnnotationsFromFile(annotationsFile)
 		if err != nil {

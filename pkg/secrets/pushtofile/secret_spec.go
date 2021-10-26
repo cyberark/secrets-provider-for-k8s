@@ -4,57 +4,75 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/cyberark/conjur-authn-k8s-client/pkg/log"
-	"github.com/cyberark/secrets-provider-for-k8s/pkg/log/messages"
 	"gopkg.in/yaml.v3"
 )
 
 type SecretSpec struct {
-	Id    string
 	Alias string
+	Path  string
 }
 
 func (t SecretSpec) MarshalYAML() (interface{}, error) {
-	return map[string]string{t.Alias: t.Id}, nil
+	return map[string]string{t.Alias: t.Path}, nil
 }
 
-// UnmarshalYAML is a custom unmarshaller for SecretSpec that allows it to unmarshal
-// from different yaml types by trying each one
-func (t *SecretSpec) UnmarshalYAML(unmarshal func(v interface{}) error) error {
-	// LITERAL
+const invalidSecretSpecErr = `expected a "string (path)" or "single entry map of string to string (alias to path)" on line %d`
+
+// UnmarshalYAML is a custom unmarshaller for SecretSpec that allows us to
+// unmarshal from different YAML node representations i.e. literal string or
+// map.
+func (t *SecretSpec) UnmarshalYAML(node *yaml.Node) error {
+	switch node.Kind {
+	case yaml.ScalarNode:
+		return t.unmarshalFromLiteralString(node)
+	case yaml.MappingNode:
+		return t.unmarshalFromMap(node)
+	}
+
+	return fmt.Errorf(invalidSecretSpecErr, node.Line)
+}
+
+func (t *SecretSpec) unmarshalFromLiteralString(node *yaml.Node) error {
 	var literalValue string
-	err := unmarshal(&literalValue)
-	if err == nil {
-		t.Id = literalValue
-		t.Alias = literalValue[strings.LastIndex(literalValue, "/")+1:]
-		return nil
-	}
+	err := node.Decode(&literalValue)
 
-	// MAP
-	var mapValue map[string]string
-	err = unmarshal(&mapValue)
+	// Scalar node but not a string
 	if err != nil {
-		return log.RecordedError(messages.CSPFK050E, "unrecognized format for secret spec")
+		return fmt.Errorf(invalidSecretSpecErr, node.Line)
 	}
 
+	t.Path = literalValue
+	t.Alias = literalValue[strings.LastIndex(literalValue, "/")+1:]
+	return nil
+}
+
+func (t *SecretSpec) unmarshalFromMap(node *yaml.Node) error {
+	var mapValue map[string]string
+
+	err := node.Decode(&mapValue)
+	// Mapping node but not string to string
+	if err != nil {
+		return fmt.Errorf(invalidSecretSpecErr, node.Line)
+	}
+
+	// Mapping node but has multiple entries
 	if len(mapValue) != 1 {
-		return log.RecordedError(messages.CSPFK050E, "expected single key-value pair for secret specification")
+		return fmt.Errorf(invalidSecretSpecErr, node.Line)
 	}
 
 	for k, v := range mapValue {
-		t.Id = v
+		t.Path = v
 		t.Alias = k
 	}
 
 	return nil
-
 }
 
 func NewSecretSpecs(raw []byte) ([]SecretSpec, error) {
 	var secretSpecs []SecretSpec
 	err := yaml.Unmarshal(raw, &secretSpecs)
 	if err != nil {
-		return nil, log.RecordedError(messages.CSPFK050E, fmt.Sprintf("failed to parse yaml list: %v", err))
+		return nil, fmt.Errorf("yaml: cannot unmarshall to list of secret specs: %v", err)
 	}
 
 	return secretSpecs, nil

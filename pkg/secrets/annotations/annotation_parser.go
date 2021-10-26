@@ -2,12 +2,14 @@ package annotations
 
 import (
 	"bufio"
+	"fmt"
 	"io"
 	"os"
 	"strconv"
 	"strings"
 
 	"github.com/cyberark/conjur-authn-k8s-client/pkg/log"
+
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/log/messages"
 )
 
@@ -29,7 +31,12 @@ func osFileOpener(name string, flag int, perm os.FileMode) (io.ReadCloser, error
 // are defined in a deployment manifest.
 func NewAnnotationsFromFile(path string) (map[string]string, error) {
 	// Use standard OS
-	return newAnnotationsFromFile(osFileOpener, path)
+	res, err := newAnnotationsFromFile(osFileOpener, path)
+	if err != nil {
+		return nil, fmt.Errorf(messages.CSPFK041E, path, err)
+	}
+
+	return res, nil
 }
 
 // newAnnotationsFromFile performs the work of NewAnnotationsFromFile(), and
@@ -38,7 +45,7 @@ func NewAnnotationsFromFile(path string) (map[string]string, error) {
 func newAnnotationsFromFile(fo fileOpener, path string) (map[string]string, error) {
 	annotationsFile, err := fo(path, os.O_RDONLY, os.ModePerm)
 	if err != nil {
-		return nil, log.RecordedError(messages.CSPFK041E, path, err.Error())
+		return nil, err
 	}
 	defer annotationsFile.Close()
 	return newAnnotationsFromReader(annotationsFile)

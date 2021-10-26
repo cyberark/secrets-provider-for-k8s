@@ -12,7 +12,14 @@ type secretsSpecTestCase struct {
 	assert      func(t *testing.T, result []SecretSpec, err error)
 }
 
-func assertGoodSecretSpecs(expectedResult []SecretSpec) func(*testing.T, []SecretSpec, error) {
+func (tc secretsSpecTestCase) Run(t *testing.T) {
+	t.Run(tc.description, func(t *testing.T) {
+		secretsSpecs, err := NewSecretSpecs([]byte(tc.contents))
+		tc.assert(t, secretsSpecs, err)
+	})
+}
+
+func assertGoodSecretSpecs(expectedResult []SecretSpec) func (*testing.T, []SecretSpec, error) {
 	return func(t *testing.T, result []SecretSpec, err error) {
 		if !assert.NoError(t, err) {
 			return
@@ -28,7 +35,7 @@ func assertGoodSecretSpecs(expectedResult []SecretSpec) func(*testing.T, []Secre
 
 var secretsSpecTestCases = []secretsSpecTestCase{
 	{
-		description: "valid example",
+		description: "valid secret spec formats",
 		contents: `
 - dev/openshift/api-url
 - admin-password: dev/openshift/password
@@ -36,44 +43,67 @@ var secretsSpecTestCases = []secretsSpecTestCase{
 		assert: assertGoodSecretSpecs(
 			[]SecretSpec{
 				{
-					Id:    "dev/openshift/api-url",
+					Path:  "dev/openshift/api-url",
 					Alias: "api-url",
 				},
 				{
-					Id:    "dev/openshift/password",
+					Path:  "dev/openshift/password",
 					Alias: "admin-password",
 				},
 			},
 		),
 	},
 	{
-		description: "malformed not a list",
+		description: "secret specs are not a list",
 		contents: `
 admin-password: dev/openshift/password
 another-password: dev/openshift/password
 `,
 		assert: func(t *testing.T, result []SecretSpec, err error) {
-			assert.Contains(t, err.Error(), "failed to parse yaml list")
+			assert.Contains(t, err.Error(), "cannot unmarshal")
+			assert.Contains(t, err.Error(), "into []pushtofile.SecretSpec")
 		},
 	},
 	{
-		description: "malformed multiple key-values in one entry",
+		description: "secret spec map with multiple keys",
 		contents: `
-- dev/openshift/api-url
 - admin-password: dev/openshift/password 
   another-admin-password: dev/openshift/password
+- dev/openshift/api-url
 `,
 		assert: func(t *testing.T, result []SecretSpec, err error) {
-			assert.Contains(t, err.Error(), "expected single key-value pair for secret specification")
+			assert.Contains(t, err.Error(), "expected a")
+			assert.Contains(t, err.Error(), "on line 2")
+		},
+	},
+	{
+		description: "secret spec map value is not a string",
+		contents: `
+- dev/openshift/api-url
+- key: 
+    inner-key: inner-value
+`,
+		assert: func(t *testing.T, result []SecretSpec, err error) {
+			assert.Contains(t, err.Error(), "expected a")
+			assert.Contains(t, err.Error(), "on line 3")
+		},
+	},
+	{
+		description: "unrecognized secret spec format",
+		contents: `
+- dev/openshift/api-url
+- api-password: dev/openshift/api-password
+- - list item
+`,
+		assert: func(t *testing.T, result []SecretSpec, err error) {
+			assert.Contains(t, err.Error(), "expected a")
+			assert.Contains(t, err.Error(), "on line 4")
 		},
 	},
 }
 
 func TestNewSecretSpecs(t *testing.T) {
 	for _, tc := range secretsSpecTestCases {
-		t.Run(tc.description, func(t *testing.T) {
-			secretsSpecs, err := NewSecretSpecs([]byte(tc.contents))
-			tc.assert(t, secretsSpecs, err)
-		})
+		tc.Run(t)
 	}
 }
