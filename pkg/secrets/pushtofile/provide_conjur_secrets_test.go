@@ -16,7 +16,7 @@ func retrieve(variableIDs []string) (map[string][]byte, error) {
 	return masterMap, nil
 }
 
-func TestNewProvier(t *testing.T) {
+func TestNewProvider(t *testing.T) {
 	TestCases := []struct {
 		description         string
 		retrieveFunc        conjur.RetrieveSecretsFunc
@@ -50,9 +50,11 @@ func TestNewProvier(t *testing.T) {
 	}
 
 	for _, tc := range TestCases {
-		p, err := NewProvider(tc.retrieveFunc, tc.annotations)
-		assert.Empty(t, err)
-		assert.Equal(t, tc.expectedSecretGroup, p.secretGroups)
+		t.Run(tc.description, func(t *testing.T) {
+			p, err := NewProvider(tc.retrieveFunc, tc.annotations)
+			assert.Empty(t, err)
+			assert.Equal(t, tc.expectedSecretGroup, p.secretGroups)
+		})
 	}
 }
 
@@ -60,7 +62,7 @@ func TestProvideWithDeps(t *testing.T) {
 	TestCases := []struct {
 		description string
 		provider    fileProvider
-		assert      func(*testing.T, string, error)
+		assert      func(*testing.T, fileProvider, error, *ClosableBuffer, pushToWriterSpy, openWriteCloserSpy)
 	}{
 		{
 			description: "happy path",
@@ -81,26 +83,38 @@ func TestProvideWithDeps(t *testing.T) {
 					},
 				},
 			},
+			assert: func(
+				t *testing.T,
+				p fileProvider,
+				err error,
+				closableBuf *ClosableBuffer,
+				spyPushToWriter pushToWriterSpy,
+				spyOpenWriteCloser openWriteCloserSpy,
+			) {
+				assert.Equal(t, closableBuf, spyPushToWriter.args.writer)
+				assert.Equal(t, spyOpenWriteCloser.args.path, p.secretGroups[0].FilePath)
+				assert.Nil(t, err)
+			},
 		},
 	}
 
 	for _, tc := range TestCases {
-		// Setup mocks
-		closableBuf := new(ClosableBuffer)
-		spyPushToWriter := pushToWriterSpy{}
-		spyOpenWriteCloser := openWriteCloserSpy{
-			writeCloser: closableBuf,
-		}
+		t.Run(tc.description, func(t *testing.T) {
+			// Setup mocks
+			closableBuf := new(ClosableBuffer)
+			spyPushToWriter := pushToWriterSpy{}
+			spyOpenWriteCloser := openWriteCloserSpy{
+				writeCloser: closableBuf,
+			}
 
-		err := provideWithDeps(
-			tc.provider.secretGroups,
-			tc.provider.retrieveSecretsFunc,
-			spyOpenWriteCloser.Call,
-			spyPushToWriter.Call,
-		)
+			err := provideWithDeps(
+				tc.provider.secretGroups,
+				tc.provider.retrieveSecretsFunc,
+				spyOpenWriteCloser.Call,
+				spyPushToWriter.Call,
+			)
 
-		assert.Equal(t, closableBuf, spyPushToWriter.args.writer)
-		assert.Equal(t, spyOpenWriteCloser.args.path, tc.provider.secretGroups[0].FilePath)
-		assert.Nil(t, err)
+			tc.assert(t, tc.provider, err, closableBuf, spyPushToWriter, spyOpenWriteCloser)
+		})
 	}
 }

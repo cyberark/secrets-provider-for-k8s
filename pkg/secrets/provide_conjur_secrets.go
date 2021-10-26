@@ -19,8 +19,7 @@ import (
 // ProviderFunc describes a function type responsible for providing secrets to an unspecified target.
 type ProviderFunc func() error
 
-// NewProviderForType returns a ProviderFunc responsible for retrieving secrets
-// and either updating K8s secrets or writing them to the filesystem.
+// NewProviderForType returns a ProviderFunc responsible for providing secrets in a given mode.
 func NewProviderForType(
 	retrievek8sSecret k8s.RetrieveK8sSecretFunc,
 	updatek8sSecret k8s.UpdateK8sSecretFunc,
@@ -28,7 +27,7 @@ func NewProviderForType(
 	storeType string,
 	podNamespace string,
 	requiredK8sSecrets []string,
-	settings map[string]string,
+	annotations map[string]string,
 ) (ProviderFunc, []error) {
 	switch storeType {
 	case config.K8s:
@@ -43,7 +42,7 @@ func NewProviderForType(
 	case config.File:
 		provider, err := pushtofile.NewProvider(
 			secretsRetrieverFunc,
-			settings,
+			annotations,
 		)
 		if err != nil {
 			return nil, err

@@ -42,18 +42,16 @@ func NewConjurSecretRetriever(authnConfig config.Config) (*conjurSecretRetriever
 func (retriever conjurSecretRetriever) Retrieve(variableIDs []string) (map[string][]byte, error) {
 	authn := retriever.authn
 
-	// Only get the access token when it is needed
 	err := authn.Authenticate()
 	if err != nil {
 		return nil, log.RecordedError(messages.CSPFK010E)
 	}
 
-	// NOTE: the token is cleanup up by whoever created it!
 	accessTokenData, err := authn.AccessToken.Read()
 	if err != nil {
 		return nil, log.RecordedError(messages.CSPFK002E)
 	}
-	// Always delete the access token. The deletion idempotent and never fails
+	// Always delete the access token. The deletion is idempotent and never fails
 	defer authn.AccessToken.Delete()
 
 	return retrieveConjurSecrets(accessTokenData, variableIDs)

@@ -18,9 +18,9 @@ import (
 )
 
 const (
-	defaultAnnotationsFile = "/conjur/podinfo/annotations"
-	defaultContainerMode   = "init"
-	defaultSecretBasePath  = "/conjur/secrets"
+	defaultContainerMode = "init"
+	annotationsFilePath  = "/conjur/podinfo/annotations"
+	secretBasePath       = "/conjur/secrets"
 )
 
 var annotationsMap map[string]string
@@ -41,8 +41,8 @@ func main() {
 	// Only attempt to populate from annotations if the annotations file exists
 	// TODO: Figure out strategy for dealing with explicit annotation file path
 	// set by user. In that case we can't just ignore that the file is missing.
-	if _, err := os.Stat(defaultAnnotationsFile); err == nil {
-		annotationsMap, err = annotations.NewAnnotationsFromFile(defaultAnnotationsFile)
+	if _, err := os.Stat(annotationsFilePath); err == nil {
+		annotationsMap, err = annotations.NewAnnotationsFromFile(annotationsFilePath)
 		if err != nil {
 			printErrorAndExit(messages.CSPFK040E)
 		}
@@ -57,7 +57,7 @@ func main() {
 	secretsConfig := setupSecretsConfig()
 
 	// Initialize a Conjur Secret Fetcher
-	secretRetriver, err := conjur.NewConjurSecretRetriever(*authnConfig)
+	secretRetriever, err := conjur.NewConjurSecretRetriever(*authnConfig)
 	if err != nil {
 		printErrorAndExit(err.Error())
 	}
@@ -65,7 +65,7 @@ func main() {
 	provideSecrets, errs := secrets.NewProviderForType(
 		k8s.RetrieveK8sSecret,
 		k8s.UpdateK8sSecret,
-		secretRetriver.Retrieve,
+		secretRetriever.Retrieve,
 		secretsConfig.StoreType,
 		secretsConfig.PodNamespace,
 		secretsConfig.RequiredK8sSecrets,
