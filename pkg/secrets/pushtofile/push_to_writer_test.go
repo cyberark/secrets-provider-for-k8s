@@ -51,10 +51,10 @@ var writeToFileTestCases = []pushToWriterTestCase{
 	{
 		description: "undefined secret",
 		template: `{{secret "x"}}`,
-		secrets: []*Secret{{Alias: "alias", Value: "secret value"}},
+		secrets: []*Secret{{Alias: "some alias", Value: "secret value"}},
 		assert: func(t *testing.T, s string, err error) {
 			assert.Error(t, err)
-			assert.Contains(t, err.Error(), "secret alias not present in specified secrets for group")
+			assert.Contains(t, err.Error(), `secret alias "x" not present in specified secrets for group`)
 		},
 	},
 }

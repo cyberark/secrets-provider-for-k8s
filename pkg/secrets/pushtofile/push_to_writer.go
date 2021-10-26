@@ -1,6 +1,7 @@
 package pushtofile
 
 import (
+	"fmt"
 	"io"
 	"os"
 	"text/template"
@@ -49,15 +50,15 @@ func pushToWriter(
 	t, err := template.New(groupName).Funcs(template.FuncMap{
 		// secret is a custom utility function for streamlined access to secret values.
 		// It panics for secrets aliases not specified on the group.
-		"secret": func(label string) string {
-			v, ok := secretsMap[label]
+		"secret": func(alias string) string {
+			v, ok := secretsMap[alias]
 			if ok {
 				return v.Value
 			}
 
 			// Panic in a template function is captured as an error
 			// when the template is executed.
-			panic("secret alias not present in specified secrets for group")
+			panic(fmt.Sprintf("secret alias %q not present in specified secrets for group", alias))
 		},
 	}).Parse(groupTemplate)
 	if err != nil {
