@@ -58,24 +58,7 @@ func NewProvider(
 
 // Provide implements a ProviderFunc to retrieve and push secrets to K8s secrets.
 func (p k8sProvider) Provide() error {
-	return ProvideConjurSecretsToK8sSecrets(
-		p.retrieveK8sSecret,
-		p.updateK8sSecret,
-		p.podNamespace,
-		p.requiredK8sSecrets,
-		p.retrieveSecretsFunc,
-	)
-}
-
-// ProvideConjurSecretsToK8sSecrets is an implementation of Provide that accepts dependencies as arguments.
-func ProvideConjurSecretsToK8sSecrets(
-	retrieveSecretFunc k8s.RetrieveK8sSecretFunc,
-	updateSecretFunc k8s.UpdateK8sSecretFunc,
-	namespace string,
-	requiredK8sSecrets []string,
-	retrieveSecrets conjur.RetrieveSecretsFunc,
-) error {
-	k8sSecretsMap, err := RetrieveRequiredK8sSecrets(retrieveSecretFunc, namespace, requiredK8sSecrets)
+	k8sSecretsMap, err := RetrieveRequiredK8sSecrets(p.retrieveK8sSecret, p.podNamespace, p.requiredK8sSecrets)
 
 	if err != nil {
 		return log.RecordedError(messages.CSPFK021E)
@@ -86,7 +69,7 @@ func ProvideConjurSecretsToK8sSecrets(
 		return log.RecordedError(messages.CSPFK037E)
 	}
 
-	retrievedConjurSecrets, err := retrieveSecrets(variableIDs)
+	retrievedConjurSecrets, err := p.retrieveSecretsFunc(variableIDs)
 	if err != nil {
 		return log.RecordedError(messages.CSPFK034E, err.Error())
 	}
@@ -96,7 +79,7 @@ func ProvideConjurSecretsToK8sSecrets(
 		return log.RecordedError(messages.CSPFK027E)
 	}
 
-	err = UpdateRequiredK8sSecrets(updateSecretFunc, namespace, k8sSecretsMap)
+	err = UpdateRequiredK8sSecrets(p.updateK8sSecret, p.podNamespace, k8sSecretsMap)
 
 	if err != nil {
 		return log.RecordedError(messages.CSPFK023E)

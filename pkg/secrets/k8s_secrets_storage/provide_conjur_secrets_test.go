@@ -238,13 +238,13 @@ func TestProvideConjurSecrets(t *testing.T) {
 			kubeMockClient.AddSecret("k8s_secret2", "secret_key2", "conjur_variable2")
 			requiredSecrets := []string{"k8s_secret1"}
 
-			err := ProvideConjurSecretsToK8sSecrets(
-				kubeMockClient.RetrieveSecret,
-				kubeMockClient.UpdateSecret,
-				"someNameSpace",
-				requiredSecrets,
-				conjurMockClient.RetrieveSecrets,
-			)
+			err := k8sProvider{
+				retrieveK8sSecret:   kubeMockClient.RetrieveSecret,
+				updateK8sSecret:     kubeMockClient.UpdateSecret,
+				retrieveSecretsFunc: conjurMockClient.RetrieveSecrets,
+				podNamespace:        "someNamespace",
+				requiredK8sSecrets:  requiredSecrets,
+			}.Provide()
 
 			Convey("Finishes without raising an error", func() {
 				So(err, ShouldEqual, nil)
@@ -269,13 +269,13 @@ func TestProvideConjurSecrets(t *testing.T) {
 			kubeMockClient.AddSecret("k8s_secret2", "secret_key2", "conjur_variable2")
 			requiredSecrets := []string{"k8s_secret1", "k8s_secret2"}
 
-			err := ProvideConjurSecretsToK8sSecrets(
-				kubeMockClient.RetrieveSecret,
-				kubeMockClient.UpdateSecret,
-				"someNameSpace",
-				requiredSecrets,
-				conjurMockClient.RetrieveSecrets,
-			)
+			err := k8sProvider{
+				retrieveK8sSecret:   kubeMockClient.RetrieveSecret,
+				updateK8sSecret:     kubeMockClient.UpdateSecret,
+				retrieveSecretsFunc: conjurMockClient.RetrieveSecrets,
+				podNamespace:        "someNamespace",
+				requiredK8sSecrets:  requiredSecrets,
+			}.Provide()
 
 			Convey("Finishes without raising an error", func() {
 				So(err, ShouldEqual, nil)
@@ -296,13 +296,13 @@ func TestProvideConjurSecrets(t *testing.T) {
 
 			requiredSecrets := []string{"k8s_secret1", "k8s_secret2"}
 
-			err := ProvideConjurSecretsToK8sSecrets(
-				kubeMockClient.RetrieveSecret,
-				kubeMockClient.UpdateSecret,
-				"someNameSpace",
-				requiredSecrets,
-				conjurMockClient.RetrieveSecrets,
-			)
+			err := k8sProvider{
+				retrieveK8sSecret:   kubeMockClient.RetrieveSecret,
+				updateK8sSecret:     kubeMockClient.UpdateSecret,
+				retrieveSecretsFunc: conjurMockClient.RetrieveSecrets,
+				podNamespace:        "someNamespace",
+				requiredK8sSecrets:  requiredSecrets,
+			}.Provide()
 
 			Convey("Finishes without raising an error", func() {
 				So(err, ShouldEqual, nil)
@@ -322,13 +322,13 @@ func TestProvideConjurSecrets(t *testing.T) {
 
 			requiredSecrets := []string{"k8s_secret1"}
 
-			err := ProvideConjurSecretsToK8sSecrets(
-				kubeMockClient.RetrieveSecret,
-				kubeMockClient.UpdateSecret,
-				"someNameSpace",
-				requiredSecrets,
-				conjurMockClient.RetrieveSecrets,
-			)
+			err := k8sProvider{
+				retrieveK8sSecret:   kubeMockClient.RetrieveSecret,
+				updateK8sSecret:     kubeMockClient.UpdateSecret,
+				retrieveSecretsFunc: conjurMockClient.RetrieveSecrets,
+				podNamespace:        "someNamespace",
+				requiredK8sSecrets:  requiredSecrets,
+			}.Provide()
 
 			Convey("Raises proper error", func() {
 				So(err.Error(), ShouldEqual, fmt.Sprintf(messages.CSPFK034E, "no_conjur_secret_error"))
@@ -342,13 +342,13 @@ func TestProvideConjurSecrets(t *testing.T) {
 			kubeMockClient.AddSecret("k8s_secret_with_empty_conjur_variable", "secret_key", "conjur_variable_empty_secret")
 			requiredSecrets := []string{"k8s_secret_with_empty_conjur_variable"}
 
-			err := ProvideConjurSecretsToK8sSecrets(
-				kubeMockClient.RetrieveSecret,
-				kubeMockClient.UpdateSecret,
-				"someNameSpace",
-				requiredSecrets,
-				conjurMockClient.RetrieveSecrets,
-			)
+			err := k8sProvider{
+				retrieveK8sSecret:   kubeMockClient.RetrieveSecret,
+				updateK8sSecret:     kubeMockClient.UpdateSecret,
+				retrieveSecretsFunc: conjurMockClient.RetrieveSecrets,
+				podNamespace:        "someNamespace",
+				requiredK8sSecrets:  requiredSecrets,
+			}.Provide()
 
 			Convey("Finishes without raising an error", func() {
 				So(err, ShouldEqual, nil)
@@ -368,13 +368,13 @@ func TestProvideConjurSecrets(t *testing.T) {
 			kubeMockClient.AddSecret("k8s_secret_with_no_permission_conjur_variable", "secret_key", "no_execute_permission_conjur_secret")
 			requiredSecrets := []string{"k8s_secret_with_no_permission_conjur_variable"}
 
-			err := ProvideConjurSecretsToK8sSecrets(
-				kubeMockClient.RetrieveSecret,
-				kubeMockClient.UpdateSecret,
-				"someNameSpace",
-				requiredSecrets,
-				conjurMockClient.RetrieveSecrets,
-			)
+			err := k8sProvider{
+				retrieveK8sSecret:   kubeMockClient.RetrieveSecret,
+				updateK8sSecret:     kubeMockClient.UpdateSecret,
+				retrieveSecretsFunc: conjurMockClient.RetrieveSecrets,
+				podNamespace:        "someNamespace",
+				requiredK8sSecrets:  requiredSecrets,
+			}.Provide()
 
 			Convey("Raises proper error", func() {
 				So(err.Error(), ShouldEqual, fmt.Sprintf(messages.CSPFK034E, "custom error"))
