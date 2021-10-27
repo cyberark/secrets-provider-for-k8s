@@ -32,7 +32,7 @@ Generates a JSON patch containing operations to upgrade a deployment using
 Secrets Provider to use annotations for configuration instead of
 environment variables. The patch can be output to a file:
 
-  $0 --push-to-file \$DEPLOYMENT_NAME > patch.json
+  $0 --push-to-file \$DEPLOYMENT_NAME | tee patch.json | jq
 
 Test patch against a live deployment:
 
@@ -188,7 +188,7 @@ function append_push_to_file_annots() {
         --arg conjur_secret "${conjur_secret}" \
         '
           . +
-          { ("conjur.org/conjur-secrets." + $k8s_secret): $conjur_secret } +
+          { ("conjur.org/conjur-secrets." + $k8s_secret): ("- " + $conjur_secret | gsub("\n"; "\n- ")) } +
           { ("conjur.org/secret-file-format." + $k8s_secret): "dotenv" }
         '
     )"
