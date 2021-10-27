@@ -165,7 +165,7 @@ function append_push_to_file_annots() {
 
   for k8s_secret in ${k8s_secrets[*]}; do
     local k8s_secret_manifest_json
-    local conjur_secret
+    local conjur_secrets
     # Remove wrapping single quotes
     k8s_secret="$(echo "${k8s_secret}" | sed "s/'//g")"
 
@@ -175,20 +175,21 @@ function append_push_to_file_annots() {
     fi
 
     # Extract conjur-map from secret
-    conjur_secret="$(echo "${k8s_secret_manifest_json}" | jq --raw-output '.data."conjur-map" // ""' | base64 --decode)"
-    if [[ -z "${conjur_secret}" ]]; then
+    conjur_secrets="$(echo "${k8s_secret_manifest_json}" | jq --raw-output '.data."conjur-map" // ""' | base64 --decode)"
+    if [[ -z "${conjur_secrets}" ]]; then
       echo "\"conjur-map\" not found in secret \"${k8s_secret}\"" 1>&2
       exit 1
     fi
 
     # Append push-to-file annotations
+    # The conjur secrets mapping needs to be serialized as a YAML list
     sp_annots="$(echo "${sp_annots}" | \
       jq \
         --arg k8s_secret "${k8s_secret}" \
-        --arg conjur_secret "${conjur_secret}" \
+        --arg conjur_secrets "${conjur_secrets}" \
         '
           . +
-          { ("conjur.org/conjur-secrets." + $k8s_secret): ("- " + $conjur_secret | gsub("\n"; "\n- ")) } +
+          { ("conjur.org/conjur-secrets." + $k8s_secret): ("- " + $conjur_secrets | gsub("\n"; "\n- ")) } +
           { ("conjur.org/secret-file-format." + $k8s_secret): "dotenv" }
         '
     )"
@@ -715,7 +716,7 @@ function main() {
     patch="$(append_app_container_command_replace_ops_to_patch "${patch}" "${app_containers_json}")"
   fi
 
-  echo "${patch}" | jq
+  echo "${patch}" | jq '.'
 }
 
 main "$@"
