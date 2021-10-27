@@ -207,16 +207,21 @@ func newSecretGroup(annotations map[string]string, groupName string) (*SecretGro
 	fileFormat := annotations[secretGroupFileFormatPrefix+groupName]
 	policyPathPrefix := annotations[secretGroupPolicyPathPrefix+groupName]
 
-	if err = validateSecretSpecs(secretSpecs, fileFormat); err != nil {
-		return nil, err
+	if err = validateSecretSpecs(secretSpecs); err != nil {
+		return nil, fmt.Errorf(
+			"invalid secret specs for group %q: %s",
+			groupName,
+			err,
+		)
 	}
 
 	if len(fileFormat) > 0 {
 		_, err := FileTemplateForFormat(fileFormat, secretSpecs)
 		if err != nil {
 			return nil, fmt.Errorf(
-				`unable to process file format annotation %q for group: %s`,
+				"unable to process file format annotation %q for group %q: %s",
 				fileFormat,
+				groupName,
 				err,
 			)
 		}

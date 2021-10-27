@@ -3,19 +3,12 @@ package pushtofile
 import (
 	"errors"
 	"fmt"
-	"regexp"
 	"strings"
 
-	"github.com/cyberark/conjur-authn-k8s-client/pkg/log"
-	"github.com/cyberark/secrets-provider-for-k8s/pkg/log/messages"
 	"gopkg.in/yaml.v3"
 )
 
-const (
-	maxConjurVarNameLen = 126
-	maxYAMLKeyLen       = 1024
-	maxJSONKeyLen       = 2097152
-)
+const maxConjurVarNameLen = 126
 
 // SecretSpec specifies a secret to be retrieved from Conjur by defining
 // its alias (i.e. the name of the secret from an application's perspective)
@@ -94,147 +87,43 @@ func NewSecretSpecs(raw []byte) ([]SecretSpec, error) {
 	return secretSpecs, nil
 }
 
-func validateSecretSpecs(secretSpecs []SecretSpec, fileFormat string) error {
-	invalidSpecsFound := false
+
+func validateSecretSpecs(secretSpecs []SecretSpec) error {
 	for _, secretSpec := range secretSpecs {
-		if err := validateSecretSpec(secretSpec, fileFormat); err != nil {
-			invalidSpecsFound = true
-			log.RecordedError(messages.CSPFK053E, secretSpec.Alias, err.Error())
+		err := validateSecretPath(secretSpec.Path)
+		if err != nil {
+			return err
 		}
 	}
-	if invalidSpecsFound {
-		return errors.New("invalid secret specifications found in Annotations")
-	}
+
 	return nil
 }
 
-func validateSecretSpec(secretSpec SecretSpec, fileFormat string) error {
-	if err := validateSecretPath(secretSpec.Path); err != nil {
-		return err
-	}
-	return validateSecretAlias(secretSpec.Alias, fileFormat)
-}
-
 func validateSecretPath(path string) error {
-	// The Conjur variable path must not be null
+	// The Conjur variable path must not be empty
 	if path == "" {
-		return errors.New("null Conjur variable path")
+		return errors.New("the Conjur variable path must not be empty")
 	}
 
 	// The Conjur variable path must not end with slash character
 	varName := path[strings.LastIndex(path, "/")+1:]
 	if varName == "" {
-		return fmt.Errorf("the Conjur variable path '%s' has a trailing '/'", path)
+		return fmt.Errorf(
+			"the Conjur variable path %q must not have a trailing %q",
+			path,
+			"/",
+		)
 	}
 
 	// The Conjur variable name (the last word in the Conjur variable path)
 	// must be no longer than 126 characters.
 	if len(varName) > maxConjurVarNameLen {
-		return fmt.Errorf("the Conjur variable name '%s' is longer than %d characters",
-			varName, maxConjurVarNameLen)
+		return fmt.Errorf(
+			"the Conjur variable name %q must not be longer than %d characters",
+			varName,
+			maxConjurVarNameLen,
+		)
 	}
 
-	return nil
-}
-
-func validateSecretAlias(alias, fileFormat string) error {
-	// Check for null alias
-	if alias == "" {
-		return errors.New("null secret alias")
-	}
-
-	// Validate the secret alias based on the secret file format
-	type aliasValidator func(string) error
-	validators := map[string](aliasValidator){
-		"yaml":   checkValidYAMLKey,
-		"json":   checkValidJSONKey,
-		"bash":   checkValidBashVarName,
-		"dotenv": checkValidBashVarName, // Same limitations as Bash
-	}
-	if validator, ok := validators[fileFormat]; ok {
-		return validator(alias)
-	}
-
-	// Assuming either 'plaintext' file format or custom template is being
-	// used for this secret group. For these cases, any string is acceptable.
-	return nil
-}
-
-func checkValidYAMLKey(key string) error {
-	if len(key) > maxYAMLKeyLen {
-		return fmt.Errorf("the key '%s' is too long for YAML", key)
-	}
-	for _, c := range key {
-		if !isValidYAMLChar(c) {
-			return fmt.Errorf("invalid YAML character: '%c'", c)
-		}
-	}
-	return nil
-}
-
-func isValidYAMLChar(c rune) bool {
-	// Checks whether a character is in the YAML valid character set as
-	// defined here: https://yaml.org/spec/1.2.2/#51-character-set
-	switch {
-	case c == '\u0009':
-		return true // tab
-	case c == '\u000A':
-		return true // LF
-	case c == '\u000D':
-		return true // CR
-	case c >= '\u0020' && c <= '\u007E':
-		return true // Printable ASCII
-	case c == '\u0085':
-		return true // Next Line (NEL)
-	case c >= '\u00A0' && c <= '\uD7FF':
-		return true // Basic Multilingual Plane (BMP)
-	case c >= '\uE000' && c <= '\uFFFD':
-		return true // Additional Unicode Areas
-	case c >= '\U00010000' && c <= '\U0010FFFF':
-		return true // 32 bit
-	default:
-		return false
-	}
-}
-
-func checkValidJSONKey(key string) error {
-	if len(key) > maxJSONKeyLen {
-		return fmt.Errorf("the key '%s' is too long for JSON", key)
-	}
-	for _, c := range key {
-		if !isValidJSONChar(c) {
-			return fmt.Errorf("invalid JSON character: '%c'", c)
-		}
-	}
-	return nil
-}
-
-func isValidJSONChar(c rune) bool {
-	// Checks whether a character is in the JSON valid character set as
-	// defined here: https://www.json.org/json-en.html
-	// This document specifies that any characters are valid except:
-	//   - Control characters (0x00-0x1F and 0x7f [DEL])
-	//   - Double quote (")
-	//   - Backslash (\)
-	switch {
-	case c >= '\u0000' && c <= '\u001F':
-		return false // Control characters other than DEL
-	case c == '\u007F':
-		return false // DEL
-	case c == rune('"'):
-		return false // Double quote
-	case c == rune('\\'):
-		return false // Backslash
-	default:
-		return true
-	}
-}
-
-func checkValidBashVarName(name string) error {
-	r := regexp.MustCompile("^[a-zA-Z_][a-zA-Z0-9_]*$")
-	if !r.MatchString(name) {
-		explanation := "Must be alphanumerics and underscores, with first char being a non-digit"
-		return fmt.Errorf("invalid alias '%s': %s", name, explanation)
-	}
 	return nil
 }
