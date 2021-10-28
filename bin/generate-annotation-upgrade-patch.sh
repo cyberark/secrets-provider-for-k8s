@@ -255,7 +255,7 @@ function get_deployment_secrets_volume_idx_list_json() {
         .spec.template.spec.volumes // [] |
         to_entries |
         map(select(.value.secret.secretName != null)) |
-        map(select(.value.secret.secretName == ($k8s_secrets | split(",") | .[]))) |
+        map(select(.value.secret.secretName == ($k8s_secrets | gsub("'\''"; "") | split(",") | .[]))) |
         map({ "volumeIdx": .key, "volumeName": .value.name }) |
         reverse
       '
