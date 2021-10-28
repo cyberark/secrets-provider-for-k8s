@@ -144,6 +144,8 @@ function get_k8s_secrets_from_annots() {
         ."conjur.org/k8s-secrets" // "" |
         gsub("\\s+"; "") |
         split(",") |
+        map("- " + .) |
+        join("\n") |
         @sh
       '
 }
@@ -342,16 +344,26 @@ function append_app_container_env_var_remove_ops_to_patch() {
       '
 }
 
-function deployment_has_volume() {
+function deployment_has_podinfo_volume() {
   local deployment_manifest_json="$1"
-  local volume_name="$2"
 
   echo "${deployment_manifest_json}" | \
     jq \
-      --arg volume_name "${volume_name}" \
       '
         .spec.template.spec.volumes // [] |
-        map(select(.name == $volume_name)) |
+        map(select(.name == "podinfo")) |
+        length > 0
+      '
+}
+
+function deployment_has_conjur_secrets_volume() {
+  local deployment_manifest_json="$1"
+
+  echo "${deployment_manifest_json}" | \
+    jq \
+      '
+        .spec.template.spec.volumes // [] |
+        map(select((.name == "conjur-secrets") and (.emptyDir != null))) |
         length > 0
       '
 }
@@ -772,11 +784,11 @@ function main() {
     secrets_volume_idx_list_json="$(get_deployment_secrets_volume_idx_list_json "${deployment_manifest_json}" "${k8s_secrets[*]}")"
     patch="$(append_secrets_volume_remove_ops_to_patch "${patch}" "${secrets_volume_idx_list_json}")"
 
-    if [[ $(deployment_has_volume "${deployment_manifest_json}" 'podinfo') == "false" ]]; then
+    if [[ $(deployment_has_podinfo_volume "${deployment_manifest_json}") == "false" ]]; then
       patch="$(append_podinfo_volume_to_patch "${patch}")"
     fi
 
-    if [[ $(deployment_has_volume "${deployment_manifest_json}" 'conjur-secrets') == "false" ]]; then
+    if [[ $(deployment_has_conjur_secrets_volume "${deployment_manifest_json}") == "false" ]]; then
       patch="$(append_conjur_secrets_volume_to_patch "${patch}")"
     fi
 
