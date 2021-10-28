@@ -105,7 +105,6 @@ function get_sp_init_container_env() {
     jq \
       --arg SP_ENV_VARS "$( IFS=$','; echo "${SP_ENV_VARS[*]}" )" \
       '
-        ($SP_ENV_VARS | split(",") as $SP_ENV_VARS)
         .value.env |
         to_entries |
         select(any(.value.name == ($SP_ENV_VARS | split(",") | .[])))
