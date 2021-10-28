@@ -550,8 +550,7 @@ function append_podinfo_volume_mount_to_patch() {
             "path": ("/spec/template/spec/initContainers/" + $sp_init_container_idx + "/volumeMounts/-"),
             "value": {
               "mountPath": "/conjur/podinfo",
-              "name": "podinfo",
-              "readOnly": "true"
+              "name": "podinfo"
             }
           }
         ]
