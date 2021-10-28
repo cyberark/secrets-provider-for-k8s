@@ -162,7 +162,8 @@ function update_secrets_destination_annot_format() {
             gsub("\\s+"; "") |
             split(",") |
             map("- " + .) |
-            join("\n")
+            join("\n") |
+            . + "\n"
           )
         }
       '
@@ -210,7 +211,7 @@ function append_push_to_file_annots() {
         --arg conjur_secrets "${conjur_secrets}" \
         '
           . +
-          { ("conjur.org/conjur-secrets." + $k8s_secret): ("- " + $conjur_secrets | gsub("\n"; "\n- ")) } +
+          { ("conjur.org/conjur-secrets." + $k8s_secret): ("- " + $conjur_secrets | gsub("\n"; "\n- ") | . + "\n") } +
           { ("conjur.org/secret-file-format." + $k8s_secret): "dotenv" }
         '
     )"
