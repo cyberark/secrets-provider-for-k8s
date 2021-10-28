@@ -777,8 +777,6 @@ function main() {
       fi
     fi
 
-    sp_annots="$(update_secrets_destination_annot_format "${sp_annots}")"
-
     # Append secrets destination annotation
     # Replaces instead if key exists
     sp_annots="$(append_secrets_destination_annot "${sp_annots}")"
@@ -786,6 +784,8 @@ function main() {
     # Append push-to-file annotations
     sp_annots="$(append_push_to_file_annots "${sp_annots}" "${k8s_secrets[*]}")"
   fi
+
+  sp_annots="$(update_secrets_destination_annot_format "${sp_annots}")"
 
   # Create initial patch with annotation 'add' operation
   patch="$(new_patch_from_annots "${sp_annots}")"
