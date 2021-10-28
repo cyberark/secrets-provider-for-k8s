@@ -212,7 +212,8 @@ function append_push_to_file_annots() {
         '
           . +
           { ("conjur.org/conjur-secrets." + $k8s_secret): ("- " + $conjur_secrets | gsub("\n"; "\n- ") | . + "\n") } +
-          { ("conjur.org/secret-file-format." + $k8s_secret): "dotenv" }
+          { ("conjur.org/secret-file-format." + $k8s_secret): "bash" } +
+          { ("conjur.org/secret-file-path." + $k8s_secret): ("/conjur/secrets/" + $k8s_secret) }
         '
     )"
   done
@@ -662,7 +663,7 @@ function append_app_containers_conjur_secrets_volume_mounts_to_patch() {
 function append_app_container_command_replace_ops_to_patch() {
   local patch="$1"
   local app_containers_json="$2"
-  local group_name="test-app-secrets-provider-init"
+  local group_name="test-app-secrets-provider-init-secret"
   local app_containers_len
 
   # Get env var count -1 for bash for loop
