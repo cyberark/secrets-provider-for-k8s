@@ -368,7 +368,7 @@ function append_secrets_volume_remove_ops_to_patch() {
         [
           {
             "op": "remove",
-            "path": ("/spec/template/spec/volumes/" + ($secrets_volume_idx_list_json | .[] | tostring))
+            "path": ("/spec/template/spec/volumes/" + ($secrets_volume_idx_list_json | .[].volumeIdx | tostring))
           }
         ]
       '
