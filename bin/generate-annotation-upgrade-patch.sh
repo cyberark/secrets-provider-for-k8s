@@ -311,8 +311,8 @@ function get_app_containers_json() {
           }
         ) |
         map(. + { secrets: .secrets | map({ key: .key, value: .value.valueFrom.secretKeyRef.name }) }) |
-        map(. + { secrets: .secrets | map(select(.value == ($k8s_secrets | split(",") | .[]))) }) |
-        map(select(.secrets | length > 0)) |
+        map(. + { secrets: .secrets | map(select(.value == ($k8s_secrets | gsub("'\''"; "") | split(",") | .[]))) }) |
+        map(select((.secrets | length > 0) or (.k8sSecretsVolumeMountIdxList | length > 0))) |
         map(. + { spEnvVarIdxList: (.secrets | map(.key) | reverse) }) |
         map(. + { secrets: [.secrets | .[].value] | unique }) |
         map(. | del(.hasConjurSecretsVolumeMounts[(.k8sSecretsVolumeMountIdxList | .[])]) ) |
