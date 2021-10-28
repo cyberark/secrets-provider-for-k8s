@@ -107,7 +107,7 @@ function get_sp_init_container_env() {
       '
         .value.env |
         to_entries |
-        map(select(.value.name | inside($SP_ENV_VARS)))
+        select(any(.value.name == ([$SP_ENV_VARS] | .[])))
       '
 }
 
@@ -244,13 +244,31 @@ function append_sp_init_container_env_var_remove_ops_to_patch() {
   echo "${patch}"
 }
 
+function get_deployment_secrets_volume_idx_list_json() {
+  local deployment_manifest_json="$1"
+  local k8s_secrets="$2"
+
+  echo "${deployment_manifest_json}" | \
+    jq \
+      --arg k8s_secrets "$( IFS=$','; echo "${k8s_secrets[*]}" )" \
+      '
+        .spec.template.spec.volumes // [] |
+        to_entries |
+        map(select(.value.secret.secretName != null)) |
+        select(any(.value.secret.secretName == ([$k8s_secrets] | .[]))) |
+        map({ "volumeIdx": .key, "volumeName": .value.name }) |
+        reverse
+      '
+}
+
 # Example output JSON:
 # [
 #   {
 #     "containerIdx": 0,
 #     "image": "docker.io/cyberark/demo-app:latest",
 #     "hasConjurSecretsVolumeMounts": null,
-#     "k8sCommand": null,
+#     "k8sCommand": "",
+#     "k8sSecretsVolumeMountIdxList": [],
 #     "secrets": [
 #       "test-app-secrets-provider-init-secret"
 #     ],
@@ -264,11 +282,15 @@ function append_sp_init_container_env_var_remove_ops_to_patch() {
 function get_app_containers_json() {
   local deployment_manifest_json="$1" 
   local k8s_secrets="$2"
+  local secrets_volume_idx_list_json
+
+  secrets_volume_idx_list_json="$(get_deployment_secrets_volume_idx_list_json "${deployment_manifest_json}" "${k8s_secrets[*]}")"
 
   # Reverse order to prevent indices from changing during 'remove' patch operations
   echo "${deployment_manifest_json}" | \
     jq \
       --arg k8s_secrets "$( IFS=$','; echo "${k8s_secrets[*]}" )" \
+      --argjson secrets_volume_idx_list_json "${secrets_volume_idx_list_json}" \
       '
         .spec.template.spec.containers |
         to_entries |
@@ -277,15 +299,23 @@ function get_app_containers_json() {
             containerIdx: .key,
             image: .value.image,
             k8sCommand: ((.value.command // []) + (.value.args // [])) | join(" "),
+            k8sSecretsVolumeMountIdxList: (
+              (.value.volumeMounts // []) |
+              map(.name) |
+              ([index($secrets_volume_idx_list_json | map(.volumeName) | .[])] - [null]) |
+              sort |
+              reverse
+            ),
             hasConjurSecretsVolumeMounts: .value.volumeMounts,
             secrets: (.value.env // [] | to_entries)
           }
         ) |
         map(. + { secrets: .secrets | map({ key: .key, value: .value.valueFrom.secretKeyRef.name }) }) |
-        map(. + { secrets: .secrets | map(select(.value | inside($k8s_secrets))) }) |
+        map(. + { secrets: .secrets | select(any(.value == ([$k8s_secrets] | .[]))) }) |
         map(select(.secrets | length > 0)) |
         map(. + { spEnvVarIdxList: (.secrets | map(.key) | reverse) }) |
         map(. + { secrets: [.secrets | .[].value] | unique }) |
+        map(. | del(.hasConjurSecretsVolumeMounts[(.k8sSecretsVolumeMountIdxList | .[])]) ) |
         map(. + { hasConjurSecretsVolumeMounts: (try (.hasConjurSecretsVolumeMounts | map(select(.name == "conjur-secrets")) | length > 0) catch null) }) |
         reverse
       '
@@ -303,14 +333,11 @@ function append_app_container_env_var_remove_ops_to_patch() {
         (
           $app_containers_json |
           map(
-            [
-              {
-                "op": "remove",
-                "path": ("/spec/template/spec/containers/" + (.containerIdx | tostring) + "/env/" + (.spEnvVarIdxList | .[] | tostring))
-              }
-            ]
-          ) |
-          flatten
+            {
+              "op": "remove",
+              "path": ("/spec/template/spec/containers/" + (.containerIdx | tostring) + "/env/" + (.spEnvVarIdxList | .[] | tostring))
+            }
+          )
         )
       '
 }
@@ -329,28 +356,32 @@ function deployment_has_volume() {
       '
 }
 
-function get_deployment_secrets_volume_idx_list_json() {
-  local deployment_manifest_json="$1"
-  local k8s_secrets="$2"
-
-  echo "${deployment_manifest_json}" | \
-    jq \
-      --arg k8s_secrets "$( IFS=$','; echo "${k8s_secrets[*]}" )" \
-      '
-        .spec.template.spec.volumes // [] |
-        to_entries |
-        map(select(.value.secret.secretName != null)) |
-        map(select(.value.secret.secretName | inside($k8s_secrets))) |
-        [ .[].key ]
-      '
-}
-
 function append_secrets_volume_remove_ops_to_patch() {
   local patch="$1"
   local secrets_volume_idx_list_json="$2"
 
   echo "${patch}" | \
     jq \
+      --argjson secrets_volume_idx_list_json "${secrets_volume_idx_list_json}" \
+      '
+        . +
+        [
+          {
+            "op": "remove",
+            "path": ("/spec/template/spec/volumes/" + ($secrets_volume_idx_list_json | .[] | tostring))
+          }
+        ]
+      '
+}
+
+function append_app_container_secrets_volume_mount_remove_ops_to_patch() {
+  local patch="$1"
+  local app_containers_json="$2"
+  local secrets_volume_idx_list_json="$2"
+
+  echo "${patch}" | \
+    jq \
+      --argjson app_containers_json "${app_containers_json}" \
       --argjson secrets_volume_idx_list_json "${secrets_volume_idx_list_json}" \
       '
         . +
@@ -388,7 +419,7 @@ function append_secrets_volume_remove_op_to_patch() {
       --arg k8s_secrets "$( IFS=$','; echo "${k8s_secrets[*]}" )" \
       '
         .spec.template.spec.volumes // [] |
-        map(select((.secret.secretName // "") | inside($k8s_secrets))) |
+        select(any(.secret.secretName // "") == ([$k8s_secrets] | .[]))) |
         length > 0
       '
 }
@@ -519,7 +550,8 @@ function append_podinfo_volume_mount_to_patch() {
             "path": ("/spec/template/spec/initContainers/" + $sp_init_container_idx + "/volumeMounts/-"),
             "value": {
               "mountPath": "/conjur/podinfo",
-              "name": "podinfo"
+              "name": "podinfo",
+              "readOnly": "true"
             }
           }
         ]
@@ -588,7 +620,8 @@ function append_app_containers_conjur_secrets_volume_mounts_to_patch() {
               "path": ("/spec/template/spec/containers/" + (.[].containerIdx | tostring) + "/volumeMounts/-"),
               "value": {
                 "mountPath": "/conjur/secrets",
-                "name": "conjur-secrets"
+                "name": "conjur-secrets",
+                "readOnly": "true"
               }
             }
           ]
