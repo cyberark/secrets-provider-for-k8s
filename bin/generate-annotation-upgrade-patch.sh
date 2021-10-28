@@ -649,7 +649,7 @@ function append_app_container_command_replace_ops_to_patch() {
     local cmd
 
     container_idx="$(echo "${app_containers_json}" | jq --arg i "${i}" '(.[$i | tonumber]).containerIdx')"
-    k8s_cmd="$(echo "${app_containers_json}" | jq --arg i "${i}" '(.[$i | tonumber]).k8sCommand')"
+    k8s_cmd="$(echo "${app_containers_json}" | jq --raw-output --arg i "${i}" '(.[$i | tonumber]).k8sCommand')"
     cmd="${k8s_cmd}"
 
     if [[ -z "${cmd}" ]]; then
@@ -657,7 +657,7 @@ function append_app_container_command_replace_ops_to_patch() {
       local image_cmd
       
       image="$(echo "${app_containers_json}" | jq --arg i "${i}" --raw-output '.[$i | tonumber].image')"
-      image_cmd="$(docker image inspect "$image" | jq 'first(.[]) // {} | .Config | (.Cmd // []) + (.Entrypoint // []) | join(" ")')"
+      image_cmd="$(docker image inspect "$image" | jq --raw-output 'first(.[]) // {} | .Config | (.Cmd // []) + (.Entrypoint // []) | join(" ")')"
       cmd="${image_cmd}"
 
       if [[ -z "${cmd}" ]]; then
