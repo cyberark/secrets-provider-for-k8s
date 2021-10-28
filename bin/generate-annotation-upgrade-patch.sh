@@ -219,7 +219,7 @@ function new_patch_from_annots() {
       '
 }
 
-function append_sp_init_container_remove_ops_to_patch() {
+function append_sp_init_container_env_var_remove_ops_to_patch() {
   local patch="$1"
   local sp_init_container_idx="$2"
   local sp_env_var_indices="$3"
@@ -291,7 +291,7 @@ function get_app_containers_json() {
       '
 }
 
-function append_app_container_remove_ops_to_patch() {
+function append_app_container_env_var_remove_ops_to_patch() {
   local patch="$1"
   local app_containers_json="$2"
 
@@ -329,6 +329,40 @@ function deployment_has_volume() {
       '
 }
 
+function get_deployment_secrets_volume_idx_list_json() {
+  local deployment_manifest_json="$1"
+  local k8s_secrets="$2"
+
+  echo "${deployment_manifest_json}" | \
+    jq \
+      --arg k8s_secrets "$( IFS=$','; echo "${k8s_secrets[*]}" )" \
+      '
+        .spec.template.spec.volumes // [] |
+        to_entries |
+        map(select(.value.secret.secretName != null)) |
+        map(select(.value.secret.secretName | inside($k8s_secrets))) |
+        [ .[].key ]
+      '
+}
+
+function append_secrets_volume_remove_ops_to_patch() {
+  local patch="$1"
+  local secrets_volume_idx_list_json="$2"
+
+  echo "${patch}" | \
+    jq \
+      --argjson secrets_volume_idx_list_json "${secrets_volume_idx_list_json}" \
+      '
+        . +
+        [
+          {
+            "op": "remove",
+            "path": ("/spec/template/spec/volumes/" + ($secrets_volume_idx_list_json | .[] | tostring))
+          }
+        ]
+      '
+}
+
 function sp_init_container_has_volume_mount() {
   local deployment_manifest_json="$1"
   local sp_init_container_idx="$2"
@@ -341,6 +375,20 @@ function sp_init_container_has_volume_mount() {
       '
         .spec.template.spec.initContainers[$sp_init_container_idx | tonumber].volumeMounts // [] |
         map(select(.name == $volume_mount_name)) |
+        length > 0
+      '
+}
+
+function append_secrets_volume_remove_op_to_patch() {
+  local deployment_manifest_json="$1"
+  local k8s_secrets="$2"
+
+  echo "${deployment_manifest_json}" | \
+    jq \
+      --arg k8s_secrets "$( IFS=$','; echo "${k8s_secrets[*]}" )" \
+      '
+        .spec.template.spec.volumes // [] |
+        map(select((.secret.secretName // "") | inside($k8s_secrets))) |
         length > 0
       '
 }
@@ -624,6 +672,7 @@ function main() {
   local k8s_secrets
   local patch
   local app_containers_json
+  local secrets_volume_idx_list_json
 
   deployment_manifest_json="$(kubectl --namespace "${NAMESPACE}" get deployment "${DEPLOYMENT_NAME}" --output json)"
   if [[ "$?" -ne 0 ]]; then
@@ -677,17 +726,20 @@ function main() {
 
   # Update patch with env var 'remove' operations
   # Remove env vars from init containers
-  patch="$(append_sp_init_container_remove_ops_to_patch "${patch}" "${sp_init_container_idx}" "${sp_env_var_indices[*]}")"
+  patch="$(append_sp_init_container_env_var_remove_ops_to_patch "${patch}" "${sp_init_container_idx}" "${sp_env_var_indices[*]}")"
 
   if [[ "${PUSH_TO_FILE}" == 'true' ]]; then
     # Extract all application containers with env vars referencing a secret provided by SP
     app_containers_json="$(get_app_containers_json "${deployment_manifest_json}" "${k8s_secrets[*]}")"
 
     # Remove env vars from app containers
-    patch="$(append_app_container_remove_ops_to_patch "${patch}" "${app_containers_json}")"
+    patch="$(append_app_container_env_var_remove_ops_to_patch "${patch}" "${app_containers_json}")"
 
     # If necessary initialize volume list to []
     patch="$(check_append_empty_volume_list_to_patch "${patch}" "${deployment_manifest_json}")"
+
+    secrets_volume_idx_list_json="$(get_deployment_secrets_volume_idx_list_json "${deployment_manifest_json}" "${k8s_secrets[*]}")"
+    patch="$(append_secrets_volume_remove_ops_to_patch "${patch}" "${secrets_volume_idx_list_json}")"
 
     if [[ $(deployment_has_volume "${deployment_manifest_json}" 'podinfo') == "false" ]]; then
       patch="$(append_podinfo_volume_to_patch "${patch}")"
