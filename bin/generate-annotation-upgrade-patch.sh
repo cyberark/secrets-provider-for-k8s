@@ -144,8 +144,6 @@ function get_k8s_secrets_from_annots() {
         ."conjur.org/k8s-secrets" // "" |
         gsub("\\s+"; "") |
         split(",") |
-        map("- " + .) |
-        join("\n") |
         @sh
       '
 }
