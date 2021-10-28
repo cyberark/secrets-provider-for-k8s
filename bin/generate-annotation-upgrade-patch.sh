@@ -105,9 +105,10 @@ function get_sp_init_container_env() {
     jq \
       --arg SP_ENV_VARS "$( IFS=$','; echo "${SP_ENV_VARS[*]}" )" \
       '
+        ($SP_ENV_VARS | split(",") as $SP_ENV_VARS)
         .value.env |
         to_entries |
-        select(any(.value.name == ([$SP_ENV_VARS] | .[])))
+        select(any(.value.name == ($SP_ENV_VARS | split(",") | .[])))
       '
 }
 
@@ -255,7 +256,7 @@ function get_deployment_secrets_volume_idx_list_json() {
         .spec.template.spec.volumes // [] |
         to_entries |
         map(select(.value.secret.secretName != null)) |
-        select(any(.value.secret.secretName == ([$k8s_secrets] | .[]))) |
+        select(any(.value.secret.secretName == ($k8s_secrets | split(",") | .[]))) |
         map({ "volumeIdx": .key, "volumeName": .value.name }) |
         reverse
       '
@@ -311,7 +312,7 @@ function get_app_containers_json() {
           }
         ) |
         map(. + { secrets: .secrets | map({ key: .key, value: .value.valueFrom.secretKeyRef.name }) }) |
-        map(. + { secrets: .secrets | select(any(.value == ([$k8s_secrets] | .[]))) }) |
+        map(. + { secrets: .secrets | select(any(.value == ($k8s_secrets | split(",") | .[]))) }) |
         map(select(.secrets | length > 0)) |
         map(. + { spEnvVarIdxList: (.secrets | map(.key) | reverse) }) |
         map(. + { secrets: [.secrets | .[].value] | unique }) |
@@ -419,7 +420,7 @@ function append_secrets_volume_remove_op_to_patch() {
       --arg k8s_secrets "$( IFS=$','; echo "${k8s_secrets[*]}" )" \
       '
         .spec.template.spec.volumes // [] |
-        select(any(.secret.secretName // "") == ([$k8s_secrets] | .[]))) |
+        select(any(.secret.secretName // "") == ($k8s_secrets | split(",")  | .[]))) |
         length > 0
       '
 }
