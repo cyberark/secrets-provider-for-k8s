@@ -620,8 +620,7 @@ function append_app_containers_conjur_secrets_volume_mounts_to_patch() {
               "path": ("/spec/template/spec/containers/" + (.[].containerIdx | tostring) + "/volumeMounts/-"),
               "value": {
                 "mountPath": "/conjur/secrets",
-                "name": "conjur-secrets",
-                "readOnly": "true"
+                "name": "conjur-secrets"
               }
             }
           ]
