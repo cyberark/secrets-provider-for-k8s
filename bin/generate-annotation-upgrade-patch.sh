@@ -150,6 +150,27 @@ function get_k8s_secrets_from_annots() {
       '
 }
 
+function update_secrets_destination_annot_format() {
+  local sp_annots="$1"
+
+  # Transform to YAML list
+  echo "${sp_annots}" | \
+    jq \
+      '
+        . +
+        {
+          "conjur.org/k8s-secrets": (
+            ."conjur.org/k8s-secrets" // "" |
+            gsub("\\s+"; "") |
+            split(",") |
+            map("- " + .) |
+            join("\n")
+          )
+        }
+      '
+}
+
+
 function append_secrets_destination_annot() {
   local sp_annots="$1"
 
@@ -755,6 +776,8 @@ function main() {
         exit 1
       fi
     fi
+
+    sp_annots="$(update_secrets_destination_annot_format "${sp_annots}")"
 
     # Append secrets destination annotation
     # Replaces instead if key exists
