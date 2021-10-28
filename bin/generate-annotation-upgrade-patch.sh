@@ -665,7 +665,7 @@ function append_app_container_command_replace_ops_to_patch() {
       fi
     fi
     
-    if [[ -n "${image_cmd}" ]]; then
+    if [[ -n "${cmd}" ]]; then
       patch="$(echo "${patch}" | \
         jq \
           --arg container_idx "${container_idx}" \
