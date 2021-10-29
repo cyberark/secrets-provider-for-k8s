@@ -210,7 +210,7 @@ func newSecretGroup(groupName string, secretsBasePath string, annotations map[st
 		_, err := FileTemplateForFormat(fileFormat, secretSpecs)
 		if err != nil {
 			err = fmt.Errorf(
-				`unable to process file format annotation %q for group: %s`,
+				"unable to process file format annotation %q for group: %s",
 				fileFormat,
 				err,
 			)
@@ -218,36 +218,49 @@ func newSecretGroup(groupName string, secretsBasePath string, annotations map[st
 		}
 	}
 
-	if filePath[0] == '/' {
+	// filePath must be relative
+	if path.IsAbs(filePath) {
 		return nil, []error{
 			fmt.Errorf(
-				"provided filepath '%s' for secret group '%s' is absolute: requires relative path",
+				"provided filepath %q for secret group %q is absolute, requires relative path",
 				filePath, groupName,
 			),
 		}
 	}
 
-	// Create filepath from secrets base path, provided filepath, and group name
-	// Join the provided filepath to the static base path
-	// If the filepath points to a directory, use the group name as the file name
-	// If the group has a configured file template, filepath must point to a file
-	fullPath := path.Join(secretsBasePath, filePath)
-	if filePath[len(filePath)-1:] == "/" {
-		if len(fileTemplate) > 0 {
-			return nil, []error{
-				fmt.Errorf(
-					"provided filepath '%s' for secret group '%s' must specify a file: required when 'conjur.org/secret-file-template.%s' is configured",
-					filePath, groupName, groupName,
-				),
-			}
-		} else {
-			fullPath = path.Join(fullPath, fmt.Sprintf("%s.%s", groupName, fileFormat))
+	absoluteFilePath := path.Join(secretsBasePath, filePath)
+
+	// filePath must be relative to secrets base path. This protects against relative paths
+	// that, by using the double-dot path segment, resolve to a path that is not relative
+	// to the base path.
+	if !strings.HasPrefix(absoluteFilePath, secretsBasePath) {
+		return nil, []error{
+			fmt.Errorf(
+				"provided filepath %q for secret group %q must be relative to secrets base path",
+				filePath, groupName,
+			),
 		}
+	}
+
+	filePathIsDir := strings.HasSuffix(filePath, "/")
+
+	// fileTemplate requires filePath to point to a file (not a directory)
+	if filePathIsDir && len(fileTemplate) > 0 {
+		return nil, []error{
+			fmt.Errorf(
+				"provided filepath %q for secret group %q must specify a path to a file (without a trailing %q), required when %q is configured",
+				filePath, groupName, "/", secretGroupFileTemplatePrefix + "{groupName}",
+			),
+		}
+	}
+	// Without the restrictions of fileTemplate, the filename defaults to "{groupName}.{fileFormat}"
+	if filePathIsDir && len(fileTemplate) == 0 {
+		absoluteFilePath = path.Join(absoluteFilePath, fmt.Sprintf("%s.%s", groupName, fileFormat))
 	}
 
 	return &SecretGroup{
 		Name:             groupName,
-		FilePath:         fullPath,
+		FilePath:         absoluteFilePath,
 		FileTemplate:     fileTemplate,
 		FileFormat:       fileFormat,
 		FilePermissions:  defaultFilePermissions,

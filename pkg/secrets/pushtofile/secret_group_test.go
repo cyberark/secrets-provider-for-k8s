@@ -152,15 +152,76 @@ func TestNewSecretGroups(t *testing.T) {
 		assert.Contains(t, errs[0].Error(), "cannot unmarshall to list of secret specs")
 	})
 
-	t.Run("secret group uses absolute filepath", func(t *testing.T) {
+	t.Run("absolute secret file path annotation", func(t *testing.T) {
 		_, errs := NewSecretGroups("/basepath", map[string]string{
-			"conjur.org/conjur-secrets.first": `- path/to/secret/first1
-- aliasfirst2: path/to/secret/first2`,
+			"conjur.org/conjur-secrets.first": `
+- path/to/secret/first1
+- aliasfirst2: path/to/secret/first2
+`,
 			"conjur.org/secret-file-path.first": "/absolute/path",
 		})
 
 		assert.Len(t, errs, 1)
-		assert.Contains(t, errs[0].Error(), "provided filepath '/absolute/path' for secret group 'first' is absolute: requires relative path")
+		assert.Contains(
+			t,
+			errs[0].Error(),
+			`requires relative path`,
+		)
+	})
+
+	t.Run("secret file template requires file path annotation as file", func(t *testing.T) {
+		_, errs := NewSecretGroups("/basepath", map[string]string{
+			"conjur.org/conjur-secrets.first": `
+- path/to/secret/first1
+- aliasfirst2: path/to/secret/first2
+`,
+			"conjur.org/secret-file-path.first": "./relative/path/to/folder/",
+			"conjur.org/secret-file-template.first": "some template",
+		})
+
+		assert.Len(t, errs, 1)
+		assert.Contains(
+			t,
+			errs[0].Error(),
+			`path to a file`,
+		)
+	})
+
+	t.Run("secret file path as directory default filename", func(t *testing.T) {
+		groups, errs := NewSecretGroups("/basepath", map[string]string{
+			"conjur.org/conjur-secrets.first": `
+- path/to/secret/first1
+- aliasfirst2: path/to/secret/first2
+`,
+			"conjur.org/secret-file-path.first": "./relative/path/to/folder/",
+			"conjur.org/secret-file-format.first": "json",
+		})
+
+		assert.Len(t, errs, 0)
+		assert.Len(t, groups, 1)
+		assert.Equal(
+			t,
+			groups[0].FilePath,
+			`/basepath/relative/path/to/folder/first.json`,
+		)
+	})
+
+	t.Run("secret file path not relative to base", func(t *testing.T) {
+		_, errs := NewSecretGroups("/basepath", map[string]string{
+			"conjur.org/conjur-secrets.first": `
+- path/to/secret/first1
+- aliasfirst2: path/to/secret/first2
+`,
+			"conjur.org/secret-file-path.first": "../relative/path/to/parent/",
+			"conjur.org/secret-file-format.first": "json",
+		})
+
+		assert.Len(t, errs, 1)
+		assert.Contains(
+			t,
+			errs[0].Error(),
+			"relative to secrets base path",
+		)
 	})
 }
 
