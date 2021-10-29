@@ -3,6 +3,7 @@ package pushtofile
 import (
 	"fmt"
 	"os"
+	"path"
 	"sort"
 	"strings"
 )
@@ -152,7 +153,7 @@ func maybeFileTemplateFromFormat(
 }
 
 // NewSecretGroups creates a collection of secret groups from a map of annotations
-func NewSecretGroups(annotations map[string]string) ([]*SecretGroup, []error) {
+func NewSecretGroups(secretsBasePath string, annotations map[string]string) ([]*SecretGroup, []error) {
 	var sgs []*SecretGroup
 
 	var errors []error
@@ -190,9 +191,32 @@ func NewSecretGroups(annotations map[string]string) ([]*SecretGroup, []error) {
 				}
 			}
 
+			if filePath[0] == '/' {
+				errors = append(errors, fmt.Errorf(
+					"provided filepath '%s' for secret group '%s' is absolute: requires relative path",
+					filePath, groupName,
+				))
+				continue
+			}
+			// Create filepath from secrets base path, provided filepath, and group name
+			// Join the provided filepath to the static base path
+			// If the filepath points to a directory, use the group name as the file name
+			// If the group has a configured file template, filepath must point to a file
+			fullPath := path.Join(secretsBasePath, filePath)
+			if filePath[len(filePath)-1:] == "/" {
+				if len(fileTemplate) > 0 {
+					errors = append(errors, fmt.Errorf(
+						"provided filepath '%s' for secret group '%s' must specify a file: required when 'conjur.org/secret-file-template.%s' is configured",
+						filePath, groupName, groupName,
+					))
+				} else {
+					fullPath = path.Join(fullPath, fmt.Sprintf("%s.%s", groupName, fileFormat))
+				}
+			}
+
 			sgs = append(sgs, &SecretGroup{
 				Name:             groupName,
-				FilePath:         filePath,
+				FilePath:         fullPath,
 				FileTemplate:     fileTemplate,
 				FileFormat:       fileFormat,
 				FilePermissions:  defaultFilePermissions,

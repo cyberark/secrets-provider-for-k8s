@@ -20,12 +20,14 @@ func TestNewProvider(t *testing.T) {
 	TestCases := []struct {
 		description         string
 		retrieveFunc        conjur.RetrieveSecretsFunc
+		basePath            string
 		annotations         map[string]string
 		expectedSecretGroup []*SecretGroup
 	}{
 		{
 			description:  "happy case",
 			retrieveFunc: retrieve,
+			basePath:     "/basepath",
 			annotations: map[string]string{
 				"conjur.org/conjur-secrets.groupname":     "- password: path1\n",
 				"conjur.org/secret-file-path.groupname":   "path/to/file",
@@ -34,7 +36,7 @@ func TestNewProvider(t *testing.T) {
 			expectedSecretGroup: []*SecretGroup{
 				{
 					Name:            "groupname",
-					FilePath:        "path/to/file",
+					FilePath:        "/basepath/path/to/file",
 					FileTemplate:    "",
 					FileFormat:      "yaml",
 					FilePermissions: defaultFilePermissions,
@@ -51,7 +53,7 @@ func TestNewProvider(t *testing.T) {
 
 	for _, tc := range TestCases {
 		t.Run(tc.description, func(t *testing.T) {
-			p, err := NewProvider(tc.retrieveFunc, tc.annotations)
+			p, err := NewProvider(tc.retrieveFunc, tc.basePath, tc.annotations)
 			assert.Empty(t, err)
 			assert.Equal(t, tc.expectedSecretGroup, p.secretGroups)
 		})
@@ -71,7 +73,7 @@ func TestProvideWithDeps(t *testing.T) {
 				secretGroups: []*SecretGroup{
 					{
 						Name:            "groupname",
-						FilePath:        "path/to/file",
+						FilePath:        "/path/to/file",
 						FileFormat:      "yaml",
 						FilePermissions: 123,
 						SecretSpecs: []SecretSpec{

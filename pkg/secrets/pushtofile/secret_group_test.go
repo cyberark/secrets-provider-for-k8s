@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"path"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -78,18 +79,18 @@ func goodSecretSpecs() []SecretSpec {
 	return []SecretSpec{
 		{
 			Alias: "alias1",
-			Path: "path1",
+			Path:  "path1",
 		},
 		{
 			Alias: "alias2",
-			Path: "path2",
+			Path:  "path2",
 		},
 	}
 }
 
 func TestNewSecretGroups(t *testing.T) {
 	t.Run("valid annotations", func(t *testing.T) {
-		secretGroups, errs := NewSecretGroups(map[string]string{
+		secretGroups, errs := NewSecretGroups("/basepath", map[string]string{
 			"conjur.org/conjur-secrets.first": `- path/to/secret/first1
 - aliasfirst2: path/to/secret/first2`,
 			"conjur.org/secret-file-path.first":      "firstfilepath",
@@ -105,7 +106,7 @@ func TestNewSecretGroups(t *testing.T) {
 		assert.Len(t, secretGroups, 2)
 		assert.Equal(t, *secretGroups[0], SecretGroup{
 			Name:            "first",
-			FilePath:        "firstfilepath",
+			FilePath:        "/basepath/firstfilepath",
 			FileTemplate:    "firstfiletemplate",
 			FileFormat:      "",
 			FilePermissions: defaultFilePermissions,
@@ -122,7 +123,7 @@ func TestNewSecretGroups(t *testing.T) {
 		})
 		assert.Equal(t, *secretGroups[1], SecretGroup{
 			Name:            "second",
-			FilePath:        "secondfilepath",
+			FilePath:        "/basepath/secondfilepath",
 			FileTemplate:    "secondfiletemplate",
 			FileFormat:      "",
 			FilePermissions: defaultFilePermissions,
@@ -137,8 +138,8 @@ func TestNewSecretGroups(t *testing.T) {
 	})
 
 	t.Run("invalid secret specs annotation", func(t *testing.T) {
-		_, errs := NewSecretGroups(map[string]string{
-			"conjur.org/conjur-secrets.first": `gibberish`,
+		_, errs := NewSecretGroups("", map[string]string{
+			"conjur.org/conjur-secrets.first":        `gibberish`,
 			"conjur.org/secret-file-path.first":      "firstfilepath",
 			"conjur.org/secret-file-template.first":  `firstfiletemplate`,
 			"conjur.org/conjur-secrets.second":       "- path/to/secret/second",
@@ -149,6 +150,17 @@ func TestNewSecretGroups(t *testing.T) {
 		assert.Len(t, errs, 1)
 		assert.Contains(t, errs[0].Error(), `cannot create secret specs from annotation "conjur.org/conjur-secrets.first"`)
 		assert.Contains(t, errs[0].Error(), "cannot unmarshall to list of secret specs")
+	})
+
+	t.Run("secret group uses absolute filepath", func(t *testing.T) {
+		_, errs := NewSecretGroups("/basepath", map[string]string{
+			"conjur.org/conjur-secrets.first": `- path/to/secret/first1
+- aliasfirst2: path/to/secret/first2`,
+			"conjur.org/secret-file-path.first": "/absolute/path",
+		})
+
+		assert.Len(t, errs, 1)
+		assert.Contains(t, errs[0].Error(), "provided filepath '/absolute/path' for secret group 'first' is absolute: requires relative path")
 	})
 }
 
@@ -173,7 +185,7 @@ var pushToFileWithDepsTestCases = []pushToFileWithDepsTestCase{
 					writer:        closableBuf,
 					groupName:     "groupname",
 					groupTemplate: "filetemplate",
-					groupSecrets:  []*Secret{
+					groupSecrets: []*Secret{
 						{
 							Alias: "alias1",
 							Value: "value-path1",
@@ -303,12 +315,12 @@ func TestSecretGroup_PushToFile(t *testing.T) {
 	dir, err := ioutil.TempDir("", "")
 	assert.NoError(t, err)
 	defer os.Remove(dir)
-	filePath := dir + "file."
+	fullFilePath := path.Join(dir, "file.")
 
 	// Create a group, and push to file
 	group := SecretGroup{
 		Name:            "groupname",
-		FilePath:        filePath,
+		FilePath:        fullFilePath,
 		FileTemplate:    "",
 		FileFormat:      "yaml",
 		FilePermissions: 0744,
@@ -336,9 +348,9 @@ func TestSecretGroup_PushToFile(t *testing.T) {
 	assert.NoError(t, err)
 
 	// Read file contents and metadata
-	contentBytes, err := ioutil.ReadFile(filePath)
+	contentBytes, err := ioutil.ReadFile(fullFilePath)
 	assert.NoError(t, err)
-	f, err := os.Stat(filePath)
+	f, err := os.Stat(fullFilePath)
 	assert.NoError(t, err)
 
 	// Assert on file contents and metadata
