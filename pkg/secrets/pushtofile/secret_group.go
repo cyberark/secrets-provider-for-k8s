@@ -134,7 +134,7 @@ func maybeFileTemplateFromFormat(
 	fileFormat string,
 	secretSpecs []SecretSpec,
 ) (string, error) {
-	// One of file format or file template must be set
+	// Default to "yaml" file format
 	if len(fileTemplate)+len(fileFormat) == 0 {
 		fileFormat = "yaml"
 	}
@@ -205,6 +205,11 @@ func newSecretGroup(groupName string, secretsBasePath string, annotations map[st
 	filePath := annotations[secretGroupFilePathPrefix+groupName]
 	fileFormat := annotations[secretGroupFileFormatPrefix+groupName]
 	policyPathPrefix := annotations[secretGroupPolicyPathPrefix+groupName]
+
+	// Default to "yaml" file format
+	if len(fileTemplate)+len(fileFormat) == 0 {
+		fileFormat = "yaml"
+	}
 
 	if len(fileFormat) > 0 {
 		_, err := FileTemplateForFormat(fileFormat, secretSpecs)

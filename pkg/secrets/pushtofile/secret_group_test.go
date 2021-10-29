@@ -223,6 +223,23 @@ func TestNewSecretGroups(t *testing.T) {
 			"relative to secrets base path",
 		)
 	})
+
+	t.Run("secret file format yaml default", func(t *testing.T) {
+		groups, errs := NewSecretGroups("/basepath", map[string]string{
+			"conjur.org/conjur-secrets.first": `
+- path/to/secret/first1
+- aliasfirst2: path/to/secret/first2
+`,
+		})
+
+		assert.Len(t, errs, 0)
+		assert.Len(t, groups, 1)
+		assert.Contains(
+			t,
+			groups[0].FileFormat,
+			"yaml",
+		)
+	})
 }
 
 var pushToFileWithDepsTestCases = []pushToFileWithDepsTestCase{
