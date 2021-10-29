@@ -7,11 +7,19 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+const (
+	maxConjurVarNameLen = 126
+)
+
+// SecretSpec specifies a secret to be retrieved from Conjur by defining
+// its alias (i.e. the name of the secret from an application's perspective)
+// and its variable path in Conjur.
 type SecretSpec struct {
 	Alias string
 	Path  string
 }
 
+// MarshalYAML is a custom marshaller for SecretSpec.
 func (t SecretSpec) MarshalYAML() (interface{}, error) {
 	return map[string]string{t.Alias: t.Path}, nil
 }
@@ -68,6 +76,8 @@ func (t *SecretSpec) unmarshalFromMap(node *yaml.Node) error {
 	return nil
 }
 
+// NewSecretSpecs creates a slice of SecretSpec structs by unmarshalling
+// a YAML representation of secret specifications.
 func NewSecretSpecs(raw []byte) ([]SecretSpec, error) {
 	var secretSpecs []SecretSpec
 	err := yaml.Unmarshal(raw, &secretSpecs)
@@ -76,4 +86,37 @@ func NewSecretSpecs(raw []byte) ([]SecretSpec, error) {
 	}
 
 	return secretSpecs, nil
+}
+
+func validateSecretPaths(secretSpecs []SecretSpec, groupName string) []error {
+	var errors []error
+	for _, secretSpec := range secretSpecs {
+		if err := validateSecretPath(secretSpec.Path, groupName); err != nil {
+			errors = append(errors, err)
+		}
+	}
+	return errors
+}
+
+func validateSecretPath(path, groupName string) error {
+	// The Conjur variable path must not be null
+	if path == "" {
+		return fmt.Errorf("Secret group %s: null Conjur variable path", groupName)
+	}
+
+	// The Conjur variable path must not end with slash character
+	varName := path[strings.LastIndex(path, "/")+1:]
+	if varName == "" {
+		return fmt.Errorf("Secret group %s: the Conjur variable path '%s' has a trailing '/'",
+			groupName, path)
+	}
+
+	// The Conjur variable name (the last word in the Conjur variable path)
+	// must be no longer than 126 characters.
+	if len(varName) > maxConjurVarNameLen {
+		return fmt.Errorf("Secret group %s: the Conjur variable name '%s' is longer than %d characters",
+			groupName, varName, maxConjurVarNameLen)
+	}
+
+	return nil
 }

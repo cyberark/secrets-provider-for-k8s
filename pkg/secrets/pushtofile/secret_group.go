@@ -15,6 +15,8 @@ const secretGroupFileFormatPrefix = "conjur.org/secret-file-format."
 
 const defaultFilePermissions os.FileMode = 0664
 
+// SecretGroup incorporates all of the information about a secret group
+// that has been parsed from that secret group's Annotations.
 type SecretGroup struct {
 	Name             string
 	FilePath         string
@@ -25,6 +27,8 @@ type SecretGroup struct {
 	SecretSpecs      []SecretSpec
 }
 
+// ResolvedSecretSpecs resolves all of the secret paths for a secret
+// group by prepending each path with that group's policy path prefix.
 func (s *SecretGroup) ResolvedSecretSpecs() []SecretSpec {
 	if len(s.PolicyPathPrefix) == 0 {
 		return s.SecretSpecs
@@ -156,49 +160,15 @@ func NewSecretGroups(annotations map[string]string) ([]*SecretGroup, []error) {
 	var sgs []*SecretGroup
 
 	var errors []error
-	for k, v := range annotations {
-		if strings.HasPrefix(k, secretGroupPrefix) {
-			groupName := strings.TrimPrefix(k, secretGroupPrefix)
-			secretSpecs, err := NewSecretSpecs([]byte(v))
-			if err != nil {
-				// Accumulate errors
-				err = fmt.Errorf(
-					`cannot create secret specs from annotation "%s": %s`,
-					k,
-					err,
-				)
-				errors = append(errors, err)
+	for key := range annotations {
+		if strings.HasPrefix(key, secretGroupPrefix) {
+			groupName := strings.TrimPrefix(key, secretGroupPrefix)
+			sg, errs := newSecretGroup(annotations, groupName)
+			if errs != nil {
+				errors = append(errors, errs...)
 				continue
 			}
-
-			fileTemplate := annotations[secretGroupFileTemplatePrefix+groupName]
-			filePath := annotations[secretGroupFilePathPrefix+groupName]
-			fileFormat := annotations[secretGroupFileFormatPrefix+groupName]
-			policyPathPrefix := annotations[secretGroupPolicyPathPrefix+groupName]
-
-			if len(fileFormat) > 0 {
-				_, err := FileTemplateForFormat(fileFormat, secretSpecs)
-				if err != nil {
-					// Accumulate errors
-					err = fmt.Errorf(
-						`unable to process file format annotation %q for group: %s`,
-						fileFormat,
-						err,
-					)
-					errors = append(errors, err)
-					continue
-				}
-			}
-
-			sgs = append(sgs, &SecretGroup{
-				Name:             groupName,
-				FilePath:         filePath,
-				FileTemplate:     fileTemplate,
-				FileFormat:       fileFormat,
-				FilePermissions:  defaultFilePermissions,
-				PolicyPathPrefix: policyPathPrefix,
-				SecretSpecs:      secretSpecs,
-			})
+			sgs = append(sgs, sg)
 		}
 	}
 
@@ -212,4 +182,48 @@ func NewSecretGroups(annotations map[string]string) ([]*SecretGroup, []error) {
 	})
 
 	return sgs, nil
+}
+
+func newSecretGroup(annotations map[string]string, groupName string) (*SecretGroup, []error) {
+	groupSecrets := annotations[secretGroupPrefix+groupName]
+	secretSpecs, err := NewSecretSpecs([]byte(groupSecrets))
+	if err != nil {
+		err = fmt.Errorf(
+			`cannot create secret specs from annotation "%s": %s`,
+			secretGroupPrefix+groupName,
+			err,
+		)
+		return nil, []error{err}
+
+	}
+	if errors := validateSecretPaths(secretSpecs, groupName); err != nil {
+		return nil, errors
+	}
+
+	fileTemplate := annotations[secretGroupFileTemplatePrefix+groupName]
+	filePath := annotations[secretGroupFilePathPrefix+groupName]
+	fileFormat := annotations[secretGroupFileFormatPrefix+groupName]
+	policyPathPrefix := annotations[secretGroupPolicyPathPrefix+groupName]
+
+	if len(fileFormat) > 0 {
+		_, err := FileTemplateForFormat(fileFormat, secretSpecs)
+		if err != nil {
+			err = fmt.Errorf(
+				`unable to process file format annotation %q for group: %s`,
+				fileFormat,
+				err,
+			)
+			return nil, []error{err}
+		}
+	}
+
+	return &SecretGroup{
+		Name:             groupName,
+		FilePath:         filePath,
+		FileTemplate:     fileTemplate,
+		FileFormat:       fileFormat,
+		FilePermissions:  defaultFilePermissions,
+		PolicyPathPrefix: policyPathPrefix,
+		SecretSpecs:      secretSpecs,
+	}, nil
 }

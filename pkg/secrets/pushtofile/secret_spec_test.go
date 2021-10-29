@@ -1,9 +1,16 @@
 package pushtofile
 
 import (
+	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+)
+
+const (
+	validConjurPath1 = "valid/conjur/variable/path"
+	validConjurPath2 = "another/valid/conjur/variable/path"
 )
 
 type secretsSpecTestCase struct {
@@ -19,7 +26,7 @@ func (tc secretsSpecTestCase) Run(t *testing.T) {
 	})
 }
 
-func assertGoodSecretSpecs(expectedResult []SecretSpec) func (*testing.T, []SecretSpec, error) {
+func assertGoodSecretSpecs(expectedResult []SecretSpec) func(*testing.T, []SecretSpec, error) {
 	return func(t *testing.T, result []SecretSpec, err error) {
 		if !assert.NoError(t, err) {
 			return
@@ -43,12 +50,12 @@ var secretsSpecTestCases = []secretsSpecTestCase{
 		assert: assertGoodSecretSpecs(
 			[]SecretSpec{
 				{
-					Path:  "dev/openshift/api-url",
 					Alias: "api-url",
+					Path:  "dev/openshift/api-url",
 				},
 				{
-					Path:  "dev/openshift/password",
 					Alias: "admin-password",
+					Path:  "dev/openshift/password",
 				},
 			},
 		),
@@ -105,5 +112,80 @@ another-password: dev/openshift/password
 func TestNewSecretSpecs(t *testing.T) {
 	for _, tc := range secretsSpecTestCases {
 		tc.Run(t)
+	}
+}
+
+func TestValidateSecretSpecPaths(t *testing.T) {
+	maxLenConjurVarName := strings.Repeat("a", maxConjurVarNameLen)
+
+	type assertFunc func(*testing.T, []error, string)
+
+	assertNoErrors := func() assertFunc {
+		return func(t *testing.T, errors []error, desc string) {
+			assert.Len(t, errors, 0, desc)
+		}
+	}
+
+	assertErrorsContain := func(expErrStrs ...string) assertFunc {
+		return func(t *testing.T, errors []error, desc string) {
+			assert.Len(t, errors, len(expErrStrs), desc)
+			for i, expErrStr := range expErrStrs {
+				assert.Contains(t, errors[i].Error(), expErrStr, desc)
+			}
+		}
+	}
+
+	testCases := []struct {
+		description string
+		path1       string
+		path2       string
+		assert      assertFunc
+	}{
+		{
+			"valid Conjur paths",
+			validConjurPath1,
+			validConjurPath2,
+			assertNoErrors(),
+		}, {
+			"null Conjur path and valid Conjur path",
+			"",
+			validConjurPath2,
+			assertErrorsContain("null Conjur variable path"),
+		}, {
+			"Conjur path with trailing '/' and valid Conjur path",
+			validConjurPath1 + "/",
+			validConjurPath2,
+			assertErrorsContain("has a trailing '/'"),
+		}, {
+			"Conjur path with max len var name and valid Conjur path",
+			validConjurPath1 + "/" + maxLenConjurVarName,
+			validConjurPath2,
+			assertNoErrors(),
+		}, {
+			"Conjur path with oversized var name and valid Conjur path",
+			validConjurPath1 + "/" + maxLenConjurVarName + "a",
+			validConjurPath2,
+			assertErrorsContain(fmt.Sprintf(
+				"is longer than %d characters", maxConjurVarNameLen)),
+		}, {
+			"Two Conjur paths with trailing '/'",
+			validConjurPath1 + "/",
+			validConjurPath2 + "/",
+			assertErrorsContain("has a trailing '/'", "has a trailing '/'"),
+		},
+	}
+
+	for _, tc := range testCases {
+		// Set up test case
+		secretSpecs := []SecretSpec{
+			{Alias: "foo", Path: tc.path1},
+			{Alias: "bar", Path: tc.path2},
+		}
+
+		// Run test case
+		err := validateSecretPaths(secretSpecs, "some-group-name")
+
+		// Check result
+		tc.assert(t, err, tc.description)
 	}
 }
