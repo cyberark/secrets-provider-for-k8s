@@ -15,10 +15,10 @@ type ConjurMockClient struct {
 	CanExecute bool
 	// TODO: CanExecute is really just used to assert on the presence of errors
 	// 	and should probably just be an optional error.
-	Database   map[string]string
+	Database map[string]string
 }
 
-func (c ConjurMockClient) RetrieveSecrets (accessToken []byte, secretIds []string) (map[string][]byte, error) {
+func (c ConjurMockClient) RetrieveSecrets(secretIds []string) (map[string][]byte, error) {
 	res := make(map[string][]byte)
 
 	if !c.CanExecute {
@@ -40,8 +40,8 @@ func (c ConjurMockClient) RetrieveSecrets (accessToken []byte, secretIds []strin
 
 func NewConjurMockClient() ConjurMockClient {
 	database := map[string]string{
-		"conjur_variable1": "conjur_secret1",
-		"conjur_variable2": "conjur_secret2",
+		"conjur_variable1":             "conjur_secret1",
+		"conjur_variable2":             "conjur_secret2",
 		"conjur_variable_empty_secret": "",
 	}
 

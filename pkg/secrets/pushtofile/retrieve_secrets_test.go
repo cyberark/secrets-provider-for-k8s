@@ -3,6 +3,7 @@ package pushtofile
 import (
 	"testing"
 
+	"github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/clients/conjur"
 	conjurMocks "github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/clients/conjur/mocks"
 	"github.com/stretchr/testify/assert"
 )
@@ -10,12 +11,12 @@ import (
 type retrieveSecretsTestCase struct {
 	description string
 	secretSpecs map[string][]SecretSpec
-	assert      func(t *testing.T, result map[string][]*secret, err error)
+	assert      func(t *testing.T, result map[string][]*Secret, err error)
 }
 
 func (tc retrieveSecretsTestCase) Run(
 	t *testing.T,
-	depFetchSecrets FetchSecretsFunc,
+	depFetchSecrets conjur.RetrieveSecretsFunc,
 ) {
 	t.Run(tc.description, func(t *testing.T) {
 		s := createSecretGroups(tc.secretSpecs)
@@ -29,7 +30,7 @@ func createSecretGroups(groupSpecs map[string][]SecretSpec) []*SecretGroup {
 	var secretGroups []*SecretGroup
 	for name, secretSpecs := range groupSpecs {
 		secretGroup := &SecretGroup{
-			Name:       name,
+			Name:        name,
 			SecretSpecs: secretSpecs,
 		}
 		secretGroups = append(secretGroups, secretGroup)
@@ -38,7 +39,7 @@ func createSecretGroups(groupSpecs map[string][]SecretSpec) []*SecretGroup {
 	return secretGroups
 }
 
-func findGroupValues(group map[string][]*secret, label string) []*secret {
+func findGroupValues(group map[string][]*Secret, label string) []*Secret {
 	for key, secretGroup := range group {
 		if key == label {
 			return secretGroup
@@ -48,8 +49,8 @@ func findGroupValues(group map[string][]*secret, label string) []*secret {
 	return nil
 }
 
-func assertGoodResults(expectedGroupValues map[string][]*secret) func(*testing.T, map[string][]*secret, error) {
-	return func(t *testing.T, result map[string][]*secret, err error) {
+func assertGoodResults(expectedGroupValues map[string][]*Secret) func(*testing.T, map[string][]*Secret, error) {
+	return func(t *testing.T, result map[string][]*Secret, err error) {
 		if !assert.NoError(t, err) {
 			return
 		}
@@ -77,13 +78,13 @@ var retrieveSecretsTestCases = []retrieveSecretsTestCase{
 				{Alias: "password", Path: "ci/openshift/password"},
 			},
 		},
-		assert: assertGoodResults(map[string][]*secret{
-			"cache": []*secret{
+		assert: assertGoodResults(map[string][]*Secret{
+			"cache": []*Secret{
 				{Alias: "api-url", Value: "https://postgres.example.com"},
 				{Alias: "username", Value: "admin"},
 				{Alias: "password", Value: "open-$e$ame"},
 			},
-			"db": []*secret{
+			"db": []*Secret{
 				{Alias: "api-url", Value: "https://ci.postgres.example.com"},
 				{Alias: "username", Value: "administrator"},
 				{Alias: "password", Value: "open-$e$ame"},
@@ -104,7 +105,7 @@ var retrieveSecretsTestCases = []retrieveSecretsTestCase{
 				{Alias: "password", Path: "ci/openshift/password"},
 			},
 		},
-		assert: func(t *testing.T, result map[string][]*secret, err error) {
+		assert: func(t *testing.T, result map[string][]*Secret, err error) {
 			assert.Contains(t, err.Error(), "no_conjur_secret_error")
 		},
 	},
@@ -115,7 +116,7 @@ type mockSecretFetcher struct {
 }
 
 func (s mockSecretFetcher) Fetch(secretPaths []string) (map[string][]byte, error) {
-	return s.conjurMockClient.RetrieveSecrets(nil, secretPaths)
+	return s.conjurMockClient.RetrieveSecrets(secretPaths)
 }
 
 func newMockSecretFetcher() mockSecretFetcher {

@@ -15,19 +15,14 @@ const secretGroupFileFormatPrefix = "conjur.org/secret-file-format."
 
 const defaultFilePermissions os.FileMode = 0664
 
-type Secret struct {
-	Alias string
-	Value string
-}
-
 type SecretGroup struct {
-	Name            string
-	FilePath        string
-	FileTemplate    string
-	FileFormat      string
-	PolicyPathPrefix      string
-	FilePermissions os.FileMode
-	SecretSpecs     []SecretSpec
+	Name             string
+	FilePath         string
+	FileTemplate     string
+	FileFormat       string
+	PolicyPathPrefix string
+	FilePermissions  os.FileMode
+	SecretSpecs      []SecretSpec
 }
 
 func (s *SecretGroup) ResolvedSecretSpecs() []SecretSpec {
@@ -169,9 +164,9 @@ func NewSecretGroups(annotations map[string]string) ([]*SecretGroup, []error) {
 				// Accumulate errors
 				err = fmt.Errorf(
 					`cannot create secret specs from annotation "%s": %s`,
-						k,
-						err,
-					)
+					k,
+					err,
+				)
 				errors = append(errors, err)
 				continue
 			}
@@ -196,13 +191,13 @@ func NewSecretGroups(annotations map[string]string) ([]*SecretGroup, []error) {
 			}
 
 			sgs = append(sgs, &SecretGroup{
-				Name:            groupName,
-				FilePath:        filePath,
-				FileTemplate:    fileTemplate,
-				FileFormat:      fileFormat,
-				FilePermissions: defaultFilePermissions,
+				Name:             groupName,
+				FilePath:         filePath,
+				FileTemplate:     fileTemplate,
+				FileFormat:       fileFormat,
+				FilePermissions:  defaultFilePermissions,
 				PolicyPathPrefix: policyPathPrefix,
-				SecretSpecs:     secretSpecs,
+				SecretSpecs:      secretSpecs,
 			})
 		}
 	}

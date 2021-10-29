@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/cyberark/conjur-authn-k8s-client/pkg/access_token"
 	"github.com/cyberark/conjur-authn-k8s-client/pkg/log"
 	"gopkg.in/yaml.v2"
 	v1 "k8s.io/api/core/v1"
@@ -32,32 +31,37 @@ type K8sSecretsMap struct {
 	PathMap map[string][]string
 }
 
-/*
-	This method is implemented for implementing the ProvideConjurSecrets interface. All that is done here is to
-	initialize a K8sSecretsClient and use the internal `run` method.
-	That method receives different structs as inputs so they can be mocked.
-*/
-func ProvideConjurSecretsToK8sSecrets(AccessToken access_token.AccessToken, config *config.Config) error {
-	return run(
-		k8s.RetrieveK8sSecret,
-		k8s.UpdateK8sSecret,
-		config.PodNamespace,
-		config.RequiredK8sSecrets,
-		AccessToken,
-		conjur.RetrieveConjurSecrets,
-	)
+type k8sProvider struct {
+	retrieveK8sSecret   k8s.RetrieveK8sSecretFunc
+	updateK8sSecret     k8s.UpdateK8sSecretFunc
+	retrieveSecretsFunc conjur.RetrieveSecretsFunc
+	podNamespace        string
+	requiredK8sSecrets  []string
 }
 
-func run(retrieveSecretFunc k8s.RetrieveK8sSecretFunc, updateSecretFunc k8s.UpdateK8sSecretFunc, namespace string, requiredK8sSecrets []string, accessToken access_token.AccessToken, retrieveConjurSecretsFunc conjur.RetrieveConjurSecretsFunc) error {
-	k8sSecretsMap, err := RetrieveRequiredK8sSecrets(retrieveSecretFunc, namespace, requiredK8sSecrets)
+// NewProvider creates a new secret provider for K8s Secrets mode.
+func NewProvider(
+	retrievek8sSecret k8s.RetrieveK8sSecretFunc,
+	updatek8sSecret k8s.UpdateK8sSecretFunc,
+	retrieveSecretsFunc conjur.RetrieveSecretsFunc,
+	requiredK8sSecrets []string,
+	podNamespace string,
+) k8sProvider {
+	return k8sProvider{
+		retrieveK8sSecret:   retrievek8sSecret,
+		updateK8sSecret:     updatek8sSecret,
+		retrieveSecretsFunc: retrieveSecretsFunc,
+		podNamespace:        podNamespace,
+		requiredK8sSecrets:  requiredK8sSecrets,
+	}
+}
+
+// Provide implements a ProviderFunc to retrieve and push secrets to K8s secrets.
+func (p k8sProvider) Provide() error {
+	k8sSecretsMap, err := RetrieveRequiredK8sSecrets(p.retrieveK8sSecret, p.podNamespace, p.requiredK8sSecrets)
 
 	if err != nil {
 		return log.RecordedError(messages.CSPFK021E)
-	}
-
-	accessTokenData, err := accessToken.Read()
-	if err != nil {
-		return log.RecordedError(messages.CSPFK002E)
 	}
 
 	variableIDs, err := getVariableIDsToRetrieve(k8sSecretsMap.PathMap)
@@ -65,7 +69,7 @@ func run(retrieveSecretFunc k8s.RetrieveK8sSecretFunc, updateSecretFunc k8s.Upda
 		return log.RecordedError(messages.CSPFK037E)
 	}
 
-	retrievedConjurSecrets, err := retrieveConjurSecretsFunc(accessTokenData, variableIDs)
+	retrievedConjurSecrets, err := p.retrieveSecretsFunc(variableIDs)
 	if err != nil {
 		return log.RecordedError(messages.CSPFK034E, err.Error())
 	}
@@ -75,12 +79,13 @@ func run(retrieveSecretFunc k8s.RetrieveK8sSecretFunc, updateSecretFunc k8s.Upda
 		return log.RecordedError(messages.CSPFK027E)
 	}
 
-	err = UpdateRequiredK8sSecrets(updateSecretFunc, namespace, k8sSecretsMap)
+	err = UpdateRequiredK8sSecrets(p.updateK8sSecret, p.podNamespace, k8sSecretsMap)
 
 	if err != nil {
 		return log.RecordedError(messages.CSPFK023E)
 	}
 
+	log.Info(messages.CSPFK009I)
 	return nil
 }
 
