@@ -187,20 +187,6 @@ func NewSecretGroups(secretsBasePath string, annotations map[string]string) ([]*
 
 func newSecretGroup(groupName string, secretsBasePath string, annotations map[string]string) (*SecretGroup, []error) {
 	groupSecrets := annotations[secretGroupPrefix+groupName]
-	secretSpecs, err := NewSecretSpecs([]byte(groupSecrets))
-	if err != nil {
-		err = fmt.Errorf(
-			`cannot create secret specs from annotation "%s": %s`,
-			secretGroupPrefix+groupName,
-			err,
-		)
-		return nil, []error{err}
-
-	}
-	if errors := validateSecretPaths(secretSpecs, groupName); err != nil {
-		return nil, errors
-	}
-
 	fileTemplate := annotations[secretGroupFileTemplatePrefix+groupName]
 	filePath := annotations[secretGroupFilePathPrefix+groupName]
 	fileFormat := annotations[secretGroupFileFormatPrefix+groupName]
@@ -211,26 +197,103 @@ func newSecretGroup(groupName string, secretsBasePath string, annotations map[st
 		fileFormat = "yaml"
 	}
 
+	secretSpecs, err := NewSecretSpecs([]byte(groupSecrets))
+	if err != nil {
+		err = fmt.Errorf(
+			`cannot create secret specs from annotation "%s": %s`,
+			secretGroupPrefix+groupName,
+			err,
+		)
+		return nil, []error{err}
+	}
+
+	errors := validateGroup(
+		groupName,
+		fileFormat,
+		secretSpecs,
+	)
+	if len(errors) > 0 {
+		return nil, errors
+	}
+
+	// Validate and generate absolute file path for group
+	filePath, err = absoluteFilePathForGroup(
+		groupName,
+		secretsBasePath,
+		filePath,
+		fileTemplate,
+		fileFormat,
+	)
+	if err != nil {
+		return nil, []error{err}
+	}
+
+	return &SecretGroup{
+		Name:             groupName,
+		FilePath:         filePath,
+		FileTemplate:     fileTemplate,
+		FileFormat:       fileFormat,
+		FilePermissions:  defaultFilePermissions,
+		PolicyPathPrefix: policyPathPrefix,
+		SecretSpecs:      secretSpecs,
+	}, nil
+}
+
+func validateGroup(
+	groupName string,
+	fileFormat string,
+	secretSpecs []SecretSpec,
+) []error {
+	if errors := validateSecretPaths(secretSpecs, groupName); len(errors) > 0 {
+		return errors
+	}
+
 	if len(fileFormat) > 0 {
 		_, err := FileTemplateForFormat(fileFormat, secretSpecs)
 		if err != nil {
-			err = fmt.Errorf(
-				"unable to process file format annotation %q for group: %s",
-				fileFormat,
-				err,
-			)
-			return nil, []error{err}
+			return []error{
+				fmt.Errorf(
+					"unable to process file format annotation %q for group: %s",
+					fileFormat,
+					err,
+				),
+			}
 		}
 	}
 
+	return nil
+}
+
+func absoluteFilePathForGroup(
+	groupName string,
+	secretsBasePath string,
+	filePath string,
+	fileTemplate string,
+	fileFormat string,
+) (string, error) {
 	// filePath must be relative
 	if path.IsAbs(filePath) {
-		return nil, []error{
-			fmt.Errorf(
-				"provided filepath %q for secret group %q is absolute, requires relative path",
-				filePath, groupName,
-			),
-		}
+		return "", fmt.Errorf(
+			"provided filepath %q for secret group %q is absolute, requires relative path",
+			filePath, groupName,
+		)
+	}
+
+	filePathIsDir := strings.HasSuffix(filePath, "/")
+
+	// fileTemplate requires filePath to point to a file (not a directory)
+	if filePathIsDir && len(fileTemplate) > 0 {
+		return "", fmt.Errorf(
+			"provided filepath %q for secret group %q must specify a path to a file (without a trailing %q), required when %q is configured",
+			filePath, groupName, "/", secretGroupFileTemplatePrefix+"{groupName}",
+		)
+	}
+	// Without the restrictions of fileTemplate, the filename defaults to "{groupName}.{fileFormat}"
+	if filePathIsDir && len(fileTemplate) == 0 {
+		filePath = path.Join(
+			filePath,
+			fmt.Sprintf("%s.%s", groupName, fileFormat),
+		)
 	}
 
 	absoluteFilePath := path.Join(secretsBasePath, filePath)
@@ -239,37 +302,11 @@ func newSecretGroup(groupName string, secretsBasePath string, annotations map[st
 	// that, by using the double-dot path segment, resolve to a path that is not relative
 	// to the base path.
 	if !strings.HasPrefix(absoluteFilePath, secretsBasePath) {
-		return nil, []error{
-			fmt.Errorf(
-				"provided filepath %q for secret group %q must be relative to secrets base path",
-				filePath, groupName,
-			),
-		}
+		return "", fmt.Errorf(
+			"provided filepath %q for secret group %q must be relative to secrets base path",
+			filePath, groupName,
+		)
 	}
 
-	filePathIsDir := strings.HasSuffix(filePath, "/")
-
-	// fileTemplate requires filePath to point to a file (not a directory)
-	if filePathIsDir && len(fileTemplate) > 0 {
-		return nil, []error{
-			fmt.Errorf(
-				"provided filepath %q for secret group %q must specify a path to a file (without a trailing %q), required when %q is configured",
-				filePath, groupName, "/", secretGroupFileTemplatePrefix + "{groupName}",
-			),
-		}
-	}
-	// Without the restrictions of fileTemplate, the filename defaults to "{groupName}.{fileFormat}"
-	if filePathIsDir && len(fileTemplate) == 0 {
-		absoluteFilePath = path.Join(absoluteFilePath, fmt.Sprintf("%s.%s", groupName, fileFormat))
-	}
-
-	return &SecretGroup{
-		Name:             groupName,
-		FilePath:         absoluteFilePath,
-		FileTemplate:     fileTemplate,
-		FileFormat:       fileFormat,
-		FilePermissions:  defaultFilePermissions,
-		PolicyPathPrefix: policyPathPrefix,
-		SecretSpecs:      secretSpecs,
-	}, nil
+	return absoluteFilePath, nil
 }

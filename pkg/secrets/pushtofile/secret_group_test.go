@@ -175,7 +175,7 @@ func TestNewSecretGroups(t *testing.T) {
 - path/to/secret/first1
 - aliasfirst2: path/to/secret/first2
 `,
-			"conjur.org/secret-file-path.first": "./relative/path/to/folder/",
+			"conjur.org/secret-file-path.first":     "./relative/path/to/folder/",
 			"conjur.org/secret-file-template.first": "some template",
 		})
 
@@ -193,7 +193,7 @@ func TestNewSecretGroups(t *testing.T) {
 - path/to/secret/first1
 - aliasfirst2: path/to/secret/first2
 `,
-			"conjur.org/secret-file-path.first": "./relative/path/to/folder/",
+			"conjur.org/secret-file-path.first":   "./relative/path/to/folder/",
 			"conjur.org/secret-file-format.first": "json",
 		})
 
@@ -212,7 +212,7 @@ func TestNewSecretGroups(t *testing.T) {
 - path/to/secret/first1
 - aliasfirst2: path/to/secret/first2
 `,
-			"conjur.org/secret-file-path.first": "../relative/path/to/parent/",
+			"conjur.org/secret-file-path.first":   "../relative/path/to/parent/",
 			"conjur.org/secret-file-format.first": "json",
 		})
 
@@ -393,49 +393,126 @@ func TestSecretGroup_PushToFile(t *testing.T) {
 	dir, err := ioutil.TempDir("", "")
 	assert.NoError(t, err)
 	defer os.Remove(dir)
-	fullFilePath := path.Join(dir, "file.")
 
-	// Create a group, and push to file
-	group := SecretGroup{
-		Name:            "groupname",
-		FilePath:        fullFilePath,
-		FileTemplate:    "",
-		FileFormat:      "yaml",
-		FilePermissions: 0744,
-		SecretSpecs: []SecretSpec{
+	for _, tc := range []struct {
+		description string
+		path        string
+	}{
+		{"file with existing parent folder", "./file"},
+		{"file with non-existent parent folder", "./path/to/file"},
+	} {
+		t.Run(tc.description, func(t *testing.T) {
+			absoluteFilePath := path.Join(dir, tc.path)
+
+			// Create a group, and push to file
+			group := SecretGroup{
+				Name:            "groupname",
+				FilePath:        absoluteFilePath,
+				FileTemplate:    "",
+				FileFormat:      "yaml",
+				FilePermissions: 0744,
+				SecretSpecs: []SecretSpec{
+					{
+						Alias: "alias1",
+						Path:  "path1",
+					},
+					{
+						Alias: "alias2",
+						Path:  "path2",
+					},
+				},
+			}
+			err = group.PushToFile([]*Secret{
+				{
+					Alias: "alias1",
+					Value: "value1",
+				},
+				{
+					Alias: "alias2",
+					Value: "value2",
+				},
+			})
+			assert.NoError(t, err)
+
+			// Read file contents and metadata
+			contentBytes, err := ioutil.ReadFile(absoluteFilePath)
+			assert.NoError(t, err)
+			f, err := os.Stat(absoluteFilePath)
+			assert.NoError(t, err)
+
+			// Assert on file contents and metadata
+			assert.EqualValues(t, f.Mode(), 0744)
+			assert.Equal(t,
+				`"alias1": "value1"
+"alias2": "value2"`,
+				string(contentBytes),
+			)
+		})
+	}
+
+	t.Run("failure to mkdir", func(t *testing.T) {
+		// Create a group, and push to file
+		group := SecretGroup{
+			Name:            "groupname",
+			FilePath:        "/dev/stdout/x",
+			FileTemplate:    "",
+			FileFormat:      "yaml",
+			FilePermissions: 0744,
+			SecretSpecs: []SecretSpec{
+				{
+					Alias: "alias1",
+					Path:  "path1",
+				},
+				{
+					Alias: "alias2",
+					Path:  "path2",
+				},
+			},
+		}
+		err = group.PushToFile([]*Secret{
 			{
 				Alias: "alias1",
-				Path:  "path1",
+				Value: "value1",
 			},
 			{
 				Alias: "alias2",
-				Path:  "path2",
+				Value: "value2",
 			},
-		},
-	}
-	err = group.PushToFile([]*Secret{
-		{
-			Alias: "alias1",
-			Value: "value1",
-		},
-		{
-			Alias: "alias2",
-			Value: "value2",
-		},
+		})
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "unable to mkdir")
 	})
-	assert.NoError(t, err)
 
-	// Read file contents and metadata
-	contentBytes, err := ioutil.ReadFile(fullFilePath)
-	assert.NoError(t, err)
-	f, err := os.Stat(fullFilePath)
-	assert.NoError(t, err)
-
-	// Assert on file contents and metadata
-	assert.EqualValues(t, f.Mode(), 0744)
-	assert.Equal(t,
-		`"alias1": "value1"
-"alias2": "value2"`,
-		string(contentBytes),
-	)
+	t.Run("failure to open file", func(t *testing.T) {
+		// Create a group, and push to file
+		group := SecretGroup{
+			Name:            "groupname",
+			FilePath:        "/dev/stdout",
+			FileTemplate:    "",
+			FileFormat:      "yaml",
+			FilePermissions: 0744,
+			SecretSpecs: []SecretSpec{
+				{
+					Alias: "alias1",
+					Path:  "path1",
+				},
+				{
+					Alias: "alias2",
+					Path:  "path2",
+				},
+			},
+		}
+		err = group.PushToFile([]*Secret{
+			{
+				Alias: "alias1",
+				Value: "value1",
+			},
+			{
+				Alias: "alias2",
+				Value: "value2",
+			},
+		})
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "unable to open file")
+	})
 }
