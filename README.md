@@ -4,6 +4,7 @@
 - [CyberArk Secrets Provider for Kubernetes](#cyberark-secrets-provider-for-kubernetes)
   - [Supported services](#supported-services)
   - [Using This Project With Conjur Open Source](#using-secrets-provider-for-k8s-with-conjur-open-source)
+  - [Using secrets-provider-for-k8s to Write Secrets to a File](#using-secrets-provider-for-k8s-to-write-secrets-to-a-file)
 - [Releases](#releases)
   - [Stable release definition](#stable-release-definition)
 - [Development](#development)
@@ -45,6 +46,14 @@ compatibility. When possible, upgrade your Conjur version to match the
 [latest suite release](https://docs.conjur.org/Latest/en/Content/ReleaseNotes/ConjurOSS-suite-RN.htm); 
 when using integrations, choose the latest suite release that matches your Conjur version. For any 
 questions, please contact us on [Discourse](https://discuss.cyberarkcommons.org/c/conjur/5).
+
+## Using secrets-provider-for-k8s to Write Secrets to a File
+
+The Secrets Provider for Kubernetes can be configured using
+[Kubernetes Pod Annotations](https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/)
+to write secrets to files through volume mounted files for
+an application deployed into K8s. This only requires modifying the application deployment manifest
+and not the application itself.  For more information, see the [Push-to-File guide](PUSH_TO_FILE.md).
 
 # Releases
 
