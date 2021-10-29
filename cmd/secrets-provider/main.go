@@ -20,7 +20,7 @@ import (
 const (
 	defaultContainerMode = "init"
 	annotationsFilePath  = "/conjur/podinfo/annotations"
-	secretBasePath       = "/conjur/secrets"
+	secretsBasePath      = "/conjur/secrets"
 )
 
 var annotationsMap map[string]string
@@ -69,6 +69,7 @@ func main() {
 		secretsConfig.StoreType,
 		secretsConfig.PodNamespace,
 		secretsConfig.RequiredK8sSecrets,
+		secretsBasePath,
 		annotationsMap,
 	)
 	logErrorsAndConditionalExit(errs, nil, messages.CSPFK053E)

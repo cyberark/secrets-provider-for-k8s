@@ -27,6 +27,7 @@ func NewProviderForType(
 	storeType string,
 	podNamespace string,
 	requiredK8sSecrets []string,
+	secretsBasePath string,
 	annotations map[string]string,
 ) (ProviderFunc, []error) {
 	switch storeType {
@@ -42,6 +43,7 @@ func NewProviderForType(
 	case config.File:
 		provider, err := pushtofile.NewProvider(
 			secretsRetrieverFunc,
+			secretsBasePath,
 			annotations,
 		)
 		if err != nil {
