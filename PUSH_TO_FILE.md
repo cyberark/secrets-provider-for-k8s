@@ -9,7 +9,7 @@
 - [Prerequisites](#prerequisitesassumptions)
 - [Annotations](#reference-table-of-configuration-annotations)
 - [Volume Mounts](#volume-mounts)
-- [Example Manifest](#example-manifest-with-annotations)
+- [Example Manifest](#example-manifest-for-push-to-file-with-yaml-output)
 - [Upgrading Existing Secrets Provider Deployments](#upgrading-existing-secrets-provider-deployments)
   - [Upgrading with the helper script](#using-the-helper-script-to-patch-the-deployment)
 
@@ -37,7 +37,21 @@ idiomatic experience.
 The Secrets Provider push to File feature is a **Community** level project. It's a community contributed project that **is not reviewed or supported
 by CyberArk**. For more detailed information on our certification levels, see [our community guidelines](https://github.com/cyberark/community/blob/master/Conjur/conventions/certification-levels.md#community).
 
-Known limitations:
+Known limitations with this release:
+- The push-to-file annotation `conjur.org/secret-file-path.{secret-group}` 
+needs to be specified as `/conjur/secrets/[file name]`.
+
+For example 
+```
+conjur.org/secret-file-path.init-app: /conjur/secrets/init-app.yaml
+```
+- The file name for the secrets file cannot be a directory and must be a single file. 
+
+See the 
+[Reference table of configuration annotations](#reference-table-of-configuration-annotations) 
+for more details.
+
+These will be resolved with the next release.
 
 ## Prerequisites/Assumptions
 - This guide does not cover Conjur configuration and setup. Please refer to
@@ -68,8 +82,8 @@ for a description of each environment variable setting:
 | `conjur.org/retry-interval-sec`     | `RETRY_INTERVAL_SEC`  | Defaults to 1 (sec)              |
 | `conjur.org/debug-logging`          | `DEBUG`               | Defaults to `false`              |
 | `conjur.org/conjur-secrets.{secret-group}`      | Push to File config is not available with environmental variables | List of secrets to be retrieved from Conjur. Each entry can be either:<ul><li>A Conjur variable path</li><li> A key/value pairs of the form `<alias>:<Conjur variable path>` where the `alias` represents the name of the secret to be written to the secrets file |
-| `conjur.org/secret-file-path.{secret-group}`    | Push to File config is not available with environmental variables |  Relative path for secrets file or directory to be written. This path is assumed to be relative to the respective mount path for the shared secrets volume for each container (for the Secrets Provider container, the mount path is `/conjur/secrets/`). Since this is a relative path, values beginning with `/` are rejected and cause the Secrets Provider to abort. The file path must also include a file name (i.e. must not be a directory). Values ending with `/` are rejected and cause the Secrets Provider to abort.
-| `conjur.org/secret-file-format.{secret-group}`  | Push to File config is not available with environmental variables | Allowed values:yaml (default) |
+| `conjur.org/secret-file-path.{secret-group}`    | Push to File config is not available with environmental variables | Path for secrets file to be written. <br> For the initial release of push-to-file the secret file path for the shared secrets must be '/conjur/secrets' . The file path must also include a file name (i.e. must not be a directory). Values ending with `/` are rejected and cause the Secrets Provider to abort.
+| `conjur.org/secret-file-format.{secret-group}`  | Push to File config is not available with environmental variables | Allowed values:<ul><li>yaml (default)</li><li>json</li><li>dotenv</li><li>bash</li> |
 
 
 ## Volume mounts
@@ -135,9 +149,9 @@ would be as follows:
 ```
 
 
-## Example Manifest with Annotations
+## Example Manifest for Push to File with YAML output
 
-Below is an example of using annotations in a Kubernetes manifest
+Below is an example of using annotations in a Kubernetes manifest:
 
 ```
 
@@ -210,6 +224,59 @@ This will create a file /opt/secrets/conjur/redis.yaml, with contents as below.
 "api-url": "value-dev/redis/api-url"
 "admin-username": "value-dev/redis/username"
 "admin-password": "value-dev/redis/password"
+```
+
+Below are code snippet is for JSON output.
+
+```
+conjur.org/conjur-secrets.cache: |
+  - dev/redis/api-url
+  - admin-username: dev/redis/username
+  - admin-password: dev/redis/password
+     conjur.org/secret-file-path.cache: "./testdata/redis.json"
+     conjur.org/secret-file-format.cache: "json"
+```
+
+This will create a file redis.json, with contents as below.
+```
+{"api-url":"value-dev/redis/api-url","admin-username":"value-dev/redis/username","admin-password
+":"value-dev/redis/password"}
+```
+
+Below are code snippet is for Bash output.
+
+```
+conjur.org/conjur-secrets.cache: |
+  - dev/redis/api-url
+  - admin-username: dev/redis/username
+  - admin-password: dev/redis/password
+     conjur.org/secret-file-path.cache: "./testdata/redis.sh"
+     conjur.org/secret-file-format.cache: "bash"
+```
+This will create a file redis.sh, with contents as below.
+```
+     export api-url="value-dev/redis/api-url"
+     export admin-username="value-dev/redis/username"
+     export admin-password="value-dev/redis/password"
+
+```
+
+Below are code snippet is for dotenv output.
+
+```
+conjur.org/conjur-secrets.cache: |
+  - dev/redis/api-url
+  - admin-username: dev/redis/username
+  - admin-password: dev/redis/password
+     conjur.org/secret-file-path.cache: "./testdata/redis.env"
+     conjur.org/secret-file-format.cache: "dotenv"
+```
+
+This will create a file redis.env, with contents as below.
+```
+api-url="value-dev/redis/api-url"
+admin-username="value-dev/redis/username"
+admin-password="value-dev/redis/password"
 ```
 
 ## Upgrading Existing Secrets Provider Deployments
