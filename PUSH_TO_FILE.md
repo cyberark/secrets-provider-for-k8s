@@ -25,7 +25,7 @@ volume shared with the application container.  Providing secrets in this way sho
 require zero application changes, as reading local files is a common, 
 platform agnostic delivery method.
 
-As mentioned above, Secrets can write multiple files containing Conjur secrets. 
+As mentioned above, Secrets Provider can write multiple files containing Conjur secrets. 
 Each file is configured independently as a named secrets group using 
 [Kubernetes Pod Annotations](https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/). 
 Using annotations is new to Secrets Provider with this feature and provides a more 
