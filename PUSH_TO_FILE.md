@@ -78,8 +78,7 @@ write secrets to file(s) in an volume that is shared with the application contai
 The volumes required for this mode are as follows:
 * `conjur-secrets`: An `emptydir` volumed mounted to both the application container 
 and Secrets Provider.  Secrets fetched from Conjur are written here.
-* `podinfo`: A volume mounted to just Secrets Provider containing pod annotations and 
-metadata from the Downward API.
+* `podinfo`: A volume mounted to just Secrets Provider containing pod annotations from the Downward API.
 
 Below is sample YAML defining the two volumes:
 ```
