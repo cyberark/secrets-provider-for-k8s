@@ -6,8 +6,23 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [1.1.6] - 2021-10-29
+
 ### Added
+- Adds support for Secrets Provider M1 Push-to-File feature, Community release.
+  [cyberark/secrets-provider-for-k8s#358](https://github.com/cyberark/secrets-provider-for-k8s/pull/358)
+  [cyberark/secrets-provider-for-k8s#359](https://github.com/cyberark/secrets-provider-for-k8s/pull/359)
+  [cyberark/secrets-provider-for-k8s#362](https://github.com/cyberark/secrets-provider-for-k8s/pull/362)
+  [cyberark/secrets-provider-for-k8s#363](https://github.com/cyberark/secrets-provider-for-k8s/pull/363)
+  [cyberark/secrets-provider-for-k8s#364](https://github.com/cyberark/secrets-provider-for-k8s/pull/364)
+  [cyberark/secrets-provider-for-k8s#366](https://github.com/cyberark/secrets-provider-for-k8s/pull/366)
+  [cyberark/secrets-provider-for-k8s#367](https://github.com/cyberark/secrets-provider-for-k8s/pull/367)
+  [cyberark/secrets-provider-for-k8s#368](https://github.com/cyberark/secrets-provider-for-k8s/pull/368)
+  [cyberark/secrets-provider-for-k8s#376](https://github.com/cyberark/secrets-provider-for-k8s/pull/376)
+  [cyberark/secrets-provider-for-k8s#377](https://github.com/cyberark/secrets-provider-for-k8s/pull/377)
+  [cyberark/secrets-provider-for-k8s#378](https://github.com/cyberark/secrets-provider-for-k8s/pull/378)
 - Support for OpenShift 4.8 has been added.
+  [cyberark/secrets-provider-for-k8s#360](https://github.com/cyberark/secrets-provider-for-k8s/pull/360)
 
 ## [1.1.5] - 2021-08-13
 
@@ -131,7 +146,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ### Changed
   - Escape secrets with backslashes before patching in k8s
 
-[Unreleased]: https://github.com/cyberark/secrets-provider-for-k8s/compare/v1.1.5...HEAD
+[Unreleased]: https://github.com/cyberark/secrets-provider-for-k8s/compare/v1.1.6...HEAD
+[1.1.6]: https://github.com/cyberark/secrets-provider-for-k8s/compare/v1.1.5...v1.1.6
 [1.1.5]: https://github.com/cyberark/secrets-provider-for-k8s/compare/v1.1.4...v1.1.5
 [1.1.4]: https://github.com/cyberark/secrets-provider-for-k8s/compare/v1.1.3...v1.1.4
 [1.1.3]: https://github.com/cyberark/secrets-provider-for-k8s/compare/v1.1.2...v1.1.3
