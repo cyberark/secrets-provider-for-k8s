@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -169,6 +170,62 @@ func TestNewSecretGroups(t *testing.T) {
 		)
 	})
 
+	t.Run("file path longer than 255 characters", func(t *testing.T) {
+		_, errs := NewSecretGroups("/basepath", map[string]string{
+			"conjur.org/conjur-secrets.first": `- path/to/secret/first1
+- aliasfirst2: path/to/secret/first2`,
+			"conjur.org/secret-file-path.first":      "firstfilepath",
+			"conjur.org/secret-file-template.first":  `firstfiletemplate`,
+			"conjur.org/conjur-secrets.second":       "- path/to/secret/second",
+			"conjur.org/secret-file-path.second":     strings.Repeat("secondfile", 26),
+			"conjur.org/secret-file-template.second": `secondfiletemplate`,
+		})
+		assert.Len(t, errs, 1)
+		assert.Contains(
+			t,
+			errs[0].Error(),
+			`filepath for secret group "second" must not be longer than 255 characters`,
+		)
+	})
+
+	t.Run("duplicate file paths", func(t *testing.T) {
+		_, errs := NewSecretGroups("/basepath", map[string]string{
+			"conjur.org/conjur-secrets.first": `- path/to/secret/first1
+- aliasfirst2: path/to/secret/first2`,
+			"conjur.org/secret-file-path.first":      "firstfilepath",
+			"conjur.org/secret-file-template.first":  `firstfiletemplate`,
+			"conjur.org/conjur-secrets.second":       "- path/to/secret/second",
+			"conjur.org/secret-file-path.second":     "firstfilepath",
+			"conjur.org/secret-file-template.second": `secondfiletemplate`,
+			"conjur.org/conjur-secrets.third":        "- path/to/secret/third",
+			"conjur.org/secret-file-path.third":      "firstfilepath",
+			"conjur.org/secret-file-template.third":  `thirdfiletemplate`,
+		})
+
+		assert.Len(t, errs, 1)
+		assert.Contains(t, errs[0].Error(), `duplicate filepath "/basepath/firstfilepath" for groups`)
+		// The order of the groups in the error message is not deterministic, so don't check the order.
+		assert.Contains(t, errs[0].Error(), "first")
+		assert.Contains(t, errs[0].Error(), "second")
+		assert.Contains(t, errs[0].Error(), "third")
+	})
+
+	t.Run("duplicate file path using default", func(t *testing.T) {
+		_, errs := NewSecretGroups("/basepath", map[string]string{
+			"conjur.org/conjur-secrets.first": `- path/to/secret/first1
+- aliasfirst2: path/to/secret/first2`,
+			"conjur.org/secret-file-path.first":  "./relative/path/to/folder/",
+			"conjur.org/conjur-secrets.second":   "- path/to/secret/second",
+			"conjur.org/secret-file-path.second": "./relative/path/to/folder/first.yaml",
+		})
+
+		assert.Len(t, errs, 1)
+		assert.Contains(t, errs[0].Error(), `duplicate filepath "/basepath/relative/path/to/folder/first.yaml" for groups`)
+		// The order of the groups in the error message is not deterministic, so don't check the order.
+		assert.Contains(t, errs[0].Error(), "first")
+		assert.Contains(t, errs[0].Error(), "second")
+	})
+
 	t.Run("secret file template requires file path annotation as file", func(t *testing.T) {
 		_, errs := NewSecretGroups("/basepath", map[string]string{
 			"conjur.org/conjur-secrets.first": `
@@ -184,6 +241,40 @@ func TestNewSecretGroups(t *testing.T) {
 			t,
 			errs[0].Error(),
 			`path to a file`,
+		)
+	})
+
+	t.Run("secret file template requires explicit file path", func(t *testing.T) {
+		_, errs := NewSecretGroups("/basepath", map[string]string{
+			"conjur.org/conjur-secrets.first": `
+- path/to/secret/first1
+- aliasfirst2: path/to/secret/first2
+`,
+			"conjur.org/secret-file-template.first": "some template",
+		})
+
+		assert.Len(t, errs, 1)
+		assert.Contains(
+			t,
+			errs[0].Error(),
+			`path to a file`,
+		)
+	})
+
+	t.Run("secret file path default", func(t *testing.T) {
+		groups, errs := NewSecretGroups("/basepath", map[string]string{
+			"conjur.org/conjur-secrets.first": `
+- path/to/secret/first1
+- aliasfirst2: path/to/secret/first2
+`,
+		})
+
+		assert.Len(t, errs, 0)
+		assert.Len(t, groups, 1)
+		assert.Equal(
+			t,
+			groups[0].FilePath,
+			`/basepath/first.yaml`,
 		)
 	})
 
@@ -240,6 +331,30 @@ func TestNewSecretGroups(t *testing.T) {
 			"yaml",
 		)
 	})
+
+	t.Run("secret file path overrides default extension", func(t *testing.T) {
+		groups, errs := NewSecretGroups("/basepath", map[string]string{
+			"conjur.org/conjur-secrets.first": `- path/to/secret/first1
+- aliasfirst2: path/to/secret/first2`,
+			"conjur.org/secret-file-path.first":   "./relative/path/to/folder/firstfilepath.json",
+			"conjur.org/secret-file-format.first": "yaml",
+		})
+
+		assert.Len(t, errs, 0)
+		assert.Len(t, groups, 1)
+		assert.Equal(
+			t,
+			groups[0].FilePath,
+			`/basepath/relative/path/to/folder/firstfilepath.json`,
+		)
+		assert.Contains(
+			t,
+			groups[0].FileFormat,
+			"yaml",
+		)
+
+	})
+
 }
 
 var pushToFileWithDepsTestCases = []pushToFileWithDepsTestCase{

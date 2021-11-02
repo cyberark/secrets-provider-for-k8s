@@ -15,6 +15,7 @@ const secretGroupFilePathPrefix = "conjur.org/secret-file-path."
 const secretGroupFileFormatPrefix = "conjur.org/secret-file-format."
 
 const defaultFilePermissions os.FileMode = 0664
+const maxFilenameLen = 255
 
 // SecretGroup incorporates all of the information about a secret group
 // that has been parsed from that secret group's Annotations.
@@ -108,17 +109,18 @@ func (sg *SecretGroup) absoluteFilePath(secretsBasePath string) (string, error) 
 		)
 	}
 
-	filePathIsDir := strings.HasSuffix(filePath, "/")
+	pathContainsFilename := !strings.HasSuffix(filePath, "/") && len(filePath) > 0
 
-	// fileTemplate requires filePath to point to a file (not a directory)
-	if filePathIsDir && len(fileTemplate) > 0 {
-		return "", fmt.Errorf(
-			"provided filepath %q for secret group %q must specify a path to a file, without a trailing %q",
-			filePath, groupName, "/",
-		)
-	}
-	// Without the restrictions of fileTemplate, the filename defaults to "{groupName}.{fileFormat}"
-	if filePathIsDir && len(fileTemplate) == 0 {
+	if !pathContainsFilename {
+		if len(fileTemplate) > 0 {
+			// fileTemplate requires filePath to point to a file (not a directory)
+			return "", fmt.Errorf(
+				"provided filepath %q for secret group %q must specify a path to a file, without a trailing %q",
+				filePath, groupName, "/",
+			)
+		}
+
+		// Without the restrictions of fileTemplate, the filename defaults to "{groupName}.{fileFormat}"
 		filePath = path.Join(
 			filePath,
 			fmt.Sprintf("%s.%s", groupName, fileFormat),
@@ -134,6 +136,17 @@ func (sg *SecretGroup) absoluteFilePath(secretsBasePath string) (string, error) 
 		return "", fmt.Errorf(
 			"provided filepath %q for secret group %q must be relative to secrets base path",
 			filePath, groupName,
+		)
+	}
+
+	// Filename cannot be longer than allowed by the filesystem
+	_, filename := path.Split(absoluteFilePath)
+	if len(filename) > maxFilenameLen {
+		return "", fmt.Errorf(
+			"filename %q for provided filepath for secret group %q must not be longer than %d characters",
+			filename,
+			groupName,
+			maxFilenameLen,
 		)
 	}
 
@@ -244,6 +257,8 @@ func NewSecretGroups(secretsBasePath string, annotations map[string]string) ([]*
 		}
 	}
 
+	errors = append(errors, validateGroupFilePaths(sgs)...)
+
 	if len(errors) > 0 {
 		return nil, errors
 	}
@@ -300,4 +315,28 @@ func newSecretGroup(groupName string, secretsBasePath string, annotations map[st
 	}
 
 	return sg, nil
+}
+
+func validateGroupFilePaths(secretGroups []*SecretGroup) []error {
+	// Iterate over the secret groups and group any that have the same file path
+	groupFilePaths := make(map[string][]string)
+	for _, sg := range secretGroups {
+		if len(groupFilePaths[sg.FilePath]) == 0 {
+			groupFilePaths[sg.FilePath] = []string{sg.Name}
+			continue
+		}
+
+		groupFilePaths[sg.FilePath] = append(groupFilePaths[sg.FilePath], sg.Name)
+	}
+
+	// If any file paths are used in more than one group, log all the groups that share the path
+	var errors []error
+	for path, groupNames := range groupFilePaths {
+		if len(groupNames) > 1 {
+			errors = append(errors, fmt.Errorf(
+				"duplicate filepath %q for groups: %q", path, strings.Join(groupNames, `, `),
+			))
+		}
+	}
+	return errors
 }
