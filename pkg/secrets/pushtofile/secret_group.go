@@ -2,6 +2,7 @@ package pushtofile
 
 import (
 	"fmt"
+	"io/ioutil"
 	"os"
 	"path"
 	"sort"
@@ -87,12 +88,29 @@ func (sg *SecretGroup) pushToFileWithDeps(
 		_ = wc.Close()
 	}()
 
-	return depPushToWriter(
+	// Calls to pushToWriter include a second-pass at parsing and executing the provided Go template
+	// First-pass parsing and rendering is validated with dummy secret values in newSecretGroup
+	// Output from this step should be redirected to /dev/null to mitigate secret leaks in log output
+	// This may result in obscured details of an execution failure here, which would require further experimentation in a local environment
+	stdout := os.Stdout
+	stderr := os.Stderr
+	defer func() {
+		os.Stdout = stdout
+		os.Stderr = stderr
+	}()
+	os.Stdout = os.NewFile(0, os.DevNull)
+	os.Stderr = os.NewFile(0, os.DevNull)
+
+	err = depPushToWriter(
 		wc,
 		sg.Name,
 		fileTemplate,
 		secrets,
 	)
+	if err != nil {
+		return fmt.Errorf("template for secret group %q failed to render with provided secret values", sg.Name)
+	}
+	return nil
 }
 
 func (sg *SecretGroup) absoluteFilePath(secretsBasePath string) (string, error) {
@@ -156,6 +174,7 @@ func (sg *SecretGroup) absoluteFilePath(secretsBasePath string) (string, error) 
 func (sg *SecretGroup) validate() []error {
 	groupName := sg.Name
 	fileFormat := sg.FileFormat
+	fileTemplate := sg.FileTemplate
 	secretSpecs := sg.SecretSpecs
 
 	if errors := validateSecretPaths(secretSpecs, groupName); len(errors) > 0 {
@@ -172,6 +191,25 @@ func (sg *SecretGroup) validate() []error {
 					err,
 				),
 			}
+		}
+	}
+
+	// First-pass at provided template rendering with dummy secret values
+	// This first-pass is limited for templates that branch conditionally on secret values
+	// Relying logically on specific secret values should be avoided
+	if len(fileTemplate) > 0 {
+		dummySecrets := []*Secret{}
+		for _, secretSpec := range secretSpecs {
+			dummySecrets = append(dummySecrets, &Secret{Alias: secretSpec.Alias, Value: "REDACTED"})
+		}
+
+		err := pushToWriter(ioutil.Discard, groupName, fileTemplate, dummySecrets)
+		if err != nil {
+			return []error{fmt.Errorf(
+				`file template for secret group %q cannot be used as written: %s`,
+				groupName,
+				err,
+			)}
 		}
 	}
 
