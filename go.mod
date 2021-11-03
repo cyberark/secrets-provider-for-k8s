@@ -1,16 +1,16 @@
 module github.com/cyberark/secrets-provider-for-k8s
 
-go 1.15
+go 1.16
 
 require (
 	github.com/cenkalti/backoff v2.2.1+incompatible
 	github.com/cyberark/conjur-api-go v0.8.0
 	github.com/cyberark/conjur-authn-k8s-client v0.22.1-0.20211013211359-5ca23711965d
 	github.com/gogo/protobuf v1.3.2 // indirect
+	github.com/golang/protobuf v1.4.2 // indirect
 	github.com/googleapis/gnostic v0.3.1 // indirect
 	github.com/json-iterator/go v1.1.9 // indirect
 	github.com/modern-go/reflect2 v1.0.1 // indirect
-	github.com/onsi/ginkgo v1.14.0 // indirect
 	github.com/smartystreets/goconvey v1.6.4
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/stretchr/testify v1.7.0
