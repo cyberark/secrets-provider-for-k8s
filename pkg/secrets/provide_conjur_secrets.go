@@ -9,42 +9,48 @@ import (
 
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/log/messages"
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/clients/conjur"
-	"github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/clients/k8s"
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/config"
-	"github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/k8s_secrets_storage"
+	k8sSecretsStorage "github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/k8s_secrets_storage"
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/pushtofile"
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/utils"
 )
+
+// ProviderConfig provides the configuration necessary to create a secrets
+// Provider.
+type ProviderConfig struct {
+	// Config common to all providers
+	StoreType string
+
+	// Config specific to Kubernetes Secrets provider
+	PodNamespace       string
+	RequiredK8sSecrets []string
+
+	// Config specific to Push to File provider
+	SecretFileBasePath string
+	AnnotationsMap     map[string]string
+}
 
 // ProviderFunc describes a function type responsible for providing secrets to an unspecified target.
 type ProviderFunc func() error
 
 // NewProviderForType returns a ProviderFunc responsible for providing secrets in a given mode.
 func NewProviderForType(
-	retrievek8sSecret k8s.RetrieveK8sSecretFunc,
-	updatek8sSecret k8s.UpdateK8sSecretFunc,
 	secretsRetrieverFunc conjur.RetrieveSecretsFunc,
-	storeType string,
-	podNamespace string,
-	requiredK8sSecrets []string,
-	secretsBasePath string,
-	annotations map[string]string,
+	providerConfig ProviderConfig,
 ) (ProviderFunc, []error) {
-	switch storeType {
+	switch providerConfig.StoreType {
 	case config.K8s:
-		provider := k8s_secrets_storage.NewProvider(
-			retrievek8sSecret,
-			updatek8sSecret,
+		provider := k8sSecretsStorage.NewProvider(
 			secretsRetrieverFunc,
-			requiredK8sSecrets,
-			podNamespace,
+			providerConfig.RequiredK8sSecrets,
+			providerConfig.PodNamespace,
 		)
 		return provider.Provide, nil
 	case config.File:
 		provider, err := pushtofile.NewProvider(
 			secretsRetrieverFunc,
-			secretsBasePath,
-			annotations,
+			providerConfig.SecretFileBasePath,
+			providerConfig.AnnotationsMap,
 		)
 		if err != nil {
 			return nil, err
@@ -53,7 +59,7 @@ func NewProviderForType(
 	default:
 		return nil, []error{fmt.Errorf(
 			messages.CSPFK054E,
-			storeType,
+			providerConfig.StoreType,
 		)}
 	}
 }

@@ -11,14 +11,14 @@ import (
 	validating that those secrets with 'execute' permissions can be fetched.
 */
 
-type ConjurMockClient struct {
+type ConjurClient struct {
 	CanExecute bool
 	// TODO: CanExecute is really just used to assert on the presence of errors
 	// 	and should probably just be an optional error.
 	Database map[string]string
 }
 
-func (c ConjurMockClient) RetrieveSecrets(secretIds []string) (map[string][]byte, error) {
+func (c *ConjurClient) RetrieveSecrets(secretIds []string) (map[string][]byte, error) {
 	res := make(map[string][]byte)
 
 	if !c.CanExecute {
@@ -38,20 +38,20 @@ func (c ConjurMockClient) RetrieveSecrets(secretIds []string) (map[string][]byte
 	return res, nil
 }
 
-func NewConjurMockClient() ConjurMockClient {
+func NewConjurClient() *ConjurClient {
 	database := map[string]string{
 		"conjur_variable1":             "conjur_secret1",
 		"conjur_variable2":             "conjur_secret2",
 		"conjur_variable_empty_secret": "",
 	}
 
-	return ConjurMockClient{
+	return &ConjurClient{
 		CanExecute: true,
 		Database:   database,
 	}
 }
 
-func (c ConjurMockClient) AddSecrets(
+func (c *ConjurClient) AddSecrets(
 	secrets map[string]string,
 ) {
 	for id, secret := range secrets {
