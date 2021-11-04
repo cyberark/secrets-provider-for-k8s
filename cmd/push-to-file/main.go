@@ -27,7 +27,8 @@ func main() {
 
 	// Generate secret Groups
 	log.Info("Generate secret Groups")
-	secretGroups, errs := pushtofile.NewSecretGroups(annotations)
+	secretsBasePath, _ := os.Getwd()
+	secretGroups, errs := pushtofile.NewSecretGroups(secretsBasePath, annotations)
 	if len(errs) > 0 {
 		for _, err := range errs {
 			log.Error(err.Error())
@@ -76,7 +77,7 @@ func fetchSecretsForGroups(
 	retrieveConjurSecrets func(variableIDs []string) (map[string][]byte, error),
 	secretGroups []*pushtofile.SecretGroup,
 ) (map[string][]*pushtofile.Secret, error) {
-// map[group name] => group secret vales
+	// map[group name] => group secret vales
 
 	// Gather secret paths
 	var secretPaths []string
