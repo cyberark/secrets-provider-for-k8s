@@ -89,7 +89,7 @@ func (sg *SecretGroup) pushToFileWithDeps(
 	defer func() {
 		_ = wc.Close()
 		if r := recover(); r != nil {
-			err = fmt.Errorf("panic recovered while pushing to writer")
+			err = fmt.Errorf("panic recovered while executing template with secret values")
 		}
 	}()
 

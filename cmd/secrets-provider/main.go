@@ -82,7 +82,7 @@ func main() {
 
 	err = provideSecrets()
 	if err != nil {
-		printErrorAndExit(fmt.Sprintf(messages.CSPFK039E, secretsConfig.StoreType))
+		printErrorAndExit(fmt.Sprintf(messages.CSPFK039E, secretsConfig.StoreType, err.Error()))
 	}
 }
 

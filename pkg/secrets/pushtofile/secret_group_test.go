@@ -554,7 +554,7 @@ var pushToFileWithDepsTestCases = []pushToFileWithDepsTestCase{
 			if !assert.Error(t, err) {
 				return
 			}
-			assert.Contains(t, err.Error(), "panic recovered while pushing to writer")
+			assert.Contains(t, err.Error(), "panic recovered while executing template with secret values")
 			assert.NotContains(t, err.Error(), "canned panic response - maybe containing secrets")
 		},
 	},
