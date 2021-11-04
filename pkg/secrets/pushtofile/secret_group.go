@@ -316,11 +316,7 @@ func newSecretGroup(groupName string, secretsBasePath string, annotations map[st
 
 	secretSpecs, err := NewSecretSpecs([]byte(groupSecrets))
 	if err != nil {
-		err = fmt.Errorf(
-			`cannot create secret specs from annotation "%s": %s`,
-			secretGroupPrefix+groupName,
-			err,
-		)
+		err = fmt.Errorf(`cannot create secret specs from annotation "%s": %s`, secretGroupPrefix+groupName, err)
 		return nil, []error{err}
 	}
 
