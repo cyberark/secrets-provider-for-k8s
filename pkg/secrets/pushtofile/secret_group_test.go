@@ -1,7 +1,6 @@
 package pushtofile
 
 import (
-	"bytes"
 	"errors"
 	"fmt"
 	"io"
@@ -11,7 +10,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/cyberark/conjur-authn-k8s-client/pkg/log"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -59,50 +57,14 @@ func (tc *pushToFileWithDepsTestCase) Run(t *testing.T) {
 			pushToWriterFunc = tc.overridePushToWriter
 		}
 
-		// redirect stdout/stderr to reader/writers for assertion
-		stdout, stderr, outPipes, errPipes := captureOutputSetup()
-
 		// Exercise
 		err := group.pushToFileWithDeps(
 			spyOpenWriteCloser.Call,
 			pushToWriterFunc,
 			secrets)
 
-		// capture stdout/stderr in buffers to assert that output has been redirected to /dev/null
-		outbuffer, errbuffer := captureOutputTeardown(stdout, stderr, outPipes, errPipes)
-		assert.Empty(t, outbuffer.String())
-		assert.Empty(t, errbuffer.String())
-
 		tc.assert(t, spyOpenWriteCloser, closableBuf, spyPushToWriter, err)
 	})
-}
-
-type outputReaderWriter struct {
-	Reader *os.File
-	Writer *os.File
-}
-
-// Returns original stdout, original stderr, new r/w pipes for stdout, and new r/w pipes for stderr, in that order
-func captureOutputSetup() (*os.File, *os.File, outputReaderWriter, outputReaderWriter) {
-	stdout := os.Stdout
-	stderr := os.Stderr
-	stdoutR, stdoutW, _ := os.Pipe()
-	stderrR, stderrW, _ := os.Pipe()
-	os.Stdout = stdoutW
-	os.Stderr = stderrW
-	return stdout, stderr, outputReaderWriter{Reader: stdoutR, Writer: stdoutW}, outputReaderWriter{Reader: stderrR, Writer: stderrW}
-}
-
-// Returns buffers representing captured Stdout and Stderr output, and restores os.Stdout and os.Stderr
-func captureOutputTeardown(stdout *os.File, stderr *os.File, outPipes outputReaderWriter, errPipes outputReaderWriter) (bytes.Buffer, bytes.Buffer) {
-	var outbuffer, errbuffer bytes.Buffer
-	outPipes.Writer.Close()
-	errPipes.Writer.Close()
-	io.Copy(&outbuffer, outPipes.Reader)
-	io.Copy(&errbuffer, errPipes.Reader)
-	os.Stdout = stdout
-	os.Stderr = stderr
-	return outbuffer, errbuffer
 }
 
 func modifyGoodGroup(modifiers ...func(SecretGroup) SecretGroup) SecretGroup {
@@ -141,9 +103,16 @@ func failingPushToWriter(
 	groupTemplate string,
 	groupSecrets []*Secret,
 ) error {
-	fmt.Println("WRITE TO STDOUT")
-	log.RecordedError("WRITE TO STDERR")
-	return errors.New("error message never seen")
+	return errors.New("underlying error message")
+}
+
+func panicPushToWriter(
+	writer io.Writer,
+	groupName string,
+	groupTemplate string,
+	groupSecrets []*Secret,
+) error {
+	panic("canned panic response - maybe containing secrets")
 }
 
 func TestNewSecretGroups(t *testing.T) {
@@ -420,7 +389,7 @@ func TestNewSecretGroups(t *testing.T) {
 		})
 
 		assert.Len(t, errs, 1)
-		assert.Contains(t, errs[0].Error(), `file template for secret group "first" cannot be used as written`)
+		assert.Contains(t, errs[0].Error(), `unable to use file template for secret group "first"`)
 		assert.NotContains(t, errs[0].Error(), `executing "first"`)
 	})
 
@@ -432,7 +401,7 @@ func TestNewSecretGroups(t *testing.T) {
 		})
 
 		assert.Len(t, errs, 1)
-		assert.Contains(t, errs[0].Error(), `file template for secret group "first" cannot be used as written`)
+		assert.Contains(t, errs[0].Error(), `unable to use file template for secret group "first"`)
 		assert.Contains(t, errs[0].Error(), `executing "first"`)
 		assert.Contains(t, errs[0].Error(), `secret alias "x" not present in specified secrets`)
 	})
@@ -550,7 +519,7 @@ var pushToFileWithDepsTestCases = []pushToFileWithDepsTestCase{
 		},
 	},
 	{
-		description:          "template execution error with secret values",
+		description:          "template execution error",
 		group:                modifyGoodGroup(),
 		overrideSecrets:      nil,
 		overridePushToWriter: failingPushToWriter,
@@ -565,8 +534,28 @@ var pushToFileWithDepsTestCases = []pushToFileWithDepsTestCase{
 			if !assert.Error(t, err) {
 				return
 			}
-			assert.Contains(t, err.Error(), `template for secret group "groupname" failed to render with provided secret values`)
-			assert.NotContains(t, err.Error(), "error message never seen")
+			assert.Contains(t, err.Error(), `failed to render template for secret group "groupname" with provided secret values`)
+			assert.NotContains(t, err.Error(), "underlying error message")
+		},
+	},
+	{
+		description:          "template execution panic",
+		group:                modifyGoodGroup(),
+		overrideSecrets:      nil,
+		overridePushToWriter: panicPushToWriter,
+		assert: func(
+			t *testing.T,
+			spyOpenWriteCloser openWriteCloserSpy,
+			closableBuf *ClosableBuffer,
+			spyPushToWriter pushToWriterSpy,
+			err error,
+		) {
+			// Assertions
+			if !assert.Error(t, err) {
+				return
+			}
+			assert.Contains(t, err.Error(), "panic recovered while pushing to writer")
+			assert.NotContains(t, err.Error(), "canned panic response - maybe containing secrets")
 		},
 	},
 }

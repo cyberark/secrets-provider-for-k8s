@@ -59,11 +59,12 @@ func (sg *SecretGroup) PushToFile(secrets []*Secret) error {
 func (sg *SecretGroup) pushToFileWithDeps(
 	depOpenWriteCloser openWriteCloserFunc,
 	depPushToWriter pushToWriterFunc,
-	secrets []*Secret) error {
+	secrets []*Secret,
+) (err error) {
 	// Make sure all the secret specs are accounted for
-	err := validateSecretsAgainstSpecs(secrets, sg.SecretSpecs)
+	err = validateSecretsAgainstSpecs(secrets, sg.SecretSpecs)
 	if err != nil {
-		return err
+		return
 	}
 
 	// Determine file template from
@@ -76,30 +77,21 @@ func (sg *SecretGroup) pushToFileWithDeps(
 		sg.SecretSpecs,
 	)
 	if err != nil {
-		return err
+		return
 	}
 
 	//// Open and push to file
 	wc, err := depOpenWriteCloser(sg.FilePath, sg.FilePermissions)
 	if err != nil {
-		return err
+		return
 	}
+
 	defer func() {
 		_ = wc.Close()
+		if r := recover(); r != nil {
+			err = fmt.Errorf("panic recovered while pushing to writer")
+		}
 	}()
-
-	// Calls to pushToWriter include a second-pass at parsing and executing the provided Go template
-	// First-pass parsing and rendering is validated with dummy secret values in newSecretGroup
-	// Output from this step should be redirected to /dev/null to mitigate secret leaks in log output
-	// This may result in obscured details of an execution failure here, which would require further experimentation in a local environment
-	stdout := os.Stdout
-	stderr := os.Stderr
-	defer func() {
-		os.Stdout = stdout
-		os.Stderr = stderr
-	}()
-	os.Stdout = os.NewFile(0, os.DevNull)
-	os.Stderr = os.NewFile(0, os.DevNull)
 
 	err = depPushToWriter(
 		wc,
@@ -108,9 +100,10 @@ func (sg *SecretGroup) pushToFileWithDeps(
 		secrets,
 	)
 	if err != nil {
-		return fmt.Errorf("template for secret group %q failed to render with provided secret values", sg.Name)
+		err = fmt.Errorf("failed to render template for secret group %q with provided secret values", sg.Name)
+		return
 	}
-	return nil
+	return
 }
 
 func (sg *SecretGroup) absoluteFilePath(secretsBasePath string) (string, error) {
@@ -206,7 +199,7 @@ func (sg *SecretGroup) validate() []error {
 		err := pushToWriter(ioutil.Discard, groupName, fileTemplate, dummySecrets)
 		if err != nil {
 			return []error{fmt.Errorf(
-				`file template for secret group %q cannot be used as written: %s`,
+				`unable to use file template for secret group %q: %s`,
 				groupName,
 				err,
 			)}
