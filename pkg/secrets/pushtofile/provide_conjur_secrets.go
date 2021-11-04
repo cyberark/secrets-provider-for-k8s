@@ -12,8 +12,8 @@ type fileProvider struct {
 }
 
 // NewProvider creates a new provider for Push-to-File mode.
-func NewProvider(retrieveSecretsFunc conjur.RetrieveSecretsFunc, annotations map[string]string) (*fileProvider, []error) {
-	secretGroups, err := NewSecretGroups(annotations)
+func NewProvider(retrieveSecretsFunc conjur.RetrieveSecretsFunc, secretsBasePath string, annotations map[string]string) (*fileProvider, []error) {
+	secretGroups, err := NewSecretGroups(secretsBasePath, annotations)
 	if err != nil {
 		return nil, err
 	}

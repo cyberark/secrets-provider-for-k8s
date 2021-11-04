@@ -3,6 +3,7 @@ package pushtofile
 import (
 	"fmt"
 	"os"
+	"path"
 	"sort"
 	"strings"
 )
@@ -29,17 +30,17 @@ type SecretGroup struct {
 
 // ResolvedSecretSpecs resolves all of the secret paths for a secret
 // group by prepending each path with that group's policy path prefix.
-func (s *SecretGroup) ResolvedSecretSpecs() []SecretSpec {
-	if len(s.PolicyPathPrefix) == 0 {
-		return s.SecretSpecs
+func (sg *SecretGroup) ResolvedSecretSpecs() []SecretSpec {
+	if len(sg.PolicyPathPrefix) == 0 {
+		return sg.SecretSpecs
 	}
 
-	specs := make([]SecretSpec, len(s.SecretSpecs))
-	copy(specs, s.SecretSpecs)
+	specs := make([]SecretSpec, len(sg.SecretSpecs))
+	copy(specs, sg.SecretSpecs)
 
 	// Update specs with policy path prefix
 	for i := range specs {
-		specs[i].Path = strings.TrimSuffix(s.PolicyPathPrefix, "/") +
+		specs[i].Path = strings.TrimSuffix(sg.PolicyPathPrefix, "/") +
 			"/" +
 			strings.TrimPrefix(specs[i].Path, "/")
 	}
@@ -49,16 +50,16 @@ func (s *SecretGroup) ResolvedSecretSpecs() []SecretSpec {
 
 // PushToFile uses the configuration on a secret group to inject secrets into a template
 // and write the result to a file.
-func (s *SecretGroup) PushToFile(secrets []*Secret) error {
-	return s.pushToFileWithDeps(openFileAsWriteCloser, pushToWriter, secrets)
+func (sg *SecretGroup) PushToFile(secrets []*Secret) error {
+	return sg.pushToFileWithDeps(openFileAsWriteCloser, pushToWriter, secrets)
 }
 
-func (s *SecretGroup) pushToFileWithDeps(
+func (sg *SecretGroup) pushToFileWithDeps(
 	depOpenWriteCloser openWriteCloserFunc,
 	depPushToWriter pushToWriterFunc,
 	secrets []*Secret) error {
 	// Make sure all the secret specs are accounted for
-	err := validateSecretsAgainstSpecs(secrets, s.SecretSpecs)
+	err := validateSecretsAgainstSpecs(secrets, sg.SecretSpecs)
 	if err != nil {
 		return err
 	}
@@ -68,16 +69,16 @@ func (s *SecretGroup) pushToFileWithDeps(
 	// 2. File format
 	// 3. Secret specs (user to validate file template)
 	fileTemplate, err := maybeFileTemplateFromFormat(
-		s.FileTemplate,
-		s.FileFormat,
-		s.SecretSpecs,
+		sg.FileTemplate,
+		sg.FileFormat,
+		sg.SecretSpecs,
 	)
 	if err != nil {
 		return err
 	}
 
 	//// Open and push to file
-	wc, err := depOpenWriteCloser(s.FilePath, s.FilePermissions)
+	wc, err := depOpenWriteCloser(sg.FilePath, sg.FilePermissions)
 	if err != nil {
 		return err
 	}
@@ -87,10 +88,81 @@ func (s *SecretGroup) pushToFileWithDeps(
 
 	return depPushToWriter(
 		wc,
-		s.Name,
+		sg.Name,
 		fileTemplate,
 		secrets,
 	)
+}
+
+func (sg *SecretGroup) absoluteFilePath(secretsBasePath string) (string, error) {
+	groupName := sg.Name
+	filePath := sg.FilePath
+	fileTemplate := sg.FileTemplate
+	fileFormat := sg.FileFormat
+
+	// filePath must be relative
+	if path.IsAbs(filePath) {
+		return "", fmt.Errorf(
+			"provided filepath %q for secret group %q is absolute, requires relative path",
+			filePath, groupName,
+		)
+	}
+
+	filePathIsDir := strings.HasSuffix(filePath, "/")
+
+	// fileTemplate requires filePath to point to a file (not a directory)
+	if filePathIsDir && len(fileTemplate) > 0 {
+		return "", fmt.Errorf(
+			"provided filepath %q for secret group %q must specify a path to a file, without a trailing %q",
+			filePath, groupName, "/",
+		)
+	}
+	// Without the restrictions of fileTemplate, the filename defaults to "{groupName}.{fileFormat}"
+	if filePathIsDir && len(fileTemplate) == 0 {
+		filePath = path.Join(
+			filePath,
+			fmt.Sprintf("%s.%s", groupName, fileFormat),
+		)
+	}
+
+	absoluteFilePath := path.Join(secretsBasePath, filePath)
+
+	// filePath must be relative to secrets base path. This protects against relative paths
+	// that, by using the double-dot path segment, resolve to a path that is not relative
+	// to the base path.
+	if !strings.HasPrefix(absoluteFilePath, secretsBasePath) {
+		return "", fmt.Errorf(
+			"provided filepath %q for secret group %q must be relative to secrets base path",
+			filePath, groupName,
+		)
+	}
+
+	return absoluteFilePath, nil
+}
+
+func (sg *SecretGroup) validate() []error {
+	groupName := sg.Name
+	fileFormat := sg.FileFormat
+	secretSpecs := sg.SecretSpecs
+
+	if errors := validateSecretPaths(secretSpecs, groupName); len(errors) > 0 {
+		return errors
+	}
+
+	if len(fileFormat) > 0 {
+		_, err := FileTemplateForFormat(fileFormat, secretSpecs)
+		if err != nil {
+			return []error{
+				fmt.Errorf(
+					"unable to process file format %q for group: %s",
+					fileFormat,
+					err,
+				),
+			}
+		}
+	}
+
+	return nil
 }
 
 func validateSecretsAgainstSpecs(
@@ -133,7 +205,7 @@ func maybeFileTemplateFromFormat(
 	fileFormat string,
 	secretSpecs []SecretSpec,
 ) (string, error) {
-	// One of file format or file template must be set
+	// Default to "yaml" file format
 	if len(fileTemplate)+len(fileFormat) == 0 {
 		fileFormat = "yaml"
 	}
@@ -156,14 +228,14 @@ func maybeFileTemplateFromFormat(
 }
 
 // NewSecretGroups creates a collection of secret groups from a map of annotations
-func NewSecretGroups(annotations map[string]string) ([]*SecretGroup, []error) {
+func NewSecretGroups(secretsBasePath string, annotations map[string]string) ([]*SecretGroup, []error) {
 	var sgs []*SecretGroup
 
 	var errors []error
 	for key := range annotations {
 		if strings.HasPrefix(key, secretGroupPrefix) {
 			groupName := strings.TrimPrefix(key, secretGroupPrefix)
-			sg, errs := newSecretGroup(annotations, groupName)
+			sg, errs := newSecretGroup(groupName, secretsBasePath, annotations)
 			if errs != nil {
 				errors = append(errors, errs...)
 				continue
@@ -184,8 +256,18 @@ func NewSecretGroups(annotations map[string]string) ([]*SecretGroup, []error) {
 	return sgs, nil
 }
 
-func newSecretGroup(annotations map[string]string, groupName string) (*SecretGroup, []error) {
+func newSecretGroup(groupName string, secretsBasePath string, annotations map[string]string) (*SecretGroup, []error) {
 	groupSecrets := annotations[secretGroupPrefix+groupName]
+	fileTemplate := annotations[secretGroupFileTemplatePrefix+groupName]
+	filePath := annotations[secretGroupFilePathPrefix+groupName]
+	fileFormat := annotations[secretGroupFileFormatPrefix+groupName]
+	policyPathPrefix := annotations[secretGroupPolicyPathPrefix+groupName]
+
+	// Default to "yaml" file format
+	if len(fileTemplate)+len(fileFormat) == 0 {
+		fileFormat = "yaml"
+	}
+
 	secretSpecs, err := NewSecretSpecs([]byte(groupSecrets))
 	if err != nil {
 		err = fmt.Errorf(
@@ -194,30 +276,9 @@ func newSecretGroup(annotations map[string]string, groupName string) (*SecretGro
 			err,
 		)
 		return nil, []error{err}
-
-	}
-	if errors := validateSecretPaths(secretSpecs, groupName); err != nil {
-		return nil, errors
 	}
 
-	fileTemplate := annotations[secretGroupFileTemplatePrefix+groupName]
-	filePath := annotations[secretGroupFilePathPrefix+groupName]
-	fileFormat := annotations[secretGroupFileFormatPrefix+groupName]
-	policyPathPrefix := annotations[secretGroupPolicyPathPrefix+groupName]
-
-	if len(fileFormat) > 0 {
-		_, err := FileTemplateForFormat(fileFormat, secretSpecs)
-		if err != nil {
-			err = fmt.Errorf(
-				`unable to process file format annotation %q for group: %s`,
-				fileFormat,
-				err,
-			)
-			return nil, []error{err}
-		}
-	}
-
-	return &SecretGroup{
+	sg := &SecretGroup{
 		Name:             groupName,
 		FilePath:         filePath,
 		FileTemplate:     fileTemplate,
@@ -225,5 +286,18 @@ func newSecretGroup(annotations map[string]string, groupName string) (*SecretGro
 		FilePermissions:  defaultFilePermissions,
 		PolicyPathPrefix: policyPathPrefix,
 		SecretSpecs:      secretSpecs,
-	}, nil
+	}
+
+	errors := sg.validate()
+	if len(errors) > 0 {
+		return nil, errors
+	}
+
+	// Generate absolute file path
+	sg.FilePath, err = sg.absoluteFilePath(secretsBasePath)
+	if err != nil {
+		return nil, []error{err}
+	}
+
+	return sg, nil
 }
