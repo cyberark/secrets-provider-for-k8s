@@ -209,6 +209,17 @@ var validateSecretsProviderSettingsTestCases = []validateSecretsProviderSettings
 		assert: assertEmptyErrorList(),
 	},
 	{
+		description: "mixed-source config",
+		envAndAnnots: map[string]string{
+			"MY_POD_NAMESPACE":               "test-namespace",
+			"conjur.org/secrets-destination": "k8s_secrets",
+			"RETRY_COUNT_LIMIT":              "10",
+			"conjur.org/retry-interval-sec":  "20",
+			"K8S_SECRETS":                    "secret-1,secret-2,secret-3",
+		},
+		assert: assertEmptyErrorList(),
+	},
+	{
 		description: "if StoreType is configured with both its annotation and envVar, an info-level error is returned",
 		envAndAnnots: map[string]string{
 			"MY_POD_NAMESPACE":               "test-namespace",
@@ -357,6 +368,23 @@ var newConfigTestCases = []newConfigTestCase{
 			RequiredK8sSecrets: []string{},
 			RetryCountLimit:    DefaultRetryCountLimit,
 			RetryIntervalSec:   DefaultRetryIntervalSec,
+		}),
+	},
+	{
+		description: "mixed-source config",
+		settings: map[string]string{
+			"MY_POD_NAMESPACE":               "test-namespace",
+			"conjur.org/secrets-destination": "k8s_secrets",
+			"RETRY_COUNT_LIMIT":              "10",
+			"conjur.org/retry-interval-sec":  "20",
+			"K8S_SECRETS":                    "secret-1,secret-2,secret-3",
+		},
+		assert: assertGoodConfig(&Config{
+			PodNamespace:       "test-namespace",
+			StoreType:          "k8s_secrets",
+			RequiredK8sSecrets: []string{"secret-1", "secret-2", "secret-3"},
+			RetryCountLimit:    10,
+			RetryIntervalSec:   20,
 		}),
 	},
 }
