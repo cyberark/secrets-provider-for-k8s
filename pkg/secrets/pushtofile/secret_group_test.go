@@ -1,7 +1,9 @@
 package pushtofile
 
 import (
+	"errors"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
 	"path"
@@ -15,6 +17,7 @@ type pushToFileWithDepsTestCase struct {
 	description            string
 	group                  SecretGroup
 	overrideSecrets        []*Secret // Overrides secrets generated from group secret specs
+	overridePushToWriter   func(writer io.Writer, groupName string, groupTemplate string, groupSecrets []*Secret) error
 	toWriterPusherErr      error
 	toWriteCloserOpenerErr error
 	assert                 func(t *testing.T, spyOpenWriteCloser openWriteCloserSpy, closableBuf *ClosableBuffer, spyPushToWriter pushToWriterSpy, err error)
@@ -49,10 +52,15 @@ func (tc *pushToFileWithDepsTestCase) Run(t *testing.T) {
 			}
 		}
 
+		pushToWriterFunc := spyPushToWriter.Call
+		if tc.overridePushToWriter != nil {
+			pushToWriterFunc = tc.overridePushToWriter
+		}
+
 		// Exercise
 		err := group.pushToFileWithDeps(
 			spyOpenWriteCloser.Call,
-			spyPushToWriter.Call,
+			pushToWriterFunc,
 			secrets)
 
 		tc.assert(t, spyOpenWriteCloser, closableBuf, spyPushToWriter, err)
@@ -149,7 +157,7 @@ func TestNewSecretGroups(t *testing.T) {
 		})
 
 		assert.Len(t, errs, 1)
-		assert.Contains(t, errs[0].Error(), `cannot create secret specs from annotation "conjur.org/conjur-secrets.first"`)
+		assert.Contains(t, errs[0].Error(), `unable to create secret specs from annotation "conjur.org/conjur-secrets.first"`)
 		assert.Contains(t, errs[0].Error(), "cannot unmarshall to list of secret specs")
 	})
 
@@ -355,13 +363,38 @@ func TestNewSecretGroups(t *testing.T) {
 
 	})
 
+	t.Run("fail custom format first-pass at parsing", func(t *testing.T) {
+		_, errs := NewSecretGroups("/basepath", map[string]string{
+			"conjur.org/conjur-secrets.first":       "- path/to/secret/first1\n",
+			"conjur.org/secret-file-path.first":     "firstfilepath",
+			"conjur.org/secret-file-template.first": `{{ < }}`,
+		})
+
+		assert.Len(t, errs, 1)
+		assert.Contains(t, errs[0].Error(), `unable to use file template for secret group "first"`)
+		assert.NotContains(t, errs[0].Error(), `executing "first"`)
+	})
+
+	t.Run("fail custom format first-pass at execution", func(t *testing.T) {
+		_, errs := NewSecretGroups("/basepath", map[string]string{
+			"conjur.org/conjur-secrets.first":       "- path/to/secret/first1\n",
+			"conjur.org/secret-file-path.first":     "firstfilepath",
+			"conjur.org/secret-file-template.first": `{{ secret "x" }}`,
+		})
+
+		assert.Len(t, errs, 1)
+		assert.Contains(t, errs[0].Error(), `unable to use file template for secret group "first"`)
+		assert.Contains(t, errs[0].Error(), `executing "first"`)
+		assert.Contains(t, errs[0].Error(), `secret alias "x" not present in specified secrets`)
+	})
 }
 
 var pushToFileWithDepsTestCases = []pushToFileWithDepsTestCase{
 	{
-		description:     "happy path",
-		group:           modifyGoodGroup(),
-		overrideSecrets: nil,
+		description:          "happy path",
+		group:                modifyGoodGroup(),
+		overrideSecrets:      nil,
+		overridePushToWriter: nil,
 		assert: func(
 			t *testing.T,
 			spyOpenWriteCloser openWriteCloserSpy,
@@ -465,6 +498,50 @@ var pushToFileWithDepsTestCases = []pushToFileWithDepsTestCase{
 				return
 			}
 			assert.Equal(t, spyPushToWriter.args.groupTemplate, `setfiletemplate`)
+		},
+	},
+	{
+		description:     "template execution error",
+		group:           modifyGoodGroup(),
+		overrideSecrets: nil,
+		overridePushToWriter: func(writer io.Writer, groupName string, groupTemplate string, groupSecrets []*Secret) error {
+			return errors.New("underlying error message")
+		},
+		assert: func(
+			t *testing.T,
+			spyOpenWriteCloser openWriteCloserSpy,
+			closableBuf *ClosableBuffer,
+			spyPushToWriter pushToWriterSpy,
+			err error,
+		) {
+			// Assertions
+			if !assert.Error(t, err) {
+				return
+			}
+			assert.Contains(t, err.Error(), `failed to execute template, with secret values, on push to file for secret group "groupname"`)
+			assert.NotContains(t, err.Error(), "underlying error message")
+		},
+	},
+	{
+		description:     "template execution panic",
+		group:           modifyGoodGroup(),
+		overrideSecrets: nil,
+		overridePushToWriter: func(writer io.Writer, groupName string, groupTemplate string, groupSecrets []*Secret) error {
+			panic("canned panic response - maybe containing secrets")
+		},
+		assert: func(
+			t *testing.T,
+			spyOpenWriteCloser openWriteCloserSpy,
+			closableBuf *ClosableBuffer,
+			spyPushToWriter pushToWriterSpy,
+			err error,
+		) {
+			// Assertions
+			if !assert.Error(t, err) {
+				return
+			}
+			assert.Contains(t, err.Error(), `failed to execute template, with secret values, on push to file for secret group "groupname"`)
+			assert.NotContains(t, err.Error(), "canned panic response - maybe containing secrets")
 		},
 	},
 }

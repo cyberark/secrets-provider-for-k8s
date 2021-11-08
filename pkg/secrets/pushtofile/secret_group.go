@@ -2,6 +2,7 @@ package pushtofile
 
 import (
 	"fmt"
+	"io/ioutil"
 	"os"
 	"path"
 	"sort"
@@ -58,11 +59,12 @@ func (sg *SecretGroup) PushToFile(secrets []*Secret) error {
 func (sg *SecretGroup) pushToFileWithDeps(
 	depOpenWriteCloser openWriteCloserFunc,
 	depPushToWriter pushToWriterFunc,
-	secrets []*Secret) error {
+	secrets []*Secret,
+) (err error) {
 	// Make sure all the secret specs are accounted for
-	err := validateSecretsAgainstSpecs(secrets, sg.SecretSpecs)
+	err = validateSecretsAgainstSpecs(secrets, sg.SecretSpecs)
 	if err != nil {
-		return err
+		return
 	}
 
 	// Determine file template from
@@ -75,24 +77,34 @@ func (sg *SecretGroup) pushToFileWithDeps(
 		sg.SecretSpecs,
 	)
 	if err != nil {
-		return err
+		return
 	}
 
 	//// Open and push to file
 	wc, err := depOpenWriteCloser(sg.FilePath, sg.FilePermissions)
 	if err != nil {
-		return err
+		return
 	}
 	defer func() {
 		_ = wc.Close()
 	}()
 
-	return depPushToWriter(
+	maskError := fmt.Errorf("failed to execute template, with secret values, on push to file for secret group %q", sg.Name)
+	defer func() {
+		if r := recover(); r != nil {
+			err = maskError
+		}
+	}()
+	pushToWriterErr := depPushToWriter(
 		wc,
 		sg.Name,
 		fileTemplate,
 		secrets,
 	)
+	if pushToWriterErr != nil {
+		err = maskError
+	}
+	return
 }
 
 func (sg *SecretGroup) absoluteFilePath(secretsBasePath string) (string, error) {
@@ -156,6 +168,7 @@ func (sg *SecretGroup) absoluteFilePath(secretsBasePath string) (string, error) 
 func (sg *SecretGroup) validate() []error {
 	groupName := sg.Name
 	fileFormat := sg.FileFormat
+	fileTemplate := sg.FileTemplate
 	secretSpecs := sg.SecretSpecs
 
 	if errors := validateSecretPaths(secretSpecs, groupName); len(errors) > 0 {
@@ -172,6 +185,25 @@ func (sg *SecretGroup) validate() []error {
 					err,
 				),
 			}
+		}
+	}
+
+	// First-pass at provided template rendering with dummy secret values
+	// This first-pass is limited for templates that branch conditionally on secret values
+	// Relying logically on specific secret values should be avoided
+	if len(fileTemplate) > 0 {
+		dummySecrets := []*Secret{}
+		for _, secretSpec := range secretSpecs {
+			dummySecrets = append(dummySecrets, &Secret{Alias: secretSpec.Alias, Value: "REDACTED"})
+		}
+
+		err := pushToWriter(ioutil.Discard, groupName, fileTemplate, dummySecrets)
+		if err != nil {
+			return []error{fmt.Errorf(
+				`unable to use file template for secret group %q: %s`,
+				groupName,
+				err,
+			)}
 		}
 	}
 
@@ -285,11 +317,7 @@ func newSecretGroup(groupName string, secretsBasePath string, annotations map[st
 
 	secretSpecs, err := NewSecretSpecs([]byte(groupSecrets))
 	if err != nil {
-		err = fmt.Errorf(
-			`cannot create secret specs from annotation "%s": %s`,
-			secretGroupPrefix+groupName,
-			err,
-		)
+		err = fmt.Errorf(`unable to create secret specs from annotation "%s": %s`, secretGroupPrefix+groupName, err)
 		return nil, []error{err}
 	}
 
