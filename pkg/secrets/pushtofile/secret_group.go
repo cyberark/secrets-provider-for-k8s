@@ -85,23 +85,24 @@ func (sg *SecretGroup) pushToFileWithDeps(
 	if err != nil {
 		return
 	}
-
 	defer func() {
 		_ = wc.Close()
-		if r := recover(); r != nil {
-			err = fmt.Errorf("panic recovered while executing template with secret values")
-		}
 	}()
 
-	err = depPushToWriter(
+	maskError := fmt.Errorf("failed to execute template, with secret values, on push to file for secret group %q", sg.Name)
+	defer func() {
+		if r := recover(); r != nil {
+			err = maskError
+		}
+	}()
+	pushToWriterErr := depPushToWriter(
 		wc,
 		sg.Name,
 		fileTemplate,
 		secrets,
 	)
-	if err != nil {
-		err = fmt.Errorf("failed to render template for secret group %q with provided secret values", sg.Name)
-		return
+	if pushToWriterErr != nil {
+		err = maskError
 	}
 	return
 }
@@ -316,7 +317,7 @@ func newSecretGroup(groupName string, secretsBasePath string, annotations map[st
 
 	secretSpecs, err := NewSecretSpecs([]byte(groupSecrets))
 	if err != nil {
-		err = fmt.Errorf(`cannot create secret specs from annotation "%s": %s`, secretGroupPrefix+groupName, err)
+		err = fmt.Errorf(`unable to create secret specs from annotation "%s": %s`, secretGroupPrefix+groupName, err)
 		return nil, []error{err}
 	}
 

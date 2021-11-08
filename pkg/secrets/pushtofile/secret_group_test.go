@@ -97,24 +97,6 @@ func goodSecretSpecs() []SecretSpec {
 	}
 }
 
-func failingPushToWriter(
-	writer io.Writer,
-	groupName string,
-	groupTemplate string,
-	groupSecrets []*Secret,
-) error {
-	return errors.New("underlying error message")
-}
-
-func panicPushToWriter(
-	writer io.Writer,
-	groupName string,
-	groupTemplate string,
-	groupSecrets []*Secret,
-) error {
-	panic("canned panic response - maybe containing secrets")
-}
-
 func TestNewSecretGroups(t *testing.T) {
 	t.Run("valid annotations", func(t *testing.T) {
 		secretGroups, errs := NewSecretGroups("/basepath", map[string]string{
@@ -175,7 +157,7 @@ func TestNewSecretGroups(t *testing.T) {
 		})
 
 		assert.Len(t, errs, 1)
-		assert.Contains(t, errs[0].Error(), `cannot create secret specs from annotation "conjur.org/conjur-secrets.first"`)
+		assert.Contains(t, errs[0].Error(), `unable to create secret specs from annotation "conjur.org/conjur-secrets.first"`)
 		assert.Contains(t, errs[0].Error(), "cannot unmarshall to list of secret specs")
 	})
 
@@ -519,10 +501,12 @@ var pushToFileWithDepsTestCases = []pushToFileWithDepsTestCase{
 		},
 	},
 	{
-		description:          "template execution error",
-		group:                modifyGoodGroup(),
-		overrideSecrets:      nil,
-		overridePushToWriter: failingPushToWriter,
+		description:     "template execution error",
+		group:           modifyGoodGroup(),
+		overrideSecrets: nil,
+		overridePushToWriter: func(writer io.Writer, groupName string, groupTemplate string, groupSecrets []*Secret) error {
+			return errors.New("underlying error message")
+		},
 		assert: func(
 			t *testing.T,
 			spyOpenWriteCloser openWriteCloserSpy,
@@ -534,15 +518,17 @@ var pushToFileWithDepsTestCases = []pushToFileWithDepsTestCase{
 			if !assert.Error(t, err) {
 				return
 			}
-			assert.Contains(t, err.Error(), `failed to render template for secret group "groupname" with provided secret values`)
+			assert.Contains(t, err.Error(), `failed to execute template, with secret values, on push to file for secret group "groupname"`)
 			assert.NotContains(t, err.Error(), "underlying error message")
 		},
 	},
 	{
-		description:          "template execution panic",
-		group:                modifyGoodGroup(),
-		overrideSecrets:      nil,
-		overridePushToWriter: panicPushToWriter,
+		description:     "template execution panic",
+		group:           modifyGoodGroup(),
+		overrideSecrets: nil,
+		overridePushToWriter: func(writer io.Writer, groupName string, groupTemplate string, groupSecrets []*Secret) error {
+			panic("canned panic response - maybe containing secrets")
+		},
 		assert: func(
 			t *testing.T,
 			spyOpenWriteCloser openWriteCloserSpy,
@@ -554,7 +540,7 @@ var pushToFileWithDepsTestCases = []pushToFileWithDepsTestCase{
 			if !assert.Error(t, err) {
 				return
 			}
-			assert.Contains(t, err.Error(), "panic recovered while executing template with secret values")
+			assert.Contains(t, err.Error(), `failed to execute template, with secret values, on push to file for secret group "groupname"`)
 			assert.NotContains(t, err.Error(), "canned panic response - maybe containing secrets")
 		},
 	},
