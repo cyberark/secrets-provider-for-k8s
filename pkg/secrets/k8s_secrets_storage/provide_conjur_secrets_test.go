@@ -1,395 +1,384 @@
-package k8s_secrets_storage
+package k8ssecretsstorage
 
 import (
 	"fmt"
-	"sort"
 	"testing"
 
-	. "github.com/smartystreets/goconvey/convey"
+	//. "github.com/smartystreets/goconvey/convey"
+	"github.com/stretchr/testify/assert"
 
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/log/messages"
 	conjurMocks "github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/clients/conjur/mocks"
-	secretsStorageMocks "github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/k8s_secrets_storage/mocks"
+	k8sStorageMocks "github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/k8s_secrets_storage/mocks"
 )
 
-func TestProvideConjurSecrets(t *testing.T) {
-	Convey("getVariableIDsToRetrieve", t, func() {
-
-		Convey("Given a non-empty pathMap", func() {
-			pathMap := map[string][]string{
-				"account/var_path1": {"secret1:key1"},
-				"account/var_path2": {"secret1:key2"},
-			}
-			variableIDsExpected := []string{"account/var_path1", "account/var_path2"}
-			variableIDsActual, err := getVariableIDsToRetrieve(pathMap)
-
-			Convey("Finishes without raising an error", func() {
-				So(err, ShouldEqual, nil)
-			})
-
-			Convey("Returns variable IDs in the pathMap as expected", func() {
-				// Sort actual and expected, because output order can change
-				sort.Strings(variableIDsActual)
-				sort.Strings(variableIDsExpected)
-
-				So(variableIDsActual, ShouldResemble, variableIDsExpected)
-			})
-		})
-
-		Convey("Given an empty pathMap", func() {
-			pathMap := map[string][]string{}
-
-			Convey("Raises an error that the map input is empty", func() {
-				_, err := getVariableIDsToRetrieve(pathMap)
-				So(err.Error(), ShouldEqual, messages.CSPFK025E)
-			})
-		})
-	})
-
-	Convey("updateK8sSecretsMapWithConjurSecrets", t, func() {
-		Convey("Given one K8s secret with one Conjur secret", func() {
-			conjurSecrets := map[string][]byte{
-				"allowed/username": []byte("super"),
-			}
-
-			k8sSecretsMap := map[string]map[string][]byte{
-				"mysecret": {
-					"username": []byte("allowed/username"),
-				},
-			}
-
-			pathMap := map[string][]string{
-				"allowed/username": {"mysecret:username"},
-			}
-
-			k8sSecretsStruct := K8sSecretsMap{k8sSecretsMap, nil, pathMap}
-			err := updateK8sSecretsMapWithConjurSecrets(&k8sSecretsStruct, conjurSecrets)
-
-			Convey("Finishes without raising an error", func() {
-				So(err, ShouldEqual, nil)
-			})
-
-			Convey("Replaces secret variable IDs in k8sSecretsMap with their corresponding secret value", func() {
-				So(k8sSecretsStruct.K8sSecrets["mysecret"]["username"], ShouldResemble, []byte("super"))
-			})
-		})
-
-		Convey("Given 2 k8s secrets that need the same Conjur secret", func() {
-			conjurSecrets := map[string][]byte{
-				"allowed/username": []byte("super"),
-			}
-			dataEntriesMap := map[string][]byte{
-				"username": []byte("allowed/username"),
-			}
-			k8sSecretsMap := map[string]map[string][]byte{
-				"secret":         dataEntriesMap,
-				"another-secret": dataEntriesMap,
-			}
-
-			pathMap := map[string][]string{
-				"allowed/username": {"secret:username", "another-secret:username"},
-			}
-
-			k8sSecretsStruct := K8sSecretsMap{k8sSecretsMap, nil, pathMap}
-			err := updateK8sSecretsMapWithConjurSecrets(&k8sSecretsStruct, conjurSecrets)
-
-			Convey("Finishes without raising an error", func() {
-				So(err, ShouldEqual, nil)
-			})
-
-			Convey("Replaces both Variable IDs in k8sSecretsMap to their corresponding secret values without errors", func() {
-				secret := []byte("super")
-				So(k8sSecretsStruct.K8sSecrets["secret"]["username"], ShouldResemble, secret)
-				So(k8sSecretsStruct.K8sSecrets["another-secret"]["username"], ShouldResemble, secret)
-			})
-		})
-	})
-
-	Convey("RetrieveRequiredK8sSecrets", t, func() {
-		Convey("Given an existing k8s secret that is mapped to an existing conjur secret", func() {
-			kubeMockClient := secretsStorageMocks.NewKubeSecretsMockClient()
-			kubeMockClient.AddSecret("k8s_secret1", "secret_key", "conjur_variable1")
-
-			requiredSecrets := []string{"k8s_secret1"}
-
-			k8sSecretsMap, err := RetrieveRequiredK8sSecrets(kubeMockClient.RetrieveSecret, "someNameSpace", requiredSecrets)
-
-			Convey("Finishes without raising an error", func() {
-				So(err, ShouldEqual, nil)
-			})
-
-			Convey("Creates K8sSecrets map as expected", func() {
-				expectedK8sSecrets := map[string]map[string][]byte{
-					"k8s_secret1": {
-						"secret_key": []byte("conjur_variable1"),
-					},
-				}
-
-				So(k8sSecretsMap.K8sSecrets, ShouldResemble, expectedK8sSecrets)
-			})
-
-			Convey("Creates PathMap map as expected", func() {
-				expectedPathMap := map[string][]string{
-					"conjur_variable1": {"k8s_secret1:secret_key"},
-				}
-
-				So(k8sSecretsMap.PathMap, ShouldResemble, expectedPathMap)
-			})
-		})
-
-		Convey("Given no 'get' permissions on the 'secrets' k8s resource", func() {
-			kubeMockClient := secretsStorageMocks.NewKubeSecretsMockClient()
-			kubeMockClient.CanRetrieve = false
-			kubeMockClient.AddSecret("k8s_secret1", "secret_key", "conjur_variable1")
-
-			requiredSecrets := []string{"k8s_secret1"}
-
-			_, err := RetrieveRequiredK8sSecrets(kubeMockClient.RetrieveSecret, "someNameSpace", requiredSecrets)
-
-			Convey("Raises proper error", func() {
-				So(err.Error(), ShouldEqual, messages.CSPFK020E)
-			})
-		})
-
-		Convey("Given a non-existing k8s secret", func() {
-			kubeMockClient := secretsStorageMocks.NewKubeSecretsMockClient()
-
-			requiredSecrets := []string{"non_existing"}
-
-			_, err := RetrieveRequiredK8sSecrets(kubeMockClient.RetrieveSecret, "someNameSpace", requiredSecrets)
-
-			Convey("Raises proper error", func() {
-				So(err.Error(), ShouldEqual, messages.CSPFK020E)
-			})
-		})
-
-		Convey("Given a k8s secret without 'conjur-map'", func() {
-			kubeMockClient := secretsStorageMocks.NewKubeSecretsMockClient()
-			kubeMockClient.Database["no_conjur_map_secret"] = map[string][]byte{
-				"not-conjur-map": []byte("some-data"),
-			}
-
-			requiredSecrets := []string{"no_conjur_map_secret"}
-			_, err := RetrieveRequiredK8sSecrets(kubeMockClient.RetrieveSecret, "someNameSpace", requiredSecrets)
-
-			Convey("Raises proper error", func() {
-				So(err.Error(), ShouldEqual, fmt.Sprintf(messages.CSPFK028E, "no_conjur_map_secret"))
-			})
-		})
-
-		Convey("Given a k8s secret with an empty 'conjur-map'", func() {
-			kubeMockClient := secretsStorageMocks.NewKubeSecretsMockClient()
-			kubeMockClient.Database["empty_conjur_map_secret"] = map[string][]byte{
-				"conjur-map": []byte(""),
-			}
-
-			requiredSecrets := []string{"empty_conjur_map_secret"}
-
-			_, err := RetrieveRequiredK8sSecrets(kubeMockClient.RetrieveSecret, "someNameSpace", requiredSecrets)
-
-			Convey("Raises proper error", func() {
-				So(err.Error(), ShouldEqual, fmt.Sprintf(messages.CSPFK028E, "empty_conjur_map_secret"))
-			})
-		})
-
-		Convey("Given a k8s secret with an invalid 'conjur-map'", func() {
-			kubeMockClient := secretsStorageMocks.NewKubeSecretsMockClient()
-			kubeMockClient.Database["invalid_conjur_map_secret"] = map[string][]byte{
-				"conjur-map": []byte("key_with_no_value"),
-			}
-
-			requiredSecrets := []string{"invalid_conjur_map_secret"}
-
-			_, err := RetrieveRequiredK8sSecrets(kubeMockClient.RetrieveSecret, "someNameSpace", requiredSecrets)
-
-			Convey("Raises proper error", func() {
-				So(err.Error(), ShouldEqual, fmt.Sprintf(messages.CSPFK028E, "invalid_conjur_map_secret"))
-			})
-		})
-	})
-
-	Convey("UpdateRequiredK8sSecrets", t, func() {
-		Convey("Given no 'update' permissions on the 'secrets' k8s resource", func() {
-			kubeMockClient := secretsStorageMocks.NewKubeSecretsMockClient()
-			kubeMockClient.CanUpdate = false
-			kubeMockClient.AddSecret("k8s_secret1", "secret_key1", "conjur_variable1")
-			requiredSecrets := []string{"k8s_secret1"}
-
-			k8sSecretsMap, err := RetrieveRequiredK8sSecrets(kubeMockClient.RetrieveSecret, "someNameSpace", requiredSecrets)
-
-			Convey("Finishes without raising an error", func() {
-				So(err, ShouldEqual, nil)
-			})
-
-			err = UpdateRequiredK8sSecrets(kubeMockClient.UpdateSecret, "someNameSpace", k8sSecretsMap)
-
-			Convey("Raises proper error", func() {
-				So(err.Error(), ShouldEqual, messages.CSPFK022E)
-			})
-		})
-	})
-
-	Convey("run", t, func() {
-		Convey("Given 2 k8s secrets that only one is required by the pod", func() {
-			conjurMockClient := conjurMocks.NewConjurMockClient()
-
-			kubeMockClient := secretsStorageMocks.NewKubeSecretsMockClient()
-			kubeMockClient.AddSecret("k8s_secret1", "secret_key1", "conjur_variable1")
-			kubeMockClient.AddSecret("k8s_secret2", "secret_key2", "conjur_variable2")
-			requiredSecrets := []string{"k8s_secret1"}
-
-			err := k8sProvider{
-				retrieveK8sSecret:   kubeMockClient.RetrieveSecret,
-				updateK8sSecret:     kubeMockClient.UpdateSecret,
-				retrieveSecretsFunc: conjurMockClient.RetrieveSecrets,
-				podNamespace:        "someNamespace",
-				requiredK8sSecrets:  requiredSecrets,
-			}.Provide()
-
-			Convey("Finishes without raising an error", func() {
-				So(err, ShouldEqual, nil)
-			})
-
-			Convey("Updates K8s secrets with their corresponding Conjur secrets", func() {
-				verifyK8sSecretValue(kubeMockClient, "k8s_secret1", "secret_key1", "conjur_secret1")
-
-			})
-
-			Convey("Does not updates other K8s secrets", func() {
-				actualK8sSecretDataValue := kubeMockClient.Database["k8s_secret2"]["secretkkey1"]
-				So(actualK8sSecretDataValue, ShouldEqual, nil)
-			})
-		})
-
-		Convey("Given 2 k8s secrets that are required by the pod - each one has its own Conjur secret", func() {
-			conjurMockClient := conjurMocks.NewConjurMockClient()
-
-			kubeMockClient := secretsStorageMocks.NewKubeSecretsMockClient()
-			kubeMockClient.AddSecret("k8s_secret1", "secret_key1", "conjur_variable1")
-			kubeMockClient.AddSecret("k8s_secret2", "secret_key2", "conjur_variable2")
-			requiredSecrets := []string{"k8s_secret1", "k8s_secret2"}
-
-			err := k8sProvider{
-				retrieveK8sSecret:   kubeMockClient.RetrieveSecret,
-				updateK8sSecret:     kubeMockClient.UpdateSecret,
-				retrieveSecretsFunc: conjurMockClient.RetrieveSecrets,
-				podNamespace:        "someNamespace",
-				requiredK8sSecrets:  requiredSecrets,
-			}.Provide()
-
-			Convey("Finishes without raising an error", func() {
-				So(err, ShouldEqual, nil)
-			})
-
-			Convey("Updates K8s secrets with their corresponding Conjur secrets", func() {
-				verifyK8sSecretValue(kubeMockClient, "k8s_secret1", "secret_key1", "conjur_secret1")
-				verifyK8sSecretValue(kubeMockClient, "k8s_secret2", "secret_key2", "conjur_secret2")
-			})
-		})
-
-		Convey("Given 2 k8s secrets that are required by the pod - both have the same Conjur secret", func() {
-			conjurMockClient := conjurMocks.NewConjurMockClient()
-
-			kubeMockClient := secretsStorageMocks.NewKubeSecretsMockClient()
-			kubeMockClient.AddSecret("k8s_secret1", "secret_key1", "conjur_variable1")
-			kubeMockClient.AddSecret("k8s_secret2", "secret_key2", "conjur_variable2")
-
-			requiredSecrets := []string{"k8s_secret1", "k8s_secret2"}
-
-			err := k8sProvider{
-				retrieveK8sSecret:   kubeMockClient.RetrieveSecret,
-				updateK8sSecret:     kubeMockClient.UpdateSecret,
-				retrieveSecretsFunc: conjurMockClient.RetrieveSecrets,
-				podNamespace:        "someNamespace",
-				requiredK8sSecrets:  requiredSecrets,
-			}.Provide()
-
-			Convey("Finishes without raising an error", func() {
-				So(err, ShouldEqual, nil)
-			})
-
-			Convey("Updates K8s secrets with their corresponding Conjur secrets", func() {
-				verifyK8sSecretValue(kubeMockClient, "k8s_secret1", "secret_key1", "conjur_secret1")
-				verifyK8sSecretValue(kubeMockClient, "k8s_secret2", "secret_key2", "conjur_secret2")
-			})
-		})
-
-		Convey("Given a k8s secret which is mapped to a non-existing conjur variable", func() {
-			conjurMockClient := conjurMocks.NewConjurMockClient()
-
-			kubeMockClient := secretsStorageMocks.NewKubeSecretsMockClient()
-			kubeMockClient.AddSecret("k8s_secret1", "secret_key", "non_existing_conjur_variable")
-
-			requiredSecrets := []string{"k8s_secret1"}
-
-			err := k8sProvider{
-				retrieveK8sSecret:   kubeMockClient.RetrieveSecret,
-				updateK8sSecret:     kubeMockClient.UpdateSecret,
-				retrieveSecretsFunc: conjurMockClient.RetrieveSecrets,
-				podNamespace:        "someNamespace",
-				requiredK8sSecrets:  requiredSecrets,
-			}.Provide()
-
-			Convey("Raises proper error", func() {
-				So(err.Error(), ShouldEqual, fmt.Sprintf(messages.CSPFK034E, "no_conjur_secret_error"))
-			})
-		})
-
-		Convey("Given a k8s secret which is mapped to a conjur secret with an empty secret value", func() {
-			conjurMockClient := conjurMocks.NewConjurMockClient()
-
-			kubeMockClient := secretsStorageMocks.NewKubeSecretsMockClient()
-			kubeMockClient.AddSecret("k8s_secret_with_empty_conjur_variable", "secret_key", "conjur_variable_empty_secret")
-			requiredSecrets := []string{"k8s_secret_with_empty_conjur_variable"}
-
-			err := k8sProvider{
-				retrieveK8sSecret:   kubeMockClient.RetrieveSecret,
-				updateK8sSecret:     kubeMockClient.UpdateSecret,
-				retrieveSecretsFunc: conjurMockClient.RetrieveSecrets,
-				podNamespace:        "someNamespace",
-				requiredK8sSecrets:  requiredSecrets,
-			}.Provide()
-
-			Convey("Finishes without raising an error", func() {
-				So(err, ShouldEqual, nil)
-			})
-
-			Convey("Updates K8s secrets with their corresponding Conjur secrets", func() {
-				verifyK8sSecretValue(kubeMockClient, "k8s_secret_with_empty_conjur_variable", "secret_key", "")
-			})
-		})
-
-		Convey("Given no 'execute' permissions on the conjur secret", func() {
-			conjurMockClient := conjurMocks.NewConjurMockClient()
-			// no execute privileges on the conjur secret
-			conjurMockClient.CanExecute = false
-
-			kubeMockClient := secretsStorageMocks.NewKubeSecretsMockClient()
-			kubeMockClient.AddSecret("k8s_secret_with_no_permission_conjur_variable", "secret_key", "no_execute_permission_conjur_secret")
-			requiredSecrets := []string{"k8s_secret_with_no_permission_conjur_variable"}
-
-			err := k8sProvider{
-				retrieveK8sSecret:   kubeMockClient.RetrieveSecret,
-				updateK8sSecret:     kubeMockClient.UpdateSecret,
-				retrieveSecretsFunc: conjurMockClient.RetrieveSecrets,
-				podNamespace:        "someNamespace",
-				requiredK8sSecrets:  requiredSecrets,
-			}.Provide()
-
-			Convey("Raises proper error", func() {
-				So(err.Error(), ShouldEqual, fmt.Sprintf(messages.CSPFK034E, "custom error"))
-			})
-		})
-	})
+var testConjurSecrets = map[string]string{
+	"conjur/var/path1":        "secret-value1",
+	"conjur/var/path2":        "secret-value2",
+	"conjur/var/path3":        "secret-value3",
+	"conjur/var/path4":        "secret-value4",
+	"conjur/var/empty-secret": "",
 }
 
-func verifyK8sSecretValue(
-	client secretsStorageMocks.KubeSecretsMockClient,
-	secretName string,
-	key string,
-	value string,
-) {
-	actualK8sSecretDataValue := client.Database[secretName][key]
-	expectedK8sSecretDataValue := []byte(value)
-	So(actualK8sSecretDataValue, ShouldResemble, expectedK8sSecretDataValue)
+type testMocks struct {
+	conjurClient *conjurMocks.ConjurClient
+	kubeClient   *k8sStorageMocks.KubeSecretsClient
+	logger       *k8sStorageMocks.Logger
+}
+
+func newTestMocks() testMocks {
+	mocks := testMocks{
+		conjurClient: conjurMocks.NewConjurClient(),
+		kubeClient:   k8sStorageMocks.NewKubeSecretsClient(),
+		logger:       k8sStorageMocks.NewLogger(),
+	}
+	// Populate Conjur with some test secrets
+	mocks.conjurClient.AddSecrets(testConjurSecrets)
+	return mocks
+}
+
+func (m testMocks) setPermissions(denyConjurRetrieve, denyK8sRetrieve,
+	denyK8sUpdate bool) {
+	if denyConjurRetrieve {
+		m.conjurClient.CanExecute = false
+	}
+	if denyK8sRetrieve {
+		m.kubeClient.CanRetrieve = false
+	}
+	if denyK8sUpdate {
+		m.kubeClient.CanUpdate = false
+	}
+}
+
+func (m testMocks) newProvider(requiredSecrets []string) K8sProvider {
+	return newProvider(
+		k8sProviderDeps{
+			k8s: k8sAccessDeps{
+				m.kubeClient.RetrieveSecret,
+				m.kubeClient.UpdateSecret,
+			},
+			conjur: conjurAccessDeps{
+				m.conjurClient.RetrieveSecrets,
+			},
+			log: logDeps{
+				m.logger.RecordedError,
+				m.logger.Error,
+				m.logger.Warn,
+				m.logger.Info,
+				m.logger.Debug,
+			},
+		},
+		requiredSecrets,
+		"someNamespace")
+}
+
+type assertFunc func(*testing.T, testMocks, error, string)
+type expectedK8sSecrets map[string]map[string]string
+type expectedMissingValues map[string][]string
+
+func assertErrorContains(expErrStr string) assertFunc {
+	return func(t *testing.T, _ testMocks,
+		err error, desc string) {
+
+		assert.Error(t, err, desc)
+		assert.Contains(t, err.Error(), expErrStr, desc)
+	}
+}
+
+func assertSecretsUpdated(expK8sSecrets expectedK8sSecrets,
+	expMissingValues expectedMissingValues) assertFunc {
+	return func(t *testing.T, mocks testMocks, err error, desc string) {
+		assert.NoError(t, err, desc)
+		// Check that K8s Secrets contain expected Conjur secret values
+		for k8sSecretName, expSecretData := range expK8sSecrets {
+			actualSecretData := mocks.kubeClient.InspectSecret(k8sSecretName)
+			for secretName, expSecretValue := range expSecretData {
+				newDesc := desc + ", Secret: " + secretName
+				actualSecretValue := string(actualSecretData[secretName])
+				assert.Equal(t, expSecretValue, actualSecretValue, newDesc)
+			}
+		}
+		// Check for secret values leaking into the wrong K8s Secrets
+		for k8sSecretName, expMissingValue := range expMissingValues {
+			actualSecretData := mocks.kubeClient.InspectSecret(k8sSecretName)
+			for _, value := range actualSecretData {
+				actualValue := string(value)
+				newDesc := desc + ", Leaked secret value: " + actualValue
+				assert.NotEqual(t, expMissingValue, actualValue, newDesc)
+			}
+		}
+	}
+}
+
+func assertErrorLogged(msg string, args ...interface{}) assertFunc {
+	return func(t *testing.T, mocks testMocks, err error, desc string) {
+		errStr := fmt.Sprintf(msg, args...)
+		newDesc := desc + ", error logged: " + errStr
+		assert.True(t, mocks.logger.ErrorWasLogged(errStr), newDesc)
+	}
+}
+
+func TestProvide(t *testing.T) {
+	testCases := []struct {
+		desc               string
+		k8sSecrets         k8sStorageMocks.K8sSecrets
+		requiredSecrets    []string
+		denyConjurRetrieve bool
+		denyK8sRetrieve    bool
+		denyK8sUpdate      bool
+		asserts            []assertFunc
+	}{
+		{
+			desc: "Happy path, existing k8s Secret with existing Conjur secret",
+			k8sSecrets: k8sStorageMocks.K8sSecrets{
+				"k8s-secret1": {
+					"conjur-map": {"secret1": "conjur/var/path1"},
+				},
+			},
+			requiredSecrets: []string{"k8s-secret1"},
+			asserts: []assertFunc{
+				assertSecretsUpdated(
+					expectedK8sSecrets{
+						"k8s-secret1": {"secret1": "secret-value1"},
+					},
+					expectedMissingValues{},
+				),
+			},
+		},
+		{
+			desc: "Happy path, 2 existing k8s Secrets with 2 existing Conjur secrets",
+			k8sSecrets: k8sStorageMocks.K8sSecrets{
+				"k8s-secret1": {
+					"conjur-map": {
+						"secret1": "conjur/var/path1",
+						"secret2": "conjur/var/path2",
+					},
+				},
+				"k8s-secret2": {
+					"conjur-map": {
+						"secret3": "conjur/var/path3",
+						"secret4": "conjur/var/path4",
+					},
+				},
+			},
+			requiredSecrets: []string{"k8s-secret1", "k8s-secret2"},
+			asserts: []assertFunc{
+				assertSecretsUpdated(
+					expectedK8sSecrets{
+						"k8s-secret1": {
+							"secret1": "secret-value1",
+							"secret2": "secret-value2",
+						},
+						"k8s-secret2": {
+							"secret3": "secret-value3",
+							"secret4": "secret-value4",
+						},
+					},
+					expectedMissingValues{
+						"k8s-secret1": {"secret-value3", "secret-value4"},
+						"k8s-secret2": {"secret-value1", "secret-value2"},
+					},
+				),
+			},
+		},
+		{
+			desc: "Happy path, 2 k8s Secrets use the same Conjur secret with different names",
+			k8sSecrets: k8sStorageMocks.K8sSecrets{
+				"k8s-secret1": {
+					"conjur-map": {
+						"secret1": "conjur/var/path1",
+						"secret2": "conjur/var/path2",
+					},
+				},
+				"k8s-secret2": {
+					"conjur-map": {
+						"secret3": "conjur/var/path2",
+						"secret4": "conjur/var/path4",
+					},
+				},
+			},
+			requiredSecrets: []string{"k8s-secret1", "k8s-secret2"},
+			asserts: []assertFunc{
+				assertSecretsUpdated(
+					expectedK8sSecrets{
+						"k8s-secret1": {
+							"secret1": "secret-value1",
+							"secret2": "secret-value2",
+						},
+						"k8s-secret2": {
+							"secret3": "secret-value2",
+							"secret4": "secret-value4",
+						},
+					},
+					expectedMissingValues{
+						"k8s-secret1": {"secret-value4"},
+						"k8s-secret2": {"secret-value1"},
+					},
+				),
+			},
+		},
+		{
+			desc: "Happy path, 2 existing k8s Secrets but only 1 managed by SP",
+			k8sSecrets: k8sStorageMocks.K8sSecrets{
+				"k8s-secret1": {
+					"conjur-map": {
+						"secret1": "conjur/var/path1",
+						"secret2": "conjur/var/path2",
+					},
+				},
+				"k8s-secret2": {
+					"conjur-map": {
+						"secret2": "conjur/var/path2",
+						"secret3": "conjur/var/path3",
+					},
+				},
+			},
+			requiredSecrets: []string{"k8s-secret1"},
+			asserts: []assertFunc{
+				assertSecretsUpdated(
+					expectedK8sSecrets{
+						"k8s-secret1": {
+							"secret1": "secret-value1",
+							"secret2": "secret-value2",
+						},
+					},
+					expectedMissingValues{
+						"k8s-secret1": {"secret-value3"},
+						"k8s-secret2": {"secret-value1", "secret-value2", "secret-value3"},
+					},
+				),
+			},
+		},
+		{
+			desc: "Happy path, k8s Secret maps to Conjur secret with null string value",
+			k8sSecrets: k8sStorageMocks.K8sSecrets{
+				"k8s-secret1": {
+					"conjur-map": {"secret1": "conjur/var/empty-secret"},
+				},
+			},
+			requiredSecrets: []string{"k8s-secret1"},
+			asserts: []assertFunc{
+				assertSecretsUpdated(
+					expectedK8sSecrets{
+						"k8s-secret1": {"secret1": ""},
+					},
+					expectedMissingValues{},
+				),
+			},
+		},
+		{
+			desc: "K8s Secrets maps to a non-existent Conjur secret",
+			k8sSecrets: k8sStorageMocks.K8sSecrets{
+				"k8s-secret1": {
+					"conjur-map": {"secret1": "nonexistent/conjur/var"},
+				},
+			},
+			requiredSecrets: []string{"k8s-secret1"},
+			denyK8sRetrieve: true,
+			asserts: []assertFunc{
+				assertErrorLogged(messages.CSPFK020E),
+				assertErrorContains(messages.CSPFK021E),
+			},
+		},
+		{
+			desc: "Read access to K8s Secrets is not permitted",
+			k8sSecrets: k8sStorageMocks.K8sSecrets{
+				"k8s-secret1": {
+					"conjur-map": {"secret1": "conjur/var/path1"},
+				},
+			},
+			requiredSecrets: []string{"k8s-secret1"},
+			denyK8sRetrieve: true,
+			asserts: []assertFunc{
+				assertErrorLogged(messages.CSPFK020E),
+				assertErrorContains(messages.CSPFK021E),
+			},
+		},
+		{
+			desc: "Access to Conjur secrets is not authorized",
+			k8sSecrets: k8sStorageMocks.K8sSecrets{
+				"k8s-secret1": {
+					"conjur-map": {"secret1": "conjur/var/path1"},
+				},
+			},
+			requiredSecrets:    []string{"k8s-secret1"},
+			denyConjurRetrieve: true,
+			asserts: []assertFunc{
+				assertErrorLogged(messages.CSPFK034E, "custom error"),
+				assertErrorContains(fmt.Sprintf(messages.CSPFK034E, "custom error")),
+			},
+		},
+		{
+			desc: "Updates to K8s 'Secrets' are not permitted",
+			k8sSecrets: k8sStorageMocks.K8sSecrets{
+				"k8s-secret1": {
+					"conjur-map": {"secret1": "conjur/var/path1"},
+				},
+			},
+			requiredSecrets: []string{"k8s-secret1"},
+			denyK8sUpdate:   true,
+			asserts: []assertFunc{
+				assertErrorLogged(messages.CSPFK022E),
+				assertErrorContains(messages.CSPFK023E),
+			},
+		},
+		{
+			desc: "K8s secret is required but does not exist",
+			k8sSecrets: k8sStorageMocks.K8sSecrets{
+				"k8s-secret1": {
+					"conjur-map": {"secret1": "conjur/var/path1"},
+				},
+			},
+			requiredSecrets: []string{"non-existent-k8s-secret"},
+			asserts: []assertFunc{
+				assertErrorLogged(messages.CSPFK020E),
+				assertErrorContains(messages.CSPFK021E),
+			},
+		},
+		{
+			desc: "K8s secret has no 'conjur-map' entry",
+			k8sSecrets: k8sStorageMocks.K8sSecrets{
+				"k8s-secret1": {
+					"foobar": {"foo": "bar"},
+				},
+			},
+			requiredSecrets: []string{"k8s-secret1"},
+			asserts: []assertFunc{
+				assertErrorLogged(messages.CSPFK028E, "k8s-secret1"),
+				assertErrorContains(messages.CSPFK021E),
+			},
+		},
+		{
+			desc: "K8s secret has an empty 'conjur-map' entry",
+			k8sSecrets: k8sStorageMocks.K8sSecrets{
+				"k8s-secret1": {
+					"conjur-map": {},
+				},
+			},
+			requiredSecrets: []string{"k8s-secret1"},
+			asserts: []assertFunc{
+				assertErrorLogged(messages.CSPFK028E, "k8s-secret1"),
+				assertErrorContains(messages.CSPFK021E),
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		// Set up test case
+		mocks := newTestMocks()
+		mocks.setPermissions(tc.denyConjurRetrieve, tc.denyK8sRetrieve,
+			tc.denyK8sUpdate)
+		for secretName, secretData := range tc.k8sSecrets {
+			mocks.kubeClient.AddSecret(secretName, secretData)
+		}
+		provider := mocks.newProvider(tc.requiredSecrets)
+
+		// Run test case
+		err := provider.Provide()
+
+		// Confirm results
+		for _, assert := range tc.asserts {
+			assert(t, mocks, err, tc.desc)
+		}
+	}
 }

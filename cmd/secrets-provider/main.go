@@ -13,7 +13,6 @@ import (
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/secrets"
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/annotations"
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/clients/conjur"
-	"github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/clients/k8s"
 	secretsConfigProvider "github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/config"
 )
 
@@ -62,15 +61,16 @@ func main() {
 		printErrorAndExit(err.Error())
 	}
 
+	providerConfig := secrets.ProviderConfig{
+		StoreType:          secretsConfig.StoreType,
+		PodNamespace:       secretsConfig.PodNamespace,
+		RequiredK8sSecrets: secretsConfig.RequiredK8sSecrets,
+		SecretFileBasePath: secretsBasePath,
+		AnnotationsMap:     annotationsMap,
+	}
 	provideSecrets, errs := secrets.NewProviderForType(
-		k8s.RetrieveK8sSecret,
-		k8s.UpdateK8sSecret,
 		secretRetriever.Retrieve,
-		secretsConfig.StoreType,
-		secretsConfig.PodNamespace,
-		secretsConfig.RequiredK8sSecrets,
-		secretsBasePath,
-		annotationsMap,
+		providerConfig,
 	)
 	logErrorsAndConditionalExit(errs, nil, messages.CSPFK053E)
 

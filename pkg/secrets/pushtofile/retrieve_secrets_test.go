@@ -112,7 +112,7 @@ var retrieveSecretsTestCases = []retrieveSecretsTestCase{
 }
 
 type mockSecretFetcher struct {
-	conjurMockClient conjurMocks.ConjurMockClient
+	conjurMockClient *conjurMocks.ConjurClient
 }
 
 func (s mockSecretFetcher) Fetch(secretPaths []string) (map[string][]byte, error) {
@@ -121,7 +121,7 @@ func (s mockSecretFetcher) Fetch(secretPaths []string) (map[string][]byte, error
 
 func newMockSecretFetcher() mockSecretFetcher {
 	m := mockSecretFetcher{
-		conjurMockClient: conjurMocks.NewConjurMockClient(),
+		conjurMockClient: conjurMocks.NewConjurClient(),
 	}
 
 	m.conjurMockClient.AddSecrets(
