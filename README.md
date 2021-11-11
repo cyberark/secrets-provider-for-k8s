@@ -15,15 +15,49 @@
 
 # CyberArk Secrets Provider for Kubernetes
 
-The CyberArk Secrets Provider for Kubernetes enables Conjur Enterprise
- (formerly known as DAP) to retrieve secrets stored and managed in the CyberArk Vault.
- The secrets can be consumed by your Kubernetes or Openshift application containers.
- To retrieve the secrets from Conjur or Conjur Enterprise, 
- the CyberArk Secrets Provider for Kubernetes runs as an init container or application
- container and fetches the secrets that the pods require.
- 
-To deploy the CyberArk Secrets Provider for Kubernetes as an application container, supporting multiple applications please see the [Secrets Provider helm chart](helm). 
- 
+The CyberArk Secrets Provider for Kubernetes provides Kubernetes-based
+applications with access to secrets that are stored and managed in Conjur.
+
+## Consuming Secrets from CyberArk Secrets Provider
+
+Using the CyberArk Secrets Provider, your applications can easily consume
+secrets that have been retrieved from Conjur in one of two ways:
+
+- **Using Kubernetes Secrets:** The Secrets Provider can populate Kubernetes
+  Secrets with secrets stored in Conjur. This is sometimes referred to as
+  **"K8s Secrets"** mode.
+- **Using Secrets files:** The Secrets Provider can generate initialization or
+  credentials files for your application based on secrets retrieved from
+  Conjur, and it can write those files to a volume that is shared with your
+  application container. This is referred to as the Secrets Provider
+  **"Push to File"** mode. For more information, see the
+  [Secrets Provider Push-to-File guide](PUSH_TO_FILE.md).
+
+## Deployment Modes
+
+The Secrets Provider can be deployed into your Kubernetes cluster in one
+of two modes:
+
+- **As an init container:** The Secrets Provider can be deployed as a
+  Kubernetes init container for each of your application Pods that requires
+  secrets to be retrieved from Conjur. This configuration allows you to employ
+  Conjur policy that authorizes access to Conjur secrets on a
+  per-application-Pod basis.
+
+- **As an standalone application container (Kubernetes Job):**
+  The Secrets Provider can be deployed as a separate, application container
+  that runs to completion as part of a Kubernetes Job. In this mode, the
+  Secrets Provider can support delivery of Conjur secrets to multiple
+  application Pods. In this mode, you would use Conjur policy that authorizes
+  access to Conjur secrets on a per-Secrets-Provider basis.
+
+  The [Secrets Provider Helm chart](helm) can be used to deploy the
+  Secrets Provider in standalone application mode.
+
+__NOTE: If you are using the Secrets Provider "Push to file" mode, the
+  Secrets Provider must be deployed as an init container, since this mode
+  makes use of shared volumes to deliver secrets to an application.__
+
 ## Supported Services
 - Conjur Enterprise 11.1+
 
@@ -47,13 +81,39 @@ compatibility. When possible, upgrade your Conjur version to match the
 when using integrations, choose the latest suite release that matches your Conjur version. For any 
 questions, please contact us on [Discourse](https://discuss.cyberarkcommons.org/c/conjur/5).
 
-## Using secrets-provider-for-k8s to Write Secrets to a File
+## Methods for Configuring CyberArk Secrets Provider
 
-The Secrets Provider for Kubernetes can be configured using
-[Kubernetes Pod Annotations](https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/)
-to write secrets to files through volume mounted files for
-an application deployed into K8s. This only requires modifying the application deployment manifest
-and not the application itself.  For more information, see the [Push-to-File guide](PUSH_TO_FILE.md).
+There are several methods available for configuring the  CyberArk Secrets
+Provider:
+
+- **Using Pod Environment Variables:** The Secrets Provider can be configured
+  by setting environment variables in a Pod manifest. To see a description of
+  the Secrets Provider environment variables, and an example manifest in the
+  [Set up Secrets Provider as an Init Container](https://docs.conjur.org/Latest/en/Content/Integrations/k8s-ocp/cjr-k8s-secrets-provider-ic.htm#SetupSecretsProviderasaninitcontainer)
+  section of the Secrets Provider documentation (expand the collapsible
+  section in Step 6 of this guide to see details).
+
+- **Using Pod Annotations:** The Secrets Provider can be configured by setting
+  [Pod Annotations](https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/)
+  in a Pod manifest. For details on how Annotations can be use to configure
+  the Secrets Provider, see the
+  [Secrets Provider Push-to-File guide](PUSH_TO_FILE.md).
+
+- **Using the [Secrets Provider Helm chart](helm) (Standalone Application Mode Only)**
+  If you are using the Secrets Provider in standalone application mode, then
+  you can configure the Secrets Provider by setting Helm chart values and
+  deploying Secrets Provider using the [Secrets Provider Helm chart](helm).
+
+Some notes about the different configuration methods:
+
+1. For a setting that can be configured either by Pod Annotation or by
+   environment variable, a Pod Annotation configuration takes precedence
+   over the corresponding environment variable configuration.
+1. If you are using the Secrets Provider in Push-to-File mode, then the
+   Secrets Provider must be configured via Pod Annotations.
+1. If you are using the Secrets Provider in Kubernetes Secrets mode, it
+   is recommended that you use environment variable settings to configure
+   the Secrets Provider.
 
 # Releases
 
