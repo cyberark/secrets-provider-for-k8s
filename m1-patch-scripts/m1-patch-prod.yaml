@@ -1,0 +1,16 @@
+spec:
+  template:
+    metadata:
+      annotations:
+        conjur.org/container-mode: "init"
+        conjur.org/debug-logging: "true"
+        conjur.org/authn-identity: "host/conjur/authn-k8s/my-authenticator-id/apps/test-app-secrets-provider-init"
+        conjur.org/retry-count-limit: "10"
+        conjur.org/retry-interval-sec: "2"
+        conjur.org/secrets-destination: "file"
+        conjur.org/conjur-secrets.db: |
+          - db-url: my-app-db/prod/url
+          - db-username: my-app-db/prod/username
+          - db-password: my-app-db/prod/password
+        conjur.org/secret-file-path.db: db.cfg
+        conjur.org/secret-file-format.db: yaml

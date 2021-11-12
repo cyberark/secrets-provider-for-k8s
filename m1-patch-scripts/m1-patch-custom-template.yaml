@@ -1,0 +1,26 @@
+spec:
+  template:
+    metadata:
+      annotations:
+        conjur.org/container-mode: "init"
+        conjur.org/debug-logging: "true"
+        conjur.org/authn-identity: "host/conjur/authn-k8s/my-authenticator-id/apps/test-app-secrets-provider-init"
+        conjur.org/retry-count-limit: "10"
+        conjur.org/retry-interval-sec: "2"
+        conjur.org/secrets-destination: "file"
+        conjur.org/conjur-secrets.db: |
+          - db-url: test-secrets-provider-init-app-db/url
+          - db-username: test-secrets-provider-init-app-db/username
+          - db-password: test-secrets-provider-init-app-db/password
+        conjur.org/secret-file-path.db: db.ini
+        conjur.org/secret-file-template.db: |
+          ; This is an example INI file created via a custom template
+          [owner]
+          name=Frank Zappa
+          organization=Mothers of Invention, Inc.
+
+          [database]
+          server={{ secret "db-url" }}
+          username={{ secret "db-username" }}
+          password={{ secret "db-password" }}
+          port=1234
