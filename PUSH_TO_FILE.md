@@ -9,6 +9,7 @@
 - [Set up Secrets Provider for Push to File](#set-up-secrets-provider-for-push-to-file)
 - [Reference Table of Configuration Annotations](#reference-table-of-configuration-annotations)
 - [Example Secret File Formats](#example-secret-file-formats)
+- [Custom Templates for Secret Files](#custom-templates-for-secret-files)
 - [Secret File Attributes](#secret-file-attributes)
 - [Upgrading Existing Secrets Provider Deployments](#upgrading-existing-secrets-provider-deployments)
 
@@ -304,6 +305,7 @@ for a description of each environment variable setting:
 | `conjur.org/conjur-secrets.{secret-group}`      | Note\* | List of secrets to be retrieved from Conjur. Each entry can be either:<ul><li>A Conjur variable path</li><li> A key/value pairs of the form `<alias>:<Conjur variable path>` where the `alias` represents the name of the secret to be written to the secrets file |
 | `conjur.org/secret-file-path.{secret-group}`    | Note\* | Relative path for secret file or directory to be written. This path is assumed to be relative to the respective mount path for the shared secrets volume for each container.<br><br>If the `conjur.org/secret-file-template.{secret-group}` is set, then this secret file path must also be set, and it must include a file name (i.e. must not end in `/`).<br><br>If the `conjur.org/secret-file-template.{secret-group}` is not set, then this secret file path defaults to `{secret-group}.{secret-group-file-format}`. For example, if the secret group name is `my-app`, and the secret file format is set for YAML, the the secret file path defaults to `my-app.yaml`.
 | `conjur.org/secret-file-format.{secret-group}`  | Note\* | Allowed values:<ul><li>yaml (default)</li><li>json</li><li>dotenv</li><li>bash</li></ul>(See [Example Secret File Formats](#example-secret-file-formats) for example output files.) |
+| `conjur.org/secret-file-template.{secret-group}`| Note\* | Defines a custom template in Golang text template format with which to render secret file content. See dedicated [Custom Templates for Secret Files](#custom-templates-for-secret-files) section for details. |
 
 __Note*:__ These Push to File annotations do not have an equivalent
 environment variable setting. The Push to File feature must be configured
@@ -356,6 +358,155 @@ to `dotenv`:
 api-url="dev/redis/api-url"
 admin-username="dev/redis/username"
 admin-password="dev/redis/password"
+```
+
+## Custom Templates for Secret Files
+
+In addition to offering standard file formats, Push to File allows users to
+define their own custom secret file templates, configured with the
+`conjur.org/secret-file-template.{secret-group}` annotation. These templates
+adhere to Go's text template formatting. Providing a custom template will
+override the use of any standard format configured with the annotation
+`conjur.org/secret-file-format.{secret-group}`.
+
+Injecting Conjur secrets into custom templates requires using the custom
+template function `secret`. The action shown below renders the value associated
+with `<secret-alias>` in the secret-file.
+
+```
+{{ secret "<secret-alias>" }}
+```
+
+### Global Template Functions
+
+Custom templates support global functions native to Go's `text/template`
+package. The following is an example of using template function to HTML
+escape/encode a secret value.
+
+```
+{{ secret "alias" | html }}
+{{ secret "alias" | urlquery }}
+```
+
+If the value retrieved from Conjur for `alias` is `"<Hello@World!>"`,
+the following file content will be rendered, each HTML escaped and encoded,
+respectively:
+
+```
+&lt;Hello;@World!&gt;
+%3CHello%40World%21%3E
+```
+
+For a full list of global Go text template functions, reference the official
+[`text/template` documentation](https://pkg.go.dev/text/template#hdr-Functions).
+
+### Execution "Double-Pass"
+
+To avoid leaking sensitive secret data to logs, and to ensure that a
+misconfigured Push to File workflow fails fast, Push to File implements a
+"double-pass" execution of custom templates. The template "first-pass" runs
+before secrets are retrieved from Conjur, and validates that the provided custom
+template successfully executes given `"REDACTED"` for each secret value.
+Redacting secret values allows for secure, complete error logging for
+malformed templates. The template "second-pass" runs when rendering secret
+files, and error messages during this stage are sanitized. Custom templates that
+pass the "first-pass" and fail the "second-pass" require experimenting locally
+to identify bugs.
+
+_**NOTE**: Custom templates should not branch conditionally on secret values.
+This may result in a template first-pass execution that doesn't validate all
+branches of the custom template._
+
+### Example Custom Templates: Direct reference to secret values
+
+The following is an example of using a custom template to render secret data by
+referencing secrets directly using the custom template function `secret`.
+
+```
+conjur.org/secret-file-path.direct-reference: ./direct.txt
+conjur.org/secret-file-template.direct-reference: |
+  username | {{ secret "db-username" }}
+  password | {{ secret "db-password" }}
+```
+
+Assuming that the following secrets have been retrieved for secret group
+`direct-reference`:
+
+```
+db-username: admin
+db-password: my$ecretP@ss!
+```
+
+Secrets Provider will render the following content for the file
+`/conjur/secrets/direct.txt`:
+
+```
+username | admin
+password | my$ecretP@ss!
+```
+
+### Example Custom Templates: Iterative approach
+
+The following is an example of using a custom template to render secret data
+using an iterative process instead of referencing all variables directly.
+
+```
+conjur.org/secret-file-path.iterative-reference: ./iterative.txt
+conjur.org/secret-file-template.iterative-reference: |
+  {{- range $index, $secret := .SecretsArray -}}
+  {{- $secret.Alias }} | {{ $secret.Value }}
+  {{- end -}}
+```
+
+Here, `.SecretsArray` is a reference to Secret Provider's internal array of
+secrets that have been retrieved from Conjur. For each entry in this array,
+there is a secret `Alias` and `Value` field that can be referenced in the custom
+template.
+
+Assuming that the following secrets have been retrieved for secret group
+`iterative-reference`:
+
+```
+db-username: admin
+db-password: my$ecretP@ss!
+```
+
+Secrets Provider will render the following content for the file
+`/conjur/secrets/iterative.txt`:
+
+```
+db-username | admin
+db-password | my$ecretP@ss!
+```
+
+### Example Custom Templates: PostgreSQL connection string
+
+The following is an example of using a custom template to render a secret file
+containing a Postgres connection string. For a secret group described by the
+following annotations:
+
+```
+conjur.org/secret-file-path.postgres: ./pg-connection-string.txt
+conjur.org/secret-file-template.postgres: |
+  postgresql://{{ secret "dbuser" }}:{{ secret "dbpassword" }}@{{ secret "hostname" }}:{{ secret "hostport" }}/{{ secret "dbname" }}??sslmode=require
+```
+
+Assuming that the following secrets have been retrieved for secret group
+`postgres`:
+
+```
+dbuser:     "my-user"
+dbpassword: "my-secret-pa$$w0rd"
+dbname:     "postgres"
+hostname:   "database.example.com"
+hostport:   5432
+```
+
+Secrets Provider will render the following content for the file
+`/conjur/secrets/pg-connection-string.txt`:
+
+```
+postgresql://my-user:my-secret-pa$$w0rd@database.example.com:5432/postgres??sslmode=require
 ```
 
 ## Secret File Attributes
