@@ -140,6 +140,9 @@ tags = ["key", "Mailgun"]
 description = "Password in URL"
 regex = '''[a-zA-Z]{3,10}:\/\/[^\/\s:@]{3,20}:[^\/\s:@]{3,20}@.{1,100}\/?.?'''
 tags = ["key", "URL", "generic"]
+[rules.allowlist]
+description = "Push to File documentation for custom templates include sample postgres connection string"
+files = ["PUSH_TO_FILE.md"]
 
 [[rules]]
 description = "PayPal Braintree access token"
