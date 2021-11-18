@@ -100,8 +100,9 @@ func goodSecretSpecs() []SecretSpec {
 func TestNewSecretGroups(t *testing.T) {
 	t.Run("valid annotations", func(t *testing.T) {
 		secretGroups, errs := NewSecretGroups("/basepath", map[string]string{
-			"conjur.org/conjur-secrets.first": `- path/to/secret/first1
-- aliasfirst2: path/to/secret/first2`,
+			"conjur.org/conjur-secrets-policy-path.first": "/path/to/secret/",
+			"conjur.org/conjur-secrets.first": `- first1
+- aliasfirst2: first2`,
 			"conjur.org/secret-file-path.first":      "firstfilepath",
 			"conjur.org/secret-file-template.first":  `firstfiletemplate`,
 			"conjur.org/conjur-secrets.second":       "- path/to/secret/second",
@@ -114,11 +115,12 @@ func TestNewSecretGroups(t *testing.T) {
 		}
 		assert.Len(t, secretGroups, 2)
 		assert.Equal(t, *secretGroups[0], SecretGroup{
-			Name:            "first",
-			FilePath:        "/basepath/firstfilepath",
-			FileTemplate:    "firstfiletemplate",
-			FileFormat:      "",
-			FilePermissions: defaultFilePermissions,
+			Name:             "first",
+			FilePath:         "/basepath/firstfilepath",
+			FileTemplate:     "firstfiletemplate",
+			FileFormat:       "",
+			FilePermissions:  defaultFilePermissions,
+			PolicyPathPrefix: "path/to/secret/",
 			SecretSpecs: []SecretSpec{
 				{
 					Alias: "first1",

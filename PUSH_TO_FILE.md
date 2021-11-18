@@ -8,6 +8,7 @@
 - [Certification Level](#certification-level)
 - [Set up Secrets Provider for Push to File](#set-up-secrets-provider-for-push-to-file)
 - [Reference Table of Configuration Annotations](#reference-table-of-configuration-annotations)
+- [Example Common Policy Path](#example-common-policy-path)
 - [Example Secret File Formats](#example-secret-file-formats)
 - [Custom Templates for Secret Files](#custom-templates-for-secret-files)
 - [Secret File Attributes](#secret-file-attributes)
@@ -238,9 +239,10 @@ Push to File operation.
            conjur.org/authn-identity: host/conjur/authn-k8s/dev-cluster/test-app
            conjur.org/container-mode: init
            conjur.org/secret-destination: file
+           conjur.org/conjur-secrets-policy-path.first: secrets/
            conjur.org/conjur-secrets.test-app: |
-           - admin-username: secrets/username
-           - admin-password: secrets/password
+           - admin-username: username
+           - admin-password: password
            conjur.org/secret-file-path.test-app: "./credentials.yaml"
            conjur.org/secret-file-format.test-app: "yaml"
        spec:
@@ -303,6 +305,7 @@ for a description of each environment variable setting:
 | `conjur.org/retry-interval-sec`     | `RETRY_INTERVAL_SEC`  | Defaults to 1 (sec)              |
 | `conjur.org/debug-logging`          | `DEBUG`               | Defaults to `false`              |
 | `conjur.org/conjur-secrets.{secret-group}`      | Note\* | List of secrets to be retrieved from Conjur. Each entry can be either:<ul><li>A Conjur variable path</li><li> A key/value pairs of the form `<alias>:<Conjur variable path>` where the `alias` represents the name of the secret to be written to the secrets file |
+| `conjur.org/conjur-secrets-policy-path.{secret-group}` | Note\* | Defines a common Conjur policy path, assumed to be relative to the root policy.<br><br>When this annotation is set, the policy paths defined by `conjur.org/conjur-secrets.{secret-group}` are relative to this common path.<br><br>When this annotation is not set, the policy paths defined by `conjur.org/conjur-secrets.{secret-group}` are themselves relative to the root policy.<br><br>(See [Example Common Policy Path](#example-common-policy-path) for an explicit example of this relationship.)|
 | `conjur.org/secret-file-path.{secret-group}`    | Note\* | Relative path for secret file or directory to be written. This path is assumed to be relative to the respective mount path for the shared secrets volume for each container.<br><br>If the `conjur.org/secret-file-template.{secret-group}` is set, then this secret file path must also be set, and it must include a file name (i.e. must not end in `/`).<br><br>If the `conjur.org/secret-file-template.{secret-group}` is not set, then this secret file path defaults to `{secret-group}.{secret-group-file-format}`. For example, if the secret group name is `my-app`, and the secret file format is set for YAML, the the secret file path defaults to `my-app.yaml`.
 | `conjur.org/secret-file-format.{secret-group}`  | Note\* | Allowed values:<ul><li>yaml (default)</li><li>json</li><li>dotenv</li><li>bash</li></ul>(See [Example Secret File Formats](#example-secret-file-formats) for example output files.) |
 | `conjur.org/secret-file-template.{secret-group}`| Note\* | Defines a custom template in Golang text template format with which to render secret file content. See dedicated [Custom Templates for Secret Files](#custom-templates-for-secret-files) section for details. |
@@ -310,6 +313,27 @@ for a description of each environment variable setting:
 __Note*:__ These Push to File annotations do not have an equivalent
 environment variable setting. The Push to File feature must be configured
 using annotations.
+
+## Example Common Policy Path
+
+Given the relationship between `conjur.org/conjur-secrets.{secret-group}` and
+`conjur.org/conjur-secrets-policy-path.{secret-group}`, the following sets of
+annotations will eventually retrieve the same secrets from Conjur:
+
+```
+conjur.org/conjur-secrets.db: |
+  - url: policy/path/api-url
+  - policy/path/username
+  - policy/path/password
+```
+
+```
+conjur.org/conjur-secrets-policy-path.db: policy/path/
+conjur.org/conjur-secrets.db: |
+  - url: api-url
+  - username
+  - password
+```
 
 ## Example Secret File Formats
 
