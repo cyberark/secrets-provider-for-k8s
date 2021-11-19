@@ -32,22 +32,16 @@ type SecretGroup struct {
 
 // ResolvedSecretSpecs resolves all of the secret paths for a secret
 // group by prepending each path with that group's policy path prefix.
-func (sg *SecretGroup) ResolvedSecretSpecs() []SecretSpec {
-	if len(sg.PolicyPathPrefix) == 0 {
-		return sg.SecretSpecs
+// Updates the Path of each SecretSpec in the field SecretSpecs.
+func resolvedSecretSpecs(policyPathPrefix string, secretSpecs []SecretSpec) []SecretSpec {
+	if len(policyPathPrefix) != 0 {
+		for i := range secretSpecs {
+			secretSpecs[i].Path = strings.TrimSuffix(policyPathPrefix, "/") +
+				"/" + strings.TrimPrefix(secretSpecs[i].Path, "/")
+		}
 	}
 
-	specs := make([]SecretSpec, len(sg.SecretSpecs))
-	copy(specs, sg.SecretSpecs)
-
-	// Update specs with policy path prefix
-	for i := range specs {
-		specs[i].Path = strings.TrimSuffix(sg.PolicyPathPrefix, "/") +
-			"/" +
-			strings.TrimPrefix(specs[i].Path, "/")
-	}
-
-	return specs
+	return secretSpecs
 }
 
 // PushToFile uses the configuration on a secret group to inject secrets into a template
@@ -309,6 +303,7 @@ func newSecretGroup(groupName string, secretsBasePath string, annotations map[st
 	filePath := annotations[secretGroupFilePathPrefix+groupName]
 	fileFormat := annotations[secretGroupFileFormatPrefix+groupName]
 	policyPathPrefix := annotations[secretGroupPolicyPathPrefix+groupName]
+	policyPathPrefix = strings.TrimPrefix(policyPathPrefix, "/")
 
 	// Default to "yaml" file format
 	if len(fileTemplate)+len(fileFormat) == 0 {
@@ -320,6 +315,7 @@ func newSecretGroup(groupName string, secretsBasePath string, annotations map[st
 		err = fmt.Errorf(`unable to create secret specs from annotation "%s": %s`, secretGroupPrefix+groupName, err)
 		return nil, []error{err}
 	}
+	secretSpecs = resolvedSecretSpecs(policyPathPrefix, secretSpecs)
 
 	sg := &SecretGroup{
 		Name:             groupName,
