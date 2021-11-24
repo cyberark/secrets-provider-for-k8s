@@ -216,6 +216,7 @@ Push to File operation.
 
    - `/conjur/podinfo` for the `podinfo` volume.
    - `/conjur/secrets` for the `conjur-secrets` volume.
+   - `/conjur/templates` for the `conjur-templates` volume.
 
 
    ```
@@ -263,6 +264,8 @@ Push to File operation.
                mountPath: /conjur/podinfo
              - name: conjur-secrets
                mountPath: /conjur/secrets
+             - name: conjur-templates
+               mountPath: /conjur/templates
          volumes:
            - name: podinfo
              downwardAPI:
@@ -271,6 +274,9 @@ Push to File operation.
                    fieldRef:
                      fieldPath: metadata.annotations
            - name: conjur-secrets
+             emptyDir:
+               medium: Memory
+           - name: conjur-templates
              emptyDir:
                medium: Memory
    ```
@@ -307,7 +313,7 @@ for a description of each environment variable setting:
 | `conjur.org/conjur-secrets.{secret-group}`      | Note\* | List of secrets to be retrieved from Conjur. Each entry can be either:<ul><li>A Conjur variable path</li><li> A key/value pairs of the form `<alias>:<Conjur variable path>` where the `alias` represents the name of the secret to be written to the secrets file |
 | `conjur.org/conjur-secrets-policy-path.{secret-group}` | Note\* | Defines a common Conjur policy path, assumed to be relative to the root policy.<br><br>When this annotation is set, the policy paths defined by `conjur.org/conjur-secrets.{secret-group}` are relative to this common path.<br><br>When this annotation is not set, the policy paths defined by `conjur.org/conjur-secrets.{secret-group}` are themselves relative to the root policy.<br><br>(See [Example Common Policy Path](#example-common-policy-path) for an explicit example of this relationship.)|
 | `conjur.org/secret-file-path.{secret-group}`    | Note\* | Relative path for secret file or directory to be written. This path is assumed to be relative to the respective mount path for the shared secrets volume for each container.<br><br>If the `conjur.org/secret-file-template.{secret-group}` is set, then this secret file path must also be set, and it must include a file name (i.e. must not end in `/`).<br><br>If the `conjur.org/secret-file-template.{secret-group}` is not set, then this secret file path defaults to `{secret-group}.{secret-group-file-format}`. For example, if the secret group name is `my-app`, and the secret file format is set for YAML, the the secret file path defaults to `my-app.yaml`.
-| `conjur.org/secret-file-format.{secret-group}`  | Note\* | Allowed values:<ul><li>yaml (default)</li><li>json</li><li>dotenv</li><li>bash</li></ul>(See [Example Secret File Formats](#example-secret-file-formats) for example output files.) |
+| `conjur.org/secret-file-format.{secret-group}`  | Note\* | Allowed values:<ul><li>yaml (default)</li><li>json</li><li>dotenv</li><li>bash</li><li>template</li></ul><br>This annotation must be set to `template` when using custom templates.<br><br>(See [Example Secret File Formats](#example-secret-file-formats) for example output files.) |
 | `conjur.org/secret-file-template.{secret-group}`| Note\* | Defines a custom template in Golang text template format with which to render secret file content. See dedicated [Custom Templates for Secret Files](#custom-templates-for-secret-files) section for details. |
 
 __Note*:__ These Push to File annotations do not have an equivalent
@@ -387,11 +393,75 @@ admin-password="dev/redis/password"
 ## Custom Templates for Secret Files
 
 In addition to offering standard file formats, Push to File allows users to
-define their own custom secret file templates, configured with the
-`conjur.org/secret-file-template.{secret-group}` annotation. These templates
-adhere to Go's text template formatting. Providing a custom template will
-override the use of any standard format configured with the annotation
-`conjur.org/secret-file-format.{secret-group}`.
+define their own custom secret file templates. These templates adhere to Go's
+text template formatting. Providing custom templates requires setting the
+annotation `conjur.org/secret-file-format.{secret-group}` to `"template"`.
+Custom templates can be provided either by explicit assignment through Pod
+annotations, or through a volume-mounted ConfigMap.
+
+1. <details><summary>Pod annotation</summary>
+
+   Custom templates can be defined with the Pod annotation
+   `conjur.org/secret-file-template.{secret-group}`. The following annotations
+   describe a valid secret group that uses a custom template defined in Pod
+   annotations:
+
+   ```
+   conjur.org/secret-group.example: |
+     - admin-username: <variable-policy-path>
+     - admin-password: <variable-policy-path>
+   conjur.org/secret-file-format.example: "template"
+   conjur.org/secret-file-template.example: |
+     "database": {
+       "username": {{ secret "admin-username" }},
+       "password": {{ secret "admin-password" }},
+     }
+   ```
+
+</details>
+
+2. <details><summary>Volume-mounted ConfigMap</summary>
+
+   Custom templates can be provided as fields in a ConfigMap. This feature
+   requires the following:
+
+   - The ConfigMap containing template files must be mounted in the Secrets
+     Provider container at `/conjur/templates`
+   - Each template's key in the ConfigMap's `data` field must be formatted as
+     `{secret-group}.tpl`.
+
+   The following is an example of a ConfigMap defining a custom Go template for
+   a secret group `example`:
+
+   ```
+   apiVersion: v1
+   kind: ConfigMap
+   metadata:
+     name: my-custom-template
+   data:
+     example.tpl: |
+       "database": {
+         "username": {{ secret "admin-username" }},
+         "password": {{ secret "admin-password" }},
+       }
+   ```
+
+   The following annotations describe a valid secret group that uses a custom
+   template defined in the above ConfigMap:
+
+   ```
+   conjur.org/secret-group.example: |
+     - admin-username: <variable-policy-path>
+     - admin-password: <variable-policy-path>
+   conjur.org/secret-file-format.example: "template"
+   ```
+
+   </details>
+
+Providing a template with both methods for a single secret group fails before
+retrieving secrets from Conjur.
+
+### Using Conjur Secrets in Custom Templates
 
 Injecting Conjur secrets into custom templates requires using the custom
 template function `secret`. The action shown below renders the value associated

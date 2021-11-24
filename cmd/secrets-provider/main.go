@@ -20,6 +20,7 @@ const (
 	defaultContainerMode = "init"
 	annotationsFilePath  = "/conjur/podinfo/annotations"
 	secretsBasePath      = "/conjur/secrets"
+	templatesBasePath    = "/conjur/templates"
 )
 
 var annotationsMap map[string]string
@@ -62,11 +63,12 @@ func main() {
 	}
 
 	providerConfig := secrets.ProviderConfig{
-		StoreType:          secretsConfig.StoreType,
-		PodNamespace:       secretsConfig.PodNamespace,
-		RequiredK8sSecrets: secretsConfig.RequiredK8sSecrets,
-		SecretFileBasePath: secretsBasePath,
-		AnnotationsMap:     annotationsMap,
+		StoreType:            secretsConfig.StoreType,
+		PodNamespace:         secretsConfig.PodNamespace,
+		RequiredK8sSecrets:   secretsConfig.RequiredK8sSecrets,
+		SecretFileBasePath:   secretsBasePath,
+		TemplateFileBasePath: templatesBasePath,
+		AnnotationsMap:       annotationsMap,
 	}
 	provideSecrets, errs := secrets.NewProviderForType(
 		secretRetriever.Retrieve,

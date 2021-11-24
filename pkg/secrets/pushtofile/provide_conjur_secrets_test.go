@@ -53,7 +53,7 @@ func TestNewProvider(t *testing.T) {
 
 	for _, tc := range TestCases {
 		t.Run(tc.description, func(t *testing.T) {
-			p, err := NewProvider(tc.retrieveFunc, tc.basePath, tc.annotations)
+			p, err := NewProvider(tc.retrieveFunc, tc.basePath, "", tc.annotations)
 			assert.Empty(t, err)
 			assert.Equal(t, tc.expectedSecretGroup, p.secretGroups)
 		})
