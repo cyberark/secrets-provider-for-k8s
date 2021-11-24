@@ -1,6 +1,7 @@
 package secrets
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -36,6 +37,7 @@ type ProviderFunc func() error
 
 // NewProviderForType returns a ProviderFunc responsible for providing secrets in a given mode.
 func NewProviderForType(
+	traceContext context.Context,
 	secretsRetrieverFunc conjur.RetrieveSecretsFunc,
 	providerConfig ProviderConfig,
 ) (ProviderFunc, []error) {
@@ -49,6 +51,7 @@ func NewProviderForType(
 		return provider.Provide, nil
 	case config.File:
 		provider, err := pushtofile.NewProvider(
+			traceContext,
 			secretsRetrieverFunc,
 			providerConfig.SecretFileBasePath,
 			providerConfig.TemplateFileBasePath,

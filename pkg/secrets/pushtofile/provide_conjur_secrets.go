@@ -1,18 +1,28 @@
 package pushtofile
 
 import (
+	"context"
+
 	"github.com/cyberark/conjur-authn-k8s-client/pkg/log"
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/log/messages"
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/clients/conjur"
+	"go.opentelemetry.io/otel"
 )
 
 type fileProvider struct {
 	retrieveSecretsFunc conjur.RetrieveSecretsFunc
 	secretGroups        []*SecretGroup
+	traceContext        context.Context
 }
 
 // NewProvider creates a new provider for Push-to-File mode.
-func NewProvider(retrieveSecretsFunc conjur.RetrieveSecretsFunc, secretsBasePath string, templatesBasePath string, annotations map[string]string) (*fileProvider, []error) {
+func NewProvider(
+	traceContext context.Context,
+	retrieveSecretsFunc conjur.RetrieveSecretsFunc,
+	secretsBasePath string,
+	templatesBasePath string,
+	annotations map[string]string) (*fileProvider, []error) {
+
 	secretGroups, err := NewSecretGroups(secretsBasePath, templatesBasePath, annotations)
 	if err != nil {
 		return nil, err
@@ -21,12 +31,14 @@ func NewProvider(retrieveSecretsFunc conjur.RetrieveSecretsFunc, secretsBasePath
 	return &fileProvider{
 		retrieveSecretsFunc: retrieveSecretsFunc,
 		secretGroups:        secretGroups,
+		traceContext:        traceContext,
 	}, nil
 }
 
 // Provide implements a ProviderFunc to retrieve and push secrets to the filesystem.
 func (p fileProvider) Provide() error {
 	return provideWithDeps(
+		p.traceContext,
 		p.secretGroups,
 		p.retrieveSecretsFunc,
 		openFileAsWriteCloser,
@@ -35,16 +47,22 @@ func (p fileProvider) Provide() error {
 }
 
 func provideWithDeps(
+	traceContext context.Context,
 	groups []*SecretGroup,
 	retrieveSecretsFunc conjur.RetrieveSecretsFunc,
 	depOpenWriteCloser openWriteCloserFunc,
 	depPushToWriter pushToWriterFunc,
 ) error {
+	// Use the global TracerProvider
+	tr := otel.Tracer("secrets-provider")
+	_, newSpan := tr.Start(traceContext, "Fetch Conjur Secrets")
 	secretsByGroup, err := FetchSecretsForGroups(retrieveSecretsFunc, groups)
+	newSpan.End()
 	if err != nil {
 		return err
 	}
 
+	_, newSpan = tr.Start(traceContext, "Write Secret Files")
 	for _, group := range groups {
 		err := group.pushToFileWithDeps(
 			depOpenWriteCloser,
@@ -55,6 +73,7 @@ func provideWithDeps(
 			return err
 		}
 	}
+	newSpan.End()
 
 	log.Info(messages.CSPFK015I)
 	return nil
