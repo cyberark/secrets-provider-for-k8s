@@ -19,6 +19,16 @@ const secretGroupFileFormatPrefix = "conjur.org/secret-file-format."
 const defaultFilePermissions os.FileMode = 0664
 const maxFilenameLen = 255
 
+// Config is used during SecretGroup creation, and contains default values for
+// secret file and template file base paths, along with mockable functions for
+// reading template files.
+type Config struct {
+	secretsBasePath   string
+	templatesBasePath string
+	openReadCloser    openReadCloserFunc
+	pullFromReader    pullFromReaderFunc
+}
+
 // SecretGroup incorporates all of the information about a secret group
 // that has been parsed from that secret group's Annotations.
 type SecretGroup struct {
@@ -29,11 +39,6 @@ type SecretGroup struct {
 	PolicyPathPrefix string
 	FilePermissions  os.FileMode
 	SecretSpecs      []SecretSpec
-}
-
-type readFileFuncs struct {
-	openReadCloser openReadCloserFunc
-	pullFromReader pullFromReaderFunc
 }
 
 // ResolvedSecretSpecs resolves all of the secret paths for a secret
@@ -278,24 +283,24 @@ func NewSecretGroups(
 	templatesBasePath string,
 	annotations map[string]string,
 ) ([]*SecretGroup, []error) {
-	return newSecretGroupsWithDeps(secretsBasePath, templatesBasePath, annotations, readFileFuncs{
-		openReadCloser: openFileAsReadCloser, pullFromReader: pullFromReader,
-	})
+	c := Config{
+		secretsBasePath:   secretsBasePath,
+		templatesBasePath: templatesBasePath,
+		openReadCloser:    openFileAsReadCloser,
+		pullFromReader:    pullFromReader,
+	}
+
+	return newSecretGroupsWithDeps(annotations, c)
 }
 
-func newSecretGroupsWithDeps(
-	secretsBasePath string,
-	templatesBasePath string,
-	annotations map[string]string,
-	readFileOps readFileFuncs,
-) ([]*SecretGroup, []error) {
+func newSecretGroupsWithDeps(annotations map[string]string, c Config) ([]*SecretGroup, []error) {
 	var sgs []*SecretGroup
 
 	var errors []error
 	for key := range annotations {
 		if strings.HasPrefix(key, secretGroupPrefix) {
 			groupName := strings.TrimPrefix(key, secretGroupPrefix)
-			sg, errs := newSecretGroup(groupName, secretsBasePath, templatesBasePath, annotations, readFileOps)
+			sg, errs := newSecretGroup(groupName, annotations, c)
 			if errs != nil {
 				errors = append(errors, errs...)
 				continue
@@ -318,13 +323,7 @@ func newSecretGroupsWithDeps(
 	return sgs, nil
 }
 
-func newSecretGroup(
-	groupName string,
-	secretsBasePath string,
-	templatesBasePath string,
-	annotations map[string]string,
-	readFileOps readFileFuncs,
-) (*SecretGroup, []error) {
+func newSecretGroup(groupName string, annotations map[string]string, c Config) (*SecretGroup, []error) {
 	groupSecrets := annotations[secretGroupPrefix+groupName]
 	filePath := annotations[secretGroupFilePathPrefix+groupName]
 	fileFormat := annotations[secretGroupFileFormatPrefix+groupName]
@@ -335,7 +334,7 @@ func newSecretGroup(
 	var err error
 	var fileTemplate string
 	if fileFormat == "template" {
-		fileTemplate, err = collectTemplate(groupName, templatesBasePath, annotations, readFileOps)
+		fileTemplate, err = collectTemplate(groupName, annotations, c)
 		if err != nil {
 			return nil, []error{err}
 		}
@@ -369,7 +368,7 @@ func newSecretGroup(
 	}
 
 	// Generate absolute file path
-	sg.FilePath, err = sg.absoluteFilePath(secretsBasePath)
+	sg.FilePath, err = sg.absoluteFilePath(c.secretsBasePath)
 	if err != nil {
 		return nil, []error{err}
 	}
@@ -377,15 +376,10 @@ func newSecretGroup(
 	return sg, nil
 }
 
-func collectTemplate(
-	groupName string,
-	templatesBasePath string,
-	annotations map[string]string,
-	readFileOps readFileFuncs,
-) (string, error) {
+func collectTemplate(groupName string, annotations map[string]string, c Config) (string, error) {
 	annotationTemplate := annotations[secretGroupFileTemplatePrefix+groupName]
 
-	configmapTemplate, err := readTemplateFromFile(groupName, templatesBasePath, readFileOps)
+	configmapTemplate, err := readTemplateFromFile(groupName, annotations, c)
 	if os.IsNotExist(err) {
 		return annotationTemplate, nil
 	} else if err != nil {
@@ -405,11 +399,12 @@ func collectTemplate(
 
 func readTemplateFromFile(
 	groupName string,
-	templatesBasePath string,
-	readFileOps readFileFuncs,
+	annotations map[string]string,
+	c Config,
+
 ) (string, error) {
-	templateFilepath := filepath.Join(templatesBasePath, groupName+".tpl")
-	rc, err := readFileOps.openReadCloser(templateFilepath)
+	templateFilepath := filepath.Join(c.templatesBasePath, groupName+".tpl")
+	rc, err := c.openReadCloser(templateFilepath)
 	if err != nil {
 		return "", err
 	}
@@ -417,7 +412,7 @@ func readTemplateFromFile(
 		_ = rc.Close()
 	}()
 
-	return readFileOps.pullFromReader(rc)
+	return c.pullFromReader(rc)
 }
 
 func validateGroupFilePaths(secretGroups []*SecretGroup) []error {

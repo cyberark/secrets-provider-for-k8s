@@ -416,11 +416,18 @@ func TestNewSecretGroups(t *testing.T) {
 			err:        nil,
 		}
 
-		groups, errs := newSecretGroupsWithDeps("/basepath", "/templates", map[string]string{
+		config := Config{
+			secretsBasePath:   "/basepath",
+			templatesBasePath: "/templates",
+			openReadCloser:    spyOpenReadCloser.Call,
+			pullFromReader:    spyPullFromReader.Call,
+		}
+
+		groups, errs := newSecretGroupsWithDeps(map[string]string{
 			"conjur.org/conjur-secrets.first":     "- path/to/secret/first1\n",
 			"conjur.org/secret-file-format.first": "template",
 			"conjur.org/secret-file-path.first":   "firstfilepath",
-		}, readFileFuncs{openReadCloser: spyOpenReadCloser.Call, pullFromReader: spyPullFromReader.Call})
+		}, config)
 
 		assert.Empty(t, errs)
 		assert.Equal(t, *groups[0], SecretGroup{
@@ -448,12 +455,19 @@ func TestNewSecretGroups(t *testing.T) {
 			err:        nil,
 		}
 
-		_, errs := newSecretGroupsWithDeps("/basepath", "/templates", map[string]string{
+		config := Config{
+			secretsBasePath:   "/basepath",
+			templatesBasePath: "/templates",
+			openReadCloser:    spyOpenReadCloser.Call,
+			pullFromReader:    spyPullFromReader.Call,
+		}
+
+		_, errs := newSecretGroupsWithDeps(map[string]string{
 			"conjur.org/conjur-secrets.first":       "- path/to/secret/first1\n",
 			"conjur.org/secret-file-path.first":     "firstfilepath",
 			"conjur.org/secret-file-format.first":   "template",
 			"conjur.org/secret-file-template.first": "annotation-template",
-		}, readFileFuncs{openReadCloser: spyOpenReadCloser.Call, pullFromReader: spyPullFromReader.Call})
+		}, config)
 
 		assert.NotEmpty(t, errs)
 		assert.Contains(t, errs[0].Error(), "cannot be provided both by annotation and by ConfigMap")
