@@ -32,13 +32,15 @@ const (
 var annotationsMap map[string]string
 
 var envAnnotationsConversion = map[string]string{
-	"CONJUR_AUTHN_LOGIN":  "conjur.org/authn-identity",
-	"CONTAINER_MODE":      "conjur.org/container-mode",
-	"SECRETS_DESTINATION": "conjur.org/secrets-destination",
-	"K8S_SECRETS":         "conjur.org/k8s-secrets",
-	"RETRY_COUNT_LIMIT":   "conjur.org/retry-count-limit",
-	"RETRY_INTERVAL_SEC":  "conjur.org/retry-interval-sec",
-	"DEBUG":               "conjur.org/debug-logging",
+	"CONJUR_AUTHN_LOGIN":   "conjur.org/authn-identity",
+	"CONTAINER_MODE":       "conjur.org/container-mode",
+	"SECRETS_DESTINATION":  "conjur.org/secrets-destination",
+	"K8S_SECRETS":          "conjur.org/k8s-secrets",
+	"RETRY_COUNT_LIMIT":    "conjur.org/retry-count-limit",
+	"RETRY_INTERVAL_SEC":   "conjur.org/retry-interval-sec",
+	"DEBUG":                "conjur.org/debug-logging",
+	"JAEGER_COLLECTOR_URL": "conjur.org/jaeger-collector-url",
+	"LOG_TRACES":           "conjur.org/log-traces",
 }
 
 func main() {
@@ -49,8 +51,20 @@ func main() {
 	defer cancel()
 
 	// Create a Jaeger TracerProvider
-	tp, err := trace.NewTracerProvider(ctx, trace.JaegerProviderType,
-		"http://jaeger-collector.jaeger.svc.cluster.local:14268/api/traces",
+	var traceType trace.TracerProviderType
+	jaegerUrl := os.Getenv("JAEGER_COLLECTOR_URL")
+	if jaegerUrl != "" {
+		traceType = trace.JaegerProviderType
+	} else if os.Getenv("LOG_TRACES") == "true" {
+		traceType = trace.ConsoleProviderType
+	} else {
+		traceType = trace.NoopProviderType
+	}
+
+	// TODO: Read annotations if env vars are not set
+
+	tp, err := trace.NewTracerProvider(ctx, traceType,
+		jaegerUrl,
 		trace.SetGlobalProvider)
 	if err != nil {
 		printErrorAndExit(err.Error())
