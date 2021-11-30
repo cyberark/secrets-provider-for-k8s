@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -15,7 +16,6 @@ import (
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/clients/conjur"
 	secretsConfigProvider "github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/config"
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/trace"
-	"go.opentelemetry.io/otel/codes"
 )
 
 const (
@@ -44,72 +44,125 @@ var envAnnotationsConversion = map[string]string{
 }
 
 func main() {
+	// os.Exit() does not call deferred functions, so defer exit until after
+	// all other deferred functions have been called.
+	exitCode := 0
+	defer func() { os.Exit(exitCode) }()
+
+	logError := func(errStr string) {
+		log.Error(errStr)
+		exitCode = 1
+	}
+
 	log.Info(messages.CSPFK008I, secrets.FullVersionName)
 
-	// Create a background context for tracing
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	// Create a Jaeger TracerProvider
-	var traceType trace.TracerProviderType
-	jaegerUrl := os.Getenv("JAEGER_COLLECTOR_URL")
-	if jaegerUrl != "" {
-		traceType = trace.JaegerProviderType
-	} else if os.Getenv("LOG_TRACES") == "true" {
-		traceType = trace.ConsoleProviderType
-	} else {
-		traceType = trace.NoopProviderType
-	}
-
-	// TODO: Read annotations if env vars are not set
-
-	tp, err := trace.NewTracerProvider(ctx, traceType,
-		jaegerUrl,
-		trace.SetGlobalProvider)
+	// Create a TracerProvider, Tracer, and top-level (parent) Span
+	tracerType, tracerURL := getTracerConfig()
+	ctx, tracer, deferFunc, err := createTracer(tracerType, tracerURL)
+	defer deferFunc(ctx)
 	if err != nil {
-		printErrorAndExit(err.Error())
+		logError(err.Error())
+		return
 	}
-	defer tp.Shutdown(ctx)
 
-	// Create a Tracer for generating trace information
-	tr := tp.Tracer(tracerName)
+	// Process Pod Annotations
+	if err := processAnnotations(ctx, tracer); err != nil {
+		logError(err.Error())
+		return
+	}
 
-	// Create a top-level trace span with an associated context
-	ctx, span := tr.Start(ctx, "main")
-	defer func() {
-		span.End()
-	}()
+	// Gather K8s authenticator config and create a Conjur secret retriever
+	secretRetriever, err := secretRetriever(ctx, tracer)
+	if err != nil {
+		logError(err.Error())
+		return
+	}
 
+	// Gather secrets config and create a retryable Secrets Provider
+	provideSecrets, secretsConfig, err := retryableSecretsProvider(ctx, tracer, secretRetriever)
+	if err != nil {
+		logError(err.Error())
+		return
+	}
+
+	// Provide secrets
+	err = provideSecrets()
+	if err != nil {
+		errStr := fmt.Sprintf(messages.CSPFK039E, secretsConfig.StoreType, err.Error())
+		logError(errStr)
+	}
+}
+
+func processAnnotations(ctx context.Context, tracer trace.Tracer) error {
 	// Only attempt to populate from annotations if the annotations file exists
 	// TODO: Figure out strategy for dealing with explicit annotation file path
 	// set by user. In that case we can't just ignore that the file is missing.
 	if _, err := os.Stat(annotationsFilePath); err == nil {
-		_, newSpan := tr.Start(ctx, "Process Annotations")
+		_, span := tracer.Start(ctx, "Process Annotations")
+		defer span.End()
 		annotationsMap, err = annotations.NewAnnotationsFromFile(annotationsFilePath)
 		if err != nil {
-			printErrorAndExit(err.Error())
-			recordErrorAndEndSpan(newSpan, err)
+			log.Error(err.Error())
+			span.RecordErrorAndSetStatus(err)
+			return err
 		}
 
 		errLogs, infoLogs := secretsConfigProvider.ValidateAnnotations(annotationsMap)
-		newSpan.End()
-		logErrorsAndConditionalExit(errLogs, infoLogs, messages.CSPFK049E)
+		if err := logErrorsAndInfos(errLogs, infoLogs); err != nil {
+			log.Error(messages.CSPFK049E)
+			span.RecordErrorAndSetStatus(errors.New(messages.CSPFK049E))
+			return err
+		}
 	}
+	return nil
+}
 
-	// Initialize Authenticator and Secrets Provider configurations
-	_, newSpan := tr.Start(ctx, "Configure Secrets Provider")
-	authnConfig := setupAuthnConfig()
-	validateContainerMode(authnConfig.ContainerMode)
-	secretsConfig := setupSecretsConfig()
+func secretRetriever(ctx context.Context,
+	tracer trace.Tracer) (*conjur.SecretRetriever, error) {
 
-	// Initialize a Conjur Secret Fetcher
-	secretRetriever, err := conjur.NewConjurSecretRetriever(*authnConfig)
+	// Create a trace Span
+	_, span := tracer.Start(ctx, "Create Conjur secret retriever")
+	defer span.End()
+
+	// Gather K8s authenticator config
+	authnConfig, err := setupAuthnConfig()
 	if err != nil {
-		recordErrorAndEndSpan(newSpan, err)
-		printErrorAndExit(err.Error())
+		log.Error(err.Error())
+		span.RecordErrorAndSetStatus(err)
+		return nil, err
+	}
+	if err = validateContainerMode(authnConfig.ContainerMode); err != nil {
+		log.Error(err.Error())
+		span.RecordErrorAndSetStatus(err)
+		return nil, err
 	}
 
-	providerConfig := secrets.ProviderConfig{
+	// Initialize a Conjur secret retriever
+	secretRetriever, err := conjur.NewSecretRetriever(*authnConfig)
+	if err != nil {
+		log.Error(err.Error())
+		span.RecordErrorAndSetStatus(err)
+		return nil, err
+	}
+	return secretRetriever, nil
+}
+
+func retryableSecretsProvider(
+	ctx context.Context,
+	tracer trace.Tracer,
+	secretRetriever *conjur.SecretRetriever) (secrets.ProviderFunc, *secretsConfigProvider.Config, error) {
+
+	_, span := tracer.Start(ctx, "Create retryable secrets provider")
+	defer span.End()
+
+	// Initialize Secrets Provider configuration
+	secretsConfig, err := setupSecretsConfig()
+	if err != nil {
+		log.Error(err.Error())
+		span.RecordErrorAndSetStatus(err)
+		return nil, nil, err
+	}
+	providerConfig := &secrets.ProviderConfig{
 		StoreType:            secretsConfig.StoreType,
 		PodNamespace:         secretsConfig.PodNamespace,
 		RequiredK8sSecrets:   secretsConfig.RequiredK8sSecrets,
@@ -117,28 +170,25 @@ func main() {
 		TemplateFileBasePath: templatesBasePath,
 		AnnotationsMap:       annotationsMap,
 	}
-	provideSecrets, errs := secrets.NewProviderForType(
-		ctx,
-		secretRetriever.Retrieve,
-		providerConfig,
-	)
-	logErrorsAndConditionalExit(errs, nil, messages.CSPFK053E)
+
+	// Create a secrets provider
+	provideSecrets, errs := secrets.NewProviderForType(ctx,
+		secretRetriever.Retrieve, *providerConfig)
+	if err := logErrorsAndInfos(errs, nil); err != nil {
+		log.Error(messages.CSPFK053E)
+		span.RecordErrorAndSetStatus(errors.New(messages.CSPFK053E))
+		return nil, nil, err
+	}
 
 	provideSecrets = secrets.RetryableSecretProvider(
 		time.Duration(secretsConfig.RetryIntervalSec)*time.Second,
 		secretsConfig.RetryCountLimit,
 		provideSecrets,
 	)
-
-	newSpan.End()
-
-	err = provideSecrets()
-	if err != nil {
-		printErrorAndExit(fmt.Sprintf(messages.CSPFK039E, secretsConfig.StoreType, err.Error()))
-	}
+	return provideSecrets, secretsConfig, nil
 }
 
-func setupAuthnConfig() *authnConfigProvider.Config {
+func setupAuthnConfig() (*authnConfigProvider.Config, error) {
 	// Provides a custom env for authenticator settings retrieval.
 	// Log the origin of settings which have multiple possible sources.
 	customEnv := func(key string) string {
@@ -163,26 +213,27 @@ func setupAuthnConfig() *authnConfigProvider.Config {
 	authnSettings := authnConfigProvider.GatherSettings(customEnv)
 
 	errLogs := authnSettings.Validate(ioutil.ReadFile)
-	logErrorsAndConditionalExit(errLogs, nil, messages.CSPFK008E)
+	if err := logErrorsAndInfos(errLogs, nil); err != nil {
+		log.Error(messages.CSPFK008E)
+		return nil, err
+	}
 
-	return authnSettings.NewConfig()
+	return authnSettings.NewConfig(), nil
 }
 
-func setupSecretsConfig() *secretsConfigProvider.Config {
+func setupSecretsConfig() (*secretsConfigProvider.Config, error) {
 	secretsProviderSettings := secretsConfigProvider.GatherSecretsProviderSettings(annotationsMap)
 
 	errLogs, infoLogs := secretsConfigProvider.ValidateSecretsProviderSettings(secretsProviderSettings)
-	logErrorsAndConditionalExit(errLogs, infoLogs, messages.CSPFK015E)
+	if err := logErrorsAndInfos(errLogs, infoLogs); err != nil {
+		log.Error(messages.CSPFK015E)
+		return nil, err
+	}
 
-	return secretsConfigProvider.NewConfig(secretsProviderSettings)
+	return secretsConfigProvider.NewConfig(secretsProviderSettings), nil
 }
 
-func printErrorAndExit(errorMessage string) {
-	log.Error(errorMessage)
-	os.Exit(1)
-}
-
-func logErrorsAndConditionalExit(errLogs []error, infoLogs []error, failureMsg string) {
+func logErrorsAndInfos(errLogs []error, infoLogs []error) error {
 	for _, err := range infoLogs {
 		log.Info(err.Error())
 	}
@@ -190,30 +241,21 @@ func logErrorsAndConditionalExit(errLogs []error, infoLogs []error, failureMsg s
 		for _, err := range errLogs {
 			log.Error(err.Error())
 		}
-		printErrorAndExit(failureMsg)
+		return errors.New("fatal errors occurred, check Secrets Provider logs")
 	}
+	return nil
 }
 
-func validateContainerMode(containerMode string) {
+func validateContainerMode(containerMode string) error {
 	validContainerModes := []string{
 		"init",
 		"application",
 	}
 
-	isValidContainerMode := false
 	for _, validContainerModeType := range validContainerModes {
 		if containerMode == validContainerModeType {
-			isValidContainerMode = true
+			return nil
 		}
 	}
-
-	if !isValidContainerMode {
-		printErrorAndExit(fmt.Sprintf(messages.CSPFK007E, containerMode, validContainerModes))
-	}
-}
-
-func recordErrorAndEndSpan(span trace.Span, err error) {
-	span.RecordError(err)
-	span.SetStatus(codes.Error, err.Error())
-	span.End()
+	return fmt.Errorf(messages.CSPFK007E, containerMode, validContainerModes)
 }

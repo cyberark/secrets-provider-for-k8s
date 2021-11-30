@@ -6,6 +6,7 @@ import (
 	"github.com/cyberark/conjur-authn-k8s-client/pkg/log"
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/log/messages"
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/clients/conjur"
+	"github.com/cyberark/secrets-provider-for-k8s/pkg/trace"
 	"go.opentelemetry.io/otel"
 )
 
@@ -54,15 +55,16 @@ func provideWithDeps(
 	depPushToWriter pushToWriterFunc,
 ) error {
 	// Use the global TracerProvider
-	tr := otel.Tracer("secrets-provider")
-	_, newSpan := tr.Start(traceContext, "Fetch Conjur Secrets")
+	tr := trace.NewOtelTracer(otel.Tracer("secrets-provider"))
+	_, span := tr.Start(traceContext, "Fetch Conjur Secrets")
 	secretsByGroup, err := FetchSecretsForGroups(retrieveSecretsFunc, groups)
-	newSpan.End()
+	defer span.End()
 	if err != nil {
+		span.RecordErrorAndSetStatus(err)
 		return err
 	}
 
-	_, newSpan = tr.Start(traceContext, "Write Secret Files")
+	_, span = tr.Start(traceContext, "Write Secret Files")
 	for _, group := range groups {
 		err := group.pushToFileWithDeps(
 			depOpenWriteCloser,
@@ -70,10 +72,10 @@ func provideWithDeps(
 			secretsByGroup[group.Name],
 		)
 		if err != nil {
+			span.RecordErrorAndSetStatus(err)
 			return err
 		}
 	}
-	newSpan.End()
 
 	log.Info(messages.CSPFK015I)
 	return nil

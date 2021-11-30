@@ -6,12 +6,10 @@ import (
 
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/exporters/jaeger"
 	"go.opentelemetry.io/otel/sdk/resource"
 	tracesdk "go.opentelemetry.io/otel/sdk/trace"
 	semconv "go.opentelemetry.io/otel/semconv/v1.7.0"
-	traceotel "go.opentelemetry.io/otel/trace"
 )
 
 // jaegerTracerProvider implements the TracerProvider interface using
@@ -42,7 +40,7 @@ func newJaegerTracerProvider(url string) (TracerProvider, error) {
 }
 
 func (tp *jaegerTracerProvider) Tracer(name string) Tracer {
-	return newJaegerTracer(tp.providerSDK.Tracer(tracerName))
+	return NewOtelTracer(tp.providerSDK.Tracer(tracerName))
 }
 
 func (tp *jaegerTracerProvider) Shutdown(ctx context.Context) error {
@@ -54,39 +52,4 @@ func (tp *jaegerTracerProvider) Shutdown(ctx context.Context) error {
 
 func (tp *jaegerTracerProvider) SetGlobalTracerProvider() {
 	otel.SetTracerProvider(tp.providerSDK)
-}
-
-// jaegerTracer implements the Tracer interface for a Jaeger exporter.
-type jaegerTracer struct {
-	tracerOtel traceotel.Tracer
-}
-
-func newJaegerTracer(tracerOtel traceotel.Tracer) jaegerTracer {
-	return jaegerTracer{tracerOtel: tracerOtel}
-}
-
-func (t jaegerTracer) Start(ctx context.Context, spanName string) (context.Context, Span) {
-	ctx, spanOtel := t.tracerOtel.Start(ctx, spanName)
-	return ctx, newJaegerSpan(spanOtel)
-}
-
-// jaegerSpan implements the Span interface for a Jaeger exporter.
-type jaegerSpan struct {
-	spanOtel traceotel.Span
-}
-
-func newJaegerSpan(spanOtel traceotel.Span) jaegerSpan {
-	return jaegerSpan{spanOtel: spanOtel}
-}
-
-func (s jaegerSpan) End() {
-	s.spanOtel.End()
-}
-
-func (s jaegerSpan) RecordError(err error) {
-	s.spanOtel.RecordError(err)
-}
-
-func (s jaegerSpan) SetStatus(code codes.Code, description string) {
-	s.spanOtel.SetStatus(code, description)
 }

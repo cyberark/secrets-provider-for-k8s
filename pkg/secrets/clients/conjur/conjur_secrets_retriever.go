@@ -12,16 +12,16 @@ import (
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/log/messages"
 )
 
-type conjurSecretRetriever struct {
+type SecretRetriever struct {
 	authn *authenticator.Authenticator
 }
 
 // RetrieveSecretsFunc defines a function type for retrieving secrets.
 type RetrieveSecretsFunc func(variableIDs []string) (map[string][]byte, error)
 
-// NewConjurSecretRetriever creates a new conjurSecretRetriever and Authenticator
+// NewSecretRetriever creates a new SecretRetriever and Authenticator
 // given an authenticator config.
-func NewConjurSecretRetriever(authnConfig config.Config) (*conjurSecretRetriever, error) {
+func NewSecretRetriever(authnConfig config.Config) (*SecretRetriever, error) {
 	accessToken, err := memory.NewAccessToken()
 	if err != nil {
 		return nil, fmt.Errorf("%s", messages.CSPFK001E)
@@ -32,14 +32,14 @@ func NewConjurSecretRetriever(authnConfig config.Config) (*conjurSecretRetriever
 		return nil, fmt.Errorf("%s", messages.CSPFK009E)
 	}
 
-	return &conjurSecretRetriever{
+	return &SecretRetriever{
 		authn: authn,
 	}, nil
 }
 
-// Retrieve implements a RetrieveSecretsFunc for a given conjurSecretRetriever.
+// Retrieve implements a RetrieveSecretsFunc for a given SecretRetriever.
 // Authenticates the client, and retrieves a given batch of variables from Conjur.
-func (retriever conjurSecretRetriever) Retrieve(variableIDs []string) (map[string][]byte, error) {
+func (retriever SecretRetriever) Retrieve(variableIDs []string) (map[string][]byte, error) {
 	authn := retriever.authn
 
 	err := authn.Authenticate()
