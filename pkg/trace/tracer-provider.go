@@ -54,9 +54,9 @@ func NewTracerProvider(
 
 	switch providerType {
 	case NoopProviderType:
-		// TODO: Add Noop TracerProvider code
+		tp = newNoopTracerProvider()
 	case ConsoleProviderType:
-		// TODO: Add Console TracerProvider code
+		tp, err = newConsoleTracerProvider()
 	case JaegerProviderType:
 		tp, err = newJaegerTracerProvider(collectorURL)
 	default:
