@@ -6,6 +6,21 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [1.2.0] - 2021-11-30
+
+### Added
+- Adds validation for output filepaths and names in Push-to-File, requiring
+  valid Linux filenames that are unique across all secret groups.
+  [cyberark/secrets-provider-for-k8s#386](https://github.com/cyberark/secrets-provider-for-k8s/pull/386)
+- Adds support for Push-to-File annotation `conjur.org/conjur-secrets-policy-path.{secret-group}`.
+  [cyberark/secrets-provider-for-k8s#392](https://github.com/cyberark/secrets-provider-for-k8s/pull/392)
+
+### Changed
+- Push-to-File supports more intuitive output filepaths. Filepaths are
+  no longer required to contain the hard-coded mount path `/conjur/secrets`, and
+  can specify intermediate directories.
+  [cyberark/secrets-provider-for-k8s#381](https://github.com/cyberark/secrets-provider-for-k8s/pull/381)
+
 ## [1.1.6] - 2021-10-29
 
 ### Added
@@ -146,7 +161,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ### Changed
   - Escape secrets with backslashes before patching in k8s
 
-[Unreleased]: https://github.com/cyberark/secrets-provider-for-k8s/compare/v1.1.6...HEAD
+[Unreleased]: https://github.com/cyberark/secrets-provider-for-k8s/compare/v1.2.0...HEAD
+[1.2.0]: https://github.com/cyberark/secrets-provider-for-k8s/compare/v1.1.6...v1.2.0
 [1.1.6]: https://github.com/cyberark/secrets-provider-for-k8s/compare/v1.1.5...v1.1.6
 [1.1.5]: https://github.com/cyberark/secrets-provider-for-k8s/compare/v1.1.4...v1.1.5
 [1.1.4]: https://github.com/cyberark/secrets-provider-for-k8s/compare/v1.1.3...v1.1.4
