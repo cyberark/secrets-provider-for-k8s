@@ -44,6 +44,7 @@ func NewProviderForType(
 	switch providerConfig.StoreType {
 	case config.K8s:
 		provider := k8sSecretsStorage.NewProvider(
+			traceContext,
 			secretsRetrieverFunc,
 			providerConfig.RequiredK8sSecrets,
 			providerConfig.PodNamespace,

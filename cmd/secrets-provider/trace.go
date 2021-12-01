@@ -5,20 +5,50 @@ import (
 	"os"
 
 	"github.com/cyberark/conjur-authn-k8s-client/pkg/log"
+	"github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/annotations"
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/trace"
 )
 
 func getTracerConfig() (trace.TracerProviderType, string) {
-	var traceType trace.TracerProviderType
+	// First try to get the tracer config from annotations
+	log.Debug("Getting tracer config from annotations")
+	traceType, jaegerUrl, err := getTracerConfigFromAnnotations()
+
+	// If no tracer is specified in annotations, get it from environment variables
+	if err != nil || traceType == trace.NoopProviderType {
+		log.Debug("Getting tracer config from environment variables")
+		traceType, jaegerUrl = getTracerConfigFromEnv()
+	}
+
+	log.Debug("Tracer config: ", traceType, jaegerUrl)
+	return traceType, jaegerUrl
+}
+
+func getTracerConfigFromEnv() (trace.TracerProviderType, string) {
 	jaegerURL := os.Getenv("JAEGER_COLLECTOR_URL")
 	if jaegerURL != "" {
-		traceType = trace.JaegerProviderType
-	} else if os.Getenv("LOG_TRACES") == "true" {
-		traceType = trace.ConsoleProviderType
-	} else {
-		traceType = trace.NoopProviderType
+		return trace.JaegerProviderType, jaegerURL
 	}
-	return traceType, jaegerURL
+	if os.Getenv("LOG_TRACES") == "true" {
+		return trace.ConsoleProviderType, ""
+	}
+	return trace.NoopProviderType, ""
+}
+
+func getTracerConfigFromAnnotations() (trace.TracerProviderType, string, error) {
+	annotationsMap, err := annotations.NewAnnotationsFromFile(annotationsFilePath)
+	if err != nil {
+		return trace.NoopProviderType, "", err
+	}
+	var jaegerURL string = annotationsMap[envAnnotationsConversion["JAEGER_COLLECTOR_URL"]]
+	if jaegerURL != "" {
+		return trace.JaegerProviderType, jaegerURL, nil
+	}
+
+	if annotationsMap[envAnnotationsConversion["LOG_TRACES"]] == "true" {
+		return trace.ConsoleProviderType, "", nil
+	}
+	return trace.NoopProviderType, "", nil
 }
 
 // Create a TracerProvider, Tracer, and top-level (parent) Span

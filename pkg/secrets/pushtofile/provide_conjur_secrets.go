@@ -64,14 +64,18 @@ func provideWithDeps(
 		return err
 	}
 
-	_, span = tr.Start(traceContext, "Write Secret Files")
+	spanCtx, span := tr.Start(traceContext, "Write Secret Files")
+	defer span.End()
 	for _, group := range groups {
+		_, childSpan := tr.Start(spanCtx, "Write Secret Files for group")
+		defer childSpan.End()
 		err := group.pushToFileWithDeps(
 			depOpenWriteCloser,
 			depPushToWriter,
 			secretsByGroup[group.Name],
 		)
 		if err != nil {
+			childSpan.RecordErrorAndSetStatus(err)
 			span.RecordErrorAndSetStatus(err)
 			return err
 		}
