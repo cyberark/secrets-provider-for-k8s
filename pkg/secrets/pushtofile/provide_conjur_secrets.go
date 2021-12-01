@@ -56,15 +56,16 @@ func provideWithDeps(
 ) error {
 	// Use the global TracerProvider
 	tr := trace.NewOtelTracer(otel.Tracer("secrets-provider"))
-	_, span := tr.Start(traceContext, "Fetch Conjur Secrets")
-	secretsByGroup, err := FetchSecretsForGroups(retrieveSecretsFunc, groups)
-	defer span.End()
+	spanCtx, span := tr.Start(traceContext, "Fetch Conjur Secrets")
+	secretsByGroup, err := FetchSecretsForGroups(retrieveSecretsFunc, groups, spanCtx)
 	if err != nil {
 		span.RecordErrorAndSetStatus(err)
+		span.End()
 		return err
 	}
+	span.End()
 
-	spanCtx, span := tr.Start(traceContext, "Write Secret Files")
+	spanCtx, span = tr.Start(traceContext, "Write Secret Files")
 	defer span.End()
 	for _, group := range groups {
 		_, childSpan := tr.Start(spanCtx, "Write Secret Files for group")

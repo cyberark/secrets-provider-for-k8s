@@ -1,6 +1,7 @@
 package pushtofile
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/clients/conjur"
@@ -18,12 +19,13 @@ type Secret struct {
 func FetchSecretsForGroups(
 	depRetrieveSecrets conjur.RetrieveSecretsFunc,
 	secretGroups []*SecretGroup,
+	traceContext context.Context,
 ) (map[string][]*Secret, error) {
 	var err error
 	secretsByGroup := map[string][]*Secret{}
 
 	secretPaths := getAllPaths(secretGroups)
-	secretValueById, err := depRetrieveSecrets(secretPaths)
+	secretValueById, err := depRetrieveSecrets(secretPaths, traceContext)
 	if err != nil {
 		return nil, err
 	}

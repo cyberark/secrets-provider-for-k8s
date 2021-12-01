@@ -1,6 +1,7 @@
 package trace
 
 import (
+	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
 	traceotel "go.opentelemetry.io/otel/trace"
 )
@@ -23,6 +24,11 @@ type Span interface {
 	// description, overriding previous values set. The description is only
 	// included in a status when the code is for an error.
 	SetStatus(code codes.Code, description string)
+
+	// SetAttributes sets kv as attributes of the Span. If a key from kv
+	// already exists for an attribute of the Span it will be overwritten with
+	// the value contained in kv.
+	SetAttributes(kv ...attribute.KeyValue)
 
 	// Record an error and set the status for a Span.
 	RecordErrorAndSetStatus(err error)
@@ -47,6 +53,10 @@ func (s otelSpan) RecordError(err error) {
 
 func (s otelSpan) SetStatus(code codes.Code, description string) {
 	s.spanOtel.SetStatus(code, description)
+}
+
+func (s otelSpan) SetAttributes(kv ...attribute.KeyValue) {
+	s.spanOtel.SetAttributes(kv...)
 }
 
 func (s otelSpan) RecordErrorAndSetStatus(err error) {

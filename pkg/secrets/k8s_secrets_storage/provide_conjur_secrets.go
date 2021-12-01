@@ -233,7 +233,7 @@ func (p K8sProvider) parseConjurSecretsYAML(secretsYAML []byte,
 }
 
 func (p K8sProvider) retrieveConjurSecrets(tracer trace.Tracer) (map[string][]byte, error) {
-	_, span := tracer.Start(p.traceContext, "Fetch Conjur Secrets")
+	spanCtx, span := tracer.Start(p.traceContext, "Fetch Conjur Secrets")
 	defer span.End()
 
 	updateDests := p.secretsState.updateDestinations
@@ -248,7 +248,7 @@ func (p K8sProvider) retrieveConjurSecrets(tracer trace.Tracer) (map[string][]by
 		variableIDs = append(variableIDs, key)
 	}
 
-	retrievedConjurSecrets, err := p.conjur.retrieveSecrets(variableIDs)
+	retrievedConjurSecrets, err := p.conjur.retrieveSecrets(variableIDs, spanCtx)
 	if err != nil {
 		span.RecordErrorAndSetStatus(err)
 		return nil, p.log.recordedError(messages.CSPFK034E, err.Error())

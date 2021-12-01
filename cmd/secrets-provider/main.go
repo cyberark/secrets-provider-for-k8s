@@ -16,6 +16,7 @@ import (
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/clients/conjur"
 	secretsConfigProvider "github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/config"
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/trace"
+	"go.opentelemetry.io/otel/attribute"
 )
 
 const (
@@ -121,11 +122,11 @@ func secretRetriever(ctx context.Context,
 	tracer trace.Tracer) (*conjur.SecretRetriever, error) {
 
 	// Create a trace Span
-	_, span := tracer.Start(ctx, "Create Conjur secret retriever")
+	spanCtx, span := tracer.Start(ctx, "Create Conjur secret retriever")
 	defer span.End()
 
 	// Gather K8s authenticator config
-	authnConfig, err := setupAuthnConfig()
+	authnConfig, err := setupAuthnConfig(spanCtx, tracer)
 	if err != nil {
 		log.Error(err.Error())
 		span.RecordErrorAndSetStatus(err)
@@ -171,6 +172,9 @@ func retryableSecretsProvider(
 		AnnotationsMap:       annotationsMap,
 	}
 
+	// Tag the span with the secrets provider mode
+	span.SetAttributes(attribute.String("store-type", secretsConfig.StoreType))
+
 	// Create a secrets provider
 	provideSecrets, errs := secrets.NewProviderForType(ctx,
 		secretRetriever.Retrieve, *providerConfig)
@@ -188,9 +192,14 @@ func retryableSecretsProvider(
 	return provideSecrets, secretsConfig, nil
 }
 
-func setupAuthnConfig() (*authnConfigProvider.Config, error) {
+func setupAuthnConfig(ctx context.Context,
+	tracer trace.Tracer) (*authnConfigProvider.Config, error) {
 	// Provides a custom env for authenticator settings retrieval.
 	// Log the origin of settings which have multiple possible sources.
+
+	_, span := tracer.Start(ctx, "Gather authenticator config")
+	defer span.End()
+
 	customEnv := func(key string) string {
 		if annotation, ok := envAnnotationsConversion[key]; ok {
 			if value := annotationsMap[annotation]; value != "" {
@@ -214,6 +223,7 @@ func setupAuthnConfig() (*authnConfigProvider.Config, error) {
 
 	errLogs := authnSettings.Validate(ioutil.ReadFile)
 	if err := logErrorsAndInfos(errLogs, nil); err != nil {
+		span.RecordErrorAndSetStatus(err)
 		log.Error(messages.CSPFK008E)
 		return nil, err
 	}

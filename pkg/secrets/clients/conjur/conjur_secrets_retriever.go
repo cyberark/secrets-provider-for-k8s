@@ -1,15 +1,19 @@
 package conjur
 
 import (
+	"context"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/cyberark/conjur-authn-k8s-client/pkg/access_token/memory"
 	"github.com/cyberark/conjur-authn-k8s-client/pkg/authenticator"
 	"github.com/cyberark/conjur-authn-k8s-client/pkg/authenticator/config"
 	"github.com/cyberark/conjur-authn-k8s-client/pkg/log"
+	"go.opentelemetry.io/otel"
 
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/log/messages"
+	"github.com/cyberark/secrets-provider-for-k8s/pkg/trace"
 )
 
 type SecretRetriever struct {
@@ -17,7 +21,7 @@ type SecretRetriever struct {
 }
 
 // RetrieveSecretsFunc defines a function type for retrieving secrets.
-type RetrieveSecretsFunc func(variableIDs []string) (map[string][]byte, error)
+type RetrieveSecretsFunc func(variableIDs []string, traceContext context.Context) (map[string][]byte, error)
 
 // NewSecretRetriever creates a new SecretRetriever and Authenticator
 // given an authenticator config.
@@ -39,13 +43,19 @@ func NewSecretRetriever(authnConfig config.Config) (*SecretRetriever, error) {
 
 // Retrieve implements a RetrieveSecretsFunc for a given SecretRetriever.
 // Authenticates the client, and retrieves a given batch of variables from Conjur.
-func (retriever SecretRetriever) Retrieve(variableIDs []string) (map[string][]byte, error) {
+func (retriever SecretRetriever) Retrieve(variableIDs []string, traceContext context.Context) (map[string][]byte, error) {
+	tr := trace.NewOtelTracer(otel.Tracer("secrets-provider"))
+	_, span := tr.Start(traceContext, "Authenticate")
+
 	authn := retriever.authn
 
 	err := authn.Authenticate()
 	if err != nil {
+		span.RecordErrorAndSetStatus(err)
+		span.End()
 		return nil, log.RecordedError(messages.CSPFK010E)
 	}
+	span.End()
 
 	accessTokenData, err := authn.AccessToken.Read()
 	if err != nil {
@@ -53,6 +63,12 @@ func (retriever SecretRetriever) Retrieve(variableIDs []string) (map[string][]by
 	}
 	// Always delete the access token. The deletion is idempotent and never fails
 	defer authn.AccessToken.Delete()
+
+	_, span = tr.Start(
+		traceContext,
+		fmt.Sprintf("Retrieve secrets (#%s)", strconv.Itoa(len(variableIDs))),
+	)
+	defer span.End()
 
 	return retrieveConjurSecrets(accessTokenData, variableIDs)
 }
