@@ -39,7 +39,7 @@ func openFileAsWriteCloser(path string, permissions os.FileMode) (io.WriteCloser
 		return nil, fmt.Errorf("unable to mkdir when opening file to write at %q: %s", path, err)
 	}
 
-	wc, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, permissions)
+	wc, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE, permissions)
 	if err != nil {
 		return nil, fmt.Errorf("unable to open file to write at %q: %s", path, err)
 	}

@@ -681,7 +681,7 @@ func TestSecretGroup_PushToFile(t *testing.T) {
 		// Create a group, and push to file
 		group := SecretGroup{
 			Name:            "groupname",
-			FilePath:        "/dev/stdout",
+			FilePath:        "/",
 			FileTemplate:    "",
 			FileFormat:      "yaml",
 			FilePermissions: 0744,
