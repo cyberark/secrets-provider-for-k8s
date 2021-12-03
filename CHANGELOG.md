@@ -6,6 +6,12 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Fixed
+- If the Secrets Provider is run in Push-to-File mode, it no longer errors out
+  if it finds any pre-existing secret files. This is helpful when the Secrets
+  Provider is being run multiple times.
+  [cyberark/secrets-provider-for-k8s#397](https://github.com/cyberark/secrets-provider-for-k8s/pull/397)
+
 ## [1.2.0] - 2021-11-30
 
 ### Added
