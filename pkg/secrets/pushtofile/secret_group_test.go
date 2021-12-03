@@ -404,7 +404,7 @@ func TestNewSecretGroups(t *testing.T) {
 		assert.Contains(t, errs[0].Error(), `secret alias "x" not present in specified secrets`)
 	})
 
-	t.Run("custom template from file - happy case", func(t *testing.T) {
+	t.Run("custom template - happy case from template file", func(t *testing.T) {
 		// Setup mocks
 		closableBuf := new(ClosableBuffer)
 		closableBuf.Buffer = *bytes.NewBufferString("configmap-template")
@@ -443,7 +443,7 @@ func TestNewSecretGroups(t *testing.T) {
 		})
 	})
 
-	t.Run("custom template file - annotation and configmap template provided", func(t *testing.T) {
+	t.Run("custom template - both annotation and configmap template provided", func(t *testing.T) {
 		// Setup mocks
 		closableBuf := new(ClosableBuffer)
 		closableBuf.Buffer = *bytes.NewBufferString("configmap-template")
@@ -473,7 +473,36 @@ func TestNewSecretGroups(t *testing.T) {
 		assert.Contains(t, errs[0].Error(), "cannot be provided both by annotation and by ConfigMap")
 	})
 
-	t.Run("custom template file - test template base path", func(t *testing.T) {
+	t.Run("custom template - neither annotation or configmap template provided", func(t *testing.T) {
+		// Setup mocks
+		closableBuf := new(ClosableBuffer)
+		closableBuf.Buffer = *bytes.NewBufferString("")
+		spyPullFromReader := pullFromReaderSpy{
+			err: nil,
+		}
+		spyOpenReadCloser := openReadCloserSpy{
+			readCloser: closableBuf,
+			err:        nil,
+		}
+
+		config := Config{
+			secretsBasePath:   "/basepath",
+			templatesBasePath: "/templates",
+			openReadCloser:    spyOpenReadCloser.Call,
+			pullFromReader:    spyPullFromReader.Call,
+		}
+
+		_, errs := newSecretGroupsWithDeps(map[string]string{
+			"conjur.org/conjur-secrets.first":     "- path/to/secret/first1\n",
+			"conjur.org/secret-file-path.first":   "firstfilepath",
+			"conjur.org/secret-file-format.first": "template",
+		}, config)
+
+		assert.NotEmpty(t, errs)
+		assert.Contains(t, errs[0].Error(), `template required for secret group "first"`)
+	})
+
+	t.Run("custom template - test template file base path", func(t *testing.T) {
 		// Create temp directory
 		dir, err := ioutil.TempDir("", "")
 		assert.NoError(t, err)
