@@ -58,7 +58,6 @@ const CSPFK038E string = "CSPFK038E Retransmission backoff exhausted"
 const CSPFK039E string = "CSPFK039E Secrets Provider for Kubernetes failed to update secrets in %s mode. Reason: %s"
 
 // Annotations
-const CSPFK040E string = "CSPFK040E Failed to parse annotations file"
 const CSPFK041E string = "CSPFK041E Failed to open annotations file '%s'. Reason: %s"
 const CSPFK042E string = "CSPFK042E Annotation '%s' does not accept value '%s': must be type %s"
 const CSPFK043E string = "CSPFK043E Annotation '%s' does not accept value '%s': only accepts %v"
