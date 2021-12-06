@@ -1,6 +1,7 @@
 package mocks
 
 import (
+	"context"
 	"errors"
 )
 
@@ -18,7 +19,7 @@ type ConjurClient struct {
 	Database map[string]string
 }
 
-func (c *ConjurClient) RetrieveSecrets(secretIds []string) (map[string][]byte, error) {
+func (c *ConjurClient) RetrieveSecrets(secretIds []string, ctx context.Context) (map[string][]byte, error) {
 	res := make(map[string][]byte)
 
 	if !c.CanExecute {

@@ -16,9 +16,14 @@ type fileProvider struct {
 	traceContext        context.Context
 }
 
+type fileProviderDepFuncs struct {
+	retrieveSecretsFunc conjur.RetrieveSecretsFunc
+	depOpenWriteCloser  openWriteCloserFunc
+	depPushToWriter     pushToWriterFunc
+}
+
 // NewProvider creates a new provider for Push-to-File mode.
 func NewProvider(
-	traceContext context.Context,
 	retrieveSecretsFunc conjur.RetrieveSecretsFunc,
 	secretsBasePath string,
 	templatesBasePath string,
@@ -32,7 +37,7 @@ func NewProvider(
 	return &fileProvider{
 		retrieveSecretsFunc: retrieveSecretsFunc,
 		secretGroups:        secretGroups,
-		traceContext:        traceContext,
+		traceContext:        nil,
 	}, nil
 }
 
@@ -41,23 +46,27 @@ func (p fileProvider) Provide() error {
 	return provideWithDeps(
 		p.traceContext,
 		p.secretGroups,
-		p.retrieveSecretsFunc,
-		openFileAsWriteCloser,
-		pushToWriter,
+		fileProviderDepFuncs{
+			retrieveSecretsFunc: p.retrieveSecretsFunc,
+			depOpenWriteCloser:  openFileAsWriteCloser,
+			depPushToWriter:     pushToWriter,
+		},
 	)
+}
+
+func (p *fileProvider) SetTraceContext(ctx context.Context) {
+	p.traceContext = ctx
 }
 
 func provideWithDeps(
 	traceContext context.Context,
 	groups []*SecretGroup,
-	retrieveSecretsFunc conjur.RetrieveSecretsFunc,
-	depOpenWriteCloser openWriteCloserFunc,
-	depPushToWriter pushToWriterFunc,
+	depFuncs fileProviderDepFuncs,
 ) error {
 	// Use the global TracerProvider
 	tr := trace.NewOtelTracer(otel.Tracer("secrets-provider"))
 	spanCtx, span := tr.Start(traceContext, "Fetch Conjur Secrets")
-	secretsByGroup, err := FetchSecretsForGroups(retrieveSecretsFunc, groups, spanCtx)
+	secretsByGroup, err := FetchSecretsForGroups(depFuncs.retrieveSecretsFunc, groups, spanCtx)
 	if err != nil {
 		span.RecordErrorAndSetStatus(err)
 		span.End()
@@ -71,8 +80,8 @@ func provideWithDeps(
 		_, childSpan := tr.Start(spanCtx, "Write Secret Files for group")
 		defer childSpan.End()
 		err := group.pushToFileWithDeps(
-			depOpenWriteCloser,
-			depPushToWriter,
+			depFuncs.depOpenWriteCloser,
+			depFuncs.depPushToWriter,
 			secretsByGroup[group.Name],
 		)
 		if err != nil {

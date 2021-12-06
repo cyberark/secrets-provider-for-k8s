@@ -1,6 +1,7 @@
 package pushtofile
 
 import (
+	"context"
 	"testing"
 
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/clients/conjur"
@@ -20,7 +21,7 @@ func (tc retrieveSecretsTestCase) Run(
 ) {
 	t.Run(tc.description, func(t *testing.T) {
 		s := createSecretGroups(tc.secretSpecs)
-		ret, err := FetchSecretsForGroups(depFetchSecrets, s)
+		ret, err := FetchSecretsForGroups(depFetchSecrets, s, context.Background())
 
 		tc.assert(t, ret, err)
 	})
@@ -115,8 +116,8 @@ type mockSecretFetcher struct {
 	conjurMockClient *conjurMocks.ConjurClient
 }
 
-func (s mockSecretFetcher) Fetch(secretPaths []string) (map[string][]byte, error) {
-	return s.conjurMockClient.RetrieveSecrets(secretPaths)
+func (s mockSecretFetcher) Fetch(secretPaths []string, ctx context.Context) (map[string][]byte, error) {
+	return s.conjurMockClient.RetrieveSecrets(secretPaths, context.Background())
 }
 
 func newMockSecretFetcher() mockSecretFetcher {

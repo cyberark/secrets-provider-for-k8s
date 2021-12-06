@@ -52,12 +52,12 @@ func NewProviderForType(
 		return provider.Provide, nil
 	case config.File:
 		provider, err := pushtofile.NewProvider(
-			traceContext,
 			secretsRetrieverFunc,
 			providerConfig.SecretFileBasePath,
 			providerConfig.TemplateFileBasePath,
 			providerConfig.AnnotationsMap,
 		)
+		provider.SetTraceContext(traceContext)
 		if err != nil {
 			return nil, err
 		}

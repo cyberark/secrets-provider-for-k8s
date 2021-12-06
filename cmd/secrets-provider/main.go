@@ -192,6 +192,24 @@ func retryableSecretsProvider(
 	return provideSecrets, secretsConfig, nil
 }
 
+func customEnv(key string) string {
+	if annotation, ok := envAnnotationsConversion[key]; ok {
+		if value := annotationsMap[annotation]; value != "" {
+			log.Info(messages.CSPFK014I, key, fmt.Sprintf("annotation %s", annotation))
+			return value
+		}
+
+		if value := os.Getenv(key); value == "" && key == "CONTAINER_MODE" {
+			log.Info(messages.CSPFK014I, key, "default")
+			return defaultContainerMode
+		}
+
+		log.Info(messages.CSPFK014I, key, "environment")
+	}
+
+	return os.Getenv(key)
+}
+
 func setupAuthnConfig(ctx context.Context,
 	tracer trace.Tracer) (*authnConfigProvider.Config, error) {
 	// Provides a custom env for authenticator settings retrieval.
@@ -199,24 +217,6 @@ func setupAuthnConfig(ctx context.Context,
 
 	_, span := tracer.Start(ctx, "Gather authenticator config")
 	defer span.End()
-
-	customEnv := func(key string) string {
-		if annotation, ok := envAnnotationsConversion[key]; ok {
-			if value := annotationsMap[annotation]; value != "" {
-				log.Info(messages.CSPFK014I, key, fmt.Sprintf("annotation %s", annotation))
-				return value
-			}
-
-			if value := os.Getenv(key); value == "" && key == "CONTAINER_MODE" {
-				log.Info(messages.CSPFK014I, key, "default")
-				return defaultContainerMode
-			}
-
-			log.Info(messages.CSPFK014I, key, "environment")
-		}
-
-		return os.Getenv(key)
-	}
 
 	log.Info(messages.CSPFK013I)
 	authnSettings := authnConfigProvider.GatherSettings(customEnv)

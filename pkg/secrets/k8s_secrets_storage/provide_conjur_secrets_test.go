@@ -1,6 +1,7 @@
 package k8ssecretsstorage
 
 import (
+	"context"
 	"fmt"
 	"testing"
 
@@ -69,7 +70,8 @@ func (m testMocks) newProvider(requiredSecrets []string) K8sProvider {
 			},
 		},
 		requiredSecrets,
-		"someNamespace")
+		"someNamespace",
+		context.Background())
 }
 
 type assertFunc func(*testing.T, testMocks, error, string)
