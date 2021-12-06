@@ -66,6 +66,7 @@ var pushToFileAnnotationPrefixes = map[string]annotationRestraints{
 	"conjur.org/conjur-secrets-policy-path.": {TYPESTRING, []string{}},
 	"conjur.org/secret-file-path.":           {TYPESTRING, []string{}},
 	"conjur.org/secret-file-format.":         {TYPESTRING, []string{"yaml", "json", "dotenv", "bash", "template"}},
+	"conjur.org/secret-file-permissions.": 	  {TYPESTRING, []string{}},
 	"conjur.org/secret-file-template":        {TYPESTRING, []string{}},
 }
 

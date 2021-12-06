@@ -15,6 +15,7 @@ const secretGroupPolicyPathPrefix = "conjur.org/conjur-secrets-policy-path."
 const secretGroupFileTemplatePrefix = "conjur.org/secret-file-template."
 const secretGroupFilePathPrefix = "conjur.org/secret-file-path."
 const secretGroupFileFormatPrefix = "conjur.org/secret-file-format."
+const secretGroupFilePermissionsPrefix = "conjur.org/secret-file-permissions."
 
 const defaultFilePermissions os.FileMode = 0664
 const maxFilenameLen = 255
@@ -37,7 +38,7 @@ type SecretGroup struct {
 	FileTemplate     string
 	FileFormat       string
 	PolicyPathPrefix string
-	FilePermissions  os.FileMode
+	FilePermissions	 os.FileMode
 	SecretSpecs      []SecretSpec
 }
 
@@ -330,6 +331,7 @@ func newSecretGroup(groupName string, annotations map[string]string, c Config) (
 
 	policyPathPrefix := annotations[secretGroupPolicyPathPrefix+groupName]
 	policyPathPrefix = strings.TrimPrefix(policyPathPrefix, "/")
+	filePermissions := annotations[secretGroupFilePermissionsPrefix+groupName]
 
 	var err error
 	var fileTemplate string
@@ -345,6 +347,12 @@ func newSecretGroup(groupName string, annotations map[string]string, c Config) (
 		fileFormat = "yaml"
 	}
 
+	fileMode, err := permStrToFileMode(filePermissions)
+	if err != nil {
+		err = fmt.Errorf(`unable to create fileMode from annotation "%s": %s`, secretGroupFilePermissionsPrefix, err)
+		return nil, []error{err}
+	}
+
 	secretSpecs, err := NewSecretSpecs([]byte(groupSecrets))
 	if err != nil {
 		err = fmt.Errorf(`unable to create secret specs from annotation "%s": %s`, secretGroupPrefix+groupName, err)
@@ -357,7 +365,7 @@ func newSecretGroup(groupName string, annotations map[string]string, c Config) (
 		FilePath:         filePath,
 		FileTemplate:     fileTemplate,
 		FileFormat:       fileFormat,
-		FilePermissions:  defaultFilePermissions,
+		FilePermissions:  *fileMode,
 		PolicyPathPrefix: policyPathPrefix,
 		SecretSpecs:      secretSpecs,
 	}
@@ -414,6 +422,56 @@ func readTemplateFromFile(
 
 	return c.pullFromReader(rc)
 }
+
+func permStrToFileMode(perms string) (*os.FileMode, error) {
+	if (perms == "") {
+		fileMode := defaultFilePermissions
+		return &fileMode, nil
+	}
+
+	invalidFormatErr := fmt.Errorf("Invalid permissions format: '%s'", perms)
+	// Permissions string should be 9 digits or 10 digits with leading '-'
+	switch len(perms) {
+	case 9:
+		break
+	case 10:
+		if perms[0] != '-' {
+			return nil, invalidFormatErr
+		}
+		perms = perms[1:]
+	default:
+		return nil, invalidFormatErr
+	}
+
+	invalidPermissionsErr := fmt.Errorf("Invalid permissions: '%s', owner permissions must atleast have read and write (-rw-------)", perms)
+	//User Group should atleast have read/write permissions
+	if perms[0] != 'r' || perms[1] != 'w' {
+		return nil, invalidPermissionsErr
+	}
+
+	validChars := "rwx"
+	multipliers := []int{64, 8, 1}
+	bitValues := []int{4, 2, 1}
+
+	result := 0
+	index := 0
+	for group := 0; group < 3; group++ {
+		for bit := 0; bit < 3; bit++ {
+			switch perms[index] {
+			case validChars[bit]:
+				result += bitValues[bit] * multipliers[group]
+			case '-':
+				break
+			default:
+				return nil, invalidFormatErr
+			}
+			index++
+		}
+	}
+
+	fileMode := os.FileMode(result)
+	return &fileMode, nil
+} 
 
 func validateGroupFilePaths(secretGroups []*SecretGroup) []error {
 	// Iterate over the secret groups and group any that have the same file path
