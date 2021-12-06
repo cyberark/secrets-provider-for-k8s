@@ -26,8 +26,9 @@ type ProviderConfig struct {
 	RequiredK8sSecrets []string
 
 	// Config specific to Push to File provider
-	SecretFileBasePath string
-	AnnotationsMap     map[string]string
+	SecretFileBasePath   string
+	TemplateFileBasePath string
+	AnnotationsMap       map[string]string
 }
 
 // ProviderFunc describes a function type responsible for providing secrets to an unspecified target.
@@ -50,6 +51,7 @@ func NewProviderForType(
 		provider, err := pushtofile.NewProvider(
 			secretsRetrieverFunc,
 			providerConfig.SecretFileBasePath,
+			providerConfig.TemplateFileBasePath,
 			providerConfig.AnnotationsMap,
 		)
 		if err != nil {

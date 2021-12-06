@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
+	"path/filepath"
 	"sort"
 	"strings"
 )
@@ -17,6 +18,16 @@ const secretGroupFileFormatPrefix = "conjur.org/secret-file-format."
 
 const defaultFilePermissions os.FileMode = 0664
 const maxFilenameLen = 255
+
+// Config is used during SecretGroup creation, and contains default values for
+// secret file and template file base paths, along with mockable functions for
+// reading template files.
+type Config struct {
+	secretsBasePath   string
+	templatesBasePath string
+	openReadCloser    openReadCloserFunc
+	pullFromReader    pullFromReaderFunc
+}
 
 // SecretGroup incorporates all of the information about a secret group
 // that has been parsed from that secret group's Annotations.
@@ -169,7 +180,7 @@ func (sg *SecretGroup) validate() []error {
 		return errors
 	}
 
-	if len(fileFormat) > 0 {
+	if len(fileFormat) > 0 && fileFormat != "template" {
 		_, err := FileTemplateForFormat(fileFormat, secretSpecs)
 		if err != nil {
 			return []error{
@@ -267,14 +278,29 @@ func maybeFileTemplateFromFormat(
 }
 
 // NewSecretGroups creates a collection of secret groups from a map of annotations
-func NewSecretGroups(secretsBasePath string, annotations map[string]string) ([]*SecretGroup, []error) {
+func NewSecretGroups(
+	secretsBasePath string,
+	templatesBasePath string,
+	annotations map[string]string,
+) ([]*SecretGroup, []error) {
+	c := Config{
+		secretsBasePath:   secretsBasePath,
+		templatesBasePath: templatesBasePath,
+		openReadCloser:    openFileAsReadCloser,
+		pullFromReader:    pullFromReader,
+	}
+
+	return newSecretGroupsWithDeps(annotations, c)
+}
+
+func newSecretGroupsWithDeps(annotations map[string]string, c Config) ([]*SecretGroup, []error) {
 	var sgs []*SecretGroup
 
 	var errors []error
 	for key := range annotations {
 		if strings.HasPrefix(key, secretGroupPrefix) {
 			groupName := strings.TrimPrefix(key, secretGroupPrefix)
-			sg, errs := newSecretGroup(groupName, secretsBasePath, annotations)
+			sg, errs := newSecretGroup(groupName, annotations, c)
 			if errs != nil {
 				errors = append(errors, errs...)
 				continue
@@ -297,16 +323,25 @@ func NewSecretGroups(secretsBasePath string, annotations map[string]string) ([]*
 	return sgs, nil
 }
 
-func newSecretGroup(groupName string, secretsBasePath string, annotations map[string]string) (*SecretGroup, []error) {
+func newSecretGroup(groupName string, annotations map[string]string, c Config) (*SecretGroup, []error) {
 	groupSecrets := annotations[secretGroupPrefix+groupName]
-	fileTemplate := annotations[secretGroupFileTemplatePrefix+groupName]
 	filePath := annotations[secretGroupFilePathPrefix+groupName]
 	fileFormat := annotations[secretGroupFileFormatPrefix+groupName]
+
 	policyPathPrefix := annotations[secretGroupPolicyPathPrefix+groupName]
 	policyPathPrefix = strings.TrimPrefix(policyPathPrefix, "/")
 
+	var err error
+	var fileTemplate string
+	if fileFormat == "template" {
+		fileTemplate, err = collectTemplate(groupName, annotations, c)
+		if err != nil {
+			return nil, []error{err}
+		}
+	}
+
 	// Default to "yaml" file format
-	if len(fileTemplate)+len(fileFormat) == 0 {
+	if len(fileFormat) == 0 {
 		fileFormat = "yaml"
 	}
 
@@ -333,12 +368,51 @@ func newSecretGroup(groupName string, secretsBasePath string, annotations map[st
 	}
 
 	// Generate absolute file path
-	sg.FilePath, err = sg.absoluteFilePath(secretsBasePath)
+	sg.FilePath, err = sg.absoluteFilePath(c.secretsBasePath)
 	if err != nil {
 		return nil, []error{err}
 	}
 
 	return sg, nil
+}
+
+func collectTemplate(groupName string, annotations map[string]string, c Config) (string, error) {
+	annotationTemplate := annotations[secretGroupFileTemplatePrefix+groupName]
+
+	configmapTemplate, err := readTemplateFromFile(groupName, annotations, c)
+	if os.IsNotExist(err) {
+		return annotationTemplate, nil
+	} else if err != nil {
+		return "", fmt.Errorf("unable to read template file for secret group %q: %s", groupName, err)
+	}
+
+	if len(annotationTemplate) > 0 && len(configmapTemplate) > 0 {
+		return "", fmt.Errorf("secret file template for group %q cannot be provided both by annotation and by ConfigMap", groupName)
+	}
+
+	if len(annotationTemplate)+len(configmapTemplate) == 0 {
+		return "", fmt.Errorf("template required for secret group %q", groupName)
+	}
+
+	return configmapTemplate, nil
+}
+
+func readTemplateFromFile(
+	groupName string,
+	annotations map[string]string,
+	c Config,
+
+) (string, error) {
+	templateFilepath := filepath.Join(c.templatesBasePath, groupName+".tpl")
+	rc, err := c.openReadCloser(templateFilepath)
+	if err != nil {
+		return "", err
+	}
+	defer func() {
+		_ = rc.Close()
+	}()
+
+	return c.pullFromReader(rc)
 }
 
 func validateGroupFilePaths(secretGroups []*SecretGroup) []error {
