@@ -17,7 +17,7 @@ const secretGroupFilePathPrefix = "conjur.org/secret-file-path."
 const secretGroupFileFormatPrefix = "conjur.org/secret-file-format."
 const secretGroupFilePermissionsPrefix = "conjur.org/secret-file-permissions."
 
-const defaultFilePermissions os.FileMode = 0664
+const defaultFilePermissions os.FileMode = 0644
 const maxFilenameLen = 255
 
 // Config is used during SecretGroup creation, and contains default values for
@@ -38,7 +38,7 @@ type SecretGroup struct {
 	FileTemplate     string
 	FileFormat       string
 	PolicyPathPrefix string
-	FilePermissions	 os.FileMode
+	FilePermissions  os.FileMode
 	SecretSpecs      []SecretSpec
 }
 
@@ -424,7 +424,7 @@ func readTemplateFromFile(
 }
 
 func permStrToFileMode(perms string) (*os.FileMode, error) {
-	if (perms == "") {
+	if perms == "" {
 		fileMode := defaultFilePermissions
 		return &fileMode, nil
 	}
@@ -471,7 +471,7 @@ func permStrToFileMode(perms string) (*os.FileMode, error) {
 
 	fileMode := os.FileMode(result)
 	return &fileMode, nil
-} 
+}
 
 func validateGroupFilePaths(secretGroups []*SecretGroup) []error {
 	// Iterate over the secret groups and group any that have the same file path

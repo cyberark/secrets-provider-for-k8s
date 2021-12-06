@@ -854,3 +854,54 @@ func TestSecretGroup_PushToFile(t *testing.T) {
 		assert.Contains(t, err.Error(), "unable to open file")
 	})
 }
+
+type permStrAssertFunc func(os.FileMode, error)
+
+func TestPermStrToFileMode(t *testing.T) {
+	assertExpectedFileMode := func(expectedFileMode os.FileMode) permStrAssertFunc {
+		return func(actualFileMode os.FileMode, _ error) {
+			assert.Equal(t, expectedFileMode, actualFileMode)
+		}
+	}
+
+	//assertExpectedErr := func(expectedErrStr string) permStrAssertFunc {
+	//	return func(_ os.FileMode, err error) {
+	//		assert.Contains(t, err.Error(), expectedErrStr)
+	//	}
+	//}
+
+	// Define test cases
+	testCases := []struct {
+		description string
+		permStr     string
+		assertFunc  permStrAssertFunc
+	}{
+		{
+			description: "If no permissions configured, default file permissions used",
+			permStr:     "",
+			assertFunc:  assertExpectedFileMode(defaultFilePermissions),
+		}, {
+			description: "File perms 0664",
+			permStr:     "-rw-rw-r--",
+			assertFunc:  assertExpectedFileMode(os.FileMode(0664)),
+		},
+	}
+
+	//("-rw-rw-r--")
+	//("-rw-r--r--")
+	//("rw-rw-r--")
+	//("rw-r--r--")
+	//("-rwxrwxrwx")
+	//("----------")
+	//("drw-r--r--")
+	//("drwur--r--")
+	//("rwxrwx")
+
+	for _, tc := range testCases {
+		// Run the test case
+		fileModePtr, err := permStrToFileMode(tc.permStr)
+
+		// Check the results
+		tc.assertFunc(*fileModePtr, err)
+	}
+}
