@@ -239,7 +239,7 @@ Push to File operation.
          annotations:
            conjur.org/authn-identity: host/conjur/authn-k8s/dev-cluster/test-app
            conjur.org/container-mode: init
-           conjur.org/secret-destination: file
+           conjur.org/secrets-destination: file
            conjur.org/conjur-secrets-policy-path.first: secrets/
            conjur.org/conjur-secrets.test-app: |
            - admin-username: username
