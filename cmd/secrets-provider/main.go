@@ -173,7 +173,7 @@ func retryableSecretsProvider(
 	}
 
 	// Tag the span with the secrets provider mode
-	span.SetAttributes(attribute.String("store-type", secretsConfig.StoreType))
+	span.SetAttributes(attribute.String("store_type", secretsConfig.StoreType))
 
 	// Create a secrets provider
 	provideSecrets, errs := secrets.NewProviderForType(ctx,

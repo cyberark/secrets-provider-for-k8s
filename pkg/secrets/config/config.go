@@ -48,13 +48,15 @@ type annotationRestraints struct {
 
 // Define supported annotation keys for Secrets Provider config, as well as value restraints for each
 var secretsProviderAnnotations = map[string]annotationRestraints{
-	"conjur.org/authn-identity":      {TYPESTRING, []string{}},
-	"conjur.org/container-mode":      {TYPESTRING, []string{"init", "application"}},
-	"conjur.org/secrets-destination": {TYPESTRING, []string{"file", "k8s_secrets"}},
-	"conjur.org/k8s-secrets":         {TYPESTRING, []string{}},
-	"conjur.org/retry-count-limit":   {TYPEINT, []string{}},
-	"conjur.org/retry-interval-sec":  {TYPEINT, []string{}},
-	"conjur.org/debug-logging":       {TYPEBOOL, []string{}},
+	"conjur.org/authn-identity":       {TYPESTRING, []string{}},
+	"conjur.org/container-mode":       {TYPESTRING, []string{"init", "application"}},
+	"conjur.org/secrets-destination":  {TYPESTRING, []string{"file", "k8s_secrets"}},
+	"conjur.org/k8s-secrets":          {TYPESTRING, []string{}},
+	"conjur.org/retry-count-limit":    {TYPEINT, []string{}},
+	"conjur.org/retry-interval-sec":   {TYPEINT, []string{}},
+	"conjur.org/debug-logging":        {TYPEBOOL, []string{}},
+	"conjur.org/log-traces":           {TYPEBOOL, []string{}},
+	"conjur.org/jaeger-collector-url": {TYPESTRING, []string{}},
 }
 
 // Define supported annotation key prefixes for Push to File config, as well as value restraints for each.

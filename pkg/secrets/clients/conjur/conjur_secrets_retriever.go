@@ -3,7 +3,6 @@ package conjur
 import (
 	"context"
 	"fmt"
-	"strconv"
 	"strings"
 
 	"github.com/cyberark/conjur-authn-k8s-client/pkg/access_token/memory"
@@ -11,6 +10,7 @@ import (
 	"github.com/cyberark/conjur-authn-k8s-client/pkg/authenticator/config"
 	"github.com/cyberark/conjur-authn-k8s-client/pkg/log"
 	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
 
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/log/messages"
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/trace"
@@ -49,6 +49,7 @@ func (retriever SecretRetriever) Retrieve(variableIDs []string, traceContext con
 
 	authn := retriever.authn
 
+	// TODO: Add tracing support in the conjur-authn-k8s-client package to enable more granular tracing
 	err := authn.Authenticate()
 	if err != nil {
 		span.RecordErrorAndSetStatus(err)
@@ -64,10 +65,8 @@ func (retriever SecretRetriever) Retrieve(variableIDs []string, traceContext con
 	// Always delete the access token. The deletion is idempotent and never fails
 	defer authn.AccessToken.Delete()
 
-	_, span = tr.Start(
-		traceContext,
-		fmt.Sprintf("Retrieve secrets (#%s)", strconv.Itoa(len(variableIDs))),
-	)
+	_, span = tr.Start(traceContext, "Retrieve secrets")
+	span.SetAttributes(attribute.Int("variable_count", len(variableIDs)))
 	defer span.End()
 
 	return retrieveConjurSecrets(accessTokenData, variableIDs)

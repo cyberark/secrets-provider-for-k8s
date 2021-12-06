@@ -72,7 +72,7 @@ func createTracer(tracerType trace.TracerProviderType,
 	}
 
 	// Create a TracerProvider
-	tp, err := trace.NewTracerProvider(ctx, tracerType, tracerURL, trace.SetGlobalProvider)
+	tp, err := trace.NewTracerProvider(tracerType, tracerURL, os.Stdout, trace.SetGlobalProvider)
 
 	if err != nil {
 		log.Error(err.Error())

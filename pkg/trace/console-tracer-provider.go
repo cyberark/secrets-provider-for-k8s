@@ -2,6 +2,7 @@ package trace
 
 import (
 	"context"
+	"io"
 	"io/ioutil"
 	"os"
 	"time"
@@ -17,13 +18,13 @@ import (
 // consoleTracerProvider implements the TracerProvider interface using
 // a Console exporter.
 type consoleTracerProvider struct {
-	providerSDK  *tracesdk.TracerProvider
-	tempFilePath string
+	providerSDK   *tracesdk.TracerProvider
+	tempFilePath  string
+	consoleWriter io.Writer
 }
 
 // Accepts a writer as an argument to allow mocking stdout
-func newConsoleTracerProvider() (TracerProvider, error) {
-
+func newConsoleTracerProvider(consoleWriter io.Writer) (TracerProvider, error) {
 	// Write output to temp file and emit to stdout on shutdown so it'll be in one place,
 	// not scattered throughout the console output
 	tempFile, err := ioutil.TempFile(os.TempDir(), "traces.log")
@@ -52,8 +53,9 @@ func newConsoleTracerProvider() (TracerProvider, error) {
 		)),
 	)
 	tp := consoleTracerProvider{
-		providerSDK:  providerSDK,
-		tempFilePath: tempFile.Name(),
+		providerSDK:   providerSDK,
+		tempFilePath:  tempFile.Name(),
+		consoleWriter: consoleWriter,
 	}
 	return &tp, nil
 }
@@ -84,9 +86,9 @@ func (tp *consoleTracerProvider) dumpOutputToConsole() error {
 	if err != nil {
 		return err
 	}
-	os.Stdout.WriteString("=== BEGIN TRACING OUTPUT ===\n")
-	os.Stdout.Write(tmpFileContent)
-	os.Stdout.WriteString("=== END TRACING OUTPUT ===\n")
+	tp.consoleWriter.Write([]byte("=== BEGIN TRACING OUTPUT ===\n"))
+	tp.consoleWriter.Write(tmpFileContent)
+	tp.consoleWriter.Write([]byte("=== END TRACING OUTPUT ===\n"))
 	// Delete the temp file
 	defer os.Remove(tp.tempFilePath)
 	return nil

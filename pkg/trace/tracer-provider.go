@@ -3,6 +3,7 @@ package trace
 import (
 	"context"
 	"fmt"
+	"io"
 
 	"go.opentelemetry.io/otel"
 )
@@ -44,9 +45,9 @@ type TracerProvider interface {
 // NewTracerProvider creates a TracerProvider of a given type, and
 // optionally sets the new TracerProvider as the global TracerProvider.
 func NewTracerProvider(
-	ctx context.Context,
 	providerType TracerProviderType,
 	collectorURL string,
+	consoleWriter io.Writer,
 	setGlobalProvider bool) (TracerProvider, error) {
 
 	var tp TracerProvider
@@ -56,7 +57,7 @@ func NewTracerProvider(
 	case NoopProviderType:
 		tp = newNoopTracerProvider()
 	case ConsoleProviderType:
-		tp, err = newConsoleTracerProvider()
+		tp, err = newConsoleTracerProvider(consoleWriter)
 	case JaegerProviderType:
 		tp, err = newJaegerTracerProvider(collectorURL)
 	default:
