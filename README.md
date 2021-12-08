@@ -4,7 +4,8 @@
 - [CyberArk Secrets Provider for Kubernetes](#cyberark-secrets-provider-for-kubernetes)
   - [Supported services](#supported-services)
   - [Using This Project With Conjur Open Source](#using-secrets-provider-for-k8s-with-conjur-open-source)
-  - [Using secrets-provider-for-k8s to Write Secrets to a File](#using-secrets-provider-for-k8s-to-write-secrets-to-a-file)
+  - [Methods for Configuring Secrets Provider](#methods-for-configuring-cyberark-secrets-provider)
+  - [Enabling Tracing](#enabling-tracing)
 - [Releases](#releases)
   - [Stable release definition](#stable-release-definition)
 - [Development](#development)
@@ -114,6 +115,16 @@ Some notes about the different configuration methods:
 1. If you are using the Secrets Provider in Kubernetes Secrets mode, it
    is recommended that you use environment variable settings to configure
    the Secrets Provider.
+
+## Enabling Tracing
+
+Tracing of CyberArk Secrets Provider for Kubernetes is available using the [OpenTelemetry](https://opentelemetry.io/) standard.
+Tracing is disabled by default. You can enable tracing using either Pod Annotations or environment variables.
+To enable traces appended to the init container's logs, add the annoation `conjur.org/log-traces: true`
+to the Pod manifest, or set the `LOG_TRACES` environment variable to `true`.
+To instead export the traces to a Jaeger server, use the following annotation:
+`conjur.org/jaeger-collector-url: http://<jaeger-collector-host>/api/traces` or use the `JAEGER_COLLECTOR_URL` environment variable.
+Traces will include errors to assist in troubleshooting.
 
 # Releases
 

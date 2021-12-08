@@ -6,6 +6,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Added
+- Adds support for tracing with OpenTelemetry. [cyberark/secrets-provider-for-k8s#398](https://github.com/cyberark/secrets-provider-for-k8s/pull/398)
+
 ### Fixed
 - If the Secrets Provider is run in Push-to-File mode, it no longer errors out
   if it finds any pre-existing secret files. This is helpful when the Secrets
