@@ -145,3 +145,77 @@ func TestRetrieveSecrets(t *testing.T) {
 		tc.Run(t, m.Fetch)
 	}
 }
+
+func TestGetAllPaths(t *testing.T) {
+	// Define test cases
+	testCases := []struct {
+		description        string
+		secretPathsByGroup map[string][]SecretSpec
+		expectedPaths      []string
+	}{
+		{
+			description: "Single secret group, no duplicated paths",
+			secretPathsByGroup: map[string][]SecretSpec{
+				"group-1": {
+					{Alias: "var1", Path: "path/var1"},
+					{Alias: "var2", Path: "path/var2"},
+				},
+			},
+			expectedPaths: []string{"path/var1", "path/var2"},
+		},
+		{
+			description: "Single secret group, duplicated path",
+			secretPathsByGroup: map[string][]SecretSpec{
+				"group-1": {
+					{Alias: "var1", Path: "path/var1"},
+					{Alias: "var2", Path: "path/var1"},
+				},
+			},
+			expectedPaths: []string{"path/var1"},
+		},
+		{
+			description: "Multiple secret groups, no duplicated path",
+			secretPathsByGroup: map[string][]SecretSpec{
+				"group-1": {
+					{Alias: "var1", Path: "path/var1"},
+					{Alias: "var2", Path: "path/var2"},
+				},
+				"group-2": {
+					{Alias: "var3", Path: "path/var3"},
+					{Alias: "var4", Path: "path/var4"},
+				},
+			},
+			expectedPaths: []string{"path/var1", "path/var2", "path/var3", "path/var4"},
+		},
+		{
+			description: "Multiple secret groups, duplicated path",
+			secretPathsByGroup: map[string][]SecretSpec{
+				"group-1": {
+					{Alias: "var1", Path: "path/var1"},
+					{Alias: "var2", Path: "path/var2"},
+				},
+				"group-2": {
+					{Alias: "var3", Path: "path/var1"},
+					{Alias: "var4", Path: "path/var4"},
+				},
+			},
+			expectedPaths: []string{"path/var1", "path/var2", "path/var4"},
+		},
+	}
+
+	for _, tc := range testCases {
+		// Set up a slice of SecretGroups to test
+		secretGroups := []*SecretGroup{}
+		for _, specs := range tc.secretPathsByGroup {
+			secretGroup := SecretGroup{}
+			secretGroup.SecretSpecs = append([]SecretSpec{}, specs...)
+			secretGroups = append(secretGroups, &secretGroup)
+		}
+
+		// Run test case
+		paths := getAllPaths(secretGroups)
+
+		// Verify results
+		assert.ElementsMatch(t, paths, tc.expectedPaths)
+	}
+}

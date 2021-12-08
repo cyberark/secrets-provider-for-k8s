@@ -60,6 +60,11 @@ func (retriever conjurSecretRetriever) Retrieve(variableIDs []string) (map[strin
 func retrieveConjurSecrets(accessToken []byte, variableIDs []string) (map[string][]byte, error) {
 	log.Info(messages.CSPFK003I, variableIDs)
 
+	if len(variableIDs) == 0 {
+		log.Info(messages.CSPFK016I)
+		return nil, nil
+	}
+
 	conjurClient, err := NewConjurClient(accessToken)
 	if err != nil {
 		return nil, log.RecordedError(messages.CSPFK033E)
