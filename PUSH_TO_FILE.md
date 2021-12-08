@@ -11,8 +11,10 @@
 - [Example Common Policy Path](#example-common-policy-path)
 - [Example Secret File Formats](#example-secret-file-formats)
 - [Custom Templates for Secret Files](#custom-templates-for-secret-files)
+- [Configuring Pod Volumes and Container Volume Mounts](#configuring-pod-volumes-and-container-volume-mounts-for-push-to-file)
 - [Secret File Attributes](#secret-file-attributes)
 - [Upgrading Existing Secrets Provider Deployments](#upgrading-existing-secrets-provider-deployments)
+- [Troubleshooting](#troubleshooting)
 
 ## Overview
 
@@ -482,7 +484,7 @@ both or neither method fails before retrieving secrets from Conjur.
 
 ### Using Conjur Secrets in Custom Templates
 
-Injecting Conjur secrets into custom templates requires using the custom
+Injecting Conjur secrets into custom templates requires using the built-in custom
 template function `secret`. The action shown below renders the value associated
 with `<secret-alias>` in the secret-file.
 
@@ -621,7 +623,38 @@ Secrets Provider will render the following content for the file
 ```
 postgresql://my-user:my-secret-pa$$w0rd@database.example.com:5432/postgres??sslmode=require
 ```
+## Configuring Pod Volumes and Container Volume Mounts for Push to File
 
+Enabling Push to File on your application Pod requires the addition of several Volumes and VolumeMounts.
+Some example Volume/VolumeMount configurations are shown below.
+
+- Example Pod Volumes:
+  ```
+  volumes:
+    - name: podinfo
+      downwardAPI:
+        items:
+          - path: annotations
+            fieldRef:
+              fieldPath: metadata.annotations
+    - name: conjur-secrets
+      emptyDir:
+        medium: Memory
+  ```
+- Example volume mounts for the Secrets Provider init container. The `mountPath` values must appear exactly as shown below:
+  ```
+  volumeMounts:
+    - name: podinfo
+      mountPath: /conjur/podinfo
+    - name: conjur-secrets
+      mountPath: /conjur/secrets
+  ```
+- Example volume mounts for the application container. The mountPath to use is dependent upon where your application expects to find secret files:
+  ```
+  volumeMounts:
+    - name: conjur-secrets
+      mountPath: <your-desired-path-to-secret-files>
+  ```
 ## Secret File Attributes
 
 By default, the Secrets Provider will create secrets files with the following file attributes:
@@ -753,6 +786,72 @@ following changes to the deployment:
   - Modify the Deployment's spec for the app container so that the
     `command` entrypoint includes sourcing of a bash-formatted secrets file.
 
+## Troubleshooting
+
+This section describes how to troubleshoot common Secrets Provider for Kubernetes issues.
+
+### Enable logs
+
+To enable logs, add the debug parameter to the application deployment manifest.
+```
+annotations:
+    conjur.org/debug-logging  "true"
+```
+For details, see [Reference Table of Configuration Annotations](#reference-table-of-configuration-annotations)
+
+### Display logs
+
+To display the Secrets Provider logs in Kubernetes.
+
+- Go to the app namespace
+```
+kubectl config set-context --current --namespace=<namespace>
+```
+- Find the pod name
+```
+kubectl get pods
+```
+- Display the logs
+```
+kubectl logs <pod-name> -c <init-container-name>
+```
+To display the Secrets Provider logs in Openshift.
+
+- Go to the app namespace
+```
+oc project <project-name>
+```
+
+- Find the pod name
+```
+oc get pods
+```
+- Display the logs
+```
+oc logs <pod-name> -c <init-container-name>
+```
+
+### Common issues displayed in the logs and resolutions
+
+|  Issue      |       Error code   | Resolution  |
+| ----------- | ------------------ | ------ |
+| Secrets Provider for Kubernetes failed to update secrets in file mode | `CSPFK039E` | Check that the secret key pairs have been configured correctly.  |
+| Failed to open annotations file                                       | `CSPFK041E` | The annotations file cannot be opened by the Secrets provider. Check the volume mounts and downward API configuration.  |
+| Annotation 'x' does not accept value                                  | `CSPFK042E` | This annotation requires a specific type for its value. The value provided is the wrong type. |
+| Annotation 'x' does not accept value                                  | `CSPFK043E` | This annotation only accepts one of a specific set of values. The value provided is the wrong value. |
+| Annotation file line 'x' is malformed:                                | `CSPFK045E` | The annotation described in the message is malformed. Check the annotation has a valid key and value       |
+| Secret Store Type needs to be configured                              | `CSPFK046E` | Either the conjur.org/secrets-destination annotation has not been set, or the downward API volumes have not been configured as required. See the [Configuring Pod Volumes and Container Volume Mounts](#configuring-pod-volumes-and-container-volume-mounts-for-push-to-file) section above for more information.|
+| Secrets Provider in Push-to-File mode can only be configured with Pod annotations | `CSPFK047E`| To configure push-to-file the Secrets store type must have the `conjur.org/secrets-destination` with pod annotations and cannot be set with the `SECRETS_DESTINATION` environment variable. If the secrets-destination is set via annotations verify that the pod volumes and volumeMounts are configured correctly. See the [Configuring Pod Volumes and Container Volume Mounts](#configuring-pod-volumes-and-container-volume-mounts-for-push-to-file) section above for more information. |
+| Secrets Provider in K8s Secrets mode requires either the 'K8S_SECRETS' environment variable or 'conjur.org/k8s-secrets' | `CSPFK048E ` | If the `secrets-destination` is set to `k8s_secrets` then the `K8S_SECRETS` environment variable or `conjur.org/k8s-secrets` needs to be configured. This does not apply to push-to-file.       |
+| Failed to validate Pod annotations                                    | `CSPFK049E` | The service provider was unable to successfully parse the annotations. This could be due to a previous error. Check the logs for a specific error before this.      |
+| Unable to initialize Secrets Provider: unable to create secret group collection  |`CSPFK053E` | Secrets provider could be initialized. Check futher back in the log file for any specific configuration errors. |
+| Unable to initialize Secrets Provider: unrecognized Store Type        | `CSPFK054E` | The `secrets-destination` value, either defined by the `SECRETS_DESTINATION` environment variable or the `conjur.org/secrets-destination` is an invalid value. `conjur.org/secrets-destination` should be `files` or `k8s-secrets`. |
+
+### Other Common issues resolutions
+
+| Issue       | Resolution |
+| ----------- | ------------------ |
+| There are no files created and no errors in the logs | Verify there is no SECRETS_DESTINATION environmental variable set and the volumes are set up correctly. |
 <!--
 ### Using the Helper Script to Patch the deployment
 There is a script in the secrets-provider-for-k8s bin directory named 
