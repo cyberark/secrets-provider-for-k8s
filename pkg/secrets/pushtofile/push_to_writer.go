@@ -1,11 +1,14 @@
 package pushtofile
 
 import (
+	"encoding/base64"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
 	"text/template"
+
+	"github.com/Masterminds/sprig"
 )
 
 // templateData describes the form in which data is presented to push-to-file templates
@@ -65,7 +68,7 @@ func pushToWriter(
 		secretsMap[s.Alias] = s
 	}
 
-	t, err := template.New(groupName).Funcs(template.FuncMap{
+	t, err := template.New(groupName).Funcs(sprig.TxtFuncMap()).Funcs(template.FuncMap{
 		// secret is a custom utility function for streamlined access to secret values.
 		// It panics for secrets aliases not specified on the group.
 		"secret": func(alias string) string {
@@ -77,6 +80,23 @@ func pushToWriter(
 			// Panic in a template function is captured as an error
 			// when the template is executed.
 			panic(fmt.Sprintf("secret alias %q not present in specified secrets for group", alias))
+		},
+		// b64enc is a custom utility function for performing a base64 encode
+		// on a secret value.
+		"b64enc": func(value string) string {
+			return base64.StdEncoding.EncodeToString([]byte(value))
+		},
+		// b64dec is a custom utility function for performing a base64 decode
+		// on a secret value.
+		"b64dec": func(encValue string) string {
+			decValue, err := base64.StdEncoding.DecodeString(encValue)
+			if err == nil {
+				return string(decValue)
+			}
+
+			// Panic in a template function is captured as an error
+			// when the template is executed.
+			panic(fmt.Sprintf("value could not be base64 decoded"))
 		},
 	}).Parse(groupTemplate)
 	if err != nil {
