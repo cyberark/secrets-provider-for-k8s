@@ -44,7 +44,7 @@ func main() {
 	if _, err := os.Stat(annotationsFilePath); err == nil {
 		annotationsMap, err = annotations.NewAnnotationsFromFile(annotationsFilePath)
 		if err != nil {
-			printErrorAndExit(messages.CSPFK040E)
+			printErrorAndExit(err.Error())
 		}
 
 		errLogs, infoLogs := secretsConfigProvider.ValidateAnnotations(annotationsMap)
