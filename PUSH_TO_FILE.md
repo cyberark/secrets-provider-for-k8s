@@ -62,10 +62,12 @@ feature and provides a more idiomatic deployment experience.
    the shared volume.
 
 ## Certification Level
-![](https://img.shields.io/badge/Certification%20Level-Community-28A745?link=https://github.com/cyberark/community/blob/master/Conjur/conventions/certification-levels.md)
+![](https://img.shields.io/badge/Certification%20Level-Certified-28A745?link=https://github.com/cyberark/community/blob/master/Conjur/conventions/certification-levels.md)
 
-The Secrets Provider push to File feature is a **Community** level project. It's a community contributed project that **is not reviewed or supported
-by CyberArk**. For more detailed information on our certification levels, see [our community guidelines](https://github.com/cyberark/community/blob/master/Conjur/conventions/certification-levels.md#community).
+The Secrets Provider push to File feature is a **Certified** level project.
+Certified projects **have been reviewed and is supported by CyberArk**. For more
+detailed information on our certification levels, see
+[our community guidelines](https://github.com/cyberark/community/blob/master/Conjur/conventions/certification-levels.md#community).
 
 ## Set up Secrets Provider for Push to File
 
@@ -76,19 +78,22 @@ Push to File operation.
 
 1. <details><summary>Before you begin</summary>
 
-   - This procedure assumes you have a configured Kubernetes namespace, with
-     a service account for your application. It also assumes that you are
-     familiar with loading manifests into your workspace.
-
-     In this procedure, we will use `test-app-namespace` for the namespace,
-     and `test-app-sa` for the service account.
-
    - Make sure that a Kubernetes Authenticator has been configured and enabled.
      For more information, contact your Conjur admin, or see
      [Enable Authenticators for Applications](https://docs.conjur.org/Latest/en/Content/Integrations/Kubernetes_deployApplicationCluster.htm).
 
-   - You must configure Kubernetes namespace with the
-     [Namespace Preparation Helm chart](https://github.com/cyberark/conjur-authn-k8s-client/tree/master/helm/conjur-config-namespace-prep#conjur-namespace-preparation-helm-chart).
+     In this procedure, we will use `dev-cluster` for the Kubernetes
+     Authenticator.
+
+   - This procedure assumes you have a configured Kubernetes namespace, with a
+     service account for your application. The namespace must be configured with
+     the [Namespace Preparation Helm chart](https://github.com/cyberark/conjur-authn-k8s-client/tree/master/helm/conjur-config-namespace-prep#conjur-namespace-preparation-helm-chart).
+
+     In this procedure, we will use `test-app-namespace` for the namespace,
+     and `test-app-sa` for the service account.
+    
+   - This procedure assumes that you are familiar with loading K8s manifests
+     into your workspace.
 
    </details>
 
@@ -205,7 +210,7 @@ Push to File operation.
    includes Pod Annotations to configure the Secrets Provider for Kubernetes
    Push to File feature. The annotations direct the Secrets Provider to
    generate and write a secret file containing YAML key/value settings
-   into a volume that  is shared with the application container.
+   into a volume that is shared with the application container.
 
    Copy the following manifest and load it to the application namespace,
    `test-app-namespace`.
@@ -237,13 +242,13 @@ Push to File operation.
          labels:
            app: test-app
          annotations:
-           conjur.org/authn-identity: host/conjur/authn-k8s/dev-cluster/test-app
+           conjur.org/authn-identity: host/test-app
            conjur.org/container-mode: init
            conjur.org/secrets-destination: file
-           conjur.org/conjur-secrets-policy-path.first: secrets/
+           conjur.org/conjur-secrets-policy-path.test-app: secrets/
            conjur.org/conjur-secrets.test-app: |
-           - admin-username: username
-           - admin-password: password
+             - admin-username: username
+             - admin-password: password
            conjur.org/secret-file-path.test-app: "./credentials.yaml"
            conjur.org/secret-file-format.test-app: "yaml"
        spec:
@@ -259,7 +264,19 @@ Push to File operation.
          - name: cyberark-secrets-provider-for-k8s
            image: 'cyberark/secrets-provider-for-k8s:latest'
            imagePullPolicy: Never
-            volumeMounts:
+           env:
+           - name: MY_POD_NAME
+             valueFrom:
+               fieldRef:
+                 fieldPath: metadata.name
+           - name: MY_POD_NAMESPACE
+             valueFrom:
+               fieldRef:
+                 fieldPath: metadata.namespace
+           envFrom:
+           - configMapRef:
+               name: conjur-connect
+           volumeMounts:
              - name: podinfo
                mountPath: /conjur/podinfo
              - name: conjur-secrets
@@ -305,7 +322,7 @@ for a description of each environment variable setting:
 |-----------------------------------------|---------------------|----------------------------------|
 | `conjur.org/authn-identity`         | `CONJUR_AUTHN_LOGIN`  | Required value. Example: `host/conjur/authn-k8s/cluster/apps/inventory-api` |
 | `conjur.org/container-mode`         | `CONTAINER_MODE`      | Allowed values: <ul><li>`init`</li><li>`application`</li></ul>Defaults to `init`.<br>Must be set (or default) to `init` for Push to File mode.|
-| `conjur.org/secrets-destination`    | `SECRETS_DESTINATION` | Allowed values: <ul><li>`file`</li><li>`k8s_secret`</li></ul> |
+| `conjur.org/secrets-destination`    | `SECRETS_DESTINATION` | Allowed values: <ul><li>`file`</li><li>`k8s_secrets`</li></ul> |
 | `conjur.org/k8s-secrets`            | `K8S_SECRETS`         | This list is ignored when `conjur.org/secrets-destination` annotation is set to **`file`** |
 | `conjur.org/retry-count-limit`      | `RETRY_COUNT_LIMIT`   | Defaults to 5
 | `conjur.org/retry-interval-sec`     | `RETRY_INTERVAL_SEC`  | Defaults to 1 (sec)              |
@@ -362,8 +379,7 @@ the `conjur.org/secret-file-format.{secret-group}` annotation is set
 to `json`:
 
 ```
-{"api-url":"dev/redis/api-url","admin-username":"dev/redis/username","admin-password
-":"dev/redis/password"}
+{"api-url":"dev/redis/api-url","admin-username":"dev/redis/username","admin-password":"dev/redis/password"}
 ```
 
 ### Example Bash Secret File
@@ -373,9 +389,9 @@ the `conjur.org/secret-file-format.{secret-group}` annotation is set
 to `bash`:
 
 ```
-     export api-url="dev/redis/api-url"
-     export admin-username="dev/redis/username"
-     export admin-password="dev/redis/password"
+export api-url="dev/redis/api-url"
+export admin-username="dev/redis/username"
+export admin-password="dev/redis/password"
 ```
 
 ### Example dotenv Secret File
@@ -394,10 +410,16 @@ admin-password="dev/redis/password"
 
 In addition to offering standard file formats, Push to File allows users to
 define their own custom secret file templates. These templates adhere to Go's
-text template formatting. Providing custom templates requires setting the
-annotation `conjur.org/secret-file-format.{secret-group}` to `"template"`.
-Custom templates can be provided either by explicit assignment through Pod
-annotations, or through a volume-mounted ConfigMap.
+text template formatting. Using custom templates requires the following:
+
+- The annotation `conjur.org/secret-file-format.{secret-group}` must be set to
+  `template`.
+- The annotation `conjur.org/secret-file-path.{secret-group}` must be set, and
+  must specify a file name.
+
+The custom template must be provided by only one of the methods listed below,
+either by Pod annotation or by volume-mounted ConfigMap. Providing a template by
+both or neither method fails before retrieving secrets from Conjur.
 
 1. <details><summary>Pod annotation</summary>
 
@@ -457,9 +479,6 @@ annotations, or through a volume-mounted ConfigMap.
    ```
 
    </details>
-
-Providing a template with both methods for a single secret group fails before
-retrieving secrets from Conjur.
 
 ### Using Conjur Secrets in Custom Templates
 
@@ -642,73 +661,99 @@ liveness or readiness failures.
 ## Upgrading Existing Secrets Provider Deployments
 
 At a high level, converting an existing Secrets Provider deployment to use
-annotation-based configuration and/or push-to-file mode:
+annotation-based configuration and/or Push to File mode can be done in two ways:
 
-- Inspect the existing application Deployment manifest (if available) or use
+- Inspect the existing application Deployment manifest (if available) or inspect
+  a live deployment with:
+
   ```
   kubectl get deployment $DEPLOYMENT_NAME -o yaml
   ```
-  to inspect the application Deployment.
-- Convert the Service Provider container/Conjur environment variable settings
-  to the equivalent annotation-based setting. Edit the deployment with
+
+  Update the manifest with the changes described below, and then re-apply then
+  configuration:
+
+  ```
+  kubectl apply -f <updated-manifest-filepath>
+  ```
+
+- Edit a live deployment, applying the changes described below, with the
+  interactive command:
+
   ```
   kubectl edit deployment $DEPLOYMENT_NAME
   ```
-- If you are using the Secrets Provider as an init container, and you would
-  like to convert from K8s Secrets mode to push-to-file mode:
-  - Add push-to-file annotations:
-    - For each existing Kubernetes Secret, you may wish to create a separate secrets group for push-to-file.
-    - `conjur.org/secrets-destination: file`: Enable push-to-file mode
-    - `conjur.org/conjur-secrets.{group}`: Inspect the manifests for the
-      existing Kubernetes Secret(s). The manifests should contain a
-      `stringData` section that contains secrets key/value pairs. Map the `stringData` entries to a YAML list value for conjur-secrets,
-      using the secret names as aliases.
-      - Alternatively, for existing deployments, this mapping can be obtained with the command
-        ```
-        kubectl get secret $SECRET_NAME -o jsonpath={.data.conjur-map} | base64 --decode
-        ```
 
-    - `conjur.org/secret-file-path.{group}`: Configure a target location
-    - `conjur.org/secret-file-format.{group}`: Configure a desired type,
-      depending on how the application will consume the secrets file.
-  - Add push-to-file volumes:
-      ```
-      volumes:
-        - name: podinfo
-          downwardAPI:
-            items:
-              - path: annotations
-                fieldRef:
-                  fieldPath: metadata.annotations
-        - name: conjur-secrets
-          emptyDir:
-            medium: Memory
-      ```
-  - Add push-to-file volume mounts to the Secrets Provider init container:
-      ```
-      volumeMounts:
-        - name: podinfo
-          mountPath: /conjur/podinfo
-        - name: conjur-secrets
-          mountPath: /conjur/secrets
-      ```
-  - Add push-to-file volume mount to the application container:
-      ```
-      volumeMounts:
-        - name: conjur-secrets
-          mountPath: /conjur/secrets
-      ```
-  - Remove environment variables used for Secrets Provider configuration from the init container (see annotations tables)
-  - Remove environment variables referencing Kubernetes Secrets from the application container
-  - Delete existing Kubernetes Secrets or their manifests:
-    - If using Helm, delete Kubernetes Secrets manifests and do a
-      `helm upgrade ...`
-    - Otherwise, `kubectl delete ...` the existing Kubernetes Secrets
-  - Modify application to consume secrets as files:
-    - Modify application to consume secrets files directly, or...
-    - Modify the Deployment's spec for the app container so that the
-      `command` entrypoint includes sourcing of a bash-formatted secrets file.
+To convert Secrets Provider from K8s Secrets mode to Push to File mode, make the
+following changes to the deployment:
 
+- Convert the Service Provider container/Conjur environment variable settings
+  to the equivalent annotation-based settings. Use the
+  [Annotation Reference Table](#reference-table-of-configuration-annotations)
+  for envvar-to-annotation mappings.
+  - `conjur.org/secrets-destination: file` enables Push to File mode.
+  - `conjur.org/conjur-secrets.{group}` defines Conjur policy paths previously
+    defined in Kubernetes Secrets.
+    - For each existing Kubernetes Secret, you may wish to create a separate
+      secrets group.
+    - Inspect the manifests for the existing Kubernetes Secret(s). The manifests
+      should contain a `stringData` section that contains secrets key/value pairs.
+      Map the `stringData` entries to a YAML list value for conjur-secrets, using
+      the secret names as aliases.
+    - Alternatively, for existing deployments, this mapping can be obtained with
+      the command
+      ```
+      kubectl get secret $SECRET_NAME -o jsonpath={.data.conjur-map} | base64 --decode
+      ```
+  - `conjur.org/secret-file-path.{group}` configures a target file destination.
+  - `conjur.org/secret-file-format.{group}` configures a desired file type,
+    depending on how the application will consume the secrets file.
+  - Remove environment variables used for Secrets Provider configuration from
+    the init container (see Annotation Reference table).
+  - Remove environment variables referencing Kubernetes Secrets from the
+    application container.
+- Add push-to-file volumes:
+    ```
+    volumes:
+      - name: podinfo
+        downwardAPI:
+          items:
+            - path: annotations
+              fieldRef:
+                fieldPath: metadata.annotations
+      - name: conjur-secrets
+        emptyDir:
+          medium: Memory
+      - name: conjur-templates
+        emptyDir:
+          medium: Memory
+    ```
+- Add push-to-file volume mounts to the Secrets Provider init container:
+    ```
+    volumeMounts:
+      - name: podinfo
+        mountPath: /conjur/podinfo
+      - name: conjur-secrets
+        mountPath: /conjur/secrets
+      - name: conjur-templates
+        mountPath: /conjur/templates
+    ```
+- Add push-to-file volume mount to the application container:
+    ```
+    volumeMounts:
+      - name: conjur-secrets
+        mountPath: /conjur/secrets
+    ```
+- Delete existing Kubernetes Secrets or their manifests:
+  - If using Helm, delete Kubernetes Secrets manifests and do a
+    `helm upgrade ...`
+  - Otherwise, `kubectl delete ...` the existing Kubernetes Secrets
+- Modify application to consume secrets as files:
+  - Modify application to consume secrets files directly, or...
+  - Modify the Deployment's spec for the app container so that the
+    `command` entrypoint includes sourcing of a bash-formatted secrets file.
+
+<!--
 ### Using the Helper Script to Patch the deployment
 There is a script in the secrets-provider-for-k8s bin directory named 
 generate-annotation-upgrade-patch.sh that can be used to generate a patch file.
@@ -729,4 +774,4 @@ Apply patch:
 ```
 kubectl patch deployment \$DEPLOYMENT_NAME --type json --patch-file patch.json
 ```
-
+-->
