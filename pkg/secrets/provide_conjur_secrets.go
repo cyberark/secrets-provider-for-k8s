@@ -1,6 +1,7 @@
 package secrets
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -36,12 +37,14 @@ type ProviderFunc func() error
 
 // NewProviderForType returns a ProviderFunc responsible for providing secrets in a given mode.
 func NewProviderForType(
+	traceContext context.Context,
 	secretsRetrieverFunc conjur.RetrieveSecretsFunc,
 	providerConfig ProviderConfig,
 ) (ProviderFunc, []error) {
 	switch providerConfig.StoreType {
 	case config.K8s:
 		provider := k8sSecretsStorage.NewProvider(
+			traceContext,
 			secretsRetrieverFunc,
 			providerConfig.RequiredK8sSecrets,
 			providerConfig.PodNamespace,
@@ -54,6 +57,7 @@ func NewProviderForType(
 			providerConfig.TemplateFileBasePath,
 			providerConfig.AnnotationsMap,
 		)
+		provider.SetTraceContext(traceContext)
 		if err != nil {
 			return nil, err
 		}
