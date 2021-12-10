@@ -70,9 +70,5 @@ const CSPFK048E string = "CSPFK048E Secrets Provider in K8s Secrets mode require
 const CSPFK049E string = "CSPFK049E Failed to validate Pod annotations"
 
 // Push to File
-const CSPFK050E string = "CSPFK050E Failed to unmarshal Push-to-File secrets. Reason: %s"
-const CSPFK051E string = "CSPFK051E Unknown file format '%s'"
-const CSPFK052E string = "CSPFK052E Failed to retrieve secrets. Reason: %s"
-
 const CSPFK053E string = "CSPFK053E Unable to initialize Secrets Provider: unable to create secret group collection"
 const CSPFK054E string = "CSPFK054E Unable to initialize Secrets Provider: unrecognized Store Type '%s'"
