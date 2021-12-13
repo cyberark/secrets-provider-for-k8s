@@ -404,6 +404,18 @@ func TestNewSecretGroups(t *testing.T) {
 		assert.Contains(t, errs[0].Error(), `secret alias "x" not present in specified secrets`)
 	})
 
+	t.Run("pass custom format first-pass at execution with base64 decoding", func(t *testing.T) {
+		// The string "REDACTED" is valid Base64 so no error is produced in the first-pass.
+		_, errs := NewSecretGroups("/basepath", "", map[string]string{
+			"conjur.org/conjur-secrets.first":       "- path/to/secret/first1\n",
+			"conjur.org/secret-file-path.first":     "firstfilepath",
+			"conjur.org/secret-file-format.first":   "template",
+			"conjur.org/secret-file-template.first": `{{ secret "first1" | b64dec }}`,
+		})
+
+		assert.Len(t, errs, 0)
+	})
+
 	t.Run("custom template - happy case from template file", func(t *testing.T) {
 		// Setup mocks
 		closableBuf := new(ClosableBuffer)

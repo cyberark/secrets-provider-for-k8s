@@ -515,6 +515,24 @@ respectively:
 For a full list of global Go text template functions, reference the official
 [`text/template` documentation](https://pkg.go.dev/text/template#hdr-Functions).
 
+### Additional Template Functions
+
+Custom templates also support a limited number of additional functions. Currently
+supported functions are:
+
+- `b64enc`: Base64 encode a value.
+- `b64dec`: Base64 decode a value.
+
+These can be used as follows:
+
+```
+{{ secret "alias" | b64enc }}
+{{ secret "alias" | b64dec }}
+```
+
+When using the `b64dec` function, an error will occur if the value retrieved from
+Conjur is not a valid Base64 encoded string.
+
 ### Execution "Double-Pass"
 
 To avoid leaking sensitive secret data to logs, and to ensure that a

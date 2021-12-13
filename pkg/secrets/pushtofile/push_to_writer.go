@@ -73,6 +73,8 @@ func pushToWriter(
 			// when the template is executed.
 			panic(fmt.Sprintf("secret alias %q not present in specified secrets for group", alias))
 		},
+		"b64enc": b64encTemplateFunc,
+		"b64dec": b64decTemplateFunc,
 	}).Parse(groupTemplate)
 	if err != nil {
 		return err
