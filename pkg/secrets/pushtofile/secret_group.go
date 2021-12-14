@@ -2,6 +2,8 @@ package pushtofile
 
 import (
 	"fmt"
+	"github.com/cyberark/conjur-authn-k8s-client/pkg/log"
+	"github.com/cyberark/secrets-provider-for-k8s/pkg/log/messages"
 	"io/ioutil"
 	"os"
 	"path"
@@ -116,7 +118,7 @@ func (sg *SecretGroup) absoluteFilePath(secretsBasePath string) (string, error) 
 	groupName := sg.Name
 	filePath := sg.FilePath
 	fileTemplate := sg.FileTemplate
-	fileFormat := sg.FileFormat
+	fileExt := sg.FileFormat
 
 	// filePath must be relative
 	if path.IsAbs(filePath) {
@@ -130,18 +132,16 @@ func (sg *SecretGroup) absoluteFilePath(secretsBasePath string) (string, error) 
 
 	if !pathContainsFilename {
 		if len(fileTemplate) > 0 {
-			// fileTemplate requires filePath to point to a file (not a directory)
-			return "", fmt.Errorf(
-				"provided filepath %q for secret group %q must specify a path to a file, without a trailing %q",
-				filePath, groupName, "/",
-			)
+			// Template filename defaults to "{groupName}.out"
+			fileExt = "out"
 		}
 
-		// Without the restrictions of fileTemplate, the filename defaults to "{groupName}.{fileFormat}"
+		// For all other formats, the filename defaults to "{groupName}.{fileFormat}"
 		filePath = path.Join(
 			filePath,
-			fmt.Sprintf("%s.%s", groupName, fileFormat),
+			fmt.Sprintf("%s.%s", groupName, fileExt),
 		)
+		log.Info(messages.CSPFK017I, groupName)
 	}
 
 	absoluteFilePath := path.Join(secretsBasePath, filePath)
