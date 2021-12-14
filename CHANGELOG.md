@@ -20,6 +20,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
   are no secrets that need to be retrieved.
   [cyberark/secrets-provider-for-k8s#404](https://github.com/cyberark/secrets-provider-for-k8s/pull/404)
 
+### Security
+- Updated golang.org/x/net to v0.0.0-20211209124913-491a49abca63
+  [cyberark/secrets-provider-for-k8s#413](https://github.com/cyberark/secrets-provider-for-k8s/pull/413)
+
 ## [1.2.0] - 2021-11-30
 
 ### Added
