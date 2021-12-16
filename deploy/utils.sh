@@ -191,7 +191,8 @@ configure_cli_pod() {
 
   $cli_with_timeout "exec $conjur_cli_pod -- bash -c \"yes yes | conjur init -a $CONJUR_ACCOUNT -u $conjur_url\""
 
-  $cli_with_timeout exec $conjur_cli_pod -- conjur authn login -u admin -p $CONJUR_ADMIN_PASSWORD
+  # Flaky with 500 Internal Server Error, mitigate with retry
+  wait_for_it 300 "$cli_with_timeout exec $conjur_cli_pod -- conjur authn login -u admin -p $CONJUR_ADMIN_PASSWORD"
 }
 
 configure_conjur_url() {

@@ -11,7 +11,11 @@ main() {
 
 deployConjur() {
   pushd ..
-    git clone git@github.com:cyberark/kubernetes-conjur-deploy kubernetes-conjur-deploy-$UNIQUE_TEST_ID
+    # ***TEMP*** Use branch with fix for Conjur CLI 500 Internal Server Error
+    #git clone git@github.com:cyberark/kubernetes-conjur-deploy kubernetes-conjur-deploy-$UNIQUE_TEST_ID
+    git clone --branch fix-cli-500-internal-err \
+      git@github.com:cyberark/kubernetes-conjur-deploy \
+      kubernetes-conjur-deploy-$UNIQUE_TEST_ID
 
     cmd="./start"
     if [ $CONJUR_DEPLOYMENT = "oss" ]; then
