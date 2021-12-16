@@ -37,11 +37,7 @@ func FileTemplateForFormat(
 	for _, s := range secretSpecs {
 		err := stdTemplate.ValidateAlias(s.Alias)
 		if err != nil {
-			return "", fmt.Errorf(
-				"alias %q failed standard file format validation: %s",
-				s.Alias,
-				err,
-			)
+			return "", err
 		}
 	}
 

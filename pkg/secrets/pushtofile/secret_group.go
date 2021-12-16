@@ -185,7 +185,8 @@ func (sg *SecretGroup) validate() []error {
 		if err != nil {
 			return []error{
 				fmt.Errorf(
-					"unable to process file format %q for group: %s",
+					"unable to process group %q into file format %q: %s",
+					groupName,
 					fileFormat,
 					err,
 				),

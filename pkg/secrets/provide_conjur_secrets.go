@@ -57,10 +57,10 @@ func NewProviderForType(
 			providerConfig.TemplateFileBasePath,
 			providerConfig.AnnotationsMap,
 		)
-		provider.SetTraceContext(traceContext)
 		if err != nil {
 			return nil, err
 		}
+		provider.SetTraceContext(traceContext)
 		return provider.Provide, nil
 	default:
 		return nil, []error{fmt.Errorf(
