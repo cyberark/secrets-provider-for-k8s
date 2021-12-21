@@ -246,40 +246,42 @@ func TestNewSecretGroups(t *testing.T) {
 		assert.Contains(t, errs[0].Error(), "second")
 	})
 
-	t.Run("secret file template requires file path annotation as file", func(t *testing.T) {
-		_, errs := NewSecretGroups("/basepath", "", map[string]string{
+	t.Run("secret file path default for template", func(t *testing.T) {
+		groups, errs := NewSecretGroups("/basepath", "", map[string]string{
 			"conjur.org/conjur-secrets.first": `
 - path/to/secret/first1
 - aliasfirst2: path/to/secret/first2
 `,
-			"conjur.org/secret-file-path.first":     "./relative/path/to/folder/",
 			"conjur.org/secret-file-format.first":   "template",
 			"conjur.org/secret-file-template.first": "some template",
 		})
 
-		assert.Len(t, errs, 1)
-		assert.Contains(
+		assert.Len(t, errs, 0)
+		assert.Len(t, groups, 1)
+		assert.Equal(
 			t,
-			errs[0].Error(),
-			`path to a file`,
+			groups[0].FilePath,
+			`/basepath/first.out`,
 		)
 	})
 
-	t.Run("secret file template requires explicit file path", func(t *testing.T) {
-		_, errs := NewSecretGroups("/basepath", "", map[string]string{
+	t.Run("secret file path default for template relative path", func(t *testing.T) {
+		groups, errs := NewSecretGroups("/basepath", "", map[string]string{
 			"conjur.org/conjur-secrets.first": `
 - path/to/secret/first1
 - aliasfirst2: path/to/secret/first2
 `,
 			"conjur.org/secret-file-format.first":   "template",
 			"conjur.org/secret-file-template.first": "some template",
+			"conjur.org/secret-file-path.first":     "./relative/path/to/folder/",
 		})
 
-		assert.Len(t, errs, 1)
-		assert.Contains(
+		assert.Len(t, errs, 0)
+		assert.Len(t, groups, 1)
+		assert.Equal(
 			t,
-			errs[0].Error(),
-			`path to a file`,
+			groups[0].FilePath,
+			`/basepath/relative/path/to/folder/first.out`,
 		)
 	})
 

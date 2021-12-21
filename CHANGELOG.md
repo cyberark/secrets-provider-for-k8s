@@ -7,6 +7,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ## [Unreleased]
 
 ### Added
+- Push-to-File supports default filepaths for templates. [cyberark/secrets-provider-for-k8s#411](https://github.com/cyberark/secrets-provider-for-k8s/pull/411)
 - Adds support for tracing with OpenTelemetry. [cyberark/secrets-provider-for-k8s#398](https://github.com/cyberark/secrets-provider-for-k8s/pull/398)
 - Adds support for Base64 encode/decode functions in custom templates. [cyberark/secrets-provider-for-k8s#409](https://github.com/cyberark/secrets-provider-for-k8s/pull/409)
 
