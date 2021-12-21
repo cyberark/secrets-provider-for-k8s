@@ -29,10 +29,15 @@ if [ "$GIT_DESCRIPTION" = "v${VERSION}" ]; then
     docker push "$REGISTRY/$IMAGE_NAME:$tag"
   done
 
+  # Publish RedHat image to Internal Registry
+  docker tag "secrets-provider-for-k8s-redhat:${FULL_VERSION_TAG}" "$REGISTRY/secrets-provider-for-k8s-redhat:${VERSION}"
+  docker push "$REGISTRY/secrets-provider-for-k8s-redhat:${VERSION}"
+
   # Publish only latest to Redhat Registries
   echo "Tagging and pushing ${REDHAT_IMAGE}"
   docker tag "secrets-provider-for-k8s-redhat:${FULL_VERSION_TAG}" "${REDHAT_IMAGE}:${VERSION}"
 
+  # Publish RedHat image to RedHat Registry
   if docker login scan.connect.redhat.com -u unused -p "${REDHAT_API_KEY}"; then
     # you can't push the same tag twice to redhat registry, so ignore errors
     if ! docker push "${REDHAT_IMAGE}:${VERSION}"; then
