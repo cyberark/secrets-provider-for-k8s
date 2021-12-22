@@ -44,19 +44,13 @@ func NewSecretRetriever(authnConfig config.Config) (*SecretRetriever, error) {
 // Retrieve implements a RetrieveSecretsFunc for a given SecretRetriever.
 // Authenticates the client, and retrieves a given batch of variables from Conjur.
 func (retriever SecretRetriever) Retrieve(variableIDs []string, traceContext context.Context) (map[string][]byte, error) {
-	tr := trace.NewOtelTracer(otel.Tracer("secrets-provider"))
-	_, span := tr.Start(traceContext, "Authenticate")
 
 	authn := retriever.authn
 
-	// TODO: Add tracing support in the conjur-authn-k8s-client package to enable more granular tracing
-	err := authn.Authenticate()
+	err := authn.AuthenticateWithContext(traceContext)
 	if err != nil {
-		span.RecordErrorAndSetStatus(err)
-		span.End()
 		return nil, log.RecordedError(messages.CSPFK010E)
 	}
-	span.End()
 
 	accessTokenData, err := authn.AccessToken.Read()
 	if err != nil {
@@ -65,7 +59,8 @@ func (retriever SecretRetriever) Retrieve(variableIDs []string, traceContext con
 	// Always delete the access token. The deletion is idempotent and never fails
 	defer authn.AccessToken.Delete()
 
-	_, span = tr.Start(traceContext, "Retrieve secrets")
+	tr := trace.NewOtelTracer(otel.Tracer("secrets-provider"))
+	_, span := tr.Start(traceContext, "Retrieve secrets")
 	span.SetAttributes(attribute.Int("variable_count", len(variableIDs)))
 	defer span.End()
 
