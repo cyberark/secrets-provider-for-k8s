@@ -7,9 +7,18 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ## [Unreleased]
 
 ### Added
-- Push-to-File supports default filepaths for templates. [cyberark/secrets-provider-for-k8s#411](https://github.com/cyberark/secrets-provider-for-k8s/pull/411)
+- Push-to-File supports default filepaths for templates.[cyberark/secrets-provider-for-k8s#411](https://github.com/cyberark/secrets-provider-for-k8s/pull/411)
 - Adds support for tracing with OpenTelemetry. [cyberark/secrets-provider-for-k8s#398](https://github.com/cyberark/secrets-provider-for-k8s/pull/398)
 - Adds support for Base64 encode/decode functions in custom templates. [cyberark/secrets-provider-for-k8s#409](https://github.com/cyberark/secrets-provider-for-k8s/pull/409)
+- Secrets Provider run in Push-to-File mode can use secret file templates
+  defined in a volume-mounted ConfigMap.
+  [cyberark/secrets-provider-for-k8s#393](https://github.com/cyberark/secrets-provider-for-k8s/pull/393)
+
+### Changed
+- Secrets Provider run in Push-to-File mode using a custom secret file template
+  requires annotation `conjur.org/secret-file-format.{secret-group}` to be set
+  to `template`.
+  [cyberark/secrets-provider-for-k8s#393](https://github.com/cyberark/secrets-provider-for-k8s/pull/393)
 
 ### Fixed
 - If the Secrets Provider is run in Push-to-File mode, it no longer errors out
