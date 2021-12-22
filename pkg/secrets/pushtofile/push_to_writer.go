@@ -44,6 +44,11 @@ func openFileAsWriteCloser(path string, permissions os.FileMode) (io.WriteCloser
 		return nil, fmt.Errorf("unable to open file to write at %q: %s", path, err)
 	}
 
+	//Chmod file to set permissions regardless of 'umask'
+	if err := os.Chmod(path, permissions); err != nil {
+		return nil, fmt.Errorf("unable to chmod file %q: %s", path, err)
+	}
+
 	return wc, nil
 }
 
