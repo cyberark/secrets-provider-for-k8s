@@ -138,6 +138,7 @@ From here your pull request is reviewed. Once you have implemented all reviewer 
 ### Testing
 
 #### Unit testing
+
 For our Go unit testing, we use the [GoConvey](http://goconvey.co/) testing tool.  
 
 To run existing unit tests, run `./bin/test_unit`
@@ -146,9 +147,11 @@ When contributing to the CyberArk Secrets Provider for Kubernetes project, be su
 already existing test files or create new ones.
 
 To follow [Go testing conventions](https://golang.org/pkg/cmd/go/internal/test/) when creating a new test file, perform the following:
+
 1. Create a new test file that matches the file naming pattern "*_test.go" in the proper `pkg` folder, close to the source code.
 
 1. Add the following to the import statement at the beginning of the file
+
     ```go
     import (
         "testing"
@@ -186,6 +189,44 @@ When contributing new integration tests, perform the following:
 If your tests follow the above instructions, our scripts should grab your test additions and run it as our test suite. 
 
 That's it!
+
+#### Tracing
+
+To view tracing output from Secrets Provider, you can enable Jaeger tracing.
+
+1. Create a local Jaeger instance.
+
+    ```bash
+    kubectl create namespace jaeger
+    kubectl config set-context --current --namespace=jaeger
+    helm repo add jaegertracing https://jaegertracing.github.io/helm-charts
+    helm install jaeger jaegertracing/jaeger \
+      --set provisionDataStore.cassandra=false \
+      --set provisionDataStore.elasticsearch=true \
+      --set storage.type=elasticsearch \
+      --set elasticsearch.replicas=1 \
+      --set elasticsearch.minimumMasterNodes=1
+    ```
+
+    Wait a few minutes for the Jaeger instance to be ready. Then run the following commands to expose the
+    Jaeger UI on localhost:8080.
+
+    ```bash
+    pod_name=$(kubectl get pods --namespace jaeger -l "app.kubernetes.io/instance=jaeger,app.kubernetes.io/component=query" -o jsonpath="{.items[0].metadata.name}")
+    kubectl port-forward --namespace jaeger $pod_name 8080:16686
+    ```
+
+2. Clone the [cyberark/conjur-authn-k8s-client](https://github.com/cyberark/conjur-authn-k8s-client) repository which
+contains the E2E tests. Edit the template file for the tests. For example, you can add the following to the `annotations`
+section of `helm/conjur-app-deploy/charts/app-secrets-provider-p2f/templates/test_app_secrets_provider_p2f.yaml` for the
+push to file E2E test:
+
+    ```yaml
+    conjur.org/jaeger-collector-url: http://jaeger-collector.jaeger.svc.cluster.local:14268/api/traces
+    ```
+
+    Now run the tests as usual with `cd bin/test-workflow && ./start -a secrets-provider-p2f`.
+
 
 ## Releases
 
