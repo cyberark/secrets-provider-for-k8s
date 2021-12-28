@@ -7,8 +7,8 @@ github.com/cenkalti/backoff v2.2.1+incompatible/go.mod h1:90ReRw6GdpyfrHakVjL/QH
 github.com/cyberark/conjur-api-go v0.8.0 h1:y7/l7tv92h8rmpnOkebYwz/KSqUWe+IrLVITBk3ZWVQ=
 github.com/cyberark/conjur-api-go v0.8.0/go.mod h1:HZ5RoBhAB2KwnxyXbQ29DwpviRVg7SMRq7QhwtFjN3Q=
 github.com/cyberark/conjur-authn-k8s-client v0.22.1-0.20211129182011-dd5ac8ad32ff/go.mod h1:AUF2WFqMDwQevSqg+UM8qvbTxJ1Ij5RhUdDsNNYqB+c=
-github.com/cyberark/conjur-authn-k8s-client v0.22.1-0.20211221202840-89545e750835 h1:Lod+R6z1cvh+OVn1F+JznvUUH3m7rSczm+gX5Cxl5nQ=
-github.com/cyberark/conjur-authn-k8s-client v0.22.1-0.20211221202840-89545e750835/go.mod h1:hW6PZ5E+DV7YErUqWbZ7tKmFRnCApIA/ze5miehhKm0=
+github.com/cyberark/conjur-authn-k8s-client v0.22.1-0.20220102093039-9e5b9cce0f03 h1:LjrDHDZtUgXNrz2jYzhmXfmKHYskgYGbhPAk6lnxK/s=
+github.com/cyberark/conjur-authn-k8s-client v0.22.1-0.20220102093039-9e5b9cce0f03/go.mod h1:hW6PZ5E+DV7YErUqWbZ7tKmFRnCApIA/ze5miehhKm0=
 github.com/cyberark/secrets-provider-for-k8s v1.2.1-0.20211209214235-a3a8a3dc65e4/go.mod h1:FCBMlN7VIDsh+VI1Zxkp9c68f0JgqwR0P/4d1umcnW4=
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=

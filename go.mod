@@ -5,7 +5,7 @@ go 1.17
 require (
 	github.com/cenkalti/backoff v2.2.1+incompatible
 	github.com/cyberark/conjur-api-go v0.8.0
-	github.com/cyberark/conjur-authn-k8s-client v0.22.1-0.20211221202840-89545e750835
+	github.com/cyberark/conjur-authn-k8s-client v0.22.1-0.20220102093039-9e5b9cce0f03
 	github.com/smartystreets/goconvey v1.6.4
 	github.com/stretchr/testify v1.7.0
 	go.opentelemetry.io/otel v1.3.0

@@ -17,7 +17,7 @@ import (
 )
 
 type SecretRetriever struct {
-	authn *authenticator.Authenticator
+	authn authenticator.Authenticator
 }
 
 // RetrieveSecretsFunc defines a function type for retrieving secrets.
@@ -25,13 +25,13 @@ type RetrieveSecretsFunc func(variableIDs []string, traceContext context.Context
 
 // NewSecretRetriever creates a new SecretRetriever and Authenticator
 // given an authenticator config.
-func NewSecretRetriever(authnConfig config.Config) (*SecretRetriever, error) {
+func NewSecretRetriever(authnConfig config.Configuration) (*SecretRetriever, error) {
 	accessToken, err := memory.NewAccessToken()
 	if err != nil {
 		return nil, fmt.Errorf("%s", messages.CSPFK001E)
 	}
 
-	authn, err := authenticator.NewWithAccessToken(authnConfig, accessToken)
+	authn, err := authenticator.NewAuthenticatorWithAccessToken(authnConfig, accessToken)
 	if err != nil {
 		return nil, fmt.Errorf("%s", messages.CSPFK009E)
 	}
@@ -52,12 +52,12 @@ func (retriever SecretRetriever) Retrieve(variableIDs []string, traceContext con
 		return nil, log.RecordedError(messages.CSPFK010E)
 	}
 
-	accessTokenData, err := authn.AccessToken.Read()
+	accessTokenData, err := authn.GetAccessToken().Read()
 	if err != nil {
 		return nil, log.RecordedError(messages.CSPFK002E)
 	}
 	// Always delete the access token. The deletion is idempotent and never fails
-	defer authn.AccessToken.Delete()
+	defer authn.GetAccessToken().Delete()
 
 	tr := trace.NewOtelTracer(otel.Tracer("secrets-provider"))
 	_, span := tr.Start(traceContext, "Retrieve secrets")
