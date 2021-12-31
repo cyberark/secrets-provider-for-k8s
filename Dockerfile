@@ -7,8 +7,7 @@ ENV GOOS=linux \
     GOARCH=amd64 \
     CGO_ENABLED=0
 
-RUN go get -u github.com/jstemmer/go-junit-report && \
-    go get github.com/smartystreets/goconvey
+RUN go get -u github.com/jstemmer/go-junit-report
 
 WORKDIR /opt/secrets-provider-for-k8s
 
