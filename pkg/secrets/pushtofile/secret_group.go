@@ -2,14 +2,15 @@ package pushtofile
 
 import (
 	"fmt"
-	"github.com/cyberark/conjur-authn-k8s-client/pkg/log"
-	"github.com/cyberark/secrets-provider-for-k8s/pkg/log/messages"
 	"io/ioutil"
 	"os"
 	"path"
 	"path/filepath"
 	"sort"
 	"strings"
+
+	"github.com/cyberark/conjur-authn-k8s-client/pkg/log"
+	"github.com/cyberark/secrets-provider-for-k8s/pkg/log/messages"
 )
 
 const secretGroupPrefix = "conjur.org/conjur-secrets."
@@ -60,7 +61,7 @@ func resolvedSecretSpecs(policyPathPrefix string, secretSpecs []SecretSpec) []Se
 
 // PushToFile uses the configuration on a secret group to inject secrets into a template
 // and write the result to a file.
-func (sg *SecretGroup) PushToFile(secrets []*Secret) error {
+func (sg *SecretGroup) PushToFile(secrets []*Secret) (changed bool, err error) {
 	return sg.pushToFileWithDeps(openFileAsWriteCloser, pushToWriter, secrets)
 }
 
@@ -68,11 +69,10 @@ func (sg *SecretGroup) pushToFileWithDeps(
 	depOpenWriteCloser openWriteCloserFunc,
 	depPushToWriter pushToWriterFunc,
 	secrets []*Secret,
-) (err error) {
+) (changed bool, err error) {
 	// Make sure all the secret specs are accounted for
-	err = validateSecretsAgainstSpecs(secrets, sg.SecretSpecs)
-	if err != nil {
-		return
+	if err := validateSecretsAgainstSpecs(secrets, sg.SecretSpecs); err != nil {
+		return false, err
 	}
 
 	// Determine file template from
@@ -85,13 +85,13 @@ func (sg *SecretGroup) pushToFileWithDeps(
 		sg.SecretSpecs,
 	)
 	if err != nil {
-		return
+		return false, err
 	}
 
 	//// Open and push to file
 	wc, err := depOpenWriteCloser(sg.FilePath, sg.FilePermissions)
 	if err != nil {
-		return
+		return false, err
 	}
 	defer func() {
 		_ = wc.Close()
@@ -103,16 +103,16 @@ func (sg *SecretGroup) pushToFileWithDeps(
 			err = maskError
 		}
 	}()
-	pushToWriterErr := depPushToWriter(
+	changed, err = depPushToWriter(
 		wc,
 		sg.Name,
 		fileTemplate,
 		secrets,
 	)
-	if pushToWriterErr != nil {
+	if err != nil {
 		err = maskError
 	}
-	return
+	return changed, err
 }
 
 func (sg *SecretGroup) absoluteFilePath(secretsBasePath string) (string, error) {
@@ -204,7 +204,7 @@ func (sg *SecretGroup) validate() []error {
 			dummySecrets = append(dummySecrets, &Secret{Alias: secretSpec.Alias, Value: "REDACTED"})
 		}
 
-		err := pushToWriter(ioutil.Discard, groupName, fileTemplate, dummySecrets)
+		_, err := pushToWriter(ioutil.Discard, groupName, fileTemplate, dummySecrets)
 		if err != nil {
 			return []error{fmt.Errorf(
 				`unable to use file template for secret group %q: %s`,

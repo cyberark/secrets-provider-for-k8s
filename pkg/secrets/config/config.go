@@ -46,6 +46,16 @@ type annotationRestraints struct {
 	allowedValues []string
 }
 
+// Annotations used to support Conjur secrets rotation.
+// SecretsRefreshIntervalKey is the Annotation key for setting the interval
+// for retrieving Conjur secrets and updating Kubernetes Secrets or
+// application secret files if necessary.
+const (
+	SecretsRefreshIntervalKey = "conjur.org/secrets-refresh-interval"
+	RestartAppSignalKey       = "conjur.org/restart-app-signal"
+	FileLockDuringUpdateKey   = "conjur.org/file-lock-during-update"
+)
+
 // Define supported annotation keys for Secrets Provider config, as well as value restraints for each
 var secretsProviderAnnotations = map[string]annotationRestraints{
 	"conjur.org/authn-identity":       {TYPESTRING, []string{}},
@@ -54,6 +64,9 @@ var secretsProviderAnnotations = map[string]annotationRestraints{
 	"conjur.org/k8s-secrets":          {TYPESTRING, []string{}},
 	"conjur.org/retry-count-limit":    {TYPEINT, []string{}},
 	"conjur.org/retry-interval-sec":   {TYPEINT, []string{}},
+	SecretsRefreshIntervalKey:         {TYPESTRING, []string{}},
+	RestartAppSignalKey:               {TYPESTRING, []string{}},
+	FileLockDuringUpdateKey:           {TYPEBOOL, []string{}},
 	"conjur.org/debug-logging":        {TYPEBOOL, []string{}},
 	"conjur.org/log-traces":           {TYPEBOOL, []string{}},
 	"conjur.org/jaeger-collector-url": {TYPESTRING, []string{}},
@@ -68,7 +81,7 @@ var pushToFileAnnotationPrefixes = map[string]annotationRestraints{
 	"conjur.org/conjur-secrets-policy-path.": {TYPESTRING, []string{}},
 	"conjur.org/secret-file-path.":           {TYPESTRING, []string{}},
 	"conjur.org/secret-file-format.":         {TYPESTRING, []string{"yaml", "json", "dotenv", "bash", "template"}},
-	"conjur.org/secret-file-permissions.": 	  {TYPESTRING, []string{}},
+	"conjur.org/secret-file-permissions.":    {TYPESTRING, []string{}},
 	"conjur.org/secret-file-template":        {TYPESTRING, []string{}},
 }
 

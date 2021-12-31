@@ -3,6 +3,7 @@ package secrets
 import (
 	"context"
 	"fmt"
+	"syscall"
 	"time"
 
 	"github.com/cenkalti/backoff"
@@ -30,6 +31,10 @@ type ProviderConfig struct {
 	SecretFileBasePath   string
 	TemplateFileBasePath string
 	AnnotationsMap       map[string]string
+
+	// Config for handling Conjur secrets rotation
+	RestartAppSignal     syscall.Signal
+	FileLockDuringUpdate bool
 }
 
 // ProviderFunc describes a function type responsible for providing secrets to an unspecified target.
@@ -41,6 +46,7 @@ func NewProviderForType(
 	secretsRetrieverFunc conjur.RetrieveSecretsFunc,
 	providerConfig ProviderConfig,
 ) (ProviderFunc, []error) {
+	fmt.Printf("***TEMP*** NewProviderForType, RestartAppSignal = %d\n", providerConfig.RestartAppSignal)
 	switch providerConfig.StoreType {
 	case config.K8s:
 		provider := k8sSecretsStorage.NewProvider(
@@ -51,11 +57,14 @@ func NewProviderForType(
 		)
 		return provider.Provide, nil
 	case config.File:
+		fmt.Printf("***TEMP*** NewProviderForType, P2F mode,  RestartAppSignal = %d\n", providerConfig.RestartAppSignal)
 		provider, err := pushtofile.NewProvider(
 			secretsRetrieverFunc,
 			providerConfig.SecretFileBasePath,
 			providerConfig.TemplateFileBasePath,
 			providerConfig.AnnotationsMap,
+			providerConfig.RestartAppSignal,
+			providerConfig.FileLockDuringUpdate,
 		)
 		if err != nil {
 			return nil, err

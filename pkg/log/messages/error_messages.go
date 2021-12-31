@@ -68,6 +68,7 @@ const CSPFK046E string = "CSPFK046E Secret Store Type needs to be configured, ei
 const CSPFK047E string = "CSPFK047E Secrets Provider in Push-to-File mode can only be configured with Pod annotations"
 const CSPFK048E string = "CSPFK048E Secrets Provider in K8s Secrets mode requires either the 'K8S_SECRETS' environment variable or 'conjur.org/k8s-secrets' Pod annotation"
 const CSPFK049E string = "CSPFK049E Failed to validate Pod annotations"
+const CSPFK050E string = "CSPFK050E Invalid secrets refresh interval annotation: %s"
 
 // Push to File
 const CSPFK053E string = "CSPFK053E Unable to initialize Secrets Provider: unable to create secret group collection"

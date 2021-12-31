@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"strconv"
+	"syscall"
 	"time"
 
 	authnConfigProvider "github.com/cyberark/conjur-authn-k8s-client/pkg/authenticator/config"
@@ -17,6 +19,7 @@ import (
 	secretsConfigProvider "github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/config"
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/trace"
 	"go.opentelemetry.io/otel/attribute"
+	"golang.org/x/sys/unix"
 )
 
 const (
@@ -67,7 +70,8 @@ func main() {
 	}
 
 	// Process Pod Annotations
-	if err := processAnnotations(ctx, tracer); err != nil {
+	var refreshInterval time.Duration
+	if refreshInterval, err = processAnnotations(ctx, tracer); err != nil {
 		logError(err.Error())
 		return
 	}
@@ -86,36 +90,53 @@ func main() {
 		return
 	}
 
-	// Provide secrets
-	err = provideSecrets()
-	if err != nil {
-		errStr := fmt.Sprintf(messages.CSPFK039E, secretsConfig.StoreType, err.Error())
-		logError(errStr)
+	for {
+		// Provide secrets
+		err = provideSecrets()
+		if err != nil {
+			errStr := fmt.Sprintf(messages.CSPFK039E, secretsConfig.StoreType, err.Error())
+			logError(errStr)
+		}
+		if refreshInterval == 0 {
+			break
+		}
+		time.Sleep(refreshInterval)
 	}
 }
 
-func processAnnotations(ctx context.Context, tracer trace.Tracer) error {
+func processAnnotations(ctx context.Context, tracer trace.Tracer) (time.Duration, error) {
 	// Only attempt to populate from annotations if the annotations file exists
 	// TODO: Figure out strategy for dealing with explicit annotation file path
 	// set by user. In that case we can't just ignore that the file is missing.
+	refreshInterval := time.Duration(0)
 	if _, err := os.Stat(annotationsFilePath); err == nil {
 		_, span := tracer.Start(ctx, "Process Annotations")
 		defer span.End()
+
+		defer func() {
+			if err != nil {
+				log.Error(err.Error())
+				span.RecordErrorAndSetStatus(err)
+			}
+		}()
+
 		annotationsMap, err = annotations.NewAnnotationsFromFile(annotationsFilePath)
 		if err != nil {
-			log.Error(err.Error())
-			span.RecordErrorAndSetStatus(err)
-			return err
+			return 0, err
 		}
 
 		errLogs, infoLogs := secretsConfigProvider.ValidateAnnotations(annotationsMap)
 		if err := logErrorsAndInfos(errLogs, infoLogs); err != nil {
-			log.Error(messages.CSPFK049E)
-			span.RecordErrorAndSetStatus(errors.New(messages.CSPFK049E))
-			return err
+			err := errors.New(messages.CSPFK049E)
+			return 0, err
+		}
+
+		refreshInterval, err = parseSecretsRefreshInterval()
+		if err != nil {
+			return 0, err
 		}
 	}
-	return nil
+	return refreshInterval, nil
 }
 
 func secretRetriever(ctx context.Context,
@@ -163,6 +184,22 @@ func retryableSecretsProvider(
 		span.RecordErrorAndSetStatus(err)
 		return nil, nil, err
 	}
+
+	// Parse settings for handling Conjur secrets rotation
+	restartAppSignal, err := parseRestartAppSignal()
+	if err != nil {
+		log.Error(err.Error())
+		span.RecordErrorAndSetStatus(err)
+		return nil, nil, err
+	}
+	fmt.Printf("***TEMP*** parseRestartAppSignal returns signal %d\n", restartAppSignal)
+	fileLock, err := parseFileLockDuringUpdate()
+	if err != nil {
+		log.Error(err.Error())
+		span.RecordErrorAndSetStatus(err)
+		return nil, nil, err
+	}
+
 	providerConfig := &secrets.ProviderConfig{
 		StoreType:            secretsConfig.StoreType,
 		PodNamespace:         secretsConfig.PodNamespace,
@@ -170,7 +207,10 @@ func retryableSecretsProvider(
 		SecretFileBasePath:   secretsBasePath,
 		TemplateFileBasePath: templatesBasePath,
 		AnnotationsMap:       annotationsMap,
+		RestartAppSignal:     restartAppSignal,
+		FileLockDuringUpdate: fileLock,
 	}
+	fmt.Printf("***TEMP*** In providerConfig struct, RestartAppSignal = %d\n", providerConfig.RestartAppSignal)
 
 	// Tag the span with the secrets provider mode
 	span.SetAttributes(attribute.String("store_type", secretsConfig.StoreType))
@@ -268,4 +308,43 @@ func validateContainerMode(containerMode string) error {
 		}
 	}
 	return fmt.Errorf(messages.CSPFK007E, containerMode, validContainerModes)
+}
+
+func parseSecretsRefreshInterval() (time.Duration, error) {
+	intervalKey := secretsConfigProvider.SecretsRefreshIntervalKey
+	duration := time.Duration(0)
+	if intervalStr, exists := annotationsMap[intervalKey]; exists {
+		var err error
+		duration, err = time.ParseDuration(intervalStr)
+		if err != nil {
+			return 0, fmt.Errorf(messages.CSPFK050E, intervalStr)
+		}
+	}
+	return duration, nil
+}
+
+func parseRestartAppSignal() (syscall.Signal, error) {
+	signal := syscall.Signal(0)
+	key := secretsConfigProvider.RestartAppSignalKey
+	if signalName, exists := annotationsMap[key]; exists {
+		signal = unix.SignalNum(signalName)
+		if signal == 0 {
+			err := fmt.Errorf("invalid setting '%s' for Annotation '%s'", signalName, key)
+			return 0, err
+		}
+		fmt.Printf("***TEMP*** Configured restart app signal: %s (%d)\n", signalName, signal)
+	}
+	return signal, nil
+}
+
+func parseFileLockDuringUpdate() (bool, error) {
+	key := secretsConfigProvider.FileLockDuringUpdateKey
+	if value, exists := annotationsMap[key]; exists {
+		fileLock, err := strconv.ParseBool(value)
+		if err != nil {
+			return false, fmt.Errorf("invalid setting '%s' for Annotation: '%s'", value, key)
+		}
+		return fileLock, nil
+	}
+	return false, nil // Default to false
 }
