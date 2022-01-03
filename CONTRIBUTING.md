@@ -139,8 +139,6 @@ From here your pull request is reviewed. Once you have implemented all reviewer 
 
 #### Unit testing
 
-For our Go unit testing, we use the [GoConvey](http://goconvey.co/) testing tool.  
-
 To run existing unit tests, run `./bin/test_unit`
 
 When contributing to the CyberArk Secrets Provider for Kubernetes project, be sure to add the appropriate unit tests to either
@@ -155,11 +153,10 @@ To follow [Go testing conventions](https://golang.org/pkg/cmd/go/internal/test/)
     ```go
     import (
         "testing"
-        . "github.com/smartystreets/goconvey/convey"
     )
     ```
 
-1. Create tests according to the [GoConvey](https://github.com/smartystreets/goconvey/wiki) formatting and styling guidelines 
+1. Create tests.
 
 1. Run test suite, `./bin/test_unit`
   

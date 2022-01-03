@@ -6,48 +6,48 @@ import (
 	"time"
 
 	"github.com/cenkalti/backoff"
-	. "github.com/smartystreets/goconvey/convey"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestLimitedBackOff(t *testing.T) {
-	Convey("Subject: Using limited backoff", t, func() {
+	t.Run("Subject: Using limited backoff", func(t *testing.T) {
 		const (
 			interval   = time.Second
 			retryLimit = 3
 		)
 
-		Convey("Given a new limited backoff", func() {
+		t.Run("Given a new limited backoff", func(t *testing.T) {
 			backOff := NewLimitedBackOff(interval, retryLimit)
 
-			testLimitedBackOff(backOff, retryLimit, interval)
+			testLimitedBackOff(t, backOff, retryLimit, interval)
 		})
 
-		Convey("Given an exhausted limited backoff", func() {
+		t.Run("Given an exhausted limited backoff", func(t *testing.T) {
 			backOff := NewLimitedBackOff(interval, retryLimit)
 			callMultipleNextBackOffs(backOff, retryLimit)
 
-			Convey("When calling Reset", func() {
+			t.Run("When calling Reset", func(t *testing.T) {
 				backOff.Reset()
 
-				assertRetryCount(backOff, 0)
+				assertRetryCount(t, backOff, 0)
 
-				testLimitedBackOff(backOff, retryLimit, interval)
+				testLimitedBackOff(t, backOff, retryLimit, interval)
 			})
 		})
 	})
 }
 
-func testLimitedBackOff(backOff *limitedBackOff, retryLimit int, interval time.Duration) {
-	Convey("When calling NextBackOff until retry limit is reached", func() {
+func testLimitedBackOff(t *testing.T, backOff *limitedBackOff, retryLimit int, interval time.Duration) {
+	t.Run("When calling NextBackOff until retry limit is reached", func(t *testing.T) {
 		results := callMultipleNextBackOffs(backOff, retryLimit)
-		assertResultsEqualExpected(interval, results)
-		assertRetryCount(backOff, retryLimit)
+		assertResultsEqualExpected(t, interval, results)
+		assertRetryCount(t, backOff, retryLimit)
 
 		const retryBeyondLimit = 10
-		Convey(fmt.Sprint("When calling NextBackOff ", retryBeyondLimit, " times beyond limit"), func() {
+		t.Run(fmt.Sprint("When calling NextBackOff ", retryBeyondLimit, " times beyond limit"), func(t *testing.T) {
 			results := callMultipleNextBackOffs(backOff, retryBeyondLimit)
-			assertResultsEqualExpected(backoff.Stop, results)
-			assertRetryCount(backOff, retryLimit)
+			assertResultsEqualExpected(t, backoff.Stop, results)
+			assertRetryCount(t, backOff, retryLimit)
 		})
 	})
 }
@@ -60,16 +60,12 @@ func callMultipleNextBackOffs(limitedBackOff *limitedBackOff, count int) []time.
 	return results
 }
 
-func assertResultsEqualExpected(expected time.Duration, results []time.Duration) {
-	Convey(fmt.Sprint("All backoff durations should equal ", expected), func() {
-		for _, result := range results {
-			So(result, ShouldEqual, expected)
-		}
-	})
+func assertResultsEqualExpected(t *testing.T, expected time.Duration, results []time.Duration) {
+	for _, result := range results {
+		assert.Equal(t, expected, result)
+	}
 }
 
-func assertRetryCount(backOff *limitedBackOff, expected int) {
-	Convey(fmt.Sprint("The RetryCount equals ", expected), func() {
-		So(backOff.RetryCount(), ShouldEqual, expected)
-	})
+func assertRetryCount(t *testing.T, backOff *limitedBackOff, expected int) {
+	assert.Equal(t, expected, backOff.RetryCount())
 }
