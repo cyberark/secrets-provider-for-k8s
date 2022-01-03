@@ -120,29 +120,26 @@ func processAnnotations(ctx context.Context, tracer trace.Tracer) error {
 
 func secretRetriever(ctx context.Context,
 	tracer trace.Tracer) (*conjur.SecretRetriever, error) {
-
-	// Create a trace Span
-	spanCtx, span := tracer.Start(ctx, "Create Conjur secret retriever")
+	// Gather authenticator config
+	_, span := tracer.Start(ctx, "Gather authenticator config")
 	defer span.End()
 
-	// Gather K8s authenticator config
-	authnConfig, err := setupAuthnConfig(spanCtx, tracer)
+	authnConfig, err := authnConfigProvider.NewConfigFromCustomEnv(ioutil.ReadFile, customEnv)
 	if err != nil {
-		log.Error(err.Error())
 		span.RecordErrorAndSetStatus(err)
+		log.Error(messages.CSPFK008E)
 		return nil, err
 	}
-	if err = validateContainerMode(authnConfig.ContainerMode); err != nil {
-		log.Error(err.Error())
+	if err = validateContainerMode(authnConfig.GetContainerMode()); err != nil {
 		span.RecordErrorAndSetStatus(err)
+		log.Error(err.Error())
 		return nil, err
 	}
 
 	// Initialize a Conjur secret retriever
-	secretRetriever, err := conjur.NewSecretRetriever(*authnConfig)
+	secretRetriever, err := conjur.NewSecretRetriever(authnConfig)
 	if err != nil {
 		log.Error(err.Error())
-		span.RecordErrorAndSetStatus(err)
 		return nil, err
 	}
 	return secretRetriever, nil
@@ -208,27 +205,6 @@ func customEnv(key string) string {
 	}
 
 	return os.Getenv(key)
-}
-
-func setupAuthnConfig(ctx context.Context,
-	tracer trace.Tracer) (*authnConfigProvider.Config, error) {
-	// Provides a custom env for authenticator settings retrieval.
-	// Log the origin of settings which have multiple possible sources.
-
-	_, span := tracer.Start(ctx, "Gather authenticator config")
-	defer span.End()
-
-	log.Info(messages.CSPFK013I)
-	authnSettings := authnConfigProvider.GatherSettings(customEnv)
-
-	errLogs := authnSettings.Validate(ioutil.ReadFile)
-	if err := logErrorsAndInfos(errLogs, nil); err != nil {
-		span.RecordErrorAndSetStatus(err)
-		log.Error(messages.CSPFK008E)
-		return nil, err
-	}
-
-	return authnSettings.NewConfig(), nil
 }
 
 func setupSecretsConfig() (*secretsConfigProvider.Config, error) {
