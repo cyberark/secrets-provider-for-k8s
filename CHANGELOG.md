@@ -6,8 +6,11 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [1.3.0] - 2022-01-03
+
 ### Added
-- Push-to-File supports default filepaths for templates.[cyberark/secrets-provider-for-k8s#411](https://github.com/cyberark/secrets-provider-for-k8s/pull/411)
+- Push-to-File supports default filepaths for templates. [cyberark/secrets-provider-for-k8s#411](https://github.com/cyberark/secrets-provider-for-k8s/pull/411)
+- Push-to-File supports custom file permissions for secret files. [cyberark/secrets-provider-for-k8s#408](https://github.com/cyberark/secrets-provider-for-k8s/pull/408)
 - Adds support for tracing with OpenTelemetry. [cyberark/secrets-provider-for-k8s#398](https://github.com/cyberark/secrets-provider-for-k8s/pull/398)
 - Adds support for Base64 encode/decode functions in custom templates. [cyberark/secrets-provider-for-k8s#409](https://github.com/cyberark/secrets-provider-for-k8s/pull/409)
 - Secrets Provider run in Push-to-File mode can use secret file templates
@@ -17,7 +20,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ### Changed
 - Secrets Provider run in Push-to-File mode using a custom secret file template
   requires annotation `conjur.org/secret-file-format.{secret-group}` to be set
-  to `template`.
+  to `template`. This is a breaking change.
   [cyberark/secrets-provider-for-k8s#393](https://github.com/cyberark/secrets-provider-for-k8s/pull/393)
 
 ### Fixed
@@ -185,7 +188,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ### Changed
   - Escape secrets with backslashes before patching in k8s
 
-[Unreleased]: https://github.com/cyberark/secrets-provider-for-k8s/compare/v1.2.0...HEAD
+[Unreleased]: https://github.com/cyberark/secrets-provider-for-k8s/compare/v1.3.0...HEAD
+[1.3.0]: https://github.com/cyberark/secrets-provider-for-k8s/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/cyberark/secrets-provider-for-k8s/compare/v1.1.6...v1.2.0
 [1.1.6]: https://github.com/cyberark/secrets-provider-for-k8s/compare/v1.1.5...v1.1.6
 [1.1.5]: https://github.com/cyberark/secrets-provider-for-k8s/compare/v1.1.4...v1.1.5
