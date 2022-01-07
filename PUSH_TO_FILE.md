@@ -11,6 +11,7 @@
 - [Example Common Policy Path](#example-common-policy-path)
 - [Example Secret File Formats](#example-secret-file-formats)
 - [Custom Templates for Secret Files](#custom-templates-for-secret-files)
+- [Example Helm Chart](#example-helm-chart-for-secrets-provider-init-container)
 - [Configuring Pod Volumes and Container Volume Mounts](#configuring-pod-volumes-and-container-volume-mounts-for-push-to-file)
 - [Secret File Attributes](#secret-file-attributes)
 - [Upgrading Existing Secrets Provider Deployments](#upgrading-existing-secrets-provider-deployments)
@@ -642,6 +643,74 @@ Secrets Provider will render the following content for the file
 ```
 postgresql://my-user:my-secret-pa$$w0rd@database.example.com:5432/postgres??sslmode=require
 ```
+
+### Example Helm chart for Secrets Provider Init Container
+
+The following is a partial example of using a Helm chart to configure 
+annotations for the Secrets provider:
+
+```
+annotations:
+        conjur.org/container-mode: "init"
+        conjur.org/debug-logging: "true"
+        conjur.org/authn-identity: {{ quote .Values.conjur.authnLogin }}
+        conjur.org/secrets-destination: "file"
+        conjur.org/conjur-secrets.p2f-app: |
+          - test-secrets-provider-p2f-app-db/url
+          - test-secrets-provider-p2f-app-db/username
+          - test-secrets-provider-p2f-app-db/password
+        conjur.org/secret-file-path.p2f-app: "./application.yaml"
+        conjur.org/secret-file-template.p2f-app: |
+              url: {{ printf `{{ secret "url" }}` }}
+              username: {{ printf `{{ secret "username" }}` }}
+              password: {{ printf `{{ secret "password" }}` }}
+```
+The following is a partial example of using a Helm chart to configure
+the Secrets Provider init container with volume mounts:
+```
+      - image: {{ .Values.conjur.secretsProvider.image }}
+        imagePullPolicy: Always
+        name: {{ .Values.conjur.secretsProvider.name }}
+        volumeMounts:
+        - name: conjur-access-token
+          mountPath: /run/conjur
+        - name: conjur-certs
+          mountPath: /etc/conjur/ssl
+        - name: podinfo
+          mountPath: /conjur/podinfo
+        - name: secrets
+          mountPath: /conjur/secrets
+```
+The following is a partial example of using a Helm chart to configure
+the Secrets Provider init container volumes:
+```
+      volumes:
+      - name: conjur-access-token
+        emptyDir:
+          medium: Memory
+      - name: conjur-certs
+        emptyDir:
+          medium: Memory
+      - name: podinfo
+        downwardAPI:
+          items:
+          - path: annotations
+            fieldRef:
+              fieldPath: metadata.annotations
+      - name: secrets
+        emptyDir:
+          medium: Memory
+```
+
+The following is example Helm chart `values.yaml` file for the Helm charts:
+```
+      conjur:
+        authnLogin: "host/conjur/authn-k8s/my-authenticator-id/apps"
+        secretsProvider:
+          name: "cyberark-secret-provider-for-k8s"
+          image: "cyberark/cyberark-secret-provider-for-k8s:2.0.0"
+```
+
 ## Configuring Pod Volumes and Container Volume Mounts for Push to File
 
 Enabling Push to File on your application Pod requires the addition of several Volumes and VolumeMounts.
@@ -820,7 +889,7 @@ For details, see [Reference Table of Configuration Annotations](#reference-table
 
 ### Display logs
 
-To display the Secrets Provider logs in Kubernetes.
+<details><summary>To display the Secrets Provider logs in Kubernetes.</summary>
 
 - Go to the app namespace
 ```
@@ -834,7 +903,8 @@ kubectl get pods
 ```
 kubectl logs <pod-name> -c <init-container-name>
 ```
-To display the Secrets Provider logs in Openshift.
+</details>
+<details><summary>To display the Secrets Provider logs in Openshift.</summary>
 
 - Go to the app namespace
 ```
@@ -849,6 +919,7 @@ oc get pods
 ```
 oc logs <pod-name> -c <init-container-name>
 ```
+</details>
 
 ### Common issues displayed in the logs and resolutions
 
