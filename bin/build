@@ -23,34 +23,45 @@ FULL_VERSION_TAG="$(full_version_tag)"
 
 echo "---"
 
-if [ $DEBUG = true ]; then
-  echo "Building secrets-provider-debug Docker image"
+function main() {
+  retrieve_cyberark_ca_cert
+  build_docker_image
+}
 
-  docker build \
-    --build-arg TAG="debug" \
-    --tag "secrets-provider-for-k8s-debug:latest" \
-    --target "secrets-provider-debug" \
-    .
-else
-  echo "Building secrets-provider-for-k8s:$FULL_VERSION_TAG Docker image"
+function build_docker_image() {
 
-  docker build \
-    --build-arg TAG=$(git_tag) \
-    --tag "secrets-provider-for-k8s:dev" \
-    --tag "secrets-provider-for-k8s:${FULL_VERSION_TAG}" \
-    --tag "secrets-provider-for-k8s:latest" \
-    --target "secrets-provider" \
-    .
+  if [ $DEBUG = true ]; then
+    echo "Building secrets-provider-debug Docker image"
 
-  echo "Building secrets-provider-for-k8s-redhat:$FULL_VERSION_TAG Docker image"
+    docker build \
+      --build-arg TAG="debug" \
+      --tag "secrets-provider-for-k8s-debug:latest" \
+      --target "secrets-provider-debug" \
+      .
+  else
+    echo "Building secrets-provider-for-k8s:$FULL_VERSION_TAG Docker image"
 
-  docker build \
-     --build-arg TAG=$(git_tag) \
-     --build-arg VERSION="$FULL_VERSION_TAG" \
-     --tag "secrets-provider-for-k8s-redhat:${FULL_VERSION_TAG}" \
-     --tag "secrets-provider-for-k8s-redhat:latest" \
-     --target "secrets-provider-for-k8s-redhat" \
-     .
-fi
+    docker build \
+      --build-arg TAG=$(git_tag) \
+      --tag "secrets-provider-for-k8s:dev" \
+      --tag "secrets-provider-for-k8s:${FULL_VERSION_TAG}" \
+      --tag "secrets-provider-for-k8s:latest" \
+      --target "secrets-provider" \
+      .
 
-echo "---"
+    echo "Building secrets-provider-for-k8s-redhat:$FULL_VERSION_TAG Docker image"
+
+    docker build \
+       --build-arg TAG=$(git_tag) \
+       --build-arg VERSION="$FULL_VERSION_TAG" \
+       --tag "secrets-provider-for-k8s-redhat:${FULL_VERSION_TAG}" \
+       --tag "secrets-provider-for-k8s-redhat:latest" \
+       --target "secrets-provider-for-k8s-redhat" \
+       .
+  fi
+
+  echo "---"
+
+}
+
+main
