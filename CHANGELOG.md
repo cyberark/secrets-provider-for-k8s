@@ -6,6 +6,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Added
+- Adds support for Secrets Provider secrets rotation feature, Community release.
+  [cyberark/secrets-provider-for-k8s#426](https://github.com/cyberark/secrets-provider-for-k8s/pull/426)
+
 ## [1.3.0] - 2022-01-03
 
 ### Added
