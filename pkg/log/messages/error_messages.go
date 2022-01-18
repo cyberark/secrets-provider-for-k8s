@@ -20,7 +20,6 @@ const CSPFK003E string = "CSPFK003E AccessToken failed to delete access token da
 // Environment variables
 const CSPFK004E string = "CSPFK004E Environment variable '%s' must be provided"
 const CSPFK005E string = "CSPFK005E Provided incorrect value for environment variable %s"
-const CSPFK007E string = "CSPFK007E CONTAINER_MODE '%s' is not supported. Supported values are: %v"
 
 // Authenticator
 const CSPFK008E string = "CSPFK008E Failed to instantiate authenticator configuration"
@@ -68,6 +67,8 @@ const CSPFK046E string = "CSPFK046E Secret Store Type needs to be configured, ei
 const CSPFK047E string = "CSPFK047E Secrets Provider in Push-to-File mode can only be configured with Pod annotations"
 const CSPFK048E string = "CSPFK048E Secrets Provider in K8s Secrets mode requires either the 'K8S_SECRETS' environment variable or 'conjur.org/k8s-secrets' Pod annotation"
 const CSPFK049E string = "CSPFK049E Failed to validate Pod annotations"
+const CSPFK050E string = "CSPFK050E Invalid secrets refresh interval annotation: %s %s"
+const CSPFK051E string = "CSPFK050E Invalid secrets refresh configuration: %s %s"
 
 // Push to File
 const CSPFK053E string = "CSPFK053E Unable to initialize Secrets Provider: unable to create secret group collection"

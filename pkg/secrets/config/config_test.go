@@ -53,12 +53,13 @@ var validateAnnotationsTestCases = []validateAnnotationsTestCase{
 	{
 		description: "given properly formatted annotations, no error or info logs are returned",
 		annotations: map[string]string{
-			"conjur.org/authn-identity":                "host/conjur/authn-k8s/cluster/apps/inventory-api",
+			AuthnIdentityKey:                           "host/conjur/authn-k8s/cluster/apps/inventory-api",
 			"conjur.org/container-mode":                "init",
 			"conjur.org/secret-destination":            "file",
-			"conjur.org/k8s-secrets":                   "- secret-1\n- secret-2\n- secret-3\n",
-			"conjur.org/retry-count-limit":             "12",
-			"conjur.org/retry-interval-sec":            "2",
+			k8sSecretsKey:                              "- secret-1\n- secret-2\n- secret-3\n",
+			retryCountLimitKey:                         "12",
+			retryIntervalSecKey:                        "2",
+			"conjur.org/secrets-refresh-interval":      "5s",
 			"conjur.org/conjur-secrets.this-group":     "- test/url\n- test-password: test/password\n- test-username: test/username\n",
 			"conjur.org/secret-file-path.this-group":   "this-relative-path",
 			"conjur.org/secret-file-format.this-group": "yaml",
@@ -82,23 +83,23 @@ var validateAnnotationsTestCases = []validateAnnotationsTestCase{
 	{
 		description: "if an annotation is configured with an invalid value, an error is returned",
 		annotations: map[string]string{
-			"conjur.org/secrets-destination": "invalid",
+			SecretsDestinationKey: "invalid",
 		},
-		assert: assertErrorInList(fmt.Errorf(messages.CSPFK043E, "conjur.org/secrets-destination", "invalid", []string{"file", "k8s_secrets"})),
+		assert: assertErrorInList(fmt.Errorf(messages.CSPFK043E, SecretsDestinationKey, "invalid", []string{"file", "k8s_secrets"})),
 	},
 	{
 		description: "when an annotation expects an integer but is given a non-integer value, an error is returned",
 		annotations: map[string]string{
-			"conjur.org/retry-count-limit": "seven",
+			retryCountLimitKey: "seven",
 		},
-		assert: assertErrorInList(fmt.Errorf(messages.CSPFK042E, "conjur.org/retry-count-limit", "seven", "Integer")),
+		assert: assertErrorInList(fmt.Errorf(messages.CSPFK042E, retryCountLimitKey, "seven", "Integer")),
 	},
 	{
 		description: "when an annotation expects a boolean but is given a non-boolean value, an error is returned",
 		annotations: map[string]string{
-			"conjur.org/debug-logging": "not-a-boolean",
+			debugLoggingKey: "not-a-boolean",
 		},
-		assert: assertErrorInList(fmt.Errorf(messages.CSPFK042E, "conjur.org/debug-logging", "not-a-boolean", "Boolean")),
+		assert: assertErrorInList(fmt.Errorf(messages.CSPFK042E, debugLoggingKey, "not-a-boolean", "Boolean")),
 	},
 }
 
@@ -113,8 +114,8 @@ var gatherSecretsProviderSettingsTestCases = []gatherSecretsProviderSettingsTest
 	{
 		description: "the resulting map will those annotations and envvars pertaining to Secrets Provider config",
 		annotations: map[string]string{
-			"conjur.org/secrets-destination": "file",
-			"conjur.org/container-mode":      "init",
+			SecretsDestinationKey:       "file",
+			"conjur.org/container-mode": "init",
 		},
 		env: map[string]string{
 			"SECRETS_DESTINATION": "file",
@@ -122,10 +123,10 @@ var gatherSecretsProviderSettingsTestCases = []gatherSecretsProviderSettingsTest
 			"UNRELATED_ENVVAR":    "UNRELATED",
 		},
 		assert: assertGoodMap(map[string]string{
-			"conjur.org/secrets-destination": "file",
-			"conjur.org/container-mode":      "init",
-			"SECRETS_DESTINATION":            "file",
-			"RETRY_COUNT_LIMIT":              "5",
+			SecretsDestinationKey:       "file",
+			"conjur.org/container-mode": "init",
+			"SECRETS_DESTINATION":       "file",
+			"RETRY_COUNT_LIMIT":         "5",
 		}),
 	},
 	{
@@ -149,21 +150,21 @@ var gatherSecretsProviderSettingsTestCases = []gatherSecretsProviderSettingsTest
 	{
 		description: "given an empty environment, the returned map should contain the annotations",
 		annotations: map[string]string{
-			"conjur.org/secrets-destination": "file",
-			"conjur.org/container-mode":      "init",
+			SecretsDestinationKey:       "file",
+			"conjur.org/container-mode": "init",
 		},
 		env: map[string]string{},
 		assert: assertGoodMap(map[string]string{
-			"conjur.org/secrets-destination": "file",
-			"conjur.org/container-mode":      "init",
+			SecretsDestinationKey:       "file",
+			"conjur.org/container-mode": "init",
 		}),
 	},
 	{
 		description: "annotations and envvars not related to Secrets Provider config are omitted",
 		annotations: map[string]string{
-			"conjur.org/secrets-destination": "file",
-			"conjur.org/container-mode":      "init",
-			"conjur.org/unrelated-annot":     "unrelated-value",
+			SecretsDestinationKey:        "file",
+			"conjur.org/container-mode":  "init",
+			"conjur.org/unrelated-annot": "unrelated-value",
 		},
 		env: map[string]string{
 			"MY_POD_NAMESPACE":  "test-namespace",
@@ -171,7 +172,7 @@ var gatherSecretsProviderSettingsTestCases = []gatherSecretsProviderSettingsTest
 			"UNRELATED_ENVVAR":  "unrelated-value",
 		},
 		assert: assertGoodMap(map[string]string{
-			"conjur.org/secrets-destination": "file",
+			SecretsDestinationKey: "file",
 			"conjur.org/container-mode":      "init",
 			"MY_POD_NAMESPACE":               "test-namespace",
 			"RETRY_COUNT_LIMIT":              "5",
@@ -189,11 +190,14 @@ var validateSecretsProviderSettingsTestCases = []validateSecretsProviderSettings
 	{
 		description: "given a valid configuration of annotations, no errors are returned",
 		envAndAnnots: map[string]string{
-			"MY_POD_NAMESPACE":               "test-namespace",
-			"conjur.org/secrets-destination": "file",
-			"conjur.org/retry-count-limit":   "10",
-			"conjur.org/retry-interval-sec":  "20",
-			"conjur.org/k8s-secrets":         "- secret-1\n- secret-2\n- secret-3\n",
+			"MY_POD_NAMESPACE":                    "test-namespace",
+			SecretsDestinationKey:                 "file",
+			retryCountLimitKey:                    "10",
+			retryIntervalSecKey:                   "20",
+			k8sSecretsKey:                         "- secret-1\n- secret-2\n- secret-3\n",
+			"conjur.org/container-mode":           "sidecar",
+			"conjur.org/secrets-refresh-interval": "5m",
+			"conjur.org/secrets-refresh-enabled":  "true",
 		},
 		assert: assertEmptyErrorList(),
 	},
@@ -211,52 +215,52 @@ var validateSecretsProviderSettingsTestCases = []validateSecretsProviderSettings
 	{
 		description: "mixed-source config",
 		envAndAnnots: map[string]string{
-			"MY_POD_NAMESPACE":               "test-namespace",
-			"conjur.org/secrets-destination": "k8s_secrets",
-			"RETRY_COUNT_LIMIT":              "10",
-			"conjur.org/retry-interval-sec":  "20",
-			"K8S_SECRETS":                    "secret-1,secret-2,secret-3",
+			"MY_POD_NAMESPACE":    "test-namespace",
+			SecretsDestinationKey: "k8s_secrets",
+			"RETRY_COUNT_LIMIT":   "10",
+			retryIntervalSecKey:   "20",
+			"K8S_SECRETS":         "secret-1,secret-2,secret-3",
 		},
 		assert: assertEmptyErrorList(),
 	},
 	{
 		description: "if StoreType is configured with both its annotation and envVar, an info-level error is returned",
 		envAndAnnots: map[string]string{
-			"MY_POD_NAMESPACE":               "test-namespace",
-			"SECRETS_DESTINATION":            "k8s_secrets",
-			"conjur.org/secrets-destination": "file",
+			"MY_POD_NAMESPACE":    "test-namespace",
+			"SECRETS_DESTINATION": "k8s_secrets",
+			SecretsDestinationKey: "file",
 		},
-		assert: assertInfoInList(fmt.Errorf(messages.CSPFK012I, "StoreType", "SECRETS_DESTINATION", "conjur.org/secrets-destination")),
+		assert: assertInfoInList(fmt.Errorf(messages.CSPFK012I, "StoreType", "SECRETS_DESTINATION", SecretsDestinationKey)),
 	},
 	{
 		description: "if RequiredK8sSecrets is configured with both its annotation and envVar, an info-level error is returned",
 		envAndAnnots: map[string]string{
-			"MY_POD_NAMESPACE":               "test-namespace",
-			"conjur.org/secrets-destination": "k8s_secrets",
-			"conjur.org/k8s-secrets":         "- secret-1\n- secret-2\n",
-			"K8S_SECRETS":                    "another-secret-1,another-secret-2",
+			"MY_POD_NAMESPACE":    "test-namespace",
+			SecretsDestinationKey: "k8s_secrets",
+			k8sSecretsKey:         "- secret-1\n- secret-2\n",
+			"K8S_SECRETS":         "another-secret-1,another-secret-2",
 		},
-		assert: assertInfoInList(fmt.Errorf(messages.CSPFK012I, "RequiredK8sSecrets", "K8S_SECRETS", "conjur.org/k8s-secrets")),
+		assert: assertInfoInList(fmt.Errorf(messages.CSPFK012I, "RequiredK8sSecrets", "K8S_SECRETS", k8sSecretsKey)),
 	},
 	{
 		description: "if RetryCountLimit is configured with both its annotation and envVar, an info-level error is returned",
 		envAndAnnots: map[string]string{
-			"MY_POD_NAMESPACE":               "test-namespace",
-			"conjur.org/secrets-destination": "file",
-			"conjur.org/retry-count-limit":   "10",
-			"RETRY_COUNT_LIMIT":              "12",
+			"MY_POD_NAMESPACE":    "test-namespace",
+			SecretsDestinationKey: "file",
+			retryCountLimitKey:    "10",
+			"RETRY_COUNT_LIMIT":   "12",
 		},
-		assert: assertInfoInList(fmt.Errorf(messages.CSPFK012I, "RetryCountLimit", "RETRY_COUNT_LIMIT", "conjur.org/retry-count-limit")),
+		assert: assertInfoInList(fmt.Errorf(messages.CSPFK012I, "RetryCountLimit", "RETRY_COUNT_LIMIT", retryCountLimitKey)),
 	},
 	{
 		description: "if RetryIntervalSec is configured with both its annotation and envVar, an info-level error is returned",
 		envAndAnnots: map[string]string{
-			"MY_POD_NAMESPACE":               "test-namespace",
-			"conjur.org/secrets-destination": "file",
-			"conjur.org/retry-interval-sec":  "2",
-			"RETRY_INTERVAL_SEC":             "7",
+			"MY_POD_NAMESPACE":    "test-namespace",
+			SecretsDestinationKey: "file",
+			retryIntervalSecKey:   "2",
+			"RETRY_INTERVAL_SEC":  "7",
 		},
-		assert: assertInfoInList(fmt.Errorf(messages.CSPFK012I, "RetryIntervalSec", "RETRY_INTERVAL_SEC", "conjur.org/retry-interval-sec")),
+		assert: assertInfoInList(fmt.Errorf(messages.CSPFK012I, "RetryIntervalSec", "RETRY_INTERVAL_SEC", retryIntervalSecKey)),
 	},
 	{
 		description:  "if MY_POD_NAMESPACE envVar is not set, an error is returned",
@@ -281,16 +285,16 @@ var validateSecretsProviderSettingsTestCases = []validateSecretsProviderSettings
 	{
 		description: "if 'conjur.org/secrets-destination' is provided and malformed, an error is returned",
 		envAndAnnots: map[string]string{
-			"MY_POD_NAMESPACE":               "test-namespace",
-			"conjur.org/secrets-destination": "invalid",
+			"MY_POD_NAMESPACE":    "test-namespace",
+			SecretsDestinationKey: "invalid",
 		},
-		assert: assertErrorInList(fmt.Errorf(messages.CSPFK043E, "conjur.org/secrets-destination", "invalid", []string{File, K8s})),
+		assert: assertErrorInList(fmt.Errorf(messages.CSPFK043E, SecretsDestinationKey, "invalid", []string{File, K8s})),
 	},
 	{
 		description: "if RequiredK8sSecrets is not configured in K8s Secrets mode, an error is returned",
 		envAndAnnots: map[string]string{
-			"MY_POD_NAMESPACE":               "test-namespace",
-			"conjur.org/secrets-destination": "k8s_secrets",
+			"MY_POD_NAMESPACE":    "test-namespace",
+			SecretsDestinationKey: "k8s_secrets",
 		},
 		assert: assertErrorInList(errors.New(messages.CSPFK048E)),
 	},
@@ -311,6 +315,91 @@ var validateSecretsProviderSettingsTestCases = []validateSecretsProviderSettings
 		},
 		assert: assertErrorInList(fmt.Errorf(messages.CSPFK005E, "SECRETS_DESTINATION")),
 	},
+	{
+		description: "if refresh interval is malformed, an error is returned",
+		envAndAnnots: map[string]string{
+			"MY_POD_NAMESPACE":        "test-namespace",
+			SecretsRefreshIntervalKey: "5",
+			ContainerModeKey:          "sidecar",
+		},
+		assert: assertErrorInList(fmt.Errorf(messages.CSPFK050E, "5", "time: missing unit in duration \"5\"")),
+	},
+	{
+		description: "if refresh interval is malformed with enable set to true, an error is returned",
+		envAndAnnots: map[string]string{
+			"MY_POD_NAMESPACE":        "test-namespace",
+			SecretsRefreshEnabledKey:  "true",
+			SecretsRefreshIntervalKey: "5",
+			ContainerModeKey:          "sidecar",
+		},
+		assert: assertErrorInList(fmt.Errorf(messages.CSPFK050E, "5", "time: missing unit in duration \"5\"")),
+	},
+	{
+		description: "if refresh enable is true and interval not set, no errors are returned",
+		envAndAnnots: map[string]string{
+			"MY_POD_NAMESPACE":       "test-namespace",
+			SecretsDestinationKey:    "file",
+			SecretsRefreshEnabledKey: "true",
+			ContainerModeKey:         "sidecar",
+		},
+		assert: assertEmptyErrorList(),
+	},
+	{
+		description: "if refresh enable is false and interval not set, no errors are returned",
+		envAndAnnots: map[string]string{
+			"MY_POD_NAMESPACE":       "test-namespace",
+			SecretsDestinationKey:    "file",
+			SecretsRefreshEnabledKey: "false",
+			ContainerModeKey:         "sidecar",
+		},
+		assert: assertEmptyErrorList(),
+	},
+	{
+		description: "if refresh interval is zero, an error is returned",
+		envAndAnnots: map[string]string{
+			"MY_POD_NAMESPACE":        "test-namespace",
+			SecretsRefreshIntervalKey: "0",
+			ContainerModeKey:          "sidecar",
+		},
+		assert: assertErrorInList(fmt.Errorf(messages.CSPFK050E, "0", "Secrets refresh interval must be at least one second")),
+	},
+	{
+		description: "if refresh interval is too small, an error is returned",
+		envAndAnnots: map[string]string{
+			"MY_POD_NAMESPACE":        "test-namespace",
+			SecretsRefreshIntervalKey: "500ms",
+			ContainerModeKey:          "sidecar",
+		},
+		assert: assertErrorInList(fmt.Errorf(messages.CSPFK050E, "500ms", "Secrets refresh interval must be at least one second")),
+	},
+	{
+		description: "if refresh interval is negative, an error is returned",
+		envAndAnnots: map[string]string{
+			"MY_POD_NAMESPACE":               "test-namespace",
+			SecretsRefreshIntervalKey: "-5s",
+			ContainerModeKey:          "sidecar",
+		},
+		assert: assertErrorInList(fmt.Errorf(messages.CSPFK050E, "-5s", "Secrets refresh interval must be at least one second")),
+	},
+	{
+		description: "if refresh interval is set and enable is false",
+		envAndAnnots: map[string]string{
+			"MY_POD_NAMESPACE":                    "test-namespace",
+			SecretsRefreshIntervalKey: "5s",
+			SecretsRefreshEnabledKey:  "false",
+			ContainerModeKey:          "sidecar",
+		},
+		assert: assertErrorInList(fmt.Errorf(messages.CSPFK050E, "5s", "Secrets refresh interval set to value while enable is false")),
+	},
+	{
+		description: "if refresh interval is set and container mode is init",
+		envAndAnnots: map[string]string{
+			"MY_POD_NAMESPACE":        "test-namespace",
+			SecretsRefreshIntervalKey: "5s",
+			ContainerModeKey:          "init",
+		},
+		assert: assertErrorInList(fmt.Errorf(messages.CSPFK051E, "Secrets refresh is enabled while container mode is set to", "init")),
+	},
 }
 
 type newConfigTestCase struct {
@@ -324,10 +413,10 @@ var newConfigTestCases = []newConfigTestCase{
 		description: "a valid map of annotation-based Secrets Provider settings returns a valid Config",
 		settings: map[string]string{
 			"MY_POD_NAMESPACE":               "test-namespace",
-			"conjur.org/secrets-destination": "k8s_secrets",
-			"conjur.org/k8s-secrets":         "- secret-1\n- secret-2\n- secret-3\n",
-			"conjur.org/retry-count-limit":   "10",
-			"conjur.org/retry-interval-sec":  "20",
+			SecretsDestinationKey: "k8s_secrets",
+			k8sSecretsKey:         "- secret-1\n- secret-2\n- secret-3\n",
+			retryCountLimitKey:   "10",
+			retryIntervalSecKey:  "20",
 		},
 		assert: assertGoodConfig(&Config{
 			PodNamespace:       "test-namespace",
@@ -359,7 +448,7 @@ var newConfigTestCases = []newConfigTestCase{
 		settings: map[string]string{
 			"MY_POD_NAMESPACE":               "test-namespace",
 			"SECRETS_DESTINATION":            "k8s_secrets",
-			"conjur.org/secrets-destination": "file",
+			SecretsDestinationKey: "file",
 			"K8S_SECRETS":                    "secret-1,secret-2,secret-3",
 		},
 		assert: assertGoodConfig(&Config{
@@ -374,9 +463,9 @@ var newConfigTestCases = []newConfigTestCase{
 		description: "mixed-source config",
 		settings: map[string]string{
 			"MY_POD_NAMESPACE":               "test-namespace",
-			"conjur.org/secrets-destination": "k8s_secrets",
+			SecretsDestinationKey: "k8s_secrets",
 			"RETRY_COUNT_LIMIT":              "10",
-			"conjur.org/retry-interval-sec":  "20",
+			retryIntervalSecKey:  "20",
 			"K8S_SECRETS":                    "secret-1,secret-2,secret-3",
 		},
 		assert: assertGoodConfig(&Config{
@@ -385,6 +474,22 @@ var newConfigTestCases = []newConfigTestCase{
 			RequiredK8sSecrets: []string{"secret-1", "secret-2", "secret-3"},
 			RetryCountLimit:    10,
 			RetryIntervalSec:   20,
+		}),
+	},
+	{
+		description: "a valid map of annotation-based settings with refresh enabled returns a valid Config",
+		settings: map[string]string{
+			"MY_POD_NAMESPACE":               "test-namespace",
+			SecretsDestinationKey: "file",
+			SecretsRefreshEnabledKey:  "true",
+		},
+		assert: assertGoodConfig(&Config{
+			PodNamespace:       "test-namespace",
+			StoreType:          "file",
+			RequiredK8sSecrets: []string{},
+			RetryCountLimit:    5,
+			RetryIntervalSec:   1,
+			SecretsRefreshInterval: DefaultRefreshInterval,
 		}),
 	},
 }

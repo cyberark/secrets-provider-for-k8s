@@ -87,10 +87,13 @@ func main() {
 	}
 
 	// Provide secrets
-	err = provideSecrets()
-	if err != nil {
-		errStr := fmt.Sprintf(messages.CSPFK039E, secretsConfig.StoreType, err.Error())
-		logError(errStr)
+	go provideSecrets()
+	select {
+	case err = <-secrets.SecretProviderError:
+		if err != nil {
+			errStr := fmt.Sprintf(messages.CSPFK039E, secretsConfig.StoreType, err.Error())
+			logError(errStr)
+		}
 	}
 }
 
@@ -128,11 +131,6 @@ func secretRetriever(ctx context.Context,
 	if err != nil {
 		span.RecordErrorAndSetStatus(err)
 		log.Error(messages.CSPFK008E)
-		return nil, err
-	}
-	if err = validateContainerMode(authnConfig.GetContainerMode()); err != nil {
-		span.RecordErrorAndSetStatus(err)
-		log.Error(err.Error())
 		return nil, err
 	}
 
@@ -186,6 +184,12 @@ func retryableSecretsProvider(
 		secretsConfig.RetryCountLimit,
 		provideSecrets,
 	)
+
+	provideSecrets = secrets.PeriodicSecretProvider(
+		secretsConfig.SecretsRefreshInterval,
+		getContainerMode(),
+		provideSecrets,
+	)
 	return provideSecrets, secretsConfig, nil
 }
 
@@ -232,16 +236,10 @@ func logErrorsAndInfos(errLogs []error, infoLogs []error) error {
 	return nil
 }
 
-func validateContainerMode(containerMode string) error {
-	validContainerModes := []string{
-		"init",
-		"application",
+func getContainerMode() string {
+	containerMode := "init"
+	if mode, exists := annotationsMap[secretsConfigProvider.ContainerModeKey]; exists {
+		containerMode = mode
 	}
-
-	for _, validContainerModeType := range validContainerModes {
-		if containerMode == validContainerModeType {
-			return nil
-		}
-	}
-	return fmt.Errorf(messages.CSPFK007E, containerMode, validContainerModes)
+	return containerMode
 }

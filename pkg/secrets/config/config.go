@@ -6,6 +6,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/log/messages"
 )
@@ -19,7 +20,11 @@ const (
 	DefaultRetryCountLimit  = 5
 	DefaultRetryIntervalSec = 1
 	MinRetryValue           = 0
+	MinRefreshInterval      = time.Second
+	DefaultRefreshIntervalStr  = "5m"
+
 )
+var DefaultRefreshInterval,_ = time.ParseDuration(DefaultRefreshIntervalStr)
 
 // Config defines the configuration parameters
 // for the authentication requests
@@ -29,6 +34,7 @@ type Config struct {
 	RetryCountLimit    int
 	RetryIntervalSec   int
 	StoreType          string
+	SecretsRefreshInterval time.Duration
 }
 
 type annotationType int
@@ -46,17 +52,38 @@ type annotationRestraints struct {
 	allowedValues []string
 }
 
+// Annotations used to support Conjur secrets rotation.
+// SecretsRefreshIntervalKey is the Annotation key for setting the interval
+// for retrieving Conjur secrets and updating Kubernetes Secrets or
+// application secret files if necessary.
+// SecretsRefreshEnabledKey is the Annotation key for enabling the refresh
+const (
+	AuthnIdentityKey          = "conjur.org/authn-identity"
+	ContainerModeKey          = "conjur.org/container-mode"
+	SecretsDestinationKey     = "conjur.org/secrets-destination"
+	k8sSecretsKey             = "conjur.org/k8s-secrets"
+	retryCountLimitKey        = "conjur.org/retry-count-limit"
+	retryIntervalSecKey       = "conjur.org/retry-interval-sec"
+	SecretsRefreshIntervalKey = "conjur.org/secrets-refresh-interval"
+	SecretsRefreshEnabledKey  = "conjur.org/secrets-refresh-enabled"
+	debugLoggingKey           = "conjur.org/debug-logging"
+	logTracesKey              = "conjur.org/log-traces"
+	jaegerCollectorUrl        = "conjur.org/jaeger-collector-url"
+)
+
 // Define supported annotation keys for Secrets Provider config, as well as value restraints for each
 var secretsProviderAnnotations = map[string]annotationRestraints{
-	"conjur.org/authn-identity":       {TYPESTRING, []string{}},
-	"conjur.org/container-mode":       {TYPESTRING, []string{"init", "application"}},
-	"conjur.org/secrets-destination":  {TYPESTRING, []string{"file", "k8s_secrets"}},
-	"conjur.org/k8s-secrets":          {TYPESTRING, []string{}},
-	"conjur.org/retry-count-limit":    {TYPEINT, []string{}},
-	"conjur.org/retry-interval-sec":   {TYPEINT, []string{}},
-	"conjur.org/debug-logging":        {TYPEBOOL, []string{}},
-	"conjur.org/log-traces":           {TYPEBOOL, []string{}},
-	"conjur.org/jaeger-collector-url": {TYPESTRING, []string{}},
+	AuthnIdentityKey:          {TYPESTRING, []string{}},
+	ContainerModeKey:          {TYPESTRING, []string{"init", "application", "sidecar"}},
+	SecretsDestinationKey:     {TYPESTRING, []string{"file", "k8s_secrets"}},
+	k8sSecretsKey:             {TYPESTRING, []string{}},
+	retryCountLimitKey:        {TYPEINT, []string{}},
+	retryIntervalSecKey:       {TYPEINT, []string{}},
+	SecretsRefreshIntervalKey: {TYPESTRING, []string{}},
+	SecretsRefreshEnabledKey:  {TYPEBOOL, []string{}},
+	debugLoggingKey:           {TYPEBOOL, []string{}},
+	logTracesKey:              {TYPEBOOL, []string{}},
+	jaegerCollectorUrl:        {TYPESTRING, []string{}},
 }
 
 // Define supported annotation key prefixes for Push to File config, as well as value restraints for each.
@@ -68,8 +95,8 @@ var pushToFileAnnotationPrefixes = map[string]annotationRestraints{
 	"conjur.org/conjur-secrets-policy-path.": {TYPESTRING, []string{}},
 	"conjur.org/secret-file-path.":           {TYPESTRING, []string{}},
 	"conjur.org/secret-file-format.":         {TYPESTRING, []string{"yaml", "json", "dotenv", "bash", "template"}},
-	"conjur.org/secret-file-permissions.": 	  {TYPESTRING, []string{}},
-	"conjur.org/secret-file-template":        {TYPESTRING, []string{}},
+	"conjur.org/secret-file-permissions.":    {TYPESTRING, []string{}},
+	"conjur.org/secret-file-template.":       {TYPESTRING, []string{}},
 }
 
 // Define environment variables used in Secrets Provider config
@@ -138,51 +165,53 @@ func ValidateSecretsProviderSettings(envAndAnnots map[string]string) ([]error, [
 	}
 
 	envStoreType := envAndAnnots["SECRETS_DESTINATION"]
-	annotStoreType := envAndAnnots["conjur.org/secrets-destination"]
+	annotStoreType := envAndAnnots[SecretsDestinationKey]
 	storeType := ""
+	var err error
 
 	if annotStoreType == "" {
-		switch envStoreType {
-		case K8s:
-			storeType = envStoreType
-		case File:
-			errorList = append(errorList, errors.New(messages.CSPFK047E))
-		case "":
-			errorList = append(errorList, errors.New(messages.CSPFK046E))
-		default:
-			errorList = append(errorList, fmt.Errorf(messages.CSPFK005E, "SECRETS_DESTINATION"))
+		storeType, err = validateStore(envStoreType)
+		if err != nil {
+			errorList = append(errorList, err)
 		}
 	} else if validStoreType(annotStoreType) {
 		if validStoreType(envStoreType) {
-			infoList = append(infoList, fmt.Errorf(messages.CSPFK012I, "StoreType", "SECRETS_DESTINATION", "conjur.org/secrets-destination"))
+			infoList = append(infoList, fmt.Errorf(messages.CSPFK012I, "StoreType", "SECRETS_DESTINATION", SecretsDestinationKey))
 		}
 		storeType = annotStoreType
 	} else {
-		errorList = append(errorList, fmt.Errorf(messages.CSPFK043E, "conjur.org/secrets-destination", annotStoreType, []string{File, K8s}))
+		errorList = append(errorList, fmt.Errorf(messages.CSPFK043E, SecretsDestinationKey, annotStoreType, []string{File, K8s}))
 	}
 
 	envK8sSecretsStr := envAndAnnots["K8S_SECRETS"]
-	annotK8sSecretsStr := envAndAnnots["conjur.org/k8s-secrets"]
+	annotK8sSecretsStr := envAndAnnots[k8sSecretsKey]
 	if storeType == "k8s_secrets" {
 		if envK8sSecretsStr == "" && annotK8sSecretsStr == "" {
 			errorList = append(errorList, errors.New(messages.CSPFK048E))
 		} else if envK8sSecretsStr != "" && annotK8sSecretsStr != "" {
-			infoList = append(infoList, fmt.Errorf(messages.CSPFK012I, "RequiredK8sSecrets", "K8S_SECRETS", "conjur.org/k8s-secrets"))
+			infoList = append(infoList, fmt.Errorf(messages.CSPFK012I, "RequiredK8sSecrets", "K8S_SECRETS", k8sSecretsKey))
 		}
 	}
 
-	annotRetryCountLimit := envAndAnnots["conjur.org/retry-count-limit"]
+	annotRetryCountLimit := envAndAnnots[retryCountLimitKey]
 	envRetryCountLimit := envAndAnnots["RETRY_COUNT_LIMIT"]
 	if annotRetryCountLimit != "" && envRetryCountLimit != "" {
-		infoList = append(infoList, fmt.Errorf(messages.CSPFK012I, "RetryCountLimit", "RETRY_COUNT_LIMIT", "conjur.org/retry-count-limit"))
+		infoList = append(infoList, fmt.Errorf(messages.CSPFK012I, "RetryCountLimit", "RETRY_COUNT_LIMIT", retryCountLimitKey))
 	}
 
-	annotRetryIntervalSec := envAndAnnots["conjur.org/retry-interval-sec"]
+	annotRetryIntervalSec := envAndAnnots[retryIntervalSecKey]
 	envRetryIntervalSec := envAndAnnots["RETRY_INTERVAL_SEC"]
 	if annotRetryIntervalSec != "" && envRetryIntervalSec != "" {
-		infoList = append(infoList, fmt.Errorf(messages.CSPFK012I, "RetryIntervalSec", "RETRY_INTERVAL_SEC", "conjur.org/retry-interval-sec"))
+		infoList = append(infoList, fmt.Errorf(messages.CSPFK012I, "RetryIntervalSec", "RETRY_INTERVAL_SEC", retryIntervalSecKey))
 	}
 
+	annotSecretsRefreshEnable := envAndAnnots[SecretsRefreshEnabledKey]
+	annotSecretsRefreshInterval := envAndAnnots[SecretsRefreshIntervalKey]
+	annotContainerMode := envAndAnnots[ContainerModeKey]
+	err = validRefreshInterval(annotSecretsRefreshInterval, annotSecretsRefreshEnable, annotContainerMode)
+	if err != nil {
+		errorList = append(errorList, err)
+	}
 	return errorList, infoList
 }
 
@@ -191,14 +220,14 @@ func ValidateSecretsProviderSettings(envAndAnnots map[string]string) ([]error, [
 func NewConfig(settings map[string]string) *Config {
 	podNamespace := settings["MY_POD_NAMESPACE"]
 
-	storeType := settings["conjur.org/secrets-destination"]
+	storeType := settings[SecretsDestinationKey]
 	if storeType == "" {
 		storeType = settings["SECRETS_DESTINATION"]
 	}
 
 	k8sSecretsArr := []string{}
 	if storeType != "file" {
-		k8sSecretsStr := settings["conjur.org/k8s-secrets"]
+		k8sSecretsStr := settings[k8sSecretsKey]
 		if k8sSecretsStr != "" {
 			k8sSecretsStr := strings.ReplaceAll(k8sSecretsStr, "- ", "")
 			k8sSecretsArr = strings.Split(k8sSecretsStr, "\n")
@@ -210,17 +239,26 @@ func NewConfig(settings map[string]string) *Config {
 		}
 	}
 
-	retryCountLimitStr := settings["conjur.org/retry-count-limit"]
+	retryCountLimitStr := settings[retryCountLimitKey]
 	if retryCountLimitStr == "" {
 		retryCountLimitStr = settings["RETRY_COUNT_LIMIT"]
 	}
 	retryCountLimit := parseIntFromStringOrDefault(retryCountLimitStr, DefaultRetryCountLimit, MinRetryValue)
 
-	retryIntervalSecStr := settings["conjur.org/retry-interval-sec"]
+	retryIntervalSecStr := settings[retryIntervalSecKey]
 	if retryIntervalSecStr == "" {
 		retryIntervalSecStr = settings["RETRY_INTERVAL_SEC"]
 	}
 	retryIntervalSec := parseIntFromStringOrDefault(retryIntervalSecStr, DefaultRetryIntervalSec, MinRetryValue)
+
+	refreshIntervalStr := settings[SecretsRefreshIntervalKey]
+	refreshEnableStr   := settings[SecretsRefreshEnabledKey]
+
+	if refreshIntervalStr == "" && refreshEnableStr == "true" {
+		refreshIntervalStr = DefaultRefreshIntervalStr
+	}
+	// ignore errors here, if the interval string is null, zero is returned
+	refreshInterval, _ := time.ParseDuration(refreshIntervalStr)
 
 	return &Config{
 		PodNamespace:       podNamespace,
@@ -228,6 +266,7 @@ func NewConfig(settings map[string]string) *Config {
 		RetryCountLimit:    retryCountLimit,
 		RetryIntervalSec:   retryIntervalSec,
 		StoreType:          storeType,
+		SecretsRefreshInterval: refreshInterval,
 	}
 }
 
@@ -304,3 +343,47 @@ func validStoreType(storeType string) bool {
 	}
 	return false
 }
+
+func validateStore(envStoreType string) (string,error) {
+	var err error
+	storeType := ""
+	switch envStoreType {
+	case K8s:
+		storeType = envStoreType
+	case File:
+		err = errors.New(messages.CSPFK047E)
+	case "":
+		err = errors.New(messages.CSPFK046E)
+	default:
+		err = fmt.Errorf(messages.CSPFK005E, "SECRETS_DESTINATION")
+	}
+	return storeType, err
+}
+
+func validRefreshInterval(intervalStr string, enableStr string, containerMode string) error {
+
+	var err error
+	if intervalStr != "" || enableStr != "" {
+		if containerMode != "sidecar" {
+			return fmt.Errorf(messages.CSPFK051E, "Secrets refresh is enabled while container mode is set to", containerMode)
+		}
+		enabled, _ := strconv.ParseBool(enableStr)
+		duration, e := time.ParseDuration(intervalStr)
+		switch {
+		// the user set enabled to true and did not set the interval
+		case intervalStr == "" && enableStr != "":
+			err = nil
+		// duration can't be parsed
+		case e != nil:
+			err = fmt.Errorf(messages.CSPFK050E, intervalStr, e.Error())
+		// check if the user explicitly set enable to false
+		case enabled == false && enableStr != "" && intervalStr != "":
+			err = fmt.Errorf(messages.CSPFK050E, intervalStr, "Secrets refresh interval set to value while enable is false")
+		// duration too small
+		case duration < MinRefreshInterval:
+			err = fmt.Errorf(messages.CSPFK050E, intervalStr, "Secrets refresh interval must be at least one second")
+		}
+	}
+	return err
+}
+

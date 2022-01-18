@@ -87,7 +87,6 @@ func RetryableSecretProvider(
 			if limitedBackOff.RetryCount() > 0 {
 				log.Info(fmt.Sprintf(messages.CSPFK010I, limitedBackOff.RetryCount(), limitedBackOff.RetryLimit))
 			}
-
 			return provideSecrets()
 		}, limitedBackOff)
 
@@ -95,5 +94,57 @@ func RetryableSecretProvider(
 			log.Error(messages.CSPFK038E, err)
 		}
 		return err
+	}
+}
+
+var TickerQuit = make(chan bool)
+var ProviderDone = make(chan bool)
+var SecretProviderError = make(chan error)
+func PeriodicSecretProvider(
+	secretRefreshInterval time.Duration,
+	mode string,
+	provideSecrets ProviderFunc,
+	) ProviderFunc {
+	return func() error {
+		err := provideSecrets()
+		if err != nil {
+			SecretProviderError <- err
+			return err
+		}
+		switch {
+		case mode != "sidecar":
+			SecretProviderError <- err
+			return err
+		case mode == "sidecar" && secretRefreshInterval > 0:
+			ticker := time.NewTicker(secretRefreshInterval)
+			go periodicSecretProvider(provideSecrets, ticker)
+		default:
+			// fall through
+		}
+		// Wait here
+		select {
+		case <-ProviderDone: // Todo change to SIGTERM or SIGINTERRUPT
+		}
+		if mode == "sidecar" && secretRefreshInterval > 0{
+			TickerQuit <- true
+			time.Sleep(1 * time.Second) // give a second for the go routine to shut down
+		}
+		return nil
+	}
+}
+
+func periodicSecretProvider(provideSecrets ProviderFunc, ticker *time.Ticker) {
+	for {
+		select {
+		case <-ticker.C:
+			err := provideSecrets()
+			if err != nil {
+				SecretProviderError <- err
+				ProviderDone <- true
+			}
+			case <-TickerQuit:
+			ticker.Stop()
+			return
+		}
 	}
 }
