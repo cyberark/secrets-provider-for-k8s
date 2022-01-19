@@ -3,12 +3,24 @@
 set -eox pipefail
 
 junit_output_file="./junit.output"
+. bin/build_utils
 
-echo "Building unit test image..."
-docker build -f Dockerfile.test -t secrets-provider-for-k8s-test-runner:latest .
+function main() {
+  retrieve_cyberark_ca_cert
+  build_docker_ut_image
+  run_unit_tests
+  build_docker_junit_image
+  run_junit_report
+}
 
-echo "Running unit tests..."
-set +e
+function build_docker_ut_image() {
+  echo "Building unit test image..."
+  docker build -f Dockerfile.test -t secrets-provider-for-k8s-test-runner:latest .
+}
+
+function run_unit_tests() {
+  echo "Running unit tests..."
+  set +e
   docker run --rm -t \
              --volume "$PWD"/:/secrets-provider-for-k8s/test/ \
              secrets-provider-for-k8s-test-runner:latest \
@@ -17,20 +29,24 @@ set +e
              ./pkg/... \
              | tee -a "$junit_output_file"
   echo "Unit test exit status: $?"
-set -e
+}
 
-rm -f junit.xml
+function build_docker_junit_image() {
+  set -e
+  rm -f junit.xml
+  echo "Building junit image..."
+  docker build -f Dockerfile.junit -t secrets-provider-for-k8s-junit:latest .
+}
 
-echo "Building junit image..."
+function run_junit_report() {
+  echo "Creating junit report and coverage output XML"
+  docker run --rm \
+    -v $PWD/:/test \
+    secrets-provider-for-k8s-junit:latest \
+    bash -exc "
+      cat ./junit.output | go-junit-report > ./junit.xml ;
+      gocov convert ./c.out | gocov-xml > ./coverage.xml
+    "
+}
 
-docker build -f Dockerfile.junit -t secrets-provider-for-k8s-junit:latest .
-
-echo "Creating junit report and coverage output XML"
-
-docker run --rm \
-  -v $PWD/:/test \
-  secrets-provider-for-k8s-junit:latest \
-  bash -exc "
-    cat ./junit.output | go-junit-report > ./junit.xml ;
-    gocov convert ./c.out | gocov-xml > ./coverage.xml
-  "
+main
