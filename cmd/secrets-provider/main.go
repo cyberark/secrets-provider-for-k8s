@@ -10,12 +10,12 @@ import (
 
 	authnConfigProvider "github.com/cyberark/conjur-authn-k8s-client/pkg/authenticator/config"
 	"github.com/cyberark/conjur-authn-k8s-client/pkg/log"
+	"github.com/cyberark/conjur-opentelemetry-tracer/pkg/trace"
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/log/messages"
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/secrets"
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/annotations"
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/clients/conjur"
 	secretsConfigProvider "github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/config"
-	"github.com/cyberark/secrets-provider-for-k8s/pkg/trace"
 	"go.opentelemetry.io/otel/attribute"
 )
 

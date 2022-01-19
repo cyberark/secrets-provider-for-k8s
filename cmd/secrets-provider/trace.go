@@ -5,8 +5,8 @@ import (
 	"os"
 
 	"github.com/cyberark/conjur-authn-k8s-client/pkg/log"
+	"github.com/cyberark/conjur-opentelemetry-tracer/pkg/trace"
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/annotations"
-	"github.com/cyberark/secrets-provider-for-k8s/pkg/trace"
 )
 
 func getTracerConfig() (trace.TracerProviderType, string) {
@@ -72,7 +72,14 @@ func createTracer(tracerType trace.TracerProviderType,
 	}
 
 	// Create a TracerProvider
-	tp, err := trace.NewTracerProvider(tracerType, tracerURL, os.Stdout, trace.SetGlobalProvider)
+	tp, err := trace.NewTracerProvider(tracerType, trace.SetGlobalProvider, trace.TracerProviderConfig{
+		TracerName:        tracerName,
+		TracerService:     tracerService,
+		TracerEnvironment: tracerEnvironment,
+		TracerID:          tracerID,
+		CollectorURL:      tracerURL,
+		ConsoleWriter:     os.Stdout,
+	})
 
 	if err != nil {
 		log.Error(err.Error())

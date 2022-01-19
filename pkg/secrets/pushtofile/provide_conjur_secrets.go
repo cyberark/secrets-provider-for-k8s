@@ -4,9 +4,9 @@ import (
 	"context"
 
 	"github.com/cyberark/conjur-authn-k8s-client/pkg/log"
+	"github.com/cyberark/conjur-opentelemetry-tracer/pkg/trace"
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/log/messages"
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/clients/conjur"
-	"github.com/cyberark/secrets-provider-for-k8s/pkg/trace"
 	"go.opentelemetry.io/otel"
 )
 
