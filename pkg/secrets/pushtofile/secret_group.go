@@ -2,14 +2,15 @@ package pushtofile
 
 import (
 	"fmt"
-	"github.com/cyberark/conjur-authn-k8s-client/pkg/log"
-	"github.com/cyberark/secrets-provider-for-k8s/pkg/log/messages"
 	"io/ioutil"
 	"os"
 	"path"
 	"path/filepath"
 	"sort"
 	"strings"
+
+	"github.com/cyberark/conjur-authn-k8s-client/pkg/log"
+	"github.com/cyberark/secrets-provider-for-k8s/pkg/log/messages"
 )
 
 const secretGroupPrefix = "conjur.org/conjur-secrets."
@@ -68,11 +69,10 @@ func (sg *SecretGroup) pushToFileWithDeps(
 	depOpenWriteCloser openWriteCloserFunc,
 	depPushToWriter pushToWriterFunc,
 	secrets []*Secret,
-) (err error) {
+) error {
 	// Make sure all the secret specs are accounted for
-	err = validateSecretsAgainstSpecs(secrets, sg.SecretSpecs)
-	if err != nil {
-		return
+	if err := validateSecretsAgainstSpecs(secrets, sg.SecretSpecs); err != nil {
+		return err
 	}
 
 	// Determine file template from
@@ -85,13 +85,13 @@ func (sg *SecretGroup) pushToFileWithDeps(
 		sg.SecretSpecs,
 	)
 	if err != nil {
-		return
+		return err
 	}
 
 	//// Open and push to file
 	wc, err := depOpenWriteCloser(sg.FilePath, sg.FilePermissions)
 	if err != nil {
-		return
+		return err
 	}
 	defer func() {
 		_ = wc.Close()
@@ -103,16 +103,16 @@ func (sg *SecretGroup) pushToFileWithDeps(
 			err = maskError
 		}
 	}()
-	pushToWriterErr := depPushToWriter(
+	err = depPushToWriter(
 		wc,
 		sg.Name,
 		fileTemplate,
 		secrets,
 	)
-	if pushToWriterErr != nil {
+	if err != nil {
 		err = maskError
 	}
-	return
+	return err
 }
 
 func (sg *SecretGroup) absoluteFilePath(secretsBasePath string) (string, error) {
