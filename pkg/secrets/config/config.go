@@ -49,6 +49,7 @@ type annotationRestraints struct {
 // Define supported annotation keys for Secrets Provider config, as well as value restraints for each
 var secretsProviderAnnotations = map[string]annotationRestraints{
 	"conjur.org/authn-identity":       {TYPESTRING, []string{}},
+	"conjur.org/jwt-token-path":       {TYPESTRING, []string{}},
 	"conjur.org/container-mode":       {TYPESTRING, []string{"init", "application"}},
 	"conjur.org/secrets-destination":  {TYPESTRING, []string{"file", "k8s_secrets"}},
 	"conjur.org/k8s-secrets":          {TYPESTRING, []string{}},
@@ -68,7 +69,7 @@ var pushToFileAnnotationPrefixes = map[string]annotationRestraints{
 	"conjur.org/conjur-secrets-policy-path.": {TYPESTRING, []string{}},
 	"conjur.org/secret-file-path.":           {TYPESTRING, []string{}},
 	"conjur.org/secret-file-format.":         {TYPESTRING, []string{"yaml", "json", "dotenv", "bash", "template"}},
-	"conjur.org/secret-file-permissions.": 	  {TYPESTRING, []string{}},
+	"conjur.org/secret-file-permissions.":    {TYPESTRING, []string{}},
 	"conjur.org/secret-file-template":        {TYPESTRING, []string{}},
 }
 
@@ -79,6 +80,7 @@ var validEnvVars = []string{
 	"K8S_SECRETS",
 	"RETRY_INTERVAL_SEC",
 	"RETRY_COUNT_LIMIT",
+	"JWT_TOKEN_PATH",
 }
 
 // ValidateAnnotations confirms that the provided annotations are properly
