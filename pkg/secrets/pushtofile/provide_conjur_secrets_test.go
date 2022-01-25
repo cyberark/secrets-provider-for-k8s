@@ -1,6 +1,7 @@
 package pushtofile
 
 import (
+	"context"
 	"fmt"
 	"testing"
 
@@ -8,7 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func retrieve(variableIDs []string) (map[string][]byte, error) {
+func retrieve(variableIDs []string, ctx context.Context) (map[string][]byte, error) {
 	masterMap := make(map[string][]byte)
 	for _, id := range variableIDs {
 		masterMap[id] = []byte(fmt.Sprintf("value-%s", id))
@@ -53,7 +54,7 @@ func TestNewProvider(t *testing.T) {
 
 	for _, tc := range TestCases {
 		t.Run(tc.description, func(t *testing.T) {
-			p, err := NewProvider(tc.retrieveFunc, tc.basePath, tc.annotations)
+			p, err := NewProvider(tc.retrieveFunc, tc.basePath, "", tc.annotations)
 			assert.Empty(t, err)
 			assert.Equal(t, tc.expectedSecretGroup, p.secretGroups)
 		})
@@ -110,10 +111,13 @@ func TestProvideWithDeps(t *testing.T) {
 			}
 
 			err := provideWithDeps(
+				context.Background(),
 				tc.provider.secretGroups,
-				tc.provider.retrieveSecretsFunc,
-				spyOpenWriteCloser.Call,
-				spyPushToWriter.Call,
+				fileProviderDepFuncs{
+					retrieveSecretsFunc: tc.provider.retrieveSecretsFunc,
+					depOpenWriteCloser:  spyOpenWriteCloser.Call,
+					depPushToWriter:     spyPushToWriter.Call,
+				},
 			)
 
 			tc.assert(t, tc.provider, err, closableBuf, spyPushToWriter, spyOpenWriteCloser)

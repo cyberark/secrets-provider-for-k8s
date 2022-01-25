@@ -66,6 +66,29 @@ var writeToFileTestCases = []pushToWriterTestCase{
 		assert:      assertGoodOutput("&#34; &#39; &amp; &lt; &gt; \uFFFD"),
 	},
 	{
+		description: "base64 encoding",
+		template:    `{{secret "alias" | b64enc}}`,
+		secrets:     []*Secret{{Alias: "alias", Value: "secret value"}},
+		assert:      assertGoodOutput("c2VjcmV0IHZhbHVl"),
+	},
+	{
+		description: "base64 decoding",
+		template:    `{{secret "alias" | b64dec}}`,
+		secrets:     []*Secret{{Alias: "alias", Value: "c2VjcmV0IHZhbHVl"}},
+		assert:      assertGoodOutput("secret value"),
+	},
+	{
+		description: "base64 decoding invalid input",
+		template:    `{{secret "alias" | b64dec}}`,
+		secrets:     []*Secret{{Alias: "alias", Value: "c2VjcmV0IHZhbHVl_invalid"}},
+		assert: func(t *testing.T, s string, err error) {
+			assert.Error(t, err)
+			assert.Contains(t, err.Error(), "value could not be base64 decoded")
+			// Ensure the error doesn't contain the actual secret
+			assert.NotContains(t, err.Error(), "c2VjcmV0IHZhbHVl_invalid")
+		},
+	},
+	{
 		description: "iterate over secret key-value pairs",
 		template: `{{- range $index, $secret := .SecretsArray -}}
 {{- if $index }}

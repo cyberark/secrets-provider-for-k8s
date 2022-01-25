@@ -1,14 +1,24 @@
 # =================== BASE BUILD LAYER ===================
 # this layer is used to prepare a common layer for both debug and release builds
-FROM golang:1.16 as secrets-provider-builder-base
+FROM golang:1.17 as secrets-provider-builder-base
 MAINTAINER CyberArk Software Ltd.
 
 ENV GOOS=linux \
     GOARCH=amd64 \
     CGO_ENABLED=0
 
-RUN go get -u github.com/jstemmer/go-junit-report && \
-    go get github.com/smartystreets/goconvey
+# On CyberArk dev laptops, golang module dependencies are downloaded with a
+# corporate proxy in the middle. For these connections to succeed we need to
+# configure the proxy CA certificate in build containers.
+#
+# To allow this script to also work on non-CyberArk laptops where the CA
+# certificate is not available, we copy the (potentially empty) directory
+# and update container certificates based on that, rather than rely on the
+# CA file itself.
+ADD build_ca_certificate /usr/local/share/ca-certificates/
+RUN update-ca-certificates
+
+RUN go get -u github.com/jstemmer/go-junit-report
 
 WORKDIR /opt/secrets-provider-for-k8s
 

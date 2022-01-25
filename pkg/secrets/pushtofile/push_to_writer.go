@@ -39,9 +39,14 @@ func openFileAsWriteCloser(path string, permissions os.FileMode) (io.WriteCloser
 		return nil, fmt.Errorf("unable to mkdir when opening file to write at %q: %s", path, err)
 	}
 
-	wc, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, permissions)
+	wc, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE, permissions)
 	if err != nil {
 		return nil, fmt.Errorf("unable to open file to write at %q: %s", path, err)
+	}
+
+	//Chmod file to set permissions regardless of 'umask'
+	if err := os.Chmod(path, permissions); err != nil {
+		return nil, fmt.Errorf("unable to chmod file %q: %s", path, err)
 	}
 
 	return wc, nil
@@ -73,6 +78,8 @@ func pushToWriter(
 			// when the template is executed.
 			panic(fmt.Sprintf("secret alias %q not present in specified secrets for group", alias))
 		},
+		"b64enc": b64encTemplateFunc,
+		"b64dec": b64decTemplateFunc,
 	}).Parse(groupTemplate)
 	if err != nil {
 		return err

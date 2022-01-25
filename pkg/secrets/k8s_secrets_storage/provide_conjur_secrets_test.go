@@ -1,10 +1,10 @@
 package k8ssecretsstorage
 
 import (
+	"context"
 	"fmt"
 	"testing"
 
-	//. "github.com/smartystreets/goconvey/convey"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/log/messages"
@@ -69,7 +69,8 @@ func (m testMocks) newProvider(requiredSecrets []string) K8sProvider {
 			},
 		},
 		requiredSecrets,
-		"someNamespace")
+		"someNamespace",
+		context.Background())
 }
 
 type assertFunc func(*testing.T, testMocks, error, string)

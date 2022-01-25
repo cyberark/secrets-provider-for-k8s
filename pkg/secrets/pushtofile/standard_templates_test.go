@@ -13,7 +13,7 @@ const (
 	invalidJSONChar    = "invalid JSON character"
 	yamlAliasTooLong   = "too long for YAML"
 	jsonAliasTooLong   = "too long for JSON"
-	invalidBashVarName = "Must be alphanumerics and underscores"
+	invalidBashVarName = "can only include alphanumerics and underscores"
 	validConjurPath    = "valid/conjur/variable/path"
 )
 

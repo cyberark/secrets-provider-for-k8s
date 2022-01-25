@@ -1,6 +1,7 @@
 package secrets
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -26,8 +27,9 @@ type ProviderConfig struct {
 	RequiredK8sSecrets []string
 
 	// Config specific to Push to File provider
-	SecretFileBasePath string
-	AnnotationsMap     map[string]string
+	SecretFileBasePath   string
+	TemplateFileBasePath string
+	AnnotationsMap       map[string]string
 }
 
 // ProviderFunc describes a function type responsible for providing secrets to an unspecified target.
@@ -35,12 +37,14 @@ type ProviderFunc func() error
 
 // NewProviderForType returns a ProviderFunc responsible for providing secrets in a given mode.
 func NewProviderForType(
+	traceContext context.Context,
 	secretsRetrieverFunc conjur.RetrieveSecretsFunc,
 	providerConfig ProviderConfig,
 ) (ProviderFunc, []error) {
 	switch providerConfig.StoreType {
 	case config.K8s:
 		provider := k8sSecretsStorage.NewProvider(
+			traceContext,
 			secretsRetrieverFunc,
 			providerConfig.RequiredK8sSecrets,
 			providerConfig.PodNamespace,
@@ -50,11 +54,13 @@ func NewProviderForType(
 		provider, err := pushtofile.NewProvider(
 			secretsRetrieverFunc,
 			providerConfig.SecretFileBasePath,
+			providerConfig.TemplateFileBasePath,
 			providerConfig.AnnotationsMap,
 		)
 		if err != nil {
 			return nil, err
 		}
+		provider.SetTraceContext(traceContext)
 		return provider.Provide, nil
 	default:
 		return nil, []error{fmt.Errorf(

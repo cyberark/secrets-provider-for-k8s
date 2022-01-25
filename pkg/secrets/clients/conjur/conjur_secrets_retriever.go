@@ -1,6 +1,7 @@
 package conjur
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
@@ -8,57 +9,71 @@ import (
 	"github.com/cyberark/conjur-authn-k8s-client/pkg/authenticator"
 	"github.com/cyberark/conjur-authn-k8s-client/pkg/authenticator/config"
 	"github.com/cyberark/conjur-authn-k8s-client/pkg/log"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
 
+	"github.com/cyberark/conjur-opentelemetry-tracer/pkg/trace"
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/log/messages"
 )
 
-type conjurSecretRetriever struct {
-	authn *authenticator.Authenticator
+type SecretRetriever struct {
+	authn authenticator.Authenticator
 }
 
 // RetrieveSecretsFunc defines a function type for retrieving secrets.
-type RetrieveSecretsFunc func(variableIDs []string) (map[string][]byte, error)
+type RetrieveSecretsFunc func(variableIDs []string, traceContext context.Context) (map[string][]byte, error)
 
-// NewConjurSecretRetriever creates a new conjurSecretRetriever and Authenticator
+// NewSecretRetriever creates a new SecretRetriever and Authenticator
 // given an authenticator config.
-func NewConjurSecretRetriever(authnConfig config.Config) (*conjurSecretRetriever, error) {
+func NewSecretRetriever(authnConfig config.Configuration) (*SecretRetriever, error) {
 	accessToken, err := memory.NewAccessToken()
 	if err != nil {
 		return nil, fmt.Errorf("%s", messages.CSPFK001E)
 	}
 
-	authn, err := authenticator.NewWithAccessToken(authnConfig, accessToken)
+	authn, err := authenticator.NewAuthenticatorWithAccessToken(authnConfig, accessToken)
 	if err != nil {
 		return nil, fmt.Errorf("%s", messages.CSPFK009E)
 	}
 
-	return &conjurSecretRetriever{
+	return &SecretRetriever{
 		authn: authn,
 	}, nil
 }
 
-// Retrieve implements a RetrieveSecretsFunc for a given conjurSecretRetriever.
+// Retrieve implements a RetrieveSecretsFunc for a given SecretRetriever.
 // Authenticates the client, and retrieves a given batch of variables from Conjur.
-func (retriever conjurSecretRetriever) Retrieve(variableIDs []string) (map[string][]byte, error) {
+func (retriever SecretRetriever) Retrieve(variableIDs []string, traceContext context.Context) (map[string][]byte, error) {
+
 	authn := retriever.authn
 
-	err := authn.Authenticate()
+	err := authn.AuthenticateWithContext(traceContext)
 	if err != nil {
 		return nil, log.RecordedError(messages.CSPFK010E)
 	}
 
-	accessTokenData, err := authn.AccessToken.Read()
+	accessTokenData, err := authn.GetAccessToken().Read()
 	if err != nil {
 		return nil, log.RecordedError(messages.CSPFK002E)
 	}
 	// Always delete the access token. The deletion is idempotent and never fails
-	defer authn.AccessToken.Delete()
+	defer authn.GetAccessToken().Delete()
+
+	tr := trace.NewOtelTracer(otel.Tracer("secrets-provider"))
+	_, span := tr.Start(traceContext, "Retrieve secrets")
+	span.SetAttributes(attribute.Int("variable_count", len(variableIDs)))
+	defer span.End()
 
 	return retrieveConjurSecrets(accessTokenData, variableIDs)
 }
 
 func retrieveConjurSecrets(accessToken []byte, variableIDs []string) (map[string][]byte, error) {
 	log.Info(messages.CSPFK003I, variableIDs)
+
+	if len(variableIDs) == 0 {
+		log.Info(messages.CSPFK016I)
+		return nil, nil
+	}
 
 	conjurClient, err := NewConjurClient(accessToken)
 	if err != nil {

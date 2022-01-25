@@ -33,6 +33,7 @@ pipeline {
         // Run tests only when EITHER of the following is true:
         // 1. A non-markdown file has changed.
         // 2. It's the main branch.
+        // 3. It's a version tag, typically created during a release
         anyOf {
           // Note: You cannot use "when"'s changeset condition here because it's
           // not powerful enough to express "_only_ md files have changed".
@@ -50,6 +51,9 @@ pipeline {
 
           // Always run the full pipeline on main branch
           branch 'main'
+
+          // Always run the full pipeline on a version tag created during release
+          tag "v*"
         }
       }
       stages {

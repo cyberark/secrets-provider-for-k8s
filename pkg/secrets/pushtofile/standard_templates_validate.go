@@ -83,8 +83,8 @@ func isValidJSONChar(c rune) bool {
 func validateBashVarName(name string) error {
 	r := regexp.MustCompile("^[a-zA-Z_][a-zA-Z0-9_]*$")
 	if !r.MatchString(name) {
-		explanation := "Must be alphanumerics and underscores, with first char being a non-digit"
-		return fmt.Errorf("invalid alias '%s': %s", name, explanation)
+		explanation := "variable names can only include alphanumerics and underscores, with first char being a non-digit"
+		return fmt.Errorf("invalid alias %q: %s", name, explanation)
 	}
 	return nil
 }

@@ -1,10 +1,14 @@
 package k8ssecretsstorage
 
 import (
+	"context"
+
 	"github.com/cyberark/conjur-authn-k8s-client/pkg/log"
+	"go.opentelemetry.io/otel"
 	"gopkg.in/yaml.v2"
 	v1 "k8s.io/api/core/v1"
 
+	"github.com/cyberark/conjur-opentelemetry-tracer/pkg/trace"
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/log/messages"
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/clients/conjur"
 	k8sClient "github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/clients/k8s"
@@ -71,10 +75,12 @@ type K8sProvider struct {
 	podNamespace       string
 	requiredK8sSecrets []string
 	secretsState       k8sSecretsState
+	traceContext       context.Context
 }
 
 // NewProvider creates a new secret provider for K8s Secrets mode.
 func NewProvider(
+	traceContext context.Context,
 	retrieveConjurSecrets conjur.RetrieveSecretsFunc,
 	requiredK8sSecrets []string,
 	podNamespace string,
@@ -97,7 +103,8 @@ func NewProvider(
 			},
 		},
 		requiredK8sSecrets,
-		podNamespace)
+		podNamespace,
+		traceContext)
 }
 
 // newProvider creates a new secret provider for K8s Secrets mode
@@ -107,6 +114,7 @@ func newProvider(
 	providerDeps k8sProviderDeps,
 	requiredK8sSecrets []string,
 	podNamespace string,
+	traceContext context.Context,
 ) K8sProvider {
 	return K8sProvider{
 		k8s:                providerDeps.k8s,
@@ -118,24 +126,27 @@ func newProvider(
 			originalK8sSecrets: map[string]*v1.Secret{},
 			updateDestinations: map[string][]updateDestination{},
 		},
+		traceContext: traceContext,
 	}
 }
 
 // Provide implements a ProviderFunc to retrieve and push secrets to K8s secrets.
 func (p K8sProvider) Provide() error {
+	// Use the global TracerProvider
+	tr := trace.NewOtelTracer(otel.Tracer("secrets-provider"))
 	// Retrieve required K8s Secrets and parse their Data fields.
-	if err := p.retrieveRequiredK8sSecrets(); err != nil {
+	if err := p.retrieveRequiredK8sSecrets(tr); err != nil {
 		return p.log.recordedError(messages.CSPFK021E)
 	}
 
 	// Retrieve Conjur secrets for all K8s Secrets.
-	retrievedConjurSecrets, err := p.retrieveConjurSecrets()
+	retrievedConjurSecrets, err := p.retrieveConjurSecrets(tr)
 	if err != nil {
 		return p.log.recordedError(messages.CSPFK034E, err.Error())
 	}
 
 	// Update all K8s Secrets with the retrieved Conjur secrets.
-	if err = p.updateRequiredK8sSecrets(retrievedConjurSecrets); err != nil {
+	if err = p.updateRequiredK8sSecrets(retrievedConjurSecrets, tr); err != nil {
 		return p.log.recordedError(messages.CSPFK023E)
 	}
 
@@ -145,9 +156,16 @@ func (p K8sProvider) Provide() error {
 
 // retrieveRequiredK8sSecrets retrieves all K8s Secrets that need to be
 // managed/updated by the Secrets Provider.
-func (p K8sProvider) retrieveRequiredK8sSecrets() error {
+func (p K8sProvider) retrieveRequiredK8sSecrets(tracer trace.Tracer) error {
+	spanCtx, span := tracer.Start(p.traceContext, "Gather required K8s Secrets")
+	defer span.End()
+
 	for _, k8sSecretName := range p.requiredK8sSecrets {
+		_, childSpan := tracer.Start(spanCtx, "Retrieve K8s Secret")
+		defer childSpan.End()
 		if err := p.retrieveRequiredK8sSecret(k8sSecretName); err != nil {
+			childSpan.RecordErrorAndSetStatus(err)
+			span.RecordErrorAndSetStatus(err)
 			return err
 		}
 	}
@@ -214,7 +232,10 @@ func (p K8sProvider) parseConjurSecretsYAML(secretsYAML []byte,
 	return nil
 }
 
-func (p K8sProvider) retrieveConjurSecrets() (map[string][]byte, error) {
+func (p K8sProvider) retrieveConjurSecrets(tracer trace.Tracer) (map[string][]byte, error) {
+	spanCtx, span := tracer.Start(p.traceContext, "Fetch Conjur Secrets")
+	defer span.End()
+
 	updateDests := p.secretsState.updateDestinations
 	if len(updateDests) == 0 {
 		return nil, p.log.recordedError(messages.CSPFK025E)
@@ -227,15 +248,19 @@ func (p K8sProvider) retrieveConjurSecrets() (map[string][]byte, error) {
 		variableIDs = append(variableIDs, key)
 	}
 
-	retrievedConjurSecrets, err := p.conjur.retrieveSecrets(variableIDs)
+	retrievedConjurSecrets, err := p.conjur.retrieveSecrets(variableIDs, spanCtx)
 	if err != nil {
+		span.RecordErrorAndSetStatus(err)
 		return nil, p.log.recordedError(messages.CSPFK034E, err.Error())
 	}
 	return retrievedConjurSecrets, nil
 }
 
 func (p K8sProvider) updateRequiredK8sSecrets(
-	conjurSecrets map[string][]byte) error {
+	conjurSecrets map[string][]byte, tracer trace.Tracer) error {
+
+	spanCtx, span := tracer.Start(p.traceContext, "Update K8s Secrets")
+	defer span.End()
 
 	// Create a map of entries to be added to the 'Data' fields of each
 	// K8s Secret. Each entry will map an application secret name to
@@ -259,6 +284,9 @@ func (p K8sProvider) updateRequiredK8sSecrets(
 
 	// Update K8s Secrets with the retrieved Conjur secrets
 	for k8sSecretName, secretData := range newSecretData {
+		_, childSpan := tracer.Start(spanCtx, "Update K8s Secret")
+		defer childSpan.End()
+
 		err := p.k8s.updateSecret(
 			p.podNamespace,
 			k8sSecretName,
@@ -267,6 +295,7 @@ func (p K8sProvider) updateRequiredK8sSecrets(
 		if err != nil {
 			// Error messages returned from K8s should be printed only in debug mode
 			p.log.debug(messages.CSPFK005D, err.Error())
+			childSpan.RecordErrorAndSetStatus(err)
 			return p.log.recordedError(messages.CSPFK022E)
 		}
 	}

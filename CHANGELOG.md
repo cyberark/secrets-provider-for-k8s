@@ -6,6 +6,48 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [1.3.0] - 2022-01-03
+
+### Added
+- Push-to-File supports default filepaths for templates. [cyberark/secrets-provider-for-k8s#411](https://github.com/cyberark/secrets-provider-for-k8s/pull/411)
+- Push-to-File supports custom file permissions for secret files. [cyberark/secrets-provider-for-k8s#408](https://github.com/cyberark/secrets-provider-for-k8s/pull/408)
+- Adds support for tracing with OpenTelemetry. [cyberark/secrets-provider-for-k8s#398](https://github.com/cyberark/secrets-provider-for-k8s/pull/398)
+- Adds support for Base64 encode/decode functions in custom templates. [cyberark/secrets-provider-for-k8s#409](https://github.com/cyberark/secrets-provider-for-k8s/pull/409)
+- Secrets Provider run in Push-to-File mode can use secret file templates
+  defined in a volume-mounted ConfigMap.
+  [cyberark/secrets-provider-for-k8s#393](https://github.com/cyberark/secrets-provider-for-k8s/pull/393)
+
+### Changed
+- Secrets Provider run in Push-to-File mode using a custom secret file template
+  requires annotation `conjur.org/secret-file-format.{secret-group}` to be set
+  to `template`. This is a breaking change.
+  [cyberark/secrets-provider-for-k8s#393](https://github.com/cyberark/secrets-provider-for-k8s/pull/393)
+
+### Fixed
+- If the Secrets Provider is run in Push-to-File mode, it no longer errors out
+  if it finds any pre-existing secret files. This is helpful when the Secrets
+  Provider is being run multiple times.
+  [cyberark/secrets-provider-for-k8s#397](https://github.com/cyberark/secrets-provider-for-k8s/pull/397)
+- If the Secrets Provider is run in Push-to-File mode, it no longer errors out
+  if either (a) multiple secret groups use the same secret path, or (b) there
+  are no secrets that need to be retrieved.
+  [cyberark/secrets-provider-for-k8s#404](https://github.com/cyberark/secrets-provider-for-k8s/pull/404)
+
+## [1.2.0] - 2021-11-30
+
+### Added
+- Adds validation for output filepaths and names in Push-to-File, requiring
+  valid Linux filenames that are unique across all secret groups.
+  [cyberark/secrets-provider-for-k8s#386](https://github.com/cyberark/secrets-provider-for-k8s/pull/386)
+- Adds support for Push-to-File annotation `conjur.org/conjur-secrets-policy-path.{secret-group}`.
+  [cyberark/secrets-provider-for-k8s#392](https://github.com/cyberark/secrets-provider-for-k8s/pull/392)
+
+### Changed
+- Push-to-File supports more intuitive output filepaths. Filepaths are
+  no longer required to contain the hard-coded mount path `/conjur/secrets`, and
+  can specify intermediate directories.
+  [cyberark/secrets-provider-for-k8s#381](https://github.com/cyberark/secrets-provider-for-k8s/pull/381)
+
 ## [1.1.6] - 2021-10-29
 
 ### Added
@@ -146,7 +188,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ### Changed
   - Escape secrets with backslashes before patching in k8s
 
-[Unreleased]: https://github.com/cyberark/secrets-provider-for-k8s/compare/v1.1.6...HEAD
+[Unreleased]: https://github.com/cyberark/secrets-provider-for-k8s/compare/v1.3.0...HEAD
+[1.3.0]: https://github.com/cyberark/secrets-provider-for-k8s/compare/v1.2.0...v1.3.0
+[1.2.0]: https://github.com/cyberark/secrets-provider-for-k8s/compare/v1.1.6...v1.2.0
 [1.1.6]: https://github.com/cyberark/secrets-provider-for-k8s/compare/v1.1.5...v1.1.6
 [1.1.5]: https://github.com/cyberark/secrets-provider-for-k8s/compare/v1.1.4...v1.1.5
 [1.1.4]: https://github.com/cyberark/secrets-provider-for-k8s/compare/v1.1.3...v1.1.4

@@ -27,3 +27,5 @@ const CSPFK012I string = "CSPFK012I Secrets Provider setting '%s' set by both en
 const CSPFK013I string = "CSPFK013I Gathering settings for Authenticator client configuration..."
 const CSPFK014I string = "CSPFK014I Authenticator setting %s provided by %s"
 const CSPFK015I string = "CSPFK015I DAP/Conjur Secrets pushed to shared volume successfully"
+const CSPFK016I string = "CSPFK016I There are no secrets to be retrieved from Conjur"
+const CSPFK017I string = "CSPFK017I Creating default file name for secret group '%s'"

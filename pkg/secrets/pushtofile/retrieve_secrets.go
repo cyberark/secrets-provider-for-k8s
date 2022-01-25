@@ -1,6 +1,7 @@
 package pushtofile
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/clients/conjur"
@@ -18,12 +19,13 @@ type Secret struct {
 func FetchSecretsForGroups(
 	depRetrieveSecrets conjur.RetrieveSecretsFunc,
 	secretGroups []*SecretGroup,
+	traceContext context.Context,
 ) (map[string][]*Secret, error) {
 	var err error
 	secretsByGroup := map[string][]*Secret{}
 
 	secretPaths := getAllPaths(secretGroups)
-	secretValueById, err := depRetrieveSecrets(secretPaths)
+	secretValueById, err := depRetrieveSecrets(secretPaths, traceContext)
 	if err != nil {
 		return nil, err
 	}
@@ -52,12 +54,26 @@ func FetchSecretsForGroups(
 	return secretsByGroup, err
 }
 
+// secretPathSet is a mathematical set of secret paths. The values of the
+// underlying map use an empty struct, since no data is required.
+type secretPathSet map[string]struct{}
+
+func (s secretPathSet) Add(path string) {
+	s[path] = struct{}{}
+}
+
 func getAllPaths(secretGroups []*SecretGroup) []string {
-	var ids []string
+	// Create a mathematical set of all secret paths
+	pathSet := secretPathSet{}
 	for _, group := range secretGroups {
 		for _, spec := range group.SecretSpecs {
-			ids = append(ids, spec.Path)
+			pathSet.Add(spec.Path)
 		}
 	}
-	return ids
+	// Convert the set of secret paths to a slice of secret paths
+	var paths []string
+	for path := range pathSet {
+		paths = append(paths, path)
+	}
+	return paths
 }

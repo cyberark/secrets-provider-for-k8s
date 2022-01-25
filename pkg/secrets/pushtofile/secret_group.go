@@ -2,9 +2,12 @@ package pushtofile
 
 import (
 	"fmt"
+	"github.com/cyberark/conjur-authn-k8s-client/pkg/log"
+	"github.com/cyberark/secrets-provider-for-k8s/pkg/log/messages"
 	"io/ioutil"
 	"os"
 	"path"
+	"path/filepath"
 	"sort"
 	"strings"
 )
@@ -14,9 +17,20 @@ const secretGroupPolicyPathPrefix = "conjur.org/conjur-secrets-policy-path."
 const secretGroupFileTemplatePrefix = "conjur.org/secret-file-template."
 const secretGroupFilePathPrefix = "conjur.org/secret-file-path."
 const secretGroupFileFormatPrefix = "conjur.org/secret-file-format."
+const secretGroupFilePermissionsPrefix = "conjur.org/secret-file-permissions."
 
-const defaultFilePermissions os.FileMode = 0664
+const defaultFilePermissions os.FileMode = 0644
 const maxFilenameLen = 255
+
+// Config is used during SecretGroup creation, and contains default values for
+// secret file and template file base paths, along with mockable functions for
+// reading template files.
+type Config struct {
+	secretsBasePath   string
+	templatesBasePath string
+	openReadCloser    openReadCloserFunc
+	pullFromReader    pullFromReaderFunc
+}
 
 // SecretGroup incorporates all of the information about a secret group
 // that has been parsed from that secret group's Annotations.
@@ -105,7 +119,7 @@ func (sg *SecretGroup) absoluteFilePath(secretsBasePath string) (string, error) 
 	groupName := sg.Name
 	filePath := sg.FilePath
 	fileTemplate := sg.FileTemplate
-	fileFormat := sg.FileFormat
+	fileExt := sg.FileFormat
 
 	// filePath must be relative
 	if path.IsAbs(filePath) {
@@ -119,18 +133,16 @@ func (sg *SecretGroup) absoluteFilePath(secretsBasePath string) (string, error) 
 
 	if !pathContainsFilename {
 		if len(fileTemplate) > 0 {
-			// fileTemplate requires filePath to point to a file (not a directory)
-			return "", fmt.Errorf(
-				"provided filepath %q for secret group %q must specify a path to a file, without a trailing %q",
-				filePath, groupName, "/",
-			)
+			// Template filename defaults to "{groupName}.out"
+			fileExt = "out"
 		}
 
-		// Without the restrictions of fileTemplate, the filename defaults to "{groupName}.{fileFormat}"
+		// For all other formats, the filename defaults to "{groupName}.{fileFormat}"
 		filePath = path.Join(
 			filePath,
-			fmt.Sprintf("%s.%s", groupName, fileFormat),
+			fmt.Sprintf("%s.%s", groupName, fileExt),
 		)
+		log.Info(messages.CSPFK017I, groupName)
 	}
 
 	absoluteFilePath := path.Join(secretsBasePath, filePath)
@@ -169,12 +181,13 @@ func (sg *SecretGroup) validate() []error {
 		return errors
 	}
 
-	if len(fileFormat) > 0 {
+	if len(fileFormat) > 0 && fileFormat != "template" {
 		_, err := FileTemplateForFormat(fileFormat, secretSpecs)
 		if err != nil {
 			return []error{
 				fmt.Errorf(
-					"unable to process file format %q for group: %s",
+					"unable to process group %q into file format %q: %s",
+					groupName,
 					fileFormat,
 					err,
 				),
@@ -267,14 +280,29 @@ func maybeFileTemplateFromFormat(
 }
 
 // NewSecretGroups creates a collection of secret groups from a map of annotations
-func NewSecretGroups(secretsBasePath string, annotations map[string]string) ([]*SecretGroup, []error) {
+func NewSecretGroups(
+	secretsBasePath string,
+	templatesBasePath string,
+	annotations map[string]string,
+) ([]*SecretGroup, []error) {
+	c := Config{
+		secretsBasePath:   secretsBasePath,
+		templatesBasePath: templatesBasePath,
+		openReadCloser:    openFileAsReadCloser,
+		pullFromReader:    pullFromReader,
+	}
+
+	return newSecretGroupsWithDeps(annotations, c)
+}
+
+func newSecretGroupsWithDeps(annotations map[string]string, c Config) ([]*SecretGroup, []error) {
 	var sgs []*SecretGroup
 
 	var errors []error
 	for key := range annotations {
 		if strings.HasPrefix(key, secretGroupPrefix) {
 			groupName := strings.TrimPrefix(key, secretGroupPrefix)
-			sg, errs := newSecretGroup(groupName, secretsBasePath, annotations)
+			sg, errs := newSecretGroup(groupName, annotations, c)
 			if errs != nil {
 				errors = append(errors, errs...)
 				continue
@@ -297,17 +325,33 @@ func NewSecretGroups(secretsBasePath string, annotations map[string]string) ([]*
 	return sgs, nil
 }
 
-func newSecretGroup(groupName string, secretsBasePath string, annotations map[string]string) (*SecretGroup, []error) {
+func newSecretGroup(groupName string, annotations map[string]string, c Config) (*SecretGroup, []error) {
 	groupSecrets := annotations[secretGroupPrefix+groupName]
-	fileTemplate := annotations[secretGroupFileTemplatePrefix+groupName]
 	filePath := annotations[secretGroupFilePathPrefix+groupName]
 	fileFormat := annotations[secretGroupFileFormatPrefix+groupName]
+
 	policyPathPrefix := annotations[secretGroupPolicyPathPrefix+groupName]
 	policyPathPrefix = strings.TrimPrefix(policyPathPrefix, "/")
+	filePermissions := annotations[secretGroupFilePermissionsPrefix+groupName]
+
+	var err error
+	var fileTemplate string
+	if fileFormat == "template" {
+		fileTemplate, err = collectTemplate(groupName, annotations, c)
+		if err != nil {
+			return nil, []error{err}
+		}
+	}
 
 	// Default to "yaml" file format
-	if len(fileTemplate)+len(fileFormat) == 0 {
+	if len(fileFormat) == 0 {
 		fileFormat = "yaml"
+	}
+
+	fileMode, err := permStrToFileMode(filePermissions)
+	if err != nil {
+		err = fmt.Errorf(`unable to create fileMode from annotation "%s": %s`, secretGroupFilePermissionsPrefix, err)
+		return nil, []error{err}
 	}
 
 	secretSpecs, err := NewSecretSpecs([]byte(groupSecrets))
@@ -322,7 +366,7 @@ func newSecretGroup(groupName string, secretsBasePath string, annotations map[st
 		FilePath:         filePath,
 		FileTemplate:     fileTemplate,
 		FileFormat:       fileFormat,
-		FilePermissions:  defaultFilePermissions,
+		FilePermissions:  *fileMode,
 		PolicyPathPrefix: policyPathPrefix,
 		SecretSpecs:      secretSpecs,
 	}
@@ -333,12 +377,101 @@ func newSecretGroup(groupName string, secretsBasePath string, annotations map[st
 	}
 
 	// Generate absolute file path
-	sg.FilePath, err = sg.absoluteFilePath(secretsBasePath)
+	sg.FilePath, err = sg.absoluteFilePath(c.secretsBasePath)
 	if err != nil {
 		return nil, []error{err}
 	}
 
 	return sg, nil
+}
+
+func collectTemplate(groupName string, annotations map[string]string, c Config) (string, error) {
+	annotationTemplate := annotations[secretGroupFileTemplatePrefix+groupName]
+
+	configmapTemplate, err := readTemplateFromFile(groupName, annotations, c)
+	if os.IsNotExist(err) {
+		return annotationTemplate, nil
+	} else if err != nil {
+		return "", fmt.Errorf("unable to read template file for secret group %q: %s", groupName, err)
+	}
+
+	if len(annotationTemplate) > 0 && len(configmapTemplate) > 0 {
+		return "", fmt.Errorf("secret file template for group %q cannot be provided both by annotation and by ConfigMap", groupName)
+	}
+
+	if len(annotationTemplate)+len(configmapTemplate) == 0 {
+		return "", fmt.Errorf("template required for secret group %q", groupName)
+	}
+
+	return configmapTemplate, nil
+}
+
+func readTemplateFromFile(
+	groupName string,
+	annotations map[string]string,
+	c Config,
+
+) (string, error) {
+	templateFilepath := filepath.Join(c.templatesBasePath, groupName+".tpl")
+	rc, err := c.openReadCloser(templateFilepath)
+	if err != nil {
+		return "", err
+	}
+	defer func() {
+		_ = rc.Close()
+	}()
+
+	return c.pullFromReader(rc)
+}
+
+func permStrToFileMode(perms string) (*os.FileMode, error) {
+	if perms == "" {
+		fileMode := defaultFilePermissions
+		return &fileMode, nil
+	}
+
+	invalidFormatErr := fmt.Errorf("Invalid permissions format: '%s'", perms)
+	// Permissions string should be 9 digits or 10 digits with leading '-'
+	switch len(perms) {
+	case 9:
+		break
+	case 10:
+		if perms[0] != '-' {
+			return nil, invalidFormatErr
+		}
+		perms = perms[1:]
+	default:
+		return nil, invalidFormatErr
+	}
+
+	invalidPermissionsErr := fmt.Errorf("Invalid permissions: '%s', owner permissions must atleast have read and write (-rw-------)", perms)
+	//User Group should atleast have read/write permissions
+	if perms[0] != 'r' || perms[1] != 'w' {
+		return nil, invalidPermissionsErr
+	}
+
+	validChars := "rwx"
+	multipliers := []int{64, 8, 1}
+	bitValues := []int{4, 2, 1}
+
+	result := 0
+	index := 0
+	for group := 0; group < 3; group++ {
+		for bit := 0; bit < 3; bit++ {
+			switch perms[index] {
+			case validChars[bit]:
+				result += bitValues[bit] * multipliers[group]
+			case '-':
+				break
+			default:
+				return nil, invalidFormatErr
+			}
+			index++
+		}
+	}
+
+	fileMode := os.FileMode(result)
+	return &fileMode, nil
 }
 
 func validateGroupFilePaths(secretGroups []*SecretGroup) []error {

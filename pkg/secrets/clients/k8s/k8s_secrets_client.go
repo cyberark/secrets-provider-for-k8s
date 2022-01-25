@@ -1,6 +1,8 @@
 package k8s
 
 import (
+	"context"
+
 	"github.com/cyberark/conjur-authn-k8s-client/pkg/log"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -17,7 +19,7 @@ func RetrieveK8sSecret(namespace string, secretName string) (*v1.Secret, error) 
 	// get K8s client object
 	kubeClient, _ := configK8sClient()
 	log.Info(messages.CSPFK005I, secretName, namespace)
-	k8sSecret, err := kubeClient.CoreV1().Secrets(namespace).Get(secretName, metav1.GetOptions{})
+	k8sSecret, err := kubeClient.CoreV1().Secrets(namespace).Get(context.Background(), secretName, metav1.GetOptions{})
 	if err != nil {
 		// Error messages returned from K8s should be printed only in debug mode
 		log.Debug(messages.CSPFK004D, err.Error())
@@ -36,7 +38,7 @@ func UpdateK8sSecret(namespace string, secretName string, originalK8sSecret *v1.
 	}
 
 	log.Info(messages.CSPFK006I, secretName, namespace)
-	_, err := kubeClient.CoreV1().Secrets(namespace).Update(originalK8sSecret)
+	_, err := kubeClient.CoreV1().Secrets(namespace).Update(context.Background(), originalK8sSecret, metav1.UpdateOptions{})
 	// Clear secret from memory
 	stringDataEntriesMap = nil
 	originalK8sSecret = nil
