@@ -8,7 +8,7 @@ cd "../$(dirname "$0")"
 
 source ./tests/utils.sh
 
-banner $BOLD "Running Helm unit tests for chart \"conjur-config-cluster-prep\""
+banner $BOLD "Running Helm unit tests for chart \"secrets-provider\""
 
 # Install the 'helm-unittest' plugin if it hasn't been install already
 if [[ ! "$(helm plugin list | awk '/^unittest\t/{print $1}')" ]]; then
