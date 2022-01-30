@@ -216,10 +216,6 @@ function main() {
     conjur_authn_login_test ""
     update_results "$?" "$EXPECT_FAILURE"
 
-    announce "Missing Conjur authn login causes failure"
-    missing_conjur_authn_login_test
-    update_results "$?" "$EXPECT_FAILURE"
-
     announce "Conjur authn URL that begins with 'https://' is accepted"
     conjur_authn_url_test "https://example.com"
     update_results "$?" 

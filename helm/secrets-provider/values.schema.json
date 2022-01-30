@@ -74,12 +74,10 @@
           "anyOf": [
             {
               "required": [
-                "authnLogin",
                 "conjurConnConfigMap"
               ]
             },{
               "required": [
-                "authnLogin",
                 "account",
                 "applianceUrl",
                 "authnUrl"
