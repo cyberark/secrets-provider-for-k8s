@@ -86,6 +86,6 @@ environment:
     # authnLogin:
     authnJWT:
       projectToken: false
-      projectedFilneame: jwt
+      projectedFilename: jwt
       audience: conjur
       expiration: 86400 # This is one day in seconds

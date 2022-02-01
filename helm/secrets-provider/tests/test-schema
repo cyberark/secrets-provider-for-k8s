@@ -160,6 +160,30 @@ function missing_conjur_conn_configmap_test() {
         --set "$DEFAULT_K8S_SECRETS_SETTING"
 }
 
+function authn_jwt_test() {
+    helm lint . --strict \
+        --set "$DEFAULT_ACCOUNT_SETTING" \
+        --set "$DEFAULT_APPLIANCE_URL_SETTING" \
+        --set "$DEFAULT_AUTHN_URL_SETTING" \
+        --set "$DEFAULT_SSL_CERT_SETTING" \
+        --set "$DEFAULT_K8S_SECRETS_SETTING" \
+        --set "environment.conjur.authnJWT.projectToken=true" \
+        --set "environment.conjur.authnJWT.projectedFilename=$1" \
+        --set "environment.conjur.authnJWT.audience=$2" \
+        --set "environment.conjur.authnJWT.expiration=$3"
+}
+
+function non_boolean_project_token_test() {
+    helm lint . --strict \
+        --set "$DEFAULT_ACCOUNT_SETTING" \
+        --set "$DEFAULT_APPLIANCE_URL_SETTING" \
+        --set "$DEFAULT_AUTHN_LOGIN_SETTING" \
+        --set "$DEFAULT_AUTHN_URL_SETTING" \
+        --set "$DEFAULT_SSL_CERT_SETTING" \
+        --set "$DEFAULT_K8S_SECRETS_SETTING" \
+        --set "environment.conjur.authnJWT.projectToken=$1"
+}
+
 function main() {
     banner $BOLD "Running Helm schema tests for chart \"conjur-config-cluster-prep\""
     check_helm_version
@@ -216,6 +240,10 @@ function main() {
     conjur_authn_login_test ""
     update_results "$?" "$EXPECT_FAILURE"
 
+    announce "Missing Conjur authn login causes failure"
+    missing_conjur_authn_login_test
+    update_results "$?" "$EXPECT_FAILURE"
+
     announce "Conjur authn URL that begins with 'https://' is accepted"
     conjur_authn_url_test "https://example.com"
     update_results "$?" 
@@ -250,6 +278,22 @@ function main() {
 
     announce "Missing both Conjur connect info and Conjur connect ConfigMap name causes failure"
     missing_conjur_configmap_name_test
+    update_results "$?" "$EXPECT_FAILURE"
+
+    announce "Non-boolean value for projectToken is rejected"
+    non_boolean_project_token_test "not-a-boolean"
+    update_results "$?" "$EXPECT_FAILURE"
+
+    announce "Null-string authn-jwt projected filename is rejected"
+    authn_jwt_test "" "conjur" 86400
+    update_results "$?" "$EXPECT_FAILURE"
+
+    announce "Null-string authn-jwt audience is rejected"
+    authn_jwt_test "jwt" "" 86400
+    update_results "$?" "$EXPECT_FAILURE"
+
+    announce "A value of 0 for authn-jwt expiration is rejected"
+    authn_jwt_test "jwt" "conjur" 0
     update_results "$?" "$EXPECT_FAILURE"
 
     display_final_results

@@ -71,6 +71,24 @@
           }
         },
         "conjur": {
+          "if": {
+            "not": {
+              "properties": {
+                "authnJWT": {
+                  "properties": {
+                    "projectToken": {
+                      "enum": [ true ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "authnLogin"
+            ]
+          },
           "anyOf": [
             {
               "required": [
@@ -130,6 +148,26 @@
                 "value": {
                   "type": ["string","null"],
                   "minLength": 1
+                }
+              }
+            },
+            "authnJWT": {
+              "type": "object",
+              "properties": {
+                "projectToken": {
+                  "type": "boolean"
+                },
+                "projectedFilename": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "audience": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "expiration": {
+                  "type": "number",
+                  "minimum": 1
                 }
               }
             }
