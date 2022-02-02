@@ -69,7 +69,7 @@ func (sg *SecretGroup) pushToFileWithDeps(
 	depOpenWriteCloser openWriteCloserFunc,
 	depPushToWriter pushToWriterFunc,
 	secrets []*Secret,
-) error {
+) (err error) {
 	// Make sure all the secret specs are accounted for
 	if err := validateSecretsAgainstSpecs(secrets, sg.SecretSpecs); err != nil {
 		return err
