@@ -5,10 +5,12 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"text/template"
+
+	"github.com/cyberark/conjur-authn-k8s-client/pkg/log"
+	"github.com/cyberark/secrets-provider-for-k8s/pkg/log/messages"
 )
 
 // templateData describes the form in which data is presented to push-to-file templates
@@ -95,15 +97,6 @@ func pushToWriter(
 		return err
 	}
 
-	// ***TEMP DEBUG STUFF***//
-	if false {
-		tpl.Execute(writer, templateData{
-			SecretsArray: groupSecrets,
-			SecretsMap:   secretsMap,
-		})
-		return nil
-	}
-
 	// Render the secret file content
 	tplData := templateData{
 		SecretsArray: groupSecrets,
@@ -114,30 +107,34 @@ func pushToWriter(
 		return err
 	}
 
-	if writer == ioutil.Discard {
-		_, err := writer.Write(fileContent.Bytes())
-		return err
-	}
-
-	// Calculate a sha256 checksum on the content
-	checksum, err := fileChecksum(fileContent)
-
-	// If file contents have changed, write the file and update checksum
-	if contentHasChanged(groupName, checksum) {
-		fmt.Printf("Writing secret file content: \n%s\n", fileContent.String())
-		if _, err := writer.Write(fileContent.Bytes()); err != nil {
-			return err
-		}
-		prevFileChecksums[groupName] = checksum
-	}
-
-	return err
+	return writeContent(writer, fileContent, groupName)
 }
 
 func renderFile(tpl *template.Template, tplData templateData) (*bytes.Buffer, error) {
 	buf := &bytes.Buffer{}
 	err := tpl.Execute(buf, tplData)
 	return buf, err
+}
+
+func writeContent(writer io.Writer, fileContent *bytes.Buffer, groupName string) error {
+	if writer == io.Discard {
+		_, err := writer.Write(fileContent.Bytes())
+		return err
+	}
+
+	// Calculate a sha256 checksum on the content
+	checksum, _ := fileChecksum(fileContent)
+
+	// If file contents have changed, write the file and update checksum
+	if contentHasChanged(groupName, checksum) {
+		if _, err := writer.Write(fileContent.Bytes()); err != nil {
+			return err
+		}
+		prevFileChecksums[groupName] = checksum
+	} else {
+		log.Info(messages.CSPFK018I)
+	}
+	return nil
 }
 
 // fileChecksum calculates a checksum on the file content

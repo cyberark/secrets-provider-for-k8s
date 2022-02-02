@@ -549,80 +549,80 @@ func TestNewSecretGroups(t *testing.T) {
 	})
 
 	// Test file permissions settings
-    type assertFunc func([]*SecretGroup, []error)
-    assertExpectedFileMode := func(expectedFileMode os.FileMode) assertFunc {
-        return func(groups []*SecretGroup, errs []error) {
-            assert.Len(t, errs, 0)
-            assert.Len(t, groups, 1)
-            assert.Equal(t, groups[0].FilePermissions, expectedFileMode)
-        }
-    }
-    assertExpectedErr := func(expectedErrStr string) assertFunc {
-        return func(_ []*SecretGroup, errs []error) {
-            assert.NotEmpty(t, errs)
-            assert.Contains(t, errs[0].Error(), expectedErrStr)
-        }
-    }
-    filePermsTestCases := []struct {
-        description string
-        permStr     string // Set to "" to skip file permissions annotation
-        assertFunc  assertFunc
-    }{
-        // Happy path test cases
-        {
-            description: "secret file permissions defaulted if not configure",
-            permStr:     "",
-            assertFunc:  assertExpectedFileMode(defaultFilePermissions),
-        }, {
-            description: "File perms '-rw-rw-r--'",
-            permStr:     "-rw-rw-r--",
-            assertFunc:  assertExpectedFileMode(os.FileMode(0664)),
-        }, {
-            description: "File perms 'rw-rw-r--' (no leading dash)",
-            permStr:     "rw-rw-r--",
-            assertFunc:  assertExpectedFileMode(os.FileMode(0664)),
-        }, {
-            description: "File perms '-rw-r--r--'",
-            permStr:     "-rw-r--r--",
-            assertFunc:  assertExpectedFileMode(os.FileMode(0644)),
-        }, {
-            description: "File perms '-rwxrwxrwx'",
-            permStr:     "-rwxrwxrwx",
-            assertFunc:  assertExpectedFileMode(os.FileMode(0777)),
-        },
-        // Unhappy path test cases
-        {
-            description: "File permission string with leading 'd'",
-            permStr:     "drw-rw-r--",
-            assertFunc:  assertExpectedErr("Invalid permissions format"),
-        }, {
-            description: "File perms '----------' (0000)",
-            permStr:     "----------",
-            assertFunc:  assertExpectedErr("owner permissions must atleast have read and write"),
-        }, {
-            description: "File permission string with invalid character",
-            permStr:     "-rw-r--U--",
-            assertFunc:  assertExpectedErr("Invalid permissions format"),
-        }, {
-            description: "File permission string with less than 9 characters",
-            permStr:     "-rw-rw-",
-            assertFunc:  assertExpectedErr("Invalid permissions format"),
-        },
-    }
-    for _, tc := range filePermsTestCases {
-        t.Run(tc.description, func(t *testing.T) {
-            // Run the test case
-            annotations := map[string]string{
-                "conjur.org/conjur-secrets.first": `- path/to/secret/first1`,
-            }
-            if tc.permStr != "" {
-                annotations["conjur.org/secret-file-permissions.first"] = tc.permStr
-            }
-            groups, errs := NewSecretGroups("", "", annotations)
-            // Verify results
-            tc.assertFunc(groups, errs)
-        })
-    }
+	type assertFunc func([]*SecretGroup, []error)
+	assertExpectedFileMode := func(expectedFileMode os.FileMode) assertFunc {
+		return func(groups []*SecretGroup, errs []error) {
+			assert.Len(t, errs, 0)
+			assert.Len(t, groups, 1)
+			assert.Equal(t, groups[0].FilePermissions, expectedFileMode)
+		}
+	}
+	assertExpectedErr := func(expectedErrStr string) assertFunc {
+		return func(_ []*SecretGroup, errs []error) {
+			assert.NotEmpty(t, errs)
+			assert.Contains(t, errs[0].Error(), expectedErrStr)
+		}
+	}
+	filePermsTestCases := []struct {
+		description string
+		permStr     string // Set to "" to skip file permissions annotation
+		assertFunc  assertFunc
+	}{
+		// Happy path test cases
+		{
+			description: "secret file permissions defaulted if not configure",
+			permStr:     "",
+			assertFunc:  assertExpectedFileMode(defaultFilePermissions),
+		}, {
+			description: "File perms '-rw-rw-r--'",
+			permStr:     "-rw-rw-r--",
+			assertFunc:  assertExpectedFileMode(os.FileMode(0664)),
+		}, {
+			description: "File perms 'rw-rw-r--' (no leading dash)",
+			permStr:     "rw-rw-r--",
+			assertFunc:  assertExpectedFileMode(os.FileMode(0664)),
+		}, {
+			description: "File perms '-rw-r--r--'",
+			permStr:     "-rw-r--r--",
+			assertFunc:  assertExpectedFileMode(os.FileMode(0644)),
+		}, {
+			description: "File perms '-rwxrwxrwx'",
+			permStr:     "-rwxrwxrwx",
+			assertFunc:  assertExpectedFileMode(os.FileMode(0777)),
+		},
+		// Unhappy path test cases
+		{
+			description: "File permission string with leading 'd'",
+			permStr:     "drw-rw-r--",
+			assertFunc:  assertExpectedErr("Invalid permissions format"),
+		}, {
+			description: "File perms '----------' (0000)",
+			permStr:     "----------",
+			assertFunc:  assertExpectedErr("owner permissions must atleast have read and write"),
+		}, {
+			description: "File permission string with invalid character",
+			permStr:     "-rw-r--U--",
+			assertFunc:  assertExpectedErr("Invalid permissions format"),
+		}, {
+			description: "File permission string with less than 9 characters",
+			permStr:     "-rw-rw-",
+			assertFunc:  assertExpectedErr("Invalid permissions format"),
+		},
+	}
+	for _, tc := range filePermsTestCases {
+		t.Run(tc.description, func(t *testing.T) {
+			// Run the test case
+			annotations := map[string]string{
+				"conjur.org/conjur-secrets.first": `- path/to/secret/first1`,
+			}
+			if tc.permStr != "" {
+				annotations["conjur.org/secret-file-permissions.first"] = tc.permStr
+			}
+			groups, errs := NewSecretGroups("", "", annotations)
+			// Verify results
+			tc.assertFunc(groups, errs)
+		})
+	}
 }
 
 var pushToFileWithDepsTestCases = []pushToFileWithDepsTestCase{
@@ -823,8 +823,8 @@ func TestSecretGroup_PushToFile(t *testing.T) {
 	defer os.Remove(dir)
 
 	for _, tc := range []struct {
-		description string
-		path string
+		description     string
+		path            string
 		filePermissions os.FileMode
 	}{
 		{"file with existing parent folder, perms 0660", "./file", 0660},
@@ -833,6 +833,9 @@ func TestSecretGroup_PushToFile(t *testing.T) {
 	} {
 		t.Run(tc.description, func(t *testing.T) {
 			absoluteFilePath := path.Join(dir, tc.path)
+
+			// Reset the P2F cache so the files will be written even if the values haven't changed
+			prevFileChecksums = map[string]checksum{}
 
 			// Create a group, and push to file
 			group := SecretGroup{
