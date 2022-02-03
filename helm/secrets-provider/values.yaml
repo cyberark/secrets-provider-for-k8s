@@ -84,3 +84,8 @@ environment:
     # This setting is required.
     #
     # authnLogin:
+    authnJWT:
+      projectToken: false
+      projectedFilename: jwt
+      audience: conjur
+      expiration: 86400 # This is one day in seconds
