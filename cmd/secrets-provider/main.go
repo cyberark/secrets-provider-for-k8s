@@ -31,6 +31,7 @@ const (
 	tracerService        = "secrets-provider"
 	tracerEnvironment    = "production"
 	tracerID             = 1
+	readyFilePath        = "/tmp/healthy"
 )
 
 var annotationsMap map[string]string
@@ -97,9 +98,16 @@ func main() {
 			errStr := fmt.Sprintf(messages.CSPFK039E, secretsConfig.StoreType, err.Error())
 			logError(errStr)
 		}
+
+		err = touchReadyFile(readyFilePath)
+		if err != nil {
+			logError(err.Error())
+		}
+
 		if refreshInterval == 0 {
 			break
 		}
+
 		time.Sleep(refreshInterval)
 	}
 }
@@ -347,4 +355,22 @@ func parseFileLockDuringUpdate() (bool, error) {
 		return fileLock, nil
 	}
 	return false, nil // Default to false
+}
+
+func touchReadyFile(path string) error {
+	// check if file exists
+	var _, err = os.Stat(path)
+
+	// create file if not exists
+	if os.IsNotExist(err) {
+		var file, err = os.Create(path)
+		if err != nil {
+			fmt.Printf("Error creating file %s: %s\n", path, err.Error())
+			return err
+		}
+		defer file.Close()
+		fmt.Printf("File %s created successfully\n", path)
+	}
+
+	return err
 }
