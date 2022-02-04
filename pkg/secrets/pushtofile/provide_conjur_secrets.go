@@ -7,6 +7,7 @@ import (
 	"github.com/cyberark/conjur-opentelemetry-tracer/pkg/trace"
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/log/messages"
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/clients/conjur"
+	"github.com/gofrs/flock"
 	"go.opentelemetry.io/otel"
 )
 
@@ -71,6 +72,41 @@ func provideWithDeps(
 		span.RecordErrorAndSetStatus(err)
 		span.End()
 		return err
+	}
+	span.End()
+
+	// Lock all files that will be written to
+	_, span = tr.Start(traceContext, "Lock Files")
+	fileLocks := map[string]*flock.Flock{}
+	defer func() {
+		_, span = tr.Start(traceContext, "Unlock Files")
+		// Unlock all files that were locked
+		for _, lock := range fileLocks {
+			err = lock.Unlock()
+			if err != nil {
+				log.Error("Unable to unlock file", err)
+				span.RecordErrorAndSetStatus(err)
+			}
+			log.Info("Unlocked file %s", lock.Path())
+		}
+		span.End()
+	}()
+
+	for _, group := range groups {
+		filePath := group.FilePath
+		// Check if we already locked this file
+		if fileLocks[filePath] == nil {
+			lock := flock.New(filePath)
+			locked, err := lock.TryLock()
+			if locked {
+				log.Info("Locked file %s", filePath)
+				fileLocks[filePath] = lock
+			}
+			if err != nil || !locked {
+				log.Error("Failed to lock file", err)
+				span.RecordErrorAndSetStatus(err)
+			}
+		}
 	}
 	span.End()
 

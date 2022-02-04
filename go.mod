@@ -7,6 +7,7 @@ require (
 	github.com/cyberark/conjur-api-go v0.8.1
 	github.com/cyberark/conjur-authn-k8s-client v0.23.0
 	github.com/cyberark/conjur-opentelemetry-tracer v0.0.0-20220113161145-73452511df0c
+	github.com/gofrs/flock v0.8.1
 	github.com/stretchr/testify v1.7.0
 	go.opentelemetry.io/otel v1.3.0
 	gopkg.in/yaml.v2 v2.4.0
