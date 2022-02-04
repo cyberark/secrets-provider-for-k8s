@@ -42,6 +42,7 @@ var envAnnotationsConversion = map[string]string{
 	"DEBUG":                "conjur.org/debug-logging",
 	"JAEGER_COLLECTOR_URL": "conjur.org/jaeger-collector-url",
 	"LOG_TRACES":           "conjur.org/log-traces",
+	"JWT_TOKEN_PATH":       "conjur.org/jwt-token-path",
 }
 
 func main() {
