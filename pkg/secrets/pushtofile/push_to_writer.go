@@ -1,11 +1,16 @@
 package pushtofile
 
 import (
+	"bytes"
+	"crypto/sha256"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
 	"text/template"
+
+	"github.com/cyberark/conjur-authn-k8s-client/pkg/log"
+	"github.com/cyberark/secrets-provider-for-k8s/pkg/log/messages"
 )
 
 // templateData describes the form in which data is presented to push-to-file templates
@@ -29,6 +34,13 @@ type openWriteCloserFunc func(
 	path string,
 	permissions os.FileMode,
 ) (io.WriteCloser, error)
+
+type checksum []byte
+
+// prevFileChecksums maps a secret group name to a sha256 checksum of the
+// corresponding secret file content. This is used to detect changes in
+// secret file content.
+var prevFileChecksums = map[string]checksum{}
 
 // openFileAsWriteCloser opens a file to write-to with some permissions.
 func openFileAsWriteCloser(path string, permissions os.FileMode) (io.WriteCloser, error) {
@@ -65,7 +77,7 @@ func pushToWriter(
 		secretsMap[s.Alias] = s
 	}
 
-	t, err := template.New(groupName).Funcs(template.FuncMap{
+	tpl, err := template.New(groupName).Funcs(template.FuncMap{
 		// secret is a custom utility function for streamlined access to secret values.
 		// It panics for secrets aliases not specified on the group.
 		"secret": func(alias string) string {
@@ -85,8 +97,62 @@ func pushToWriter(
 		return err
 	}
 
-	return t.Execute(writer, templateData{
+	// Render the secret file content
+	tplData := templateData{
 		SecretsArray: groupSecrets,
 		SecretsMap:   secretsMap,
-	})
+	}
+	fileContent, err := renderFile(tpl, tplData)
+	if err != nil {
+		return err
+	}
+
+	return writeContent(writer, fileContent, groupName)
+}
+
+func renderFile(tpl *template.Template, tplData templateData) (*bytes.Buffer, error) {
+	buf := &bytes.Buffer{}
+	err := tpl.Execute(buf, tplData)
+	return buf, err
+}
+
+func writeContent(writer io.Writer, fileContent *bytes.Buffer, groupName string) error {
+	if writer == io.Discard {
+		_, err := writer.Write(fileContent.Bytes())
+		return err
+	}
+
+	// Calculate a sha256 checksum on the content
+	checksum, _ := fileChecksum(fileContent)
+
+	// If file contents have changed, write the file and update checksum
+	if contentHasChanged(groupName, checksum) {
+		if _, err := writer.Write(fileContent.Bytes()); err != nil {
+			return err
+		}
+		prevFileChecksums[groupName] = checksum
+	} else {
+		log.Info(messages.CSPFK018I)
+	}
+	return nil
+}
+
+// fileChecksum calculates a checksum on the file content
+func fileChecksum(buf *bytes.Buffer) (checksum, error) {
+	hash := sha256.New()
+	bufCopy := bytes.NewBuffer(buf.Bytes())
+	if _, err := io.Copy(hash, bufCopy); err != nil {
+		return nil, err
+	}
+	checksum := hash.Sum(nil)
+	return checksum, nil
+}
+
+func contentHasChanged(groupName string, fileChecksum checksum) bool {
+	if prevChecksum, exists := prevFileChecksums[groupName]; exists {
+		if bytes.Equal(fileChecksum, prevChecksum) {
+			return false
+		}
+	}
+	return true
 }
