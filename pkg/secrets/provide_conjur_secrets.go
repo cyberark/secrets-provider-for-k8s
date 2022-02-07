@@ -16,6 +16,10 @@ import (
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/utils"
 )
 
+const (
+	secretProviderGracePeriod = time.Duration(10 * time.Millisecond)
+)
+
 // ProviderConfig provides the configuration necessary to create a secrets
 // Provider.
 type ProviderConfig struct {
@@ -87,7 +91,6 @@ func RetryableSecretProvider(
 			if limitedBackOff.RetryCount() > 0 {
 				log.Info(fmt.Sprintf(messages.CSPFK010I, limitedBackOff.RetryCount(), limitedBackOff.RetryLimit))
 			}
-
 			return provideSecrets()
 		}, limitedBackOff)
 
@@ -95,5 +98,79 @@ func RetryableSecretProvider(
 			log.Error(messages.CSPFK038E, err)
 		}
 		return err
+	}
+}
+
+// PeriodicSecretProvider returns a new ProviderFunc, which wraps a retryable
+// ProviderFunc inside a function that operates in one of three modes:
+//  - Run once and return (for init or application container modes)
+//  - Run once and sleep forever (for sidecar mode without periodic refresh)
+//  - Run periodically (for sidecar mode with periodic refresh)
+func PeriodicSecretProvider(
+	secretRefreshInterval time.Duration,
+	mode string,
+	provideSecrets ProviderFunc,
+	providerQuit chan struct{},
+) ProviderFunc {
+
+	var periodicQuit = make(chan struct{})
+	var periodicError = make(chan error)
+	var ticker *time.Ticker
+
+	return func() error {
+		err := provideSecrets()
+		switch {
+		case err != nil:
+			// Return immediately upon error, regardless of operating mode
+			return err
+		case mode != "sidecar":
+			// Run once and return if not in sidecar mode
+			return err
+		case secretRefreshInterval > 0:
+			// Run periodically if in sidecar mode with periodic refresh
+			ticker = time.NewTicker(secretRefreshInterval)
+			go periodicSecretProvider(provideSecrets, ticker,
+				periodicQuit, periodicError)
+		default:
+			// Run once and sleep forever if in sidecar mode without
+			// periodic refresh (fall through)
+		}
+
+		// Wait here for a signal to quit providing secrets or an error
+		// from the periodicSecretProvider() function
+		select {
+		case <-providerQuit:
+			break
+		case err = <-periodicError:
+			break
+		}
+
+		// Allow the periodicSecretProvider goroutine to gracefully shut down
+		if secretRefreshInterval > 0 {
+			// Kill the ticker
+			ticker.Stop()
+			periodicQuit <- struct{}{}
+			time.Sleep(secretProviderGracePeriod)
+		}
+		return err
+	}
+}
+
+func periodicSecretProvider(
+	provideSecrets ProviderFunc,
+	ticker *time.Ticker,
+	periodicQuit <-chan struct{},
+	periodicError chan<- error,
+) {
+	for {
+		select {
+		case <-periodicQuit:
+			return
+		case <-ticker.C:
+			err := provideSecrets()
+			if err != nil {
+				periodicError <- err
+			}
+		}
 	}
 }
