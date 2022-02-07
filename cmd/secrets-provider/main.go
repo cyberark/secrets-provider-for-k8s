@@ -87,13 +87,8 @@ func main() {
 	}
 
 	// Provide secrets
-	go provideSecrets()
-	select {
-	case err = <-secrets.SecretProviderError:
-		if err != nil {
-			errStr := fmt.Sprintf(messages.CSPFK039E, secretsConfig.StoreType, err.Error())
-			logError(errStr)
-		}
+	if err = provideSecrets(); err != nil {
+		logError(err.Error())
 	}
 }
 
@@ -185,10 +180,18 @@ func retryableSecretsProvider(
 		provideSecrets,
 	)
 
+	// Create a channel to send a quit signal to the periodic secret provider.
+	// TODO: Currently, this is just used for testing, but in the future we
+	// may want to create a SIGTERM or SIGHUP handler to catch a signal from
+	// a user / external entity, and then send an (empty struct) quit signal
+	// on this channel to trigger a graceful shut down of the Secrets Provider.
+	providerQuit := make(chan struct{})
+
 	provideSecrets = secrets.PeriodicSecretProvider(
 		secretsConfig.SecretsRefreshInterval,
 		getContainerMode(),
 		provideSecrets,
+		providerQuit,
 	)
 	return provideSecrets, secretsConfig, nil
 }

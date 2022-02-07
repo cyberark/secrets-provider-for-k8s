@@ -14,9 +14,47 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+// TODO: For each test case, we need to create an object with its own
+// call count state, so that test cases don't interfere with one another.
+//type mockProvider struct {
+//	calledCount      int
+//	callLatencyMsecs time.Duration
+//	injectFailure    bool
+//	failOnCountN     int
+//}
+
+//func (m mockProvider) provide() error {
+//	m.calledCount++
+//	if m.injectFailure && (m.calledCount >= m.failOnCountN) {
+//		return errors.New("Failed to Provide")
+//	}
+//	if m.callLatencyMsecs > 0 {
+//		time.Sleep(m.callLatencyMsecs * time.Millisecond)
+//	}
+//	return nil
+//}
+
+//func goodProvider() mockProvider {
+//	return mockProvider{}
+//}
+
+//func badProvider() mockProvider {
+//	return mockProvider{injectFailure: true, failOnCountN: 1}
+//}
+
+//func goodAtFirstThenBadProvider(failOnCountN int) mockProvider {
+//	return mockProvider{injectFailure: true, failOnCountN: failOnCountN}
+//}
+
+//func slowProvider(latencyMsecs time.Duration) mockProvider {
+//	return mockProvider{callLatencyMsecs: latencyMsecs}
+//}
+
 const (
-	providerDelayTime = 500
+	providerDelayMsecs = 50
 )
+
+// TODO: Don't use global variable here. Create individual test case objects.
 var providerCount = 0
 
 func badProvider() error {
@@ -38,7 +76,7 @@ func goodProvider() error {
 
 func slowProvider() error {
 	providerCount++
-	time.Sleep(providerDelayTime * time.Millisecond)
+	time.Sleep(providerDelayMsecs * time.Millisecond)
 	return nil
 }
 
@@ -120,99 +158,98 @@ func TestRetryableSecretProvider(t *testing.T) {
 
 func TestPeriodicSecretProvider(t *testing.T) {
 	TestCases := []struct {
-		description string
-		mode        string
-		interval    time.Duration
-		testTime    time.Duration // total test time for all tests must be less than 3m
-		expectedCount         int
-		provider    ProviderFunc
-		assertOn    string
+		description   string
+		mode          string
+		interval      time.Duration
+		testTime      time.Duration // total test time for all tests must be less than 3m
+		expectedCount int
+		provider      ProviderFunc
+		assertOn      string
 	}{
 		{
-			description: "init",
-			mode:        "init",
-			interval:    time.Duration(500) * time.Millisecond,
-			testTime:    time.Duration(1000) * time.Millisecond,
-			expectedCount:  1,
-			provider:    goodProvider,
-			assertOn:    "success",
+			description:   "init container, happy path",
+			mode:          "init",
+			interval:      time.Duration(10) * time.Millisecond,
+			testTime:      time.Duration(25) * time.Millisecond,
+			expectedCount: 1,
+			provider:      goodProvider,
+			assertOn:      "success",
 		},
 		{
-			description: "sidecar",
-			mode:        "sidecar",
-			interval:    time.Duration(500) * time.Millisecond,
-			testTime:    time.Duration(3250) * time.Millisecond,
-			expectedCount:  7,
-			provider:    goodProvider,
-			assertOn:    "success",
+			description:   "sidecar container, happy path",
+			mode:          "sidecar",
+			interval:      time.Duration(10) * time.Millisecond,
+			testTime:      time.Duration(65) * time.Millisecond,
+			expectedCount: 7,
+			provider:      goodProvider,
+			assertOn:      "success",
 		},
 		{
-			description: "sidecar with zero duration",
-			mode:        "sidecar",
-			interval:    time.Duration(0) * time.Millisecond,
-			testTime:    time.Duration(3000) * time.Millisecond,
-			expectedCount:  1,
-			provider:    goodProvider,
-			assertOn:    "success",
+			description:   "sidecar with zero duration",
+			mode:          "sidecar",
+			interval:      time.Duration(0) * time.Millisecond,
+			testTime:      time.Duration(25) * time.Millisecond,
+			expectedCount: 1,
+			provider:      goodProvider,
+			assertOn:      "success",
 		},
 		{
-			description: "application",
-			mode:        "application",
-			interval:    time.Duration(500) * time.Millisecond,
-			testTime:    time.Duration(3000) * time.Millisecond,
-			expectedCount:  1,
-			provider:    goodProvider,
-			assertOn:    "success",
+			description:   "application mode, happy path",
+			mode:          "application",
+			interval:      time.Duration(10) * time.Millisecond,
+			testTime:      time.Duration(25) * time.Millisecond,
+			expectedCount: 1,
+			provider:      goodProvider,
+			assertOn:      "success",
 		},
-		// This test is inconsistent, 3-4 ticks
-		/*{
-			description: "sidecar with slow provider",
-			mode:        "sidecar",
-			interval:    time.Duration(1000) * time.Millisecond,
-			testTime:    time.Duration(3500) * time.Millisecond,
-			expectedCount:  3000/1000,
-			provider:    slowProvider,
-			assertOn:    "success",
-		},*/
+		{
+			description:   "sidecar with slow provider",
+			mode:          "sidecar",
+			interval:      time.Duration(10) * time.Millisecond,
+			testTime:      time.Duration(175) * time.Millisecond,
+			expectedCount: (150 / providerDelayMsecs) + 1,
+			provider:      slowProvider,
+			assertOn:      "success",
+		},
 		// This test is inconsistent, 11-13 ticks
-		/*{
-			// In this test the provider takes longer to run than the
-			// interval time. The Go ticker will adjust the time interval due to the
-			// slower receiver.
-			description: "sidecar with duration less than fetch time",
-			mode:        "sidecar",
-			interval:    time.Duration(300) * time.Millisecond,
-			testTime:    time.Duration(3000) * time.Millisecond,
-			expectedCount:  3000/providerDelayTime+1,
-			provider:    slowProvider,
-			assertOn:    "success",
-		},*/
+		//{
+		// In this test the provider takes longer to run than the
+		// interval time. The Go ticker will adjust the time interval due to the
+		// slower receiver.
+		//description:   "sidecar with duration less than fetch time",
+		//mode:          "sidecar",
+		//interval:      time.Duration(10) * time.Millisecond,
+		//testTime:      time.Duration(375) * time.Millisecond,
+		//expectedCount: 350/providerDelayMsecs + 1,
+		//provider:      slowProvider,
+		//assertOn:      "success",
+		//},
 		{
-			description: "badProvider for init container",
-			mode:        "init",
-			interval:    time.Duration(200) * time.Millisecond,
-			testTime:    time.Duration(500) * time.Millisecond,
-			expectedCount:  1,
-			provider:    badProvider,
-			assertOn:    "fail",
+			description:   "badProvider for init container",
+			mode:          "init",
+			interval:      time.Duration(10) * time.Millisecond,
+			testTime:      time.Duration(25) * time.Millisecond,
+			expectedCount: 1,
+			provider:      badProvider,
+			assertOn:      "fail",
 		},
 		{
-			description: "badProvider for sidecar",
-			mode:        "sidecar",
-			interval:    time.Duration(200) * time.Millisecond,
-			testTime:    time.Duration(500) * time.Millisecond,
-			expectedCount:  1,
-			provider:    badProvider,
-			assertOn:    "fail",
+			description:   "badProvider for sidecar",
+			mode:          "sidecar",
+			interval:      time.Duration(10) * time.Millisecond,
+			testTime:      time.Duration(25) * time.Millisecond,
+			expectedCount: 1,
+			provider:      badProvider,
+			assertOn:      "fail",
 		},
 		{
-			description: "goodAtFirstThenBadProvider for sidecar",
-			mode:        "sidecar",
-			interval:    time.Duration(200) * time.Millisecond,
-			testTime:    time.Duration(500) * time.Millisecond,
-			expectedCount:  1,
-			provider:    goodAtFirstThenBadProvider,
-			assertOn:    "fail",
+			description:   "goodAtFirstThenBadProvider for sidecar",
+			mode:          "sidecar",
+			interval:      time.Duration(10) * time.Millisecond,
+			testTime:      time.Duration(35) * time.Millisecond,
+			expectedCount: 1,
+			provider:      goodAtFirstThenBadProvider,
+			assertOn:      "fail",
 		},
 	}
 
@@ -221,16 +258,25 @@ func TestPeriodicSecretProvider(t *testing.T) {
 		var err error
 		//logger.InfoLogger = log.New(&logBuffer, "", 0)
 
-		periodicProvider := PeriodicSecretProvider(
-			tc.interval, tc.mode, tc.provider,
+		// Construct a secret provider function
+		var providerQuit = make(chan struct{})
+		provideSecrets := PeriodicSecretProvider(
+			tc.interval, tc.mode, tc.provider, providerQuit,
 		)
+
 		providerCount = 0
-		go periodicProvider()
+		testError := make(chan error)
+		go func() {
+			err := provideSecrets()
+			testError <- err
+		}()
 		select {
-		case err = <- SecretProviderError:
+		case err = <-testError:
+			break
 		case <-time.After(tc.testTime):
-			ProviderDone <- true
-			time.Sleep(500 * time.Millisecond)
+			providerQuit <- struct{}{}
+			//time.Sleep(5 * secretProviderGracePeriod)
+			break
 		}
 
 		if err == nil && providerCount != tc.expectedCount {
