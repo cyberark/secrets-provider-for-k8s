@@ -101,12 +101,12 @@ func RetryableSecretProvider(
 	}
 }
 
-// PeriodicSecretProvider returns a new ProviderFunc, which wraps a retryable
+// SecretProvider returns a new ProviderFunc, which wraps a retryable
 // ProviderFunc inside a function that operates in one of three modes:
 //  - Run once and return (for init or application container modes)
 //  - Run once and sleep forever (for sidecar mode without periodic refresh)
 //  - Run periodically (for sidecar mode with periodic refresh)
-func PeriodicSecretProvider(
+func SecretProvider(
 	secretRefreshInterval time.Duration,
 	mode string,
 	provideSecrets ProviderFunc,
@@ -150,6 +150,7 @@ func PeriodicSecretProvider(
 			// Kill the ticker
 			ticker.Stop()
 			periodicQuit <- struct{}{}
+			// Let the go routine exit
 			time.Sleep(secretProviderGracePeriod)
 		}
 		return err
