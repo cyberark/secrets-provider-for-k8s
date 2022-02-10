@@ -223,8 +223,6 @@ Push to File operation.
 
    - `/conjur/podinfo` for the `podinfo` volume.
    - `/conjur/secrets` for the `conjur-secrets` volume.
-   - `/conjur/templates` for the `conjur-templates` volume.
-
 
    ```
    apiVersion: apps/v1
@@ -283,8 +281,6 @@ Push to File operation.
                mountPath: /conjur/podinfo
              - name: conjur-secrets
                mountPath: /conjur/secrets
-             - name: conjur-templates
-               mountPath: /conjur/templates
          volumes:
            - name: podinfo
              downwardAPI:
@@ -293,9 +289,6 @@ Push to File operation.
                    fieldRef:
                      fieldPath: metadata.annotations
            - name: conjur-secrets
-             emptyDir:
-               medium: Memory
-           - name: conjur-templates
              emptyDir:
                medium: Memory
    ```
@@ -481,6 +474,26 @@ both or neither method fails before retrieving secrets from Conjur.
      - admin-username: <variable-policy-path>
      - admin-password: <variable-policy-path>
    conjur.org/secret-file-format.example: "template"
+   ```
+
+   In order for Secrets Provider to consume the templates, another volume needs
+   to be added to the application's deployment manifest, populated with the
+   contents of the ConfigMap:
+
+   ```
+   volumes:
+   - name: conjur-templates
+     configMap:
+       name: my-custom-template
+   ```
+
+   Then, mount the ConfigMap-populated volume to the Secrets Provider init
+   container at `/conjur/templates`:
+
+   ```
+   volumeMounts:
+   - name: conjur-templates
+     mountPath: /conjur/templates
    ```
 
    </details>
