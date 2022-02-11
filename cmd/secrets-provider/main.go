@@ -188,7 +188,7 @@ func retryableSecretsProvider(
 	// on this channel to trigger a graceful shut down of the Secrets Provider.
 	providerQuit := make(chan struct{})
 
-	provideSecrets = secrets.PeriodicSecretProvider(
+	provideSecrets = secrets.SecretProvider(
 		secretsConfig.SecretsRefreshInterval,
 		getContainerMode(),
 		provideSecrets,

@@ -8,95 +8,59 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cenkalti/backoff"
 	logger "github.com/cyberark/conjur-authn-k8s-client/pkg/log"
-	"github.com/cyberark/secrets-provider-for-k8s/pkg/utils"
 	"github.com/stretchr/testify/assert"
 )
 
-// TODO: For each test case, we need to create an object with its own
-// call count state, so that test cases don't interfere with one another.
-//type mockProvider struct {
-//	calledCount      int
-//	callLatencyMsecs time.Duration
-//	injectFailure    bool
-//	failOnCountN     int
-//}
-
-//func (m mockProvider) provide() error {
-//	m.calledCount++
-//	if m.injectFailure && (m.calledCount >= m.failOnCountN) {
-//		return errors.New("Failed to Provide")
-//	}
-//	if m.callLatencyMsecs > 0 {
-//		time.Sleep(m.callLatencyMsecs * time.Millisecond)
-//	}
-//	return nil
-//}
-
-//func goodProvider() mockProvider {
-//	return mockProvider{}
-//}
-
-//func badProvider() mockProvider {
-//	return mockProvider{injectFailure: true, failOnCountN: 1}
-//}
-
-//func goodAtFirstThenBadProvider(failOnCountN int) mockProvider {
-//	return mockProvider{injectFailure: true, failOnCountN: failOnCountN}
-//}
-
-//func slowProvider(latencyMsecs time.Duration) mockProvider {
-//	return mockProvider{callLatencyMsecs: latencyMsecs}
-//}
-
 const (
-	providerDelayMsecs = 50
+	providerDelayMsecs      = 5
+	largeProviderDelayMsecs = 50
 )
 
-// TODO: Don't use global variable here. Create individual test case objects.
-var providerCount = 0
-
-func badProvider() error {
-	return errors.New("Failed to Provide")
+// call count state, so that test cases don't interfere with one another.
+type mockProvider struct {
+	calledCount          int
+	callLatencyMsecs     time.Duration
+	injectFailure        bool
+	failOnCountN         int
+	injectInitialFailure bool
+	failUntilCountN      int
 }
 
-func goodAtFirstThenBadProvider() error {
-	providerCount++
-	if providerCount > 2 {
+func (m *mockProvider) provide() error {
+	m.calledCount++
+	switch {
+	case m.injectFailure && (m.calledCount >= m.failOnCountN):
 		return errors.New("Failed to Provide")
+	case m.injectInitialFailure && (m.calledCount < m.failUntilCountN):
+		return errors.New("Failed to Provide")
+	case m.callLatencyMsecs > 0:
+		time.Sleep(m.callLatencyMsecs * time.Millisecond)
 	}
 	return nil
 }
 
-func goodProvider() error {
-	providerCount++
-	return nil
+func (m *mockProvider) count() int {
+	return m.calledCount
 }
 
-func slowProvider() error {
-	providerCount++
-	time.Sleep(providerDelayMsecs * time.Millisecond)
-	return nil
+func goodProvider() *mockProvider {
+	return &mockProvider{}
 }
 
-func eventualProvider(successAfterNtries int) func() error {
-	limitedBackOff := utils.NewLimitedBackOff(
-		time.Duration(1)*time.Millisecond,
-		3,
-	)
+func badProvider() *mockProvider {
+	return &mockProvider{injectFailure: true, failOnCountN: 1}
+}
 
-	return func() error {
-		err := backoff.Retry(func() error {
-			if limitedBackOff.RetryCount() == successAfterNtries {
-				return goodProvider()
-			}
+func eventualProvider(failUntilCountN int) *mockProvider {
+	return &mockProvider{injectInitialFailure: true, failUntilCountN: failUntilCountN}
+}
 
-			return errors.New("throw error")
-		}, limitedBackOff)
-
-		return err
-	}
+func slowProvider(latencyMsecs time.Duration) *mockProvider {
+	return &mockProvider{callLatencyMsecs: latencyMsecs}
+}
+func goodAtFirstThenBadProvider(failOnCountN int) *mockProvider {
+	return &mockProvider{injectFailure: true, failOnCountN: failOnCountN}
 }
 
 func TestRetryableSecretProvider(t *testing.T) {
@@ -104,28 +68,28 @@ func TestRetryableSecretProvider(t *testing.T) {
 		description string
 		interval    time.Duration
 		limit       int
-		provider    ProviderFunc
+		provider    *mockProvider
 		assertOn    string
 	}{
 		{
 			description: "the ProviderFunc can return within the retry limit",
 			interval:    time.Duration(10) * time.Millisecond,
 			limit:       3,
-			provider:    eventualProvider(2),
+			provider:    eventualProvider(3),
 			assertOn:    "success",
 		},
 		{
 			description: "the ProviderFunc is retried the proper amount of times",
 			interval:    time.Duration(10) * time.Millisecond,
 			limit:       2,
-			provider:    badProvider,
+			provider:    badProvider(),
 			assertOn:    "count",
 		},
 		{
 			description: "the ProviderFunc is only retried after the proper duration",
 			interval:    time.Duration(20) * time.Millisecond,
 			limit:       2,
-			provider:    badProvider,
+			provider:    badProvider(),
 			assertOn:    "interval",
 		},
 	}
@@ -135,7 +99,7 @@ func TestRetryableSecretProvider(t *testing.T) {
 		logger.InfoLogger = log.New(&logBuffer, "", 0)
 
 		retryableProvider := RetryableSecretProvider(
-			tc.interval, tc.limit, tc.provider,
+			tc.interval, tc.limit, tc.provider.provide,
 		)
 
 		start := time.Now()
@@ -156,14 +120,14 @@ func TestRetryableSecretProvider(t *testing.T) {
 	}
 }
 
-func TestPeriodicSecretProvider(t *testing.T) {
-	TestCases := []struct {
+func TestSecretProvider(t *testing.T) {
+	testCases := []struct {
 		description   string
 		mode          string
 		interval      time.Duration
 		testTime      time.Duration // total test time for all tests must be less than 3m
 		expectedCount int
-		provider      ProviderFunc
+		provider      *mockProvider
 		assertOn      string
 	}{
 		{
@@ -172,7 +136,7 @@ func TestPeriodicSecretProvider(t *testing.T) {
 			interval:      time.Duration(10) * time.Millisecond,
 			testTime:      time.Duration(25) * time.Millisecond,
 			expectedCount: 1,
-			provider:      goodProvider,
+			provider:      goodProvider(),
 			assertOn:      "success",
 		},
 		{
@@ -181,7 +145,7 @@ func TestPeriodicSecretProvider(t *testing.T) {
 			interval:      time.Duration(10) * time.Millisecond,
 			testTime:      time.Duration(65) * time.Millisecond,
 			expectedCount: 7,
-			provider:      goodProvider,
+			provider:      goodProvider(),
 			assertOn:      "success",
 		},
 		{
@@ -190,7 +154,7 @@ func TestPeriodicSecretProvider(t *testing.T) {
 			interval:      time.Duration(0) * time.Millisecond,
 			testTime:      time.Duration(25) * time.Millisecond,
 			expectedCount: 1,
-			provider:      goodProvider,
+			provider:      goodProvider(),
 			assertOn:      "success",
 		},
 		{
@@ -199,38 +163,41 @@ func TestPeriodicSecretProvider(t *testing.T) {
 			interval:      time.Duration(10) * time.Millisecond,
 			testTime:      time.Duration(25) * time.Millisecond,
 			expectedCount: 1,
-			provider:      goodProvider,
+			provider:      goodProvider(),
 			assertOn:      "success",
 		},
 		{
+			// The provider is slow, but still finishes within the interval time.
+			// Note the ticker is started after the first provideSecrets call so
+			// that delay is added to the duration
 			description:   "sidecar with slow provider",
 			mode:          "sidecar",
 			interval:      time.Duration(10) * time.Millisecond,
-			testTime:      time.Duration(175) * time.Millisecond,
-			expectedCount: (150 / providerDelayMsecs) + 1,
-			provider:      slowProvider,
+			testTime:      time.Duration(65+providerDelayMsecs) * time.Millisecond,
+			expectedCount: 7,
+			provider:      slowProvider(providerDelayMsecs),
 			assertOn:      "success",
 		},
-		// This test is inconsistent, 11-13 ticks
-		//{
-		// In this test the provider takes longer to run than the
-		// interval time. The Go ticker will adjust the time interval due to the
-		// slower receiver.
-		//description:   "sidecar with duration less than fetch time",
-		//mode:          "sidecar",
-		//interval:      time.Duration(10) * time.Millisecond,
-		//testTime:      time.Duration(375) * time.Millisecond,
-		//expectedCount: 350/providerDelayMsecs + 1,
-		//provider:      slowProvider,
-		//assertOn:      "success",
-		//},
+		{
+			// In this test the provider takes longer to run than the
+			// interval time. The Go timer will adjust the time interval due to the
+			// slower receiver. Secrets Provider is expected to be called every largeProviderDelayMsecs
+			// The first timer tick is delayed by duration so that is added to the test time.
+			description:   "sidecar with duration less than fetch time",
+			mode:          "sidecar",
+			interval:      time.Duration(10) * time.Millisecond,
+			testTime:      time.Duration(325+10) * time.Millisecond,
+			expectedCount: 7,
+			provider:      slowProvider(largeProviderDelayMsecs),
+			assertOn:      "success",
+		},
 		{
 			description:   "badProvider for init container",
 			mode:          "init",
 			interval:      time.Duration(10) * time.Millisecond,
 			testTime:      time.Duration(25) * time.Millisecond,
 			expectedCount: 1,
-			provider:      badProvider,
+			provider:      badProvider(),
 			assertOn:      "fail",
 		},
 		{
@@ -239,7 +206,7 @@ func TestPeriodicSecretProvider(t *testing.T) {
 			interval:      time.Duration(10) * time.Millisecond,
 			testTime:      time.Duration(25) * time.Millisecond,
 			expectedCount: 1,
-			provider:      badProvider,
+			provider:      badProvider(),
 			assertOn:      "fail",
 		},
 		{
@@ -248,23 +215,20 @@ func TestPeriodicSecretProvider(t *testing.T) {
 			interval:      time.Duration(10) * time.Millisecond,
 			testTime:      time.Duration(35) * time.Millisecond,
 			expectedCount: 1,
-			provider:      goodAtFirstThenBadProvider,
+			provider:      goodAtFirstThenBadProvider(2),
 			assertOn:      "fail",
 		},
 	}
 
-	for _, tc := range TestCases {
-		//var logBuffer bytes.Buffer
+	for _, tc := range testCases {
 		var err error
-		//logger.InfoLogger = log.New(&logBuffer, "", 0)
 
 		// Construct a secret provider function
 		var providerQuit = make(chan struct{})
-		provideSecrets := PeriodicSecretProvider(
-			tc.interval, tc.mode, tc.provider, providerQuit,
+		provideSecrets := SecretProvider(
+			tc.interval, tc.mode, tc.provider.provide, providerQuit,
 		)
 
-		providerCount = 0
 		testError := make(chan error)
 		go func() {
 			err := provideSecrets()
@@ -275,13 +239,12 @@ func TestPeriodicSecretProvider(t *testing.T) {
 			break
 		case <-time.After(tc.testTime):
 			providerQuit <- struct{}{}
-			//time.Sleep(5 * secretProviderGracePeriod)
 			break
 		}
 
-		if err == nil && providerCount != tc.expectedCount {
+		if err == nil && tc.provider.count() != tc.expectedCount {
 			err = fmt.Errorf("%s: incorrect number of timer ticks, got %d expected %d",
-				tc.description, providerCount, tc.expectedCount)
+				tc.description, tc.provider.count(), tc.expectedCount)
 		}
 
 		if tc.assertOn == "fail" {
