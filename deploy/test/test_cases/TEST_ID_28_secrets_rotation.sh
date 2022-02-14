@@ -1,42 +1,22 @@
 #!/bin/bash
 set -euxo pipefail
 
-deploy_secrets_rotation() {
-  configure_conjur_url
-
-  echo "Running Deployment secrets rotation"
-
-  if [[ "$DEV" = "true" ]]; then
-    ./dev/config/k8s/secrets-provider-secrets-rotation.sh.yml > ./dev/config/k8s/secrets-provider-secrets-rotation.yml
-    $cli_with_timeout apply -f ./dev/config/k8s/secrets-provider-secrets-rotation.yml
-
-    $cli_with_timeout "get pods --namespace=$APP_NAMESPACE_NAME --selector app=test-env-rotation --no-headers | wc -l"
-  else
-    wait_for_it 600 "$CONFIG_DIR/test-env-secrets-rotation.sh.yml | $cli_without_timeout apply -f -" || true
-
-    expected_num_replicas=$("$CONFIG_DIR"/test-env-secrets-rotation.sh.yml |  awk '/replicas:/ {print $2}' )
-
-    # Deployment (Deployment for k8s and DeploymentConfig for Openshift) might fail on error flows, even before creating the pods. If so, re-deploy.
-    if [[ "$PLATFORM" = "kubernetes" ]]; then
-        $cli_with_timeout "get deployment test-env -o jsonpath={.status.replicas} | grep '^${expected_num_replicas}$'|| $cli_without_timeout rollout latest deployment test-env"
-    elif [[ "$PLATFORM" = "openshift" ]]; then
-        $cli_with_timeout "get dc/test-env -o jsonpath={.status.replicas} | grep '^${expected_num_replicas}$'|| $cli_without_timeout rollout latest dc/test-env"
-    fi
-
-    echo "Expecting for $expected_num_replicas deployed pods"
-    $cli_with_timeout "get pods --namespace=$APP_NAMESPACE_NAME --selector app=test-env-rotation --no-headers | wc -l | grep $expected_num_replicas"
-  fi
-}
 echo "Deploying Secrets rotation tests"
 set_conjur_secret secrets/test_secret secret1
 
 echo "Deploying test_env without CONTAINER_MODE environment variable"
 export CONTAINER_MODE_KEY_VALUE=$KEY_VALUE_NOT_EXIST
-deploy_secrets_rotation
+
+echo "Running Deployment secrets rotation"
+
+deploy_push_to_file "secrets-provider-secrets-rotation" "test-env-secrets-rotation"
 
 echo "Expecting secrets provider to succeed as a sidecar container"
 
-pod_name="$(get_pod_name "$APP_NAMESPACE_NAME" 'app=test-env-rotation')"
+pod_name="$(get_pod_name "$APP_NAMESPACE_NAME" 'app=test-env')"
+
+# Expect 2 continers since we're using a sidecar
+$cli_with_timeout "get pod $pod_name --namespace=$APP_NAMESPACE_NAME | grep -c 2/2"
 
 # Change a conjur variable
 set_conjur_secret secrets/test_secret secret2

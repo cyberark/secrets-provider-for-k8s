@@ -393,7 +393,7 @@ deploy_init_env() {
         $cli_with_timeout "get dc/test-env -o jsonpath={.status.replicas} | grep '^${expected_num_replicas}$'|| $cli_without_timeout rollout latest dc/test-env"
     fi
 
-    echo "Expecting for $expected_num_replicas deployed pods"
+    echo "Expecting $expected_num_replicas deployed pods"
     $cli_with_timeout "get pods --namespace=$APP_NAMESPACE_NAME --selector app=test-env --no-headers | wc -l | grep $expected_num_replicas"
   fi
 }
@@ -569,5 +569,34 @@ wait_for_job() {
     $cli_without_timeout describe pod "$pod_name"
     echo "Printing logs of the failing pod"
     $cli_without_timeout logs "$pod_name"
+  fi
+}
+
+deploy_push_to_file() {
+  configure_conjur_url
+  
+  dev_yaml_file_name=$1
+  test_yaml_file_name=$2
+  deployment_name="test-env"
+
+  if [[ "$DEV" = "true" ]]; then
+    "./dev/config/k8s/$dev_yaml_file_name.sh.yml" > "./dev/config/k8s/$dev_yaml_file_name.yml"
+    $cli_with_timeout apply -f "./dev/config/k8s/$dev_yaml_file_name.yml"
+
+    $cli_with_timeout "get pods --namespace=$APP_NAMESPACE_NAME --selector app=$deployment_name --no-headers | wc -l"
+  else
+    wait_for_it 600 "$CONFIG_DIR/$test_yaml_file_name.sh.yml | $cli_without_timeout apply -f -" || true
+
+    expected_num_replicas=`$CONFIG_DIR/$test_yaml_file_name.sh.yml |  awk '/replicas:/ {print $2}' `
+    
+    # Deployment (Deployment for k8s and DeploymentConfig for Openshift) might fail on error flows, even before creating the pods. If so, re-deploy.
+    if [[ "$PLATFORM" = "kubernetes" ]]; then
+        $cli_with_timeout "get deployment $deployment_name -o jsonpath={.status.replicas} | grep '^${expected_num_replicas}$'|| $cli_without_timeout rollout latest deployment $deployment_name"
+    elif [[ "$PLATFORM" = "openshift" ]]; then
+        $cli_with_timeout "get dc/$deployment_name -o jsonpath={.status.replicas} | grep '^${expected_num_replicas}$'|| $cli_without_timeout rollout latest dc/$deployment_name"
+    fi
+
+    echo "Expecting $expected_num_replicas deployed pods"
+    $cli_with_timeout "get pods --namespace=$APP_NAMESPACE_NAME --selector app=$deployment_name --no-headers | wc -l | grep $expected_num_replicas"
   fi
 }

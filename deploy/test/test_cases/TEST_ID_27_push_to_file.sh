@@ -1,37 +1,13 @@
 #!/bin/bash
 set -euxo pipefail
 
-deploy_push_to_file() {
-  configure_conjur_url
-
-  echo "Running Deployment push to file"
-
-  if [[ "$DEV" = "true" ]]; then
-    ./dev/config/k8s/secrets-provider-init-push-to-file.sh.yml > ./dev/config/k8s/secrets-provider-init-push-to-file.yml
-    $cli_with_timeout apply -f ./dev/config/k8s/secrets-provider-init-push-to-file.yml
-
-    $cli_with_timeout "get pods --namespace=$APP_NAMESPACE_NAME --selector app=init-env --no-headers | wc -l"
-  else
-    wait_for_it 600 "$CONFIG_DIR/test-env-push-to-file.sh.yml | $cli_without_timeout apply -f -" || true
-
-    expected_num_replicas=`$CONFIG_DIR/test-env-push-to-file.sh.yml |  awk '/replicas:/ {print $2}' `
-
-    # Deployment (Deployment for k8s and DeploymentConfig for Openshift) might fail on error flows, even before creating the pods. If so, re-deploy.
-    if [[ "$PLATFORM" = "kubernetes" ]]; then
-        $cli_with_timeout "get deployment test-env -o jsonpath={.status.replicas} | grep '^${expected_num_replicas}$'|| $cli_without_timeout rollout latest deployment test-env"
-    elif [[ "$PLATFORM" = "openshift" ]]; then
-        $cli_with_timeout "get dc/test-env -o jsonpath={.status.replicas} | grep '^${expected_num_replicas}$'|| $cli_without_timeout rollout latest dc/test-env"
-    fi
-
-    echo "Expecting for $expected_num_replicas deployed pods"
-    $cli_with_timeout "get pods --namespace=$APP_NAMESPACE_NAME --selector app=test-env --no-headers | wc -l | grep $expected_num_replicas"
-  fi
-}
 echo "Deploying Push to file tests"
 
 echo "Deploying test_env without CONTAINER_MODE environment variable"
 export CONTAINER_MODE_KEY_VALUE=$KEY_VALUE_NOT_EXIST
-deploy_push_to_file
+
+echo "Running Deployment push to file"
+deploy_push_to_file "secrets-provider-init-push-to-file" "test-env-push-to-file"
 
 echo "Expecting secrets provider to succeed as an init container"
 
@@ -66,7 +42,7 @@ test_failed=false
 for f in $FILES; do
     format="${file_format[$f]}"
     echo "Checking file $f content, file format: $format"
-    content="$($cli_with_timeout exec "$pod_name" -- cat /opt/secrets/conjur/"$f")"
+    content="$($cli_with_timeout exec "$pod_name" -c test-app -- cat /opt/secrets/conjur/"$f")"
     if [ "$content" == "${expected_content[$f]}" ]; then
         echo "Push to File PASSED for $format!"
     else
