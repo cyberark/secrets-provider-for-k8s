@@ -6,9 +6,15 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [1.4.0] - 2022-02-15
+
 ### Added
 - Adds support for Secrets Provider secrets rotation feature, Community release.
   [cyberark/secrets-provider-for-k8s#426](https://github.com/cyberark/secrets-provider-for-k8s/pull/426)
+  [cyberark/secrets-provider-for-k8s#432](https://github.com/cyberark/secrets-provider-for-k8s/pull/432)
+- Adds support for Authn-JWT.
+  [cyberark/secrets-provider-for-k8s#431](https://github.com/cyberark/secrets-provider-for-k8s/pull/431)
+  [cyberark/secrets-provider-for-k8s#433](https://github.com/cyberark/secrets-provider-for-k8s/pull/433)
 
 ## [1.3.0] - 2022-01-03
 
@@ -192,7 +198,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ### Changed
   - Escape secrets with backslashes before patching in k8s
 
-[Unreleased]: https://github.com/cyberark/secrets-provider-for-k8s/compare/v1.3.0...HEAD
+[Unreleased]: https://github.com/cyberark/secrets-provider-for-k8s/compare/v1.4.0...HEAD
+[1.4.0]: https://github.com/cyberark/secrets-provider-for-k8s/compare/v1.3.0...v1.4.0
 [1.3.0]: https://github.com/cyberark/secrets-provider-for-k8s/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/cyberark/secrets-provider-for-k8s/compare/v1.1.6...v1.2.0
 [1.1.6]: https://github.com/cyberark/secrets-provider-for-k8s/compare/v1.1.5...v1.1.6
