@@ -22,7 +22,7 @@ trap finish EXIT
 
 # Will print platform regardless of GKE or Openshift
 # Will only print version if Openshift
-announce "Running tests on: ${PLATFORM} ${OPENSHIFT_VERSION}"
+announce "Running tests on: ${PLATFORM} ${OPENSHIFT_VERSION:-}"
 
 if [ "${DEV}" = "false" ]; then
   ./platform_login.sh
