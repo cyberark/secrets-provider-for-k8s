@@ -45,7 +45,7 @@ of two modes:
   Conjur policy that authorizes access to Conjur secrets on a
   per-application-Pod basis.
 
-- **As an standalone application container (Kubernetes Job):**
+- **As a standalone application container (Kubernetes Job):**
   The Secrets Provider can be deployed as a separate, application container
   that runs to completion as part of a Kubernetes Job. In this mode, the
   Secrets Provider can support delivery of Conjur secrets to multiple
@@ -55,8 +55,10 @@ of two modes:
   The [Secrets Provider Helm chart](helm) can be used to deploy the
   Secrets Provider in standalone application mode.
 
+- **As a sidecar to enable [secrets rotation.](ROTATION.md)**
+
 __NOTE: If you are using the Secrets Provider "Push to file" mode, the
-  Secrets Provider must be deployed as an init container, since this mode
+  Secrets Provider must be deployed as an init or sidecar container, since these modes
   makes use of shared volumes to deliver secrets to an application.__
 
 ## Supported Services
@@ -96,7 +98,7 @@ Provider:
 
 - **Using Pod Annotations:** The Secrets Provider can be configured by setting
   [Pod Annotations](https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/)
-  in a Pod manifest. For details on how Annotations can be use to configure
+  in a Pod manifest. For details on how Annotations can be used to configure
   the Secrets Provider, see the
   [Secrets Provider Push-to-File guide](PUSH_TO_FILE.md).
 
