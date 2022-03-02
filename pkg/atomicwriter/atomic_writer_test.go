@@ -62,17 +62,28 @@ func TestWriterAtomicity(t *testing.T) {
 	tmpDir, _ := ioutil.TempDir("", "atomicwriter")
 	defer os.RemoveAll(tmpDir)
 	path := filepath.Join(tmpDir, "test_file.txt")
+	initialContent := "initial content"
+
+	// First create the file with some test content
+	os.WriteFile(path, []byte(initialContent), 0644)
 
 	// Create 2 writers for the same path
 	writer1, err := NewAtomicWriter(path, 0600)
 	assert.NoError(t, err)
 	writer2, err := NewAtomicWriter(path, 0644)
 	assert.NoError(t, err)
+
 	// Write different content to each writer
 	writer1.Write([]byte("writer 1 line 1\n"))
 	writer2.Write([]byte("writer 2 line 1\n"))
 	writer1.Write([]byte("writer 1 line 2\n"))
 	writer2.Write([]byte("writer 2 line 2\n"))
+
+	// Ensure the destination file hasn't changed
+	contents, err := ioutil.ReadFile(path)
+	assert.NoError(t, err)
+	assert.Equal(t, initialContent, string(contents))
+
 	// Close the first writer and ensure only the contents of the first writer are written
 	err = writer1.Close()
 
@@ -80,7 +91,7 @@ func TestWriterAtomicity(t *testing.T) {
 	// Check that the file exists
 	assert.FileExists(t, path)
 	// Check the contents of the file match the first writer (which was closed)
-	contents, err := ioutil.ReadFile(path)
+	contents, err = ioutil.ReadFile(path)
 	assert.NoError(t, err)
 	assert.Equal(t, "writer 1 line 1\nwriter 1 line 2\n", string(contents))
 	// Check the file permissions match the first writer
