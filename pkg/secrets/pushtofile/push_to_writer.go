@@ -10,6 +10,7 @@ import (
 	"text/template"
 
 	"github.com/cyberark/conjur-authn-k8s-client/pkg/log"
+	"github.com/cyberark/secrets-provider-for-k8s/pkg/atomicwriter"
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/log/messages"
 )
 
@@ -46,6 +47,7 @@ var prevFileChecksums = map[string]checksum{}
 func openFileAsWriteCloser(path string, permissions os.FileMode) (io.WriteCloser, error) {
 	dir := filepath.Dir(path)
 
+	// Create the file here to capture any errors, instead of in atomicWriter.Close() which may be deferred and ignored
 	err := os.MkdirAll(dir, os.ModePerm)
 	if err != nil {
 		return nil, fmt.Errorf("unable to mkdir when opening file to write at %q: %s", path, err)
@@ -55,13 +57,15 @@ func openFileAsWriteCloser(path string, permissions os.FileMode) (io.WriteCloser
 	if err != nil {
 		return nil, fmt.Errorf("unable to open file to write at %q: %s", path, err)
 	}
+	wc.Close()
 
-	//Chmod file to set permissions regardless of 'umask'
-	if err := os.Chmod(path, permissions); err != nil {
-		return nil, fmt.Errorf("unable to chmod file %q: %s", path, err)
+	// Return an instance of an atomic writer
+	atomicWriter, err := atomicwriter.NewAtomicWriter(path, permissions)
+	if err != nil {
+		return nil, fmt.Errorf("unable to create atomic writer: %s", err)
 	}
 
-	return wc, nil
+	return atomicWriter, nil
 }
 
 // pushToWriter takes a (group's) path, template and secrets, and processes the template
@@ -125,15 +129,18 @@ func writeContent(writer io.Writer, fileContent *bytes.Buffer, groupName string)
 	// Calculate a sha256 checksum on the content
 	checksum, _ := fileChecksum(fileContent)
 
-	// If file contents have changed, write the file and update checksum
-	if contentHasChanged(groupName, checksum) {
-		if _, err := writer.Write(fileContent.Bytes()); err != nil {
-			return err
-		}
-		prevFileChecksums[groupName] = checksum
-	} else {
+	// If file contents haven't changed, don't rewrite the file
+	if !contentHasChanged(groupName, checksum) {
 		log.Info(messages.CSPFK018I)
+		return nil
 	}
+
+	// Write the file and update the checksum
+	if _, err := writer.Write(fileContent.Bytes()); err != nil {
+		return err
+	}
+	prevFileChecksums[groupName] = checksum
+
 	return nil
 }
 

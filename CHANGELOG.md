@@ -6,6 +6,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Added
+- Secrets files are written in an atomic operation. [cyberark/secrets-provider-for-k8s#440](https://github.com/cyberark/secrets-provider-for-k8s/pull/440)
+
 ## [1.4.0] - 2022-02-15
 
 ### Added

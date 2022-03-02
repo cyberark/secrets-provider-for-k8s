@@ -15,6 +15,7 @@ import (
 const (
 	providerDelayMsecs      = 5
 	largeProviderDelayMsecs = 50
+	atomicWriteDelayMsecs   = 3
 )
 
 // call count state, so that test cases don't interfere with one another.
@@ -143,7 +144,7 @@ func TestSecretProvider(t *testing.T) {
 			description:   "sidecar container, happy path",
 			mode:          "sidecar",
 			interval:      time.Duration(10) * time.Millisecond,
-			testTime:      time.Duration(65) * time.Millisecond,
+			testTime:      time.Duration(65+atomicWriteDelayMsecs) * time.Millisecond,
 			expectedCount: 7,
 			provider:      goodProvider(),
 			assertOn:      "success",

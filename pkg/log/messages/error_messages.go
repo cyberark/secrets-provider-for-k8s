@@ -73,3 +73,11 @@ const CSPFK051E string = "CSPFK051E Invalid secrets refresh configuration: %s %s
 // Push to File
 const CSPFK053E string = "CSPFK053E Unable to initialize Secrets Provider: unable to create secret group collection"
 const CSPFK054E string = "CSPFK054E Unable to initialize Secrets Provider: unrecognized Store Type '%s'"
+
+// Atomic Writer
+const CSPFK055E string = "CSPFK055E Could not create temporary file for '%s'"
+const CSPFK056E string = "CSPFK056E Could not flush temporary file '%s'"
+const CSPFK057E string = "CSPFK057E Could not set permissions on temporary file '%s'"
+const CSPFK058E string = "CSPFK058E Could not rename temporary file '%s' to '%s'"
+const CSPFK059E string = "CSPFK059E Could not delete temporary file '%s'. Truncated file."
+const CSPFK060E string = "CSPFK060E Could not delete temporary file '%s'. File may be left on disk."
