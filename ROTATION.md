@@ -64,6 +64,8 @@ how Push to File works.
 There are two new annotations introduced and one annotation is updated.
 
 Prerequisites:
+
+Requires secrets-provider-for-k8s v1.4.0 or later.
 Follow the procedure to set up Secrets Provider for [Push to File](PUSH_TO_FILE.md#set-up-secrets-provider-for-push-to-file)
 
 Modify the Kubernetes manifest
