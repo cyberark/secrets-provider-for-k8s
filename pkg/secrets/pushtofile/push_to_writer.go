@@ -60,10 +60,7 @@ func openFileAsWriteCloser(path string, permissions os.FileMode) (io.WriteCloser
 	wc.Close()
 
 	// Return an instance of an atomic writer
-	atomicWriter, err := atomicwriter.NewAtomicWriter(path, permissions)
-	if err != nil {
-		return nil, fmt.Errorf("unable to create atomic writer: %s", err)
-	}
+	atomicWriter := atomicwriter.NewAtomicWriter(path, permissions)
 
 	return atomicWriter, nil
 }
