@@ -30,3 +30,4 @@ const CSPFK015I string = "CSPFK015I DAP/Conjur Secrets pushed to shared volume s
 const CSPFK016I string = "CSPFK016I There are no secrets to be retrieved from Conjur"
 const CSPFK017I string = "CSPFK017I Creating default file name for secret group '%s'"
 const CSPFK018I string = "CSPFK018I No change in secret file, no secret files written"
+const CSPFK019I string = "CSPFK019I Error fetching secrets, deleting secrets file"

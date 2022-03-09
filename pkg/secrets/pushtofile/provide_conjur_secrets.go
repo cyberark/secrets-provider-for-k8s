@@ -2,6 +2,7 @@ package pushtofile
 
 import (
 	"context"
+	"os"
 
 	"github.com/cyberark/conjur-authn-k8s-client/pkg/log"
 	"github.com/cyberark/conjur-opentelemetry-tracer/pkg/trace"
@@ -68,6 +69,14 @@ func provideWithDeps(
 	spanCtx, span := tr.Start(traceContext, "Fetch Conjur Secrets")
 	secretsByGroup, err := FetchSecretsForGroups(depFuncs.retrieveSecretsFunc, groups, spanCtx)
 	if err != nil {
+		// Delete secret files for variables that no longer exist or the user no longer has permissions to
+		// TODO: Should we check the error message to see if it's a 404 or 403?
+		// TODO: Should we only do this when rotation is enabled? If so, how can we determine that?
+		for _, group := range groups {
+			os.Remove(group.FilePath)
+			log.Info(messages.CSPFK019I)
+		}
+
 		span.RecordErrorAndSetStatus(err)
 		span.End()
 		return err
