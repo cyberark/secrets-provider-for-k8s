@@ -172,10 +172,10 @@ var gatherSecretsProviderSettingsTestCases = []gatherSecretsProviderSettingsTest
 			"UNRELATED_ENVVAR":  "unrelated-value",
 		},
 		assert: assertGoodMap(map[string]string{
-			SecretsDestinationKey: "file",
-			"conjur.org/container-mode":      "init",
-			"MY_POD_NAMESPACE":               "test-namespace",
-			"RETRY_COUNT_LIMIT":              "5",
+			SecretsDestinationKey:       "file",
+			"conjur.org/container-mode": "init",
+			"MY_POD_NAMESPACE":          "test-namespace",
+			"RETRY_COUNT_LIMIT":         "5",
 		}),
 	},
 }
@@ -375,7 +375,7 @@ var validateSecretsProviderSettingsTestCases = []validateSecretsProviderSettings
 	{
 		description: "if refresh interval is negative, an error is returned",
 		envAndAnnots: map[string]string{
-			"MY_POD_NAMESPACE":               "test-namespace",
+			"MY_POD_NAMESPACE":        "test-namespace",
 			SecretsRefreshIntervalKey: "-5s",
 			ContainerModeKey:          "sidecar",
 		},
@@ -384,7 +384,7 @@ var validateSecretsProviderSettingsTestCases = []validateSecretsProviderSettings
 	{
 		description: "if refresh interval is set and enable is false",
 		envAndAnnots: map[string]string{
-			"MY_POD_NAMESPACE":                    "test-namespace",
+			"MY_POD_NAMESPACE":        "test-namespace",
 			SecretsRefreshIntervalKey: "5s",
 			SecretsRefreshEnabledKey:  "false",
 			ContainerModeKey:          "sidecar",
@@ -412,11 +412,11 @@ var newConfigTestCases = []newConfigTestCase{
 	{
 		description: "a valid map of annotation-based Secrets Provider settings returns a valid Config",
 		settings: map[string]string{
-			"MY_POD_NAMESPACE":               "test-namespace",
+			"MY_POD_NAMESPACE":    "test-namespace",
 			SecretsDestinationKey: "k8s_secrets",
 			k8sSecretsKey:         "- secret-1\n- secret-2\n- secret-3\n",
-			retryCountLimitKey:   "10",
-			retryIntervalSecKey:  "20",
+			retryCountLimitKey:    "10",
+			retryIntervalSecKey:   "20",
 		},
 		assert: assertGoodConfig(&Config{
 			PodNamespace:       "test-namespace",
@@ -424,6 +424,7 @@ var newConfigTestCases = []newConfigTestCase{
 			RequiredK8sSecrets: []string{"secret-1", "secret-2", "secret-3"},
 			RetryCountLimit:    10,
 			RetryIntervalSec:   20,
+			SanitizeEnabled:    DefaultSanitizeEnabled,
 		}),
 	},
 	{
@@ -441,15 +442,16 @@ var newConfigTestCases = []newConfigTestCase{
 			RequiredK8sSecrets: []string{"secret-1", "secret-2", "secret-3"},
 			RetryCountLimit:    10,
 			RetryIntervalSec:   20,
+			SanitizeEnabled:    DefaultSanitizeEnabled,
 		}),
 	},
 	{
 		description: "settings configured with both annotations and envVars defer to the annotation value",
 		settings: map[string]string{
-			"MY_POD_NAMESPACE":               "test-namespace",
-			"SECRETS_DESTINATION":            "k8s_secrets",
+			"MY_POD_NAMESPACE":    "test-namespace",
+			"SECRETS_DESTINATION": "k8s_secrets",
 			SecretsDestinationKey: "file",
-			"K8S_SECRETS":                    "secret-1,secret-2,secret-3",
+			"K8S_SECRETS":         "secret-1,secret-2,secret-3",
 		},
 		assert: assertGoodConfig(&Config{
 			PodNamespace:       "test-namespace",
@@ -457,16 +459,17 @@ var newConfigTestCases = []newConfigTestCase{
 			RequiredK8sSecrets: []string{},
 			RetryCountLimit:    DefaultRetryCountLimit,
 			RetryIntervalSec:   DefaultRetryIntervalSec,
+			SanitizeEnabled:    DefaultSanitizeEnabled,
 		}),
 	},
 	{
 		description: "mixed-source config",
 		settings: map[string]string{
-			"MY_POD_NAMESPACE":               "test-namespace",
+			"MY_POD_NAMESPACE":    "test-namespace",
 			SecretsDestinationKey: "k8s_secrets",
-			"RETRY_COUNT_LIMIT":              "10",
-			retryIntervalSecKey:  "20",
-			"K8S_SECRETS":                    "secret-1,secret-2,secret-3",
+			"RETRY_COUNT_LIMIT":   "10",
+			retryIntervalSecKey:   "20",
+			"K8S_SECRETS":         "secret-1,secret-2,secret-3",
 		},
 		assert: assertGoodConfig(&Config{
 			PodNamespace:       "test-namespace",
@@ -474,22 +477,24 @@ var newConfigTestCases = []newConfigTestCase{
 			RequiredK8sSecrets: []string{"secret-1", "secret-2", "secret-3"},
 			RetryCountLimit:    10,
 			RetryIntervalSec:   20,
+			SanitizeEnabled:    DefaultSanitizeEnabled,
 		}),
 	},
 	{
 		description: "a valid map of annotation-based settings with refresh enabled returns a valid Config",
 		settings: map[string]string{
-			"MY_POD_NAMESPACE":               "test-namespace",
-			SecretsDestinationKey: "file",
-			SecretsRefreshEnabledKey:  "true",
+			"MY_POD_NAMESPACE":       "test-namespace",
+			SecretsDestinationKey:    "file",
+			SecretsRefreshEnabledKey: "true",
 		},
 		assert: assertGoodConfig(&Config{
-			PodNamespace:       "test-namespace",
-			StoreType:          "file",
-			RequiredK8sSecrets: []string{},
-			RetryCountLimit:    5,
-			RetryIntervalSec:   1,
+			PodNamespace:           "test-namespace",
+			StoreType:              "file",
+			RequiredK8sSecrets:     []string{},
+			RetryCountLimit:        5,
+			RetryIntervalSec:       1,
 			SecretsRefreshInterval: DefaultRefreshInterval,
+			SanitizeEnabled:        DefaultSanitizeEnabled,
 		}),
 	},
 }

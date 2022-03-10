@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/clients/conjur"
+	"github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/config"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -54,7 +55,13 @@ func TestNewProvider(t *testing.T) {
 
 	for _, tc := range TestCases {
 		t.Run(tc.description, func(t *testing.T) {
-			p, err := NewProvider(tc.retrieveFunc, tc.basePath, "", tc.annotations)
+			p, err := NewProvider(
+				tc.retrieveFunc,
+				&config.ProviderConfig{
+					SecretFileBasePath: tc.basePath,
+					AnnotationsMap:     tc.annotations,
+				},
+			)
 			assert.Empty(t, err)
 			assert.Equal(t, tc.expectedSecretGroup, p.secretGroups)
 		})
@@ -113,6 +120,7 @@ func TestProvideWithDeps(t *testing.T) {
 			err := provideWithDeps(
 				context.Background(),
 				tc.provider.secretGroups,
+				true,
 				fileProviderDepFuncs{
 					retrieveSecretsFunc: tc.provider.retrieveSecretsFunc,
 					depOpenWriteCloser:  spyOpenWriteCloser.Call,

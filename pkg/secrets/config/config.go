@@ -14,27 +14,46 @@ import (
 // Constants for Secrets Provider operation modes,
 // and Defaults for some SP settings
 const (
-	K8s                     = "k8s_secrets"
-	File                    = "file"
-	ConjurMapKey            = "conjur-map"
-	DefaultRetryCountLimit  = 5
-	DefaultRetryIntervalSec = 1
-	MinRetryValue           = 0
-	MinRefreshInterval      = time.Second
-	DefaultRefreshIntervalStr  = "5m"
-
+	K8s                       = "k8s_secrets"
+	File                      = "file"
+	ConjurMapKey              = "conjur-map"
+	DefaultRetryCountLimit    = 5
+	DefaultRetryIntervalSec   = 1
+	MinRetryValue             = 0
+	MinRefreshInterval        = time.Second
+	DefaultRefreshIntervalStr = "5m"
+	DefaultSanitizeEnabled    = true
 )
-var DefaultRefreshInterval,_ = time.ParseDuration(DefaultRefreshIntervalStr)
+
+var DefaultRefreshInterval, _ = time.ParseDuration(DefaultRefreshIntervalStr)
 
 // Config defines the configuration parameters
 // for the authentication requests
 type Config struct {
+	PodNamespace           string
+	RequiredK8sSecrets     []string
+	RetryCountLimit        int
+	RetryIntervalSec       int
+	StoreType              string
+	SecretsRefreshInterval time.Duration
+	SanitizeEnabled        bool
+}
+
+// ProviderConfig provides the configuration necessary to create a secrets
+// Provider.
+type ProviderConfig struct {
+	// Config common to all providers
+	StoreType       string
+	SanitizeEnabled bool
+
+	// Config specific to Kubernetes Secrets provider
 	PodNamespace       string
 	RequiredK8sSecrets []string
-	RetryCountLimit    int
-	RetryIntervalSec   int
-	StoreType          string
-	SecretsRefreshInterval time.Duration
+
+	// Config specific to Push to File provider
+	SecretFileBasePath   string
+	TemplateFileBasePath string
+	AnnotationsMap       map[string]string
 }
 
 type annotationType int
@@ -53,22 +72,24 @@ type annotationRestraints struct {
 }
 
 const (
-	AuthnIdentityKey          = "conjur.org/authn-identity"
-	JwtTokenPath              = "conjur.org/jwt-token-path"
-	ContainerModeKey          = "conjur.org/container-mode"
-	SecretsDestinationKey     = "conjur.org/secrets-destination"
-	k8sSecretsKey             = "conjur.org/k8s-secrets"
-	retryCountLimitKey        = "conjur.org/retry-count-limit"
-	retryIntervalSecKey       = "conjur.org/retry-interval-sec"
+	AuthnIdentityKey      = "conjur.org/authn-identity"
+	JwtTokenPath          = "conjur.org/jwt-token-path"
+	ContainerModeKey      = "conjur.org/container-mode"
+	SecretsDestinationKey = "conjur.org/secrets-destination"
+	k8sSecretsKey         = "conjur.org/k8s-secrets"
+	retryCountLimitKey    = "conjur.org/retry-count-limit"
+	retryIntervalSecKey   = "conjur.org/retry-interval-sec"
 	// SecretsRefreshIntervalKey is the Annotation key for setting the interval
 	// for retrieving Conjur secrets and updating Kubernetes Secrets or
 	// application secret files if necessary.
 	SecretsRefreshIntervalKey = "conjur.org/secrets-refresh-interval"
 	// SecretsRefreshEnabledKey is the Annotation key for enabling the refresh
-	SecretsRefreshEnabledKey  = "conjur.org/secrets-refresh-enabled"
-	debugLoggingKey           = "conjur.org/debug-logging"
-	logTracesKey              = "conjur.org/log-traces"
-	jaegerCollectorUrl        = "conjur.org/jaeger-collector-url"
+	SecretsRefreshEnabledKey = "conjur.org/secrets-refresh-enabled"
+	// RemoveDeletedSecretsKey is the annotaion key for enabling removing deleted secrets
+	RemoveDeletedSecretsKey = "conjur.org/remove-deleted-secrets-enabled"
+	debugLoggingKey         = "conjur.org/debug-logging"
+	logTracesKey            = "conjur.org/log-traces"
+	jaegerCollectorUrl      = "conjur.org/jaeger-collector-url"
 )
 
 // Define supported annotation keys for Secrets Provider config, as well as value restraints for each
@@ -82,6 +103,7 @@ var secretsProviderAnnotations = map[string]annotationRestraints{
 	retryIntervalSecKey:       {TYPEINT, []string{}},
 	SecretsRefreshIntervalKey: {TYPESTRING, []string{}},
 	SecretsRefreshEnabledKey:  {TYPEBOOL, []string{}},
+	RemoveDeletedSecretsKey:   {TYPEBOOL, []string{}},
 	debugLoggingKey:           {TYPEBOOL, []string{}},
 	logTracesKey:              {TYPEBOOL, []string{}},
 	jaegerCollectorUrl:        {TYPESTRING, []string{}},
@@ -254,7 +276,7 @@ func NewConfig(settings map[string]string) *Config {
 	retryIntervalSec := parseIntFromStringOrDefault(retryIntervalSecStr, DefaultRetryIntervalSec, MinRetryValue)
 
 	refreshIntervalStr := settings[SecretsRefreshIntervalKey]
-	refreshEnableStr   := settings[SecretsRefreshEnabledKey]
+	refreshEnableStr := settings[SecretsRefreshEnabledKey]
 
 	if refreshIntervalStr == "" && refreshEnableStr == "true" {
 		refreshIntervalStr = DefaultRefreshIntervalStr
@@ -262,13 +284,18 @@ func NewConfig(settings map[string]string) *Config {
 	// ignore errors here, if the interval string is null, zero is returned
 	refreshInterval, _ := time.ParseDuration(refreshIntervalStr)
 
+	// TODO: Should we only enable this when rotation is enabled?
+	sanitizeEnableStr := settings[RemoveDeletedSecretsKey]
+	sanitizeEnable := parseBoolFromStringOrDefault(sanitizeEnableStr, DefaultSanitizeEnabled)
+
 	return &Config{
-		PodNamespace:       podNamespace,
-		RequiredK8sSecrets: k8sSecretsArr,
-		RetryCountLimit:    retryCountLimit,
-		RetryIntervalSec:   retryIntervalSec,
-		StoreType:          storeType,
+		PodNamespace:           podNamespace,
+		RequiredK8sSecrets:     k8sSecretsArr,
+		RetryCountLimit:        retryCountLimit,
+		RetryIntervalSec:       retryIntervalSec,
+		StoreType:              storeType,
 		SecretsRefreshInterval: refreshInterval,
+		SanitizeEnabled:        sanitizeEnable,
 	}
 }
 
@@ -336,6 +363,14 @@ func parseIntFromStringOrDefault(value string, defaultValue int, minValue int) i
 	return valueInt
 }
 
+func parseBoolFromStringOrDefault(value string, defaultValue bool) bool {
+	valueBool, err := strconv.ParseBool(value)
+	if err != nil {
+		return defaultValue
+	}
+	return valueBool
+}
+
 func validStoreType(storeType string) bool {
 	validStoreTypes := []string{K8s, File}
 	for _, validStoreType := range validStoreTypes {
@@ -346,7 +381,7 @@ func validStoreType(storeType string) bool {
 	return false
 }
 
-func validateStore(envStoreType string) (string,error) {
+func validateStore(envStoreType string) (string, error) {
 	var err error
 	storeType := ""
 	switch envStoreType {
@@ -379,7 +414,7 @@ func validRefreshInterval(intervalStr string, enableStr string, containerMode st
 		case e != nil:
 			err = fmt.Errorf(messages.CSPFK050E, intervalStr, e.Error())
 		// check if the user explicitly set enable to false
-		case enabled == false && enableStr != "" && intervalStr != "":
+		case !enabled && enableStr != "" && intervalStr != "":
 			err = fmt.Errorf(messages.CSPFK050E, intervalStr, "Secrets refresh interval set to value while enable is false")
 		// duration too small
 		case duration < MinRefreshInterval:
@@ -388,4 +423,3 @@ func validRefreshInterval(intervalStr string, enableStr string, containerMode st
 	}
 	return err
 }
-
