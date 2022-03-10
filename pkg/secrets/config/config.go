@@ -284,7 +284,6 @@ func NewConfig(settings map[string]string) *Config {
 	// ignore errors here, if the interval string is null, zero is returned
 	refreshInterval, _ := time.ParseDuration(refreshIntervalStr)
 
-	// TODO: Should we only enable this when rotation is enabled?
 	sanitizeEnableStr := settings[RemoveDeletedSecretsKey]
 	sanitizeEnable := parseBoolFromStringOrDefault(sanitizeEnableStr, DefaultSanitizeEnabled)
 

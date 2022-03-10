@@ -95,6 +95,13 @@ var validateAnnotationsTestCases = []validateAnnotationsTestCase{
 		assert: assertErrorInList(fmt.Errorf(messages.CSPFK042E, retryCountLimitKey, "seven", "Integer")),
 	},
 	{
+		description: "when an annotation expects a bool but is given a non-bool value, an error is returned",
+		annotations: map[string]string{
+			RemoveDeletedSecretsKey: "10",
+		},
+		assert: assertErrorInList(fmt.Errorf(messages.CSPFK042E, RemoveDeletedSecretsKey, "10", "Boolean")),
+	},
+	{
 		description: "when an annotation expects a boolean but is given a non-boolean value, an error is returned",
 		annotations: map[string]string{
 			debugLoggingKey: "not-a-boolean",
@@ -195,6 +202,7 @@ var validateSecretsProviderSettingsTestCases = []validateSecretsProviderSettings
 			retryCountLimitKey:                    "10",
 			retryIntervalSecKey:                   "20",
 			k8sSecretsKey:                         "- secret-1\n- secret-2\n- secret-3\n",
+			RemoveDeletedSecretsKey:               "true",
 			"conjur.org/container-mode":           "sidecar",
 			"conjur.org/secrets-refresh-interval": "5m",
 			"conjur.org/secrets-refresh-enabled":  "true",
@@ -412,11 +420,12 @@ var newConfigTestCases = []newConfigTestCase{
 	{
 		description: "a valid map of annotation-based Secrets Provider settings returns a valid Config",
 		settings: map[string]string{
-			"MY_POD_NAMESPACE":    "test-namespace",
-			SecretsDestinationKey: "k8s_secrets",
-			k8sSecretsKey:         "- secret-1\n- secret-2\n- secret-3\n",
-			retryCountLimitKey:    "10",
-			retryIntervalSecKey:   "20",
+			"MY_POD_NAMESPACE":      "test-namespace",
+			SecretsDestinationKey:   "k8s_secrets",
+			k8sSecretsKey:           "- secret-1\n- secret-2\n- secret-3\n",
+			retryCountLimitKey:      "10",
+			retryIntervalSecKey:     "20",
+			RemoveDeletedSecretsKey: "false",
 		},
 		assert: assertGoodConfig(&Config{
 			PodNamespace:       "test-namespace",
@@ -424,7 +433,7 @@ var newConfigTestCases = []newConfigTestCase{
 			RequiredK8sSecrets: []string{"secret-1", "secret-2", "secret-3"},
 			RetryCountLimit:    10,
 			RetryIntervalSec:   20,
-			SanitizeEnabled:    DefaultSanitizeEnabled,
+			SanitizeEnabled:    false,
 		}),
 	},
 	{

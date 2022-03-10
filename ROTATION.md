@@ -51,6 +51,11 @@ how Push to File works.
    For example:
    If the duration is set to two seconds, but retrieving the secrets takes three second then the
    secrets will be updated every three seconds.
+
+   Note:
+   If one or more of the secrets have been removed from Conjur or have had access revoked, the Secrets Provider
+   will remove the secrets files from the shared volume. To disable this feature, set the
+   `conjur.org/remove-deleted-secrets-enabled` annotation to `false`.
 4. The Secrets Provider renders secret files for each secret group, and
    writes the resulting files to a volume that is shared with your application
    container. The Secrets Provider will rewrite the secret files if there are any changes.
@@ -110,6 +115,7 @@ below is a list of annotations that are needed for secrets rotation.
 | `conjur.org/container-mode`         | Allowed values: <ul><li>`init`</li><li>`application`</li><li>`sidecar`</li></ul>Defaults to `init`.<br>Must be set (or default) to `init` or `sidecar`for Push to File mode.|
 | `conjur.org/secrets-refresh-enabled`  | Set to `true` to enable Secrets Rotation. Defaults to `false` unless `conjur.org/secrets-rotation-interval` is explicitly set. Secrets Provider will exit with error if this is set to `false` and `conjur.org/secrets-rotation-interval` is set. |
 | `conjur.org/secrets-refresh-interval` | Set to a valid duration string as defined [here](https://pkg.go.dev/time#ParseDuration). Setting a time implicitly enables refresh. Valid time units are `s`, `m`, and `h` (for seconds, minutes, and hours, respectively). Some examples of valid duration strings:<ul><li>`5m`</li><li>`2h30m`</li><li>`48h`</li></ul>The minimum refresh interval is 1 second. A refresh interval of 0 seconds is treated as a fatal configuration error. The default refresh interval is 5 minutes. The maximum refresh interval is approximately 290 years. |
+| `conjur.org/remove-deleted-secrets-enabled` | Set to `false` to disable deletion of secrets files from the shared volume when a secret is removed or access is revoked in Conjur. Defaults to `true`. |
 
 ## Troubleshooting
 
@@ -128,9 +134,8 @@ To enable the debug logs, See [enable-logs](PUSH_TO_FILE.md#enable-logs)
 This feature is a **Community** level project that is still under development.
 There could be changes to the documentation so please check back often for updates and additions.
 Future enhancements to this feature will include:
+
 - Support for secrets rotation of Kubernetes secrets
 - atomic writes for multiple Conjur secret values
-- reporting of multiple errored secret variables for bulk Conjur secret retrieval
-- secret file deletion upon secret deleted / access being revoked
+- reporting of multiple errored secret variables for bulk Conjur secret retrieval and selective deletion of secret values from files
 - atomic write of secret files
-
