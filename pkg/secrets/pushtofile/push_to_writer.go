@@ -2,8 +2,8 @@ package pushtofile
 
 import (
 	"bytes"
-	"crypto/sha256"
 	"fmt"
+	"github.com/cyberark/secrets-provider-for-k8s/pkg/utils"
 	"io"
 	"os"
 	"path/filepath"
@@ -36,12 +36,10 @@ type openWriteCloserFunc func(
 	permissions os.FileMode,
 ) (io.WriteCloser, error)
 
-type checksum []byte
-
 // prevFileChecksums maps a secret group name to a sha256 checksum of the
 // corresponding secret file content. This is used to detect changes in
 // secret file content.
-var prevFileChecksums = map[string]checksum{}
+var prevFileChecksums = map[string]utils.Checksum{}
 
 // openFileAsWriteCloser opens a file to write-to with some permissions.
 func openFileAsWriteCloser(path string, permissions os.FileMode) (io.WriteCloser, error) {
@@ -124,10 +122,10 @@ func writeContent(writer io.Writer, fileContent *bytes.Buffer, groupName string)
 	}
 
 	// Calculate a sha256 checksum on the content
-	checksum, _ := fileChecksum(fileContent)
+	checksum, _ := utils.FileChecksum(fileContent)
 
 	// If file contents haven't changed, don't rewrite the file
-	if !contentHasChanged(groupName, checksum) {
+	if !utils.ContentHasChanged(groupName, checksum, prevFileChecksums) {
 		log.Info(messages.CSPFK018I)
 		return false, nil
 	}
@@ -141,22 +139,3 @@ func writeContent(writer io.Writer, fileContent *bytes.Buffer, groupName string)
 	return true, nil
 }
 
-// fileChecksum calculates a checksum on the file content
-func fileChecksum(buf *bytes.Buffer) (checksum, error) {
-	hash := sha256.New()
-	bufCopy := bytes.NewBuffer(buf.Bytes())
-	if _, err := io.Copy(hash, bufCopy); err != nil {
-		return nil, err
-	}
-	checksum := hash.Sum(nil)
-	return checksum, nil
-}
-
-func contentHasChanged(groupName string, fileChecksum checksum) bool {
-	if prevChecksum, exists := prevFileChecksums[groupName]; exists {
-		if bytes.Equal(fileChecksum, prevChecksum) {
-			return false
-		}
-	}
-	return true
-}

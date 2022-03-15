@@ -12,6 +12,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/cyberark/secrets-provider-for-k8s/pkg/utils"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -898,7 +899,7 @@ func TestSecretGroup_PushToFile(t *testing.T) {
 			absoluteFilePath := path.Join(dir, tc.path)
 
 			// Reset the P2F cache so the files will be written even if the values haven't changed
-			prevFileChecksums = map[string]checksum{}
+			prevFileChecksums = map[string]utils.Checksum{}
 
 			// Create a group, and push to file
 			group := SecretGroup{

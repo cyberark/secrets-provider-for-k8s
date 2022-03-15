@@ -47,6 +47,8 @@ func (m testMocks) setPermissions(denyConjurRetrieve, denyK8sRetrieve,
 	}
 	if denyK8sUpdate {
 		m.kubeClient.CanUpdate = false
+	} else {
+		m.kubeClient.CanUpdate = true
 	}
 }
 
@@ -389,4 +391,96 @@ func TestProvide(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestSecretsContentChanges(t *testing.T) {
+
+	var desc               string
+	var k8sSecrets         k8sStorageMocks.K8sSecrets
+	var requiredSecrets    []string
+	var denyConjurRetrieve bool
+	var denyK8sRetrieve    bool
+	var denyK8sUpdate      bool
+
+	// Initial case, k8s secret should be updated
+	desc = "Only update secrets when there are changes"
+	k8sSecrets = k8sStorageMocks.K8sSecrets{
+		"k8s-secret1": {
+			"conjur-map": {"secret1": "conjur/var/path1"},
+		},
+	}
+	requiredSecrets = []string{"k8s-secret1"}
+	mocks := newTestMocks()
+	mocks.setPermissions(denyConjurRetrieve, denyK8sRetrieve, denyK8sUpdate)
+	for secretName, secretData := range k8sSecrets {
+		mocks.kubeClient.AddSecret(secretName, secretData)
+	}
+	provider := mocks.newProvider(requiredSecrets)
+	update, err := provider.Provide()
+	assert.False(t, mocks.logger.InfoWasLogged(messages.CSPFK020I))
+	assertSecretsUpdated(
+		expectedK8sSecrets{
+			"k8s-secret1": {"secret1": "secret-value1"},
+		},
+		expectedMissingValues{} ) (t, mocks, update, err, desc)
+
+	// Call Provide again, verify it doesn't try to update the secret
+	// as there should be an error if it tried to write the secrets
+	desc = "Verify secrets are not updated when there are no changes"
+	denyK8sUpdate = true
+	mocks.setPermissions(denyConjurRetrieve, denyK8sRetrieve , denyK8sUpdate)
+	update, err = provider.Provide()
+	assert.NoError(t, err)
+	assert.True(t, mocks.logger.InfoWasLogged(messages.CSPFK020I))
+	// verify the same secret still exists
+	assertSecretsUpdated(
+		expectedK8sSecrets{
+			"k8s-secret1": {"secret1": "secret-value1"},
+		},
+		expectedMissingValues{} ) (t, mocks, true, err, desc)
+
+
+	// Change the k8s secret and verify a new secret is written
+	desc = "Verify new secrets are written when there are changes to the Conjur secret"
+	mocks.logger.ClearInfo()
+	secrets,_ := mocks.kubeClient.RetrieveSecret("","k8s-secret1")
+	var newMap = map[string][]byte{
+		"conjur-map": []byte("secret2: conjur/var/path2"),
+	}
+	denyK8sUpdate = false
+	mocks.setPermissions(denyConjurRetrieve, denyK8sRetrieve,denyK8sUpdate)
+	mocks.kubeClient.UpdateSecret("mock namespace", "k8s-secret1", secrets, newMap)
+	update, err = provider.Provide()
+	assert.NoError(t, err)
+	assertSecretsUpdated(
+		expectedK8sSecrets{
+			"k8s-secret1": {"secret2": "secret-value2"},
+		},
+		expectedMissingValues{} ) (t, mocks, update, err, desc)
+	assert.False(t, mocks.logger.InfoWasLogged(messages.CSPFK020I))
+
+	// call again with no changes
+	desc = "Verify again secrets are not updated when there are no changes"
+	update, err = provider.Provide()
+	assert.NoError(t, err)
+	assert.True(t, mocks.logger.InfoWasLogged(messages.CSPFK020I))
+
+	// verify a new k8s secret is written when the Conjur secret changes
+	desc = "Verify new secrets are written when there are changes to the k8s secret"
+	mocks.logger.ClearInfo()
+	var updateConjurSecrets = map[string]string{
+		"conjur/var/path1":        "new-secret-value1",
+		"conjur/var/path2":        "new-secret-value2",
+		"conjur/var/path3":        "new-secret-value3",
+		"conjur/var/path4":        "new-secret-value4",
+		"conjur/var/empty-secret": "",
+	}
+	mocks.conjurClient.AddSecrets(updateConjurSecrets)
+	update, err = provider.Provide()
+	assert.False(t, mocks.logger.InfoWasLogged(messages.CSPFK020I))
+	assertSecretsUpdated(
+		expectedK8sSecrets{
+			"k8s-secret1": {"secret2": "new-secret-value2"},
+		},
+		expectedMissingValues{} ) (t, mocks, update, err, desc)
 }

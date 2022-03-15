@@ -43,6 +43,11 @@ func (l *Logger) Info(msg string, args ...interface{}) {
 	l.infos = append(l.infos, fmt.Sprintf(msg, args...))
 }
 
+// ClearInfo Clears the info messages
+func (l *Logger) ClearInfo() {
+	l.infos = nil
+}
+
 // Debug logs a debug message.
 func (l *Logger) Debug(msg string, args ...interface{}) {
 	l.debugs = append(l.debugs, fmt.Sprintf(msg, args...))
