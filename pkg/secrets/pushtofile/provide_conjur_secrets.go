@@ -85,8 +85,11 @@ func provideWithDeps(
 		// Delete secret files for variables that no longer exist or the user no longer has permissions to
 		if (strings.Contains(err.Error(), "403") || strings.Contains(err.Error(), "404")) && sanitizeEnabled {
 			for _, group := range groups {
-				os.Remove(group.FilePath)
 				log.Info(messages.CSPFK019I)
+				rmErr := os.Remove(group.FilePath)
+				if rmErr != nil && !os.IsNotExist(rmErr) {
+					log.Error(messages.CSPFK062E, rmErr)
+				}
 			}
 		}
 

@@ -42,6 +42,7 @@ const CSPFK023E string = "CSPFK023E Failed to update Kubernetes Secrets"
 const CSPFK025E string = "CSPFK025E PathMap cannot be empty"
 const CSPFK027E string = "CSPFK027E Failed to update Kubernetes Secrets map with DAP/Conjur secrets"
 const CSPFK028E string = "CSPFK028E Unable to update Kubernetes Secret '%s'"
+const CSPFK063E string = "CSPFK062E Unable to delete Kubernetes Secret"
 
 // DAP/Conjur
 const CSPFK031E string = "CSPFK031E Failed to load DAP/Conjur config. Reason: %s"
@@ -73,6 +74,7 @@ const CSPFK051E string = "CSPFK051E Invalid secrets refresh configuration: %s %s
 // Push to File
 const CSPFK053E string = "CSPFK053E Unable to initialize Secrets Provider: unable to create secret group collection"
 const CSPFK054E string = "CSPFK054E Unable to initialize Secrets Provider: unrecognized Store Type '%s'"
+const CSPFK062E string = "CSPFK062E Unable to delete secrets file"
 
 // Atomic Writer
 const CSPFK055E string = "CSPFK055E Could not create temporary file for '%s'"

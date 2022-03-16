@@ -2,6 +2,7 @@ package k8ssecretsstorage
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"testing"
 
@@ -40,7 +41,7 @@ func newTestMocks() testMocks {
 func (m testMocks) setPermissions(denyConjurRetrieve, denyK8sRetrieve,
 	denyK8sUpdate bool) {
 	if denyConjurRetrieve {
-		m.conjurClient.CanExecute = false
+		m.conjurClient.ErrOnExecute = errors.New("custom error")
 	}
 	if denyK8sRetrieve {
 		m.kubeClient.CanRetrieve = false
@@ -70,8 +71,11 @@ func (m testMocks) newProvider(requiredSecrets []string) K8sProvider {
 				m.logger.Debug,
 			},
 		},
-		requiredSecrets,
-		"someNamespace",
+		true,
+		K8sProviderConfig{
+			RequiredK8sSecrets: requiredSecrets,
+			PodNamespace:       "someNamespace",
+		},
 		context.Background())
 }
 
@@ -90,12 +94,18 @@ func assertErrorContains(expErrStr string) assertFunc {
 }
 
 func assertSecretsUpdated(expK8sSecrets expectedK8sSecrets,
-	expMissingValues expectedMissingValues) assertFunc {
+	expMissingValues expectedMissingValues, expectError bool) assertFunc {
 	return func(t *testing.T, mocks testMocks, updated bool,
 		err error, desc string) {
 
-		assert.NoError(t, err)
-		assert.True(t, updated)
+		if expectError {
+			assert.Error(t, err, desc)
+			assert.False(t, updated)
+		} else {
+			assert.NoError(t, err, desc)
+			assert.True(t, updated)
+		}
+
 		// Check that K8s Secrets contain expected Conjur secret values
 		for k8sSecretName, expSecretData := range expK8sSecrets {
 			actualSecretData := mocks.kubeClient.InspectSecret(k8sSecretName)
@@ -150,6 +160,7 @@ func TestProvide(t *testing.T) {
 						"k8s-secret1": {"secret1": "secret-value1"},
 					},
 					expectedMissingValues{},
+					false,
 				),
 			},
 		},
@@ -186,6 +197,7 @@ func TestProvide(t *testing.T) {
 						"k8s-secret1": {"secret-value3", "secret-value4"},
 						"k8s-secret2": {"secret-value1", "secret-value2"},
 					},
+					false,
 				),
 			},
 		},
@@ -222,6 +234,7 @@ func TestProvide(t *testing.T) {
 						"k8s-secret1": {"secret-value4"},
 						"k8s-secret2": {"secret-value1"},
 					},
+					false,
 				),
 			},
 		},
@@ -254,6 +267,7 @@ func TestProvide(t *testing.T) {
 						"k8s-secret1": {"secret-value3"},
 						"k8s-secret2": {"secret-value1", "secret-value2", "secret-value3"},
 					},
+					false,
 				),
 			},
 		},
@@ -271,6 +285,7 @@ func TestProvide(t *testing.T) {
 						"k8s-secret1": {"secret1": ""},
 					},
 					expectedMissingValues{},
+					false,
 				),
 			},
 		},
@@ -395,12 +410,12 @@ func TestProvide(t *testing.T) {
 
 func TestSecretsContentChanges(t *testing.T) {
 
-	var desc               string
-	var k8sSecrets         k8sStorageMocks.K8sSecrets
-	var requiredSecrets    []string
+	var desc string
+	var k8sSecrets k8sStorageMocks.K8sSecrets
+	var requiredSecrets []string
 	var denyConjurRetrieve bool
-	var denyK8sRetrieve    bool
-	var denyK8sUpdate      bool
+	var denyK8sRetrieve bool
+	var denyK8sUpdate bool
 
 	// Initial case, k8s secret should be updated
 	desc = "Only update secrets when there are changes"
@@ -422,13 +437,13 @@ func TestSecretsContentChanges(t *testing.T) {
 		expectedK8sSecrets{
 			"k8s-secret1": {"secret1": "secret-value1"},
 		},
-		expectedMissingValues{} ) (t, mocks, update, err, desc)
+		expectedMissingValues{}, false)(t, mocks, update, err, desc)
 
 	// Call Provide again, verify it doesn't try to update the secret
 	// as there should be an error if it tried to write the secrets
 	desc = "Verify secrets are not updated when there are no changes"
 	denyK8sUpdate = true
-	mocks.setPermissions(denyConjurRetrieve, denyK8sRetrieve , denyK8sUpdate)
+	mocks.setPermissions(denyConjurRetrieve, denyK8sRetrieve, denyK8sUpdate)
 	update, err = provider.Provide()
 	assert.NoError(t, err)
 	assert.True(t, mocks.logger.InfoWasLogged(messages.CSPFK020I))
@@ -437,18 +452,17 @@ func TestSecretsContentChanges(t *testing.T) {
 		expectedK8sSecrets{
 			"k8s-secret1": {"secret1": "secret-value1"},
 		},
-		expectedMissingValues{} ) (t, mocks, true, err, desc)
-
+		expectedMissingValues{}, false)(t, mocks, true, err, desc)
 
 	// Change the k8s secret and verify a new secret is written
 	desc = "Verify new secrets are written when there are changes to the Conjur secret"
 	mocks.logger.ClearInfo()
-	secrets,_ := mocks.kubeClient.RetrieveSecret("","k8s-secret1")
+	secrets, _ := mocks.kubeClient.RetrieveSecret("", "k8s-secret1")
 	var newMap = map[string][]byte{
 		"conjur-map": []byte("secret2: conjur/var/path2"),
 	}
 	denyK8sUpdate = false
-	mocks.setPermissions(denyConjurRetrieve, denyK8sRetrieve,denyK8sUpdate)
+	mocks.setPermissions(denyConjurRetrieve, denyK8sRetrieve, denyK8sUpdate)
 	mocks.kubeClient.UpdateSecret("mock namespace", "k8s-secret1", secrets, newMap)
 	update, err = provider.Provide()
 	assert.NoError(t, err)
@@ -456,7 +470,7 @@ func TestSecretsContentChanges(t *testing.T) {
 		expectedK8sSecrets{
 			"k8s-secret1": {"secret2": "secret-value2"},
 		},
-		expectedMissingValues{} ) (t, mocks, update, err, desc)
+		expectedMissingValues{}, false)(t, mocks, update, err, desc)
 	assert.False(t, mocks.logger.InfoWasLogged(messages.CSPFK020I))
 
 	// call again with no changes
@@ -482,5 +496,129 @@ func TestSecretsContentChanges(t *testing.T) {
 		expectedK8sSecrets{
 			"k8s-secret1": {"secret2": "new-secret-value2"},
 		},
-		expectedMissingValues{} ) (t, mocks, update, err, desc)
+		expectedMissingValues{}, false)(t, mocks, update, err, desc)
+}
+
+func TestProvideSanitization(t *testing.T) {
+	testCases := []struct {
+		desc             string
+		k8sSecrets       k8sStorageMocks.K8sSecrets
+		requiredSecrets  []string
+		sanitizeEnabled  bool
+		retrieveErrorMsg string
+		asserts          []assertFunc
+	}{
+		{
+			desc:            "403 error",
+			sanitizeEnabled: true,
+			k8sSecrets: k8sStorageMocks.K8sSecrets{
+				"k8s-secret1": {
+					"conjur-map": {"secret1": "conjur/var/path1"},
+				},
+			},
+			requiredSecrets:  []string{"k8s-secret1"},
+			retrieveErrorMsg: "403",
+			asserts: []assertFunc{
+				assertErrorLogged(messages.CSPFK034E, "403"),
+				assertErrorContains(fmt.Sprintf(messages.CSPFK034E, "403")),
+				assertSecretsUpdated(
+					expectedK8sSecrets{
+						"k8s-secret1": {"secret1": ""},
+					},
+					expectedMissingValues{},
+					true,
+				),
+			},
+		},
+		{
+			desc:            "404 error",
+			sanitizeEnabled: true,
+			k8sSecrets: k8sStorageMocks.K8sSecrets{
+				"k8s-secret1": {
+					"conjur-map": {"secret1": "conjur/var/path1"},
+				},
+			},
+			requiredSecrets:  []string{"k8s-secret1"},
+			retrieveErrorMsg: "404",
+			asserts: []assertFunc{
+				assertErrorLogged(messages.CSPFK034E, "404"),
+				assertErrorContains(fmt.Sprintf(messages.CSPFK034E, "404")),
+				assertSecretsUpdated(
+					expectedK8sSecrets{
+						"k8s-secret1": {"secret1": ""},
+					},
+					expectedMissingValues{},
+					true,
+				),
+			},
+		},
+		{
+			desc:            "generic error doesn't delete secret",
+			sanitizeEnabled: true,
+			k8sSecrets: k8sStorageMocks.K8sSecrets{
+				"k8s-secret1": {
+					"conjur-map": {"secret1": "conjur/var/path1"},
+				},
+			},
+			requiredSecrets:  []string{"k8s-secret1"},
+			retrieveErrorMsg: "generic error",
+			asserts: []assertFunc{
+				assertErrorLogged(messages.CSPFK034E, "generic error"),
+				assertErrorContains(fmt.Sprintf(messages.CSPFK034E, "generic error")),
+				assertSecretsUpdated(
+					expectedK8sSecrets{
+						"k8s-secret1": {"secret1": "secret-value1"},
+					},
+					expectedMissingValues{},
+					true,
+				),
+			},
+		},
+		{
+			desc:            "403 error with sanitize disabled",
+			sanitizeEnabled: false,
+			k8sSecrets: k8sStorageMocks.K8sSecrets{
+				"k8s-secret1": {
+					"conjur-map": {"secret1": "conjur/var/path1"},
+				},
+			},
+			requiredSecrets:  []string{"k8s-secret1"},
+			retrieveErrorMsg: "403",
+			asserts: []assertFunc{
+				assertErrorLogged(messages.CSPFK034E, "403"),
+				assertErrorContains(fmt.Sprintf(messages.CSPFK034E, "403")),
+				assertSecretsUpdated(
+					expectedK8sSecrets{
+						"k8s-secret1": {"secret1": "secret-value1"},
+					},
+					expectedMissingValues{},
+					true,
+				),
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		// Set up test case
+		mocks := newTestMocks()
+
+		// First do a clean run will all permissions allowed to retrieve and populate the K8s secrets
+		provider := mocks.newProvider(tc.requiredSecrets)
+		provider.sanitizeEnabled = tc.sanitizeEnabled
+		for secretName, secretData := range tc.k8sSecrets {
+			mocks.kubeClient.AddSecret(secretName, secretData)
+		}
+		updated, err := provider.Provide()
+		assert.NoError(t, err, tc.desc)
+		assert.True(t, updated)
+
+		// Now run test case, injecting an error into the retrieve function
+		mocks.conjurClient.ErrOnExecute = errors.New(tc.retrieveErrorMsg)
+		updated, err = provider.Provide()
+
+		// Confirm results
+		for _, assert := range tc.asserts {
+			assert(t, mocks, updated, err, tc.desc)
+		}
+	}
 }

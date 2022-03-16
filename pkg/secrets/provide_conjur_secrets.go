@@ -54,6 +54,7 @@ func NewProviderForType(
 		provider := k8sSecretsStorage.NewProvider(
 			traceContext,
 			secretsRetrieverFunc,
+			providerConfig.CommonProviderConfig.SanitizeEnabled,
 			providerConfig.K8sProviderConfig,
 		)
 		return provider.Provide, nil

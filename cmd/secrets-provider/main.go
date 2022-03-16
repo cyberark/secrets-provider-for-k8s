@@ -35,16 +35,17 @@ const (
 var annotationsMap map[string]string
 
 var envAnnotationsConversion = map[string]string{
-	"CONJUR_AUTHN_LOGIN":   "conjur.org/authn-identity",
-	"CONTAINER_MODE":       "conjur.org/container-mode",
-	"SECRETS_DESTINATION":  "conjur.org/secrets-destination",
-	"K8S_SECRETS":          "conjur.org/k8s-secrets",
-	"RETRY_COUNT_LIMIT":    "conjur.org/retry-count-limit",
-	"RETRY_INTERVAL_SEC":   "conjur.org/retry-interval-sec",
-	"DEBUG":                "conjur.org/debug-logging",
-	"JAEGER_COLLECTOR_URL": "conjur.org/jaeger-collector-url",
-	"LOG_TRACES":           "conjur.org/log-traces",
-	"JWT_TOKEN_PATH":       "conjur.org/jwt-token-path",
+	"CONJUR_AUTHN_LOGIN":     "conjur.org/authn-identity",
+	"CONTAINER_MODE":         "conjur.org/container-mode",
+	"SECRETS_DESTINATION":    "conjur.org/secrets-destination",
+	"K8S_SECRETS":            "conjur.org/k8s-secrets",
+	"RETRY_COUNT_LIMIT":      "conjur.org/retry-count-limit",
+	"RETRY_INTERVAL_SEC":     "conjur.org/retry-interval-sec",
+	"DEBUG":                  "conjur.org/debug-logging",
+	"JAEGER_COLLECTOR_URL":   "conjur.org/jaeger-collector-url",
+	"LOG_TRACES":             "conjur.org/log-traces",
+	"JWT_TOKEN_PATH":         "conjur.org/jwt-token-path",
+	"REMOVE_DELETED_SECRETS": "conjur.org/remove-deleted-secrets-enabled",
 }
 
 func main() {

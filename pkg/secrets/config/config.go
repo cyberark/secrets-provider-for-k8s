@@ -113,6 +113,7 @@ var validEnvVars = []string{
 	"RETRY_INTERVAL_SEC",
 	"RETRY_COUNT_LIMIT",
 	"JWT_TOKEN_PATH",
+	"REMOVE_DELETED_SECRETS",
 }
 
 // ValidateAnnotations confirms that the provided annotations are properly
@@ -268,6 +269,9 @@ func NewConfig(settings map[string]string) *Config {
 	refreshInterval, _ := time.ParseDuration(refreshIntervalStr)
 
 	sanitizeEnableStr := settings[RemoveDeletedSecretsKey]
+	if sanitizeEnableStr == "" {
+		sanitizeEnableStr = settings["REMOVE_DELETED_SECRETS"]
+	}
 	sanitizeEnable := parseBoolFromStringOrDefault(sanitizeEnableStr, DefaultSanitizeEnabled)
 
 	return &Config{
