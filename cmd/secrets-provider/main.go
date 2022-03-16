@@ -154,10 +154,11 @@ func retryableSecretsProvider(
 		span.RecordErrorAndSetStatus(err)
 		return nil, nil, err
 	}
-	providerConfig := &secrets.ProviderConfig{
+	providerConfig := &secretsConfigProvider.ProviderConfig{
 		StoreType:            secretsConfig.StoreType,
 		PodNamespace:         secretsConfig.PodNamespace,
 		RequiredK8sSecrets:   secretsConfig.RequiredK8sSecrets,
+		SanitizeEnabled:      secretsConfig.SanitizeEnabled,
 		SecretFileBasePath:   secretsBasePath,
 		TemplateFileBasePath: templatesBasePath,
 		AnnotationsMap:       annotationsMap,

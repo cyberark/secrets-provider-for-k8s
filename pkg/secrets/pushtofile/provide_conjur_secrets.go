@@ -2,11 +2,14 @@ package pushtofile
 
 import (
 	"context"
+	"os"
+	"strings"
 
 	"github.com/cyberark/conjur-authn-k8s-client/pkg/log"
 	"github.com/cyberark/conjur-opentelemetry-tracer/pkg/trace"
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/log/messages"
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/clients/conjur"
+	"github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/config"
 	"go.opentelemetry.io/otel"
 )
 
@@ -14,6 +17,7 @@ type fileProvider struct {
 	retrieveSecretsFunc conjur.RetrieveSecretsFunc
 	secretGroups        []*SecretGroup
 	traceContext        context.Context
+	sanitizeEnabled     bool
 }
 
 type fileProviderDepFuncs struct {
@@ -25,11 +29,13 @@ type fileProviderDepFuncs struct {
 // NewProvider creates a new provider for Push-to-File mode.
 func NewProvider(
 	retrieveSecretsFunc conjur.RetrieveSecretsFunc,
-	secretsBasePath string,
-	templatesBasePath string,
-	annotations map[string]string) (*fileProvider, []error) {
+	providerConfig *config.ProviderConfig) (*fileProvider, []error) {
 
-	secretGroups, err := NewSecretGroups(secretsBasePath, templatesBasePath, annotations)
+	secretGroups, err := NewSecretGroups(
+		providerConfig.SecretFileBasePath,
+		providerConfig.TemplateFileBasePath,
+		providerConfig.AnnotationsMap,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -38,6 +44,7 @@ func NewProvider(
 		retrieveSecretsFunc: retrieveSecretsFunc,
 		secretGroups:        secretGroups,
 		traceContext:        nil,
+		sanitizeEnabled:     providerConfig.SanitizeEnabled,
 	}, nil
 }
 
@@ -46,6 +53,7 @@ func (p fileProvider) Provide() error {
 	return provideWithDeps(
 		p.traceContext,
 		p.secretGroups,
+		p.sanitizeEnabled,
 		fileProviderDepFuncs{
 			retrieveSecretsFunc: p.retrieveSecretsFunc,
 			depOpenWriteCloser:  openFileAsWriteCloser,
@@ -61,6 +69,7 @@ func (p *fileProvider) SetTraceContext(ctx context.Context) {
 func provideWithDeps(
 	traceContext context.Context,
 	groups []*SecretGroup,
+	sanitizeEnabled bool,
 	depFuncs fileProviderDepFuncs,
 ) error {
 	// Use the global TracerProvider
@@ -68,6 +77,14 @@ func provideWithDeps(
 	spanCtx, span := tr.Start(traceContext, "Fetch Conjur Secrets")
 	secretsByGroup, err := FetchSecretsForGroups(depFuncs.retrieveSecretsFunc, groups, spanCtx)
 	if err != nil {
+		// Delete secret files for variables that no longer exist or the user no longer has permissions to
+		if (strings.Contains(err.Error(), "403") || strings.Contains(err.Error(), "404")) && sanitizeEnabled {
+			for _, group := range groups {
+				os.Remove(group.FilePath)
+				log.Info(messages.CSPFK019I)
+			}
+		}
+
 		span.RecordErrorAndSetStatus(err)
 		span.End()
 		return err

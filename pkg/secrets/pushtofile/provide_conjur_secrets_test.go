@@ -3,9 +3,11 @@ package pushtofile
 import (
 	"context"
 	"fmt"
+	"os"
 	"testing"
 
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/clients/conjur"
+	"github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/config"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -15,6 +17,31 @@ func retrieve(variableIDs []string, ctx context.Context) (map[string][]byte, err
 		masterMap[id] = []byte(fmt.Sprintf("value-%s", id))
 	}
 	return masterMap, nil
+}
+
+func retrieveWith403(variableIDs []string, ctx context.Context) (map[string][]byte, error) {
+	return nil, fmt.Errorf("403")
+}
+
+func retrieveWithGenericError(variableIDs []string, ctx context.Context) (map[string][]byte, error) {
+	return nil, fmt.Errorf("generic error")
+}
+
+func secretGroups(filePath string) []*SecretGroup {
+	return []*SecretGroup{
+		{
+			Name:            "groupname",
+			FilePath:        filePath,
+			FileFormat:      "yaml",
+			FilePermissions: 123,
+			SecretSpecs: []SecretSpec{
+				{
+					Alias: "password",
+					Path:  "path1",
+				},
+			},
+		},
+	}
 }
 
 func TestNewProvider(t *testing.T) {
@@ -54,7 +81,13 @@ func TestNewProvider(t *testing.T) {
 
 	for _, tc := range TestCases {
 		t.Run(tc.description, func(t *testing.T) {
-			p, err := NewProvider(tc.retrieveFunc, tc.basePath, "", tc.annotations)
+			p, err := NewProvider(
+				tc.retrieveFunc,
+				&config.ProviderConfig{
+					SecretFileBasePath: tc.basePath,
+					AnnotationsMap:     tc.annotations,
+				},
+			)
 			assert.Empty(t, err)
 			assert.Equal(t, tc.expectedSecretGroup, p.secretGroups)
 		})
@@ -63,29 +96,19 @@ func TestNewProvider(t *testing.T) {
 
 func TestProvideWithDeps(t *testing.T) {
 	TestCases := []struct {
-		description string
-		provider    fileProvider
-		assert      func(*testing.T, fileProvider, error, *ClosableBuffer, pushToWriterSpy, openWriteCloserSpy)
+		description     string
+		provider        fileProvider
+		createFileName  string
+		sanitizeEnabled bool
+		assert          func(*testing.T, fileProvider, error, *ClosableBuffer, pushToWriterSpy, openWriteCloserSpy)
 	}{
 		{
 			description: "happy path",
 			provider: fileProvider{
 				retrieveSecretsFunc: retrieve,
-				secretGroups: []*SecretGroup{
-					{
-						Name:            "groupname",
-						FilePath:        "/path/to/file",
-						FileFormat:      "yaml",
-						FilePermissions: 123,
-						SecretSpecs: []SecretSpec{
-							{
-								Alias: "password",
-								Path:  "path1",
-							},
-						},
-					},
-				},
+				secretGroups:        secretGroups("/path/to/file"),
 			},
+			sanitizeEnabled: true,
 			assert: func(
 				t *testing.T,
 				p fileProvider,
@@ -99,6 +122,69 @@ func TestProvideWithDeps(t *testing.T) {
 				assert.Nil(t, err)
 			},
 		},
+		{
+			description:    "403 error",
+			createFileName: "path_to_file.yaml",
+			provider: fileProvider{
+				retrieveSecretsFunc: retrieveWith403,
+				secretGroups:        secretGroups("path_to_file.yaml"),
+			},
+			sanitizeEnabled: true,
+			assert: func(
+				t *testing.T,
+				p fileProvider,
+				err error,
+				closableBuf *ClosableBuffer,
+				spyPushToWriter pushToWriterSpy,
+				spyOpenWriteCloser openWriteCloserSpy,
+			) {
+				assert.Error(t, err)
+				// File should be deleted because of 403 error
+				assert.NoFileExists(t, "path_to_file.yaml")
+			},
+		},
+		{
+			description:    "generic error",
+			createFileName: "path_to_file.yaml",
+			provider: fileProvider{
+				retrieveSecretsFunc: retrieveWithGenericError,
+				secretGroups:        secretGroups("path_to_file.yaml"),
+			},
+			sanitizeEnabled: true,
+			assert: func(
+				t *testing.T,
+				p fileProvider,
+				err error,
+				closableBuf *ClosableBuffer,
+				spyPushToWriter pushToWriterSpy,
+				spyOpenWriteCloser openWriteCloserSpy,
+			) {
+				assert.Error(t, err)
+				// File should not be deleted because of generic error
+				assert.FileExists(t, "path_to_file.yaml")
+			},
+		},
+		{
+			description:    "403 error with sanitize disabled",
+			createFileName: "path_to_file.yaml",
+			provider: fileProvider{
+				retrieveSecretsFunc: retrieveWith403,
+				secretGroups:        secretGroups("path_to_file.yaml"),
+			},
+			sanitizeEnabled: false,
+			assert: func(
+				t *testing.T,
+				p fileProvider,
+				err error,
+				closableBuf *ClosableBuffer,
+				spyPushToWriter pushToWriterSpy,
+				spyOpenWriteCloser openWriteCloserSpy,
+			) {
+				assert.Error(t, err)
+				// File shouldn't be deleted because sanitize is disabled
+				assert.FileExists(t, "path_to_file.yaml")
+			},
+		},
 	}
 
 	for _, tc := range TestCases {
@@ -110,9 +196,16 @@ func TestProvideWithDeps(t *testing.T) {
 				writeCloser: closableBuf,
 			}
 
+			if tc.createFileName != "" {
+				_, err := os.Create(tc.createFileName)
+				assert.NoError(t, err)
+				defer os.Remove(tc.createFileName)
+			}
+
 			err := provideWithDeps(
 				context.Background(),
 				tc.provider.secretGroups,
+				tc.sanitizeEnabled,
 				fileProviderDepFuncs{
 					retrieveSecretsFunc: tc.provider.retrieveSecretsFunc,
 					depOpenWriteCloser:  spyOpenWriteCloser.Call,

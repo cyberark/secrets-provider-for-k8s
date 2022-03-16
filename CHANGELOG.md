@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ### Added
 - Secrets files are written in an atomic operation. [cyberark/secrets-provider-for-k8s#440](https://github.com/cyberark/secrets-provider-for-k8s/pull/440)
+- Secret files are deleted when secrets are removed from Conjur or access is revoked. Can be disabled with annotation.
+  [cyberark/secrets-provider-for-k8s#447](https://github.com/cyberark/secrets-provider-for-k8s/pull/447)
 
 ## [1.4.0] - 2022-02-15
 

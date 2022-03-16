@@ -20,22 +20,6 @@ const (
 	secretProviderGracePeriod = time.Duration(10 * time.Millisecond)
 )
 
-// ProviderConfig provides the configuration necessary to create a secrets
-// Provider.
-type ProviderConfig struct {
-	// Config common to all providers
-	StoreType string
-
-	// Config specific to Kubernetes Secrets provider
-	PodNamespace       string
-	RequiredK8sSecrets []string
-
-	// Config specific to Push to File provider
-	SecretFileBasePath   string
-	TemplateFileBasePath string
-	AnnotationsMap       map[string]string
-}
-
 // ProviderFunc describes a function type responsible for providing secrets to an unspecified target.
 type ProviderFunc func() error
 
@@ -43,7 +27,7 @@ type ProviderFunc func() error
 func NewProviderForType(
 	traceContext context.Context,
 	secretsRetrieverFunc conjur.RetrieveSecretsFunc,
-	providerConfig ProviderConfig,
+	providerConfig config.ProviderConfig,
 ) (ProviderFunc, []error) {
 	switch providerConfig.StoreType {
 	case config.K8s:
@@ -57,9 +41,7 @@ func NewProviderForType(
 	case config.File:
 		provider, err := pushtofile.NewProvider(
 			secretsRetrieverFunc,
-			providerConfig.SecretFileBasePath,
-			providerConfig.TemplateFileBasePath,
-			providerConfig.AnnotationsMap,
+			&providerConfig,
 		)
 		if err != nil {
 			return nil, err

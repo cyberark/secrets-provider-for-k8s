@@ -1,6 +1,36 @@
 #!/bin/bash
 set -euxo pipefail
 
+delete_test_secret() {
+  load_policy "conjur-delete-secret"
+}
+
+restore_test_secret() {
+  load_policy "conjur-secrets"
+}
+
+load_policy() {
+  filename=$1
+  set_namespace "$CONJUR_NAMESPACE_NAME"
+  configure_cli_pod
+
+  pushd "../../policy"
+    mkdir -p ./generated
+    ./templates/$filename.template.sh.yml > ./generated/$APP_NAMESPACE_NAME.$filename.yml
+  popd
+  
+  conjur_cli_pod=$(get_conjur_cli_pod_name)
+  $cli_with_timeout "exec $conjur_cli_pod -- rm -rf /policy"
+  $cli_with_timeout "cp ../../policy $conjur_cli_pod:/policy"
+
+  $cli_with_timeout "exec $(get_conjur_cli_pod_name) -- \
+    conjur policy load --delete root \"/policy/generated/$APP_NAMESPACE_NAME.$filename.yml\""
+
+  $cli_with_timeout "exec $conjur_cli_pod -- rm -rf ./policy"
+
+  set_namespace $APP_NAMESPACE_NAME
+}
+
 echo "Deploying Secrets rotation tests"
 set_conjur_secret secrets/test_secret secret1
 
@@ -75,3 +105,25 @@ if "$test_failed"; then
     exit 1
 fi
 
+# Delete a secret from conjur
+delete_test_secret
+
+# Check if the value is deleted from secrets provider
+sleep 10
+
+test_failed=false
+for f in $FILES; do
+    echo "Checking if file $f exists"
+    if [[ "$($cli_with_timeout exec "$pod_name" -c test-app -- bash -c "\"if [[ -f /opt/secrets/conjur/"$f" ]] ; then echo true; else echo false; fi\"")" == "true" ]] ; then
+        echo "Secrets Rotation file deletion FAILED for file $f"
+        echo "Expected file to be deleted."
+        test_failed=true
+    else
+        echo "Secrets Rotation file deletion PASSED for $f!"
+    fi
+done
+# Restore the test secret to reset the environment
+restore_test_secret
+if "$test_failed"; then
+    exit 1
+fi
