@@ -42,7 +42,7 @@ const CSPFK023E string = "CSPFK023E Failed to update Kubernetes Secrets"
 const CSPFK025E string = "CSPFK025E PathMap cannot be empty"
 const CSPFK027E string = "CSPFK027E Failed to update Kubernetes Secrets map with DAP/Conjur secrets"
 const CSPFK028E string = "CSPFK028E Unable to update Kubernetes Secret '%s'"
-const CSPFK063E string = "CSPFK062E Unable to delete Kubernetes Secret"
+const CSPFK063E string = "CSPFK063E Unable to delete Kubernetes Secret"
 
 // DAP/Conjur
 const CSPFK031E string = "CSPFK031E Failed to load DAP/Conjur config. Reason: %s"

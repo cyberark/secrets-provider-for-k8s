@@ -32,4 +32,4 @@ const CSPFK017I string = "CSPFK017I Creating default file name for secret group 
 const CSPFK018I string = "CSPFK018I No change in secret file, no secret files written"
 const CSPFK019I string = "CSPFK019I Error fetching secrets, deleting secrets file"
 const CSPFK020I string = "CSPFK020I No change in Kubernetes secret, no secrets updated"
-const CSPFK021I string = "CSPFK021I Error fetching secrets, clearing Kubernetes secrets"
+const CSPFK021I string = "CSPFK021I Error fetching Conjur secrets, clearing Kubernetes secrets"

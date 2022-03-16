@@ -398,6 +398,33 @@ deploy_init_env() {
   fi
 }
 
+deploy_k8s_rotation_env() {
+  configure_conjur_url
+
+  echo "Running Deployment Manifest"
+
+  if [[ "$DEV" = "true" ]]; then
+    ./dev/config/k8s/secrets-provider-k8s-rotation.sh.yml > ./dev/config/k8s/secrets-provider-k8s-rotation.yml
+    $cli_with_timeout apply -f ./dev/config/k8s/secrets-provider-k8s-rotation.yml
+
+    $cli_with_timeout "get pods --namespace=$APP_NAMESPACE_NAME --selector app=test-app --no-headers | wc -l"
+  else
+    wait_for_it 600 "$CONFIG_DIR/test-env-k8s-rotation.sh.yml | $cli_without_timeout apply -f -"
+
+    expected_num_replicas=`$CONFIG_DIR/test-env-k8s-rotation.sh.yml |  awk '/replicas:/ {print $2}' `
+
+    # Deployment (Deployment for k8s and DeploymentConfig for Openshift) might fail on error flows, even before creating the pods. If so, re-deploy.
+    if [[ "$PLATFORM" = "kubernetes" ]]; then
+        $cli_with_timeout "get deployment test-env -o jsonpath={.status.replicas} | grep '^${expected_num_replicas}$'|| $cli_without_timeout rollout latest deployment test-env"
+    elif [[ "$PLATFORM" = "openshift" ]]; then
+        $cli_with_timeout "get dc/test-env -o jsonpath={.status.replicas} | grep '^${expected_num_replicas}$'|| $cli_without_timeout rollout latest dc/test-env"
+    fi
+
+    echo "Expecting $expected_num_replicas deployed pods"
+    $cli_with_timeout "get pods --namespace=$APP_NAMESPACE_NAME --selector app=test-env --no-headers | wc -l | grep $expected_num_replicas"
+  fi
+}
+
 create_secret_access_role() {
   echo "Creating secrets access role"
   wait_for_it 600  "$CONFIG_DIR/secrets-access-role.sh.yml | $cli_without_timeout apply -f -"
@@ -415,6 +442,36 @@ set_conjur_secret() {
   set_namespace "$CONJUR_NAMESPACE_NAME"
   configure_cli_pod
   $cli_with_timeout "exec $(get_conjur_cli_pod_name) -- conjur variable values add $SECRET_NAME $SECRET_VALUE"
+  set_namespace $APP_NAMESPACE_NAME
+}
+
+delete_test_secret() {
+  load_policy "conjur-delete-secret"
+}
+
+restore_test_secret() {
+  load_policy "conjur-secrets"
+}
+
+load_policy() {
+  filename=$1
+  set_namespace "$CONJUR_NAMESPACE_NAME"
+  configure_cli_pod
+
+  pushd "../../policy"
+    mkdir -p ./generated
+    ./templates/$filename.template.sh.yml > ./generated/$APP_NAMESPACE_NAME.$filename.yml
+  popd
+  
+  conjur_cli_pod=$(get_conjur_cli_pod_name)
+  $cli_with_timeout "exec $conjur_cli_pod -- rm -rf /policy"
+  $cli_with_timeout "cp ../../policy $conjur_cli_pod:/policy"
+
+  $cli_with_timeout "exec $(get_conjur_cli_pod_name) -- \
+    conjur policy load --delete root \"/policy/generated/$APP_NAMESPACE_NAME.$filename.yml\""
+
+  $cli_with_timeout "exec $conjur_cli_pod -- rm -rf ./policy"
+
   set_namespace $APP_NAMESPACE_NAME
 }
 
@@ -459,6 +516,15 @@ verify_secret_value_in_pod() {
   environment_variable_name=$2
   expected_value=$3
 
+  if [[ $expected_value == "" ]] ; then
+    # Ensure that the secret is empty by using 'grep -v .'
+    expected_value="-v ."
+  fi
+
+  actual_value=$($cli_with_timeout "exec -n $APP_NAMESPACE_NAME ${pod_name} -- \
+      printenv | grep $environment_variable_name | cut -d '=' -f 2-")
+  echo "Actual value: $actual_value"
+      
   $cli_with_timeout "exec -n $APP_NAMESPACE_NAME ${pod_name} -- \
     printenv | grep $environment_variable_name | cut -d '=' -f 2- | grep $expected_value"
 }

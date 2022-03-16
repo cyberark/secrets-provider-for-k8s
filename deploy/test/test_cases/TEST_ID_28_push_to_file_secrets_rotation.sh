@@ -1,45 +1,15 @@
 #!/bin/bash
 set -euxo pipefail
 
-delete_test_secret() {
-  load_policy "conjur-delete-secret"
-}
-
-restore_test_secret() {
-  load_policy "conjur-secrets"
-}
-
-load_policy() {
-  filename=$1
-  set_namespace "$CONJUR_NAMESPACE_NAME"
-  configure_cli_pod
-
-  pushd "../../policy"
-    mkdir -p ./generated
-    ./templates/$filename.template.sh.yml > ./generated/$APP_NAMESPACE_NAME.$filename.yml
-  popd
-  
-  conjur_cli_pod=$(get_conjur_cli_pod_name)
-  $cli_with_timeout "exec $conjur_cli_pod -- rm -rf /policy"
-  $cli_with_timeout "cp ../../policy $conjur_cli_pod:/policy"
-
-  $cli_with_timeout "exec $(get_conjur_cli_pod_name) -- \
-    conjur policy load --delete root \"/policy/generated/$APP_NAMESPACE_NAME.$filename.yml\""
-
-  $cli_with_timeout "exec $conjur_cli_pod -- rm -rf ./policy"
-
-  set_namespace $APP_NAMESPACE_NAME
-}
-
-echo "Deploying Secrets rotation tests"
+echo "Deploying P2F Secrets rotation tests"
 set_conjur_secret secrets/test_secret secret1
 
 echo "Deploying test_env without CONTAINER_MODE environment variable"
 export CONTAINER_MODE_KEY_VALUE=$KEY_VALUE_NOT_EXIST
 
-echo "Running Deployment secrets rotation"
+echo "Running Deployment push-to-file secrets rotation"
 
-deploy_push_to_file "secrets-provider-secrets-rotation" "test-env-secrets-rotation"
+deploy_push_to_file "secrets-provider-p2f-rotation" "test-env-p2f-rotation"
 
 echo "Expecting secrets provider to succeed as a sidecar container"
 
