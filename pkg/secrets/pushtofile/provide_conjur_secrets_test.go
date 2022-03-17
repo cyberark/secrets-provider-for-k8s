@@ -7,7 +7,6 @@ import (
 	"testing"
 
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/clients/conjur"
-	"github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/config"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -81,13 +80,12 @@ func TestNewProvider(t *testing.T) {
 
 	for _, tc := range TestCases {
 		t.Run(tc.description, func(t *testing.T) {
-			p, err := NewProvider(
-				tc.retrieveFunc,
-				&config.ProviderConfig{
-					SecretFileBasePath: tc.basePath,
-					AnnotationsMap:     tc.annotations,
-				},
-			)
+			config := P2FProviderConfig{
+				SecretFileBasePath:   tc.basePath,
+				TemplateFileBasePath: "",
+				AnnotationsMap:       tc.annotations,
+			}
+			p, err := NewProvider(tc.retrieveFunc, false, config)
 			assert.Empty(t, err)
 			assert.Equal(t, tc.expectedSecretGroup, p.secretGroups)
 		})
@@ -202,7 +200,7 @@ func TestProvideWithDeps(t *testing.T) {
 				defer os.Remove(tc.createFileName)
 			}
 
-			err := provideWithDeps(
+			_, err := provideWithDeps(
 				context.Background(),
 				tc.provider.secretGroups,
 				tc.sanitizeEnabled,

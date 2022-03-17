@@ -61,7 +61,7 @@ func resolvedSecretSpecs(policyPathPrefix string, secretSpecs []SecretSpec) []Se
 
 // PushToFile uses the configuration on a secret group to inject secrets into a template
 // and write the result to a file.
-func (sg *SecretGroup) PushToFile(secrets []*Secret) error {
+func (sg *SecretGroup) PushToFile(secrets []*Secret) (bool, error) {
 	return sg.pushToFileWithDeps(openFileAsWriteCloser, pushToWriter, secrets)
 }
 
@@ -69,10 +69,10 @@ func (sg *SecretGroup) pushToFileWithDeps(
 	depOpenWriteCloser openWriteCloserFunc,
 	depPushToWriter pushToWriterFunc,
 	secrets []*Secret,
-) (err error) {
+) (updated bool, err error) {
 	// Make sure all the secret specs are accounted for
-	if err := validateSecretsAgainstSpecs(secrets, sg.SecretSpecs); err != nil {
-		return err
+	if err = validateSecretsAgainstSpecs(secrets, sg.SecretSpecs); err != nil {
+		return false, err
 	}
 
 	// Determine file template from
@@ -85,13 +85,13 @@ func (sg *SecretGroup) pushToFileWithDeps(
 		sg.SecretSpecs,
 	)
 	if err != nil {
-		return err
+		return false, err
 	}
 
 	//// Open and push to file
 	wc, err := depOpenWriteCloser(sg.FilePath, sg.FilePermissions)
 	if err != nil {
-		return err
+		return false, err
 	}
 	defer func() {
 		_ = wc.Close()
@@ -103,7 +103,7 @@ func (sg *SecretGroup) pushToFileWithDeps(
 			err = maskError
 		}
 	}()
-	err = depPushToWriter(
+	updated, err = depPushToWriter(
 		wc,
 		sg.Name,
 		fileTemplate,
@@ -112,7 +112,7 @@ func (sg *SecretGroup) pushToFileWithDeps(
 	if err != nil {
 		err = maskError
 	}
-	return err
+	return updated, err
 }
 
 func (sg *SecretGroup) absoluteFilePath(secretsBasePath string) (string, error) {
@@ -204,7 +204,7 @@ func (sg *SecretGroup) validate() []error {
 			dummySecrets = append(dummySecrets, &Secret{Alias: secretSpec.Alias, Value: "REDACTED"})
 		}
 
-		err := pushToWriter(ioutil.Discard, groupName, fileTemplate, dummySecrets)
+		_, err := pushToWriter(ioutil.Discard, groupName, fileTemplate, dummySecrets)
 		if err != nil {
 			return []error{fmt.Errorf(
 				`unable to use file template for secret group %q: %s`,

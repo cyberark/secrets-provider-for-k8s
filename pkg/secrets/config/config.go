@@ -39,23 +39,6 @@ type Config struct {
 	SanitizeEnabled        bool
 }
 
-// ProviderConfig provides the configuration necessary to create a secrets
-// Provider.
-type ProviderConfig struct {
-	// Config common to all providers
-	StoreType       string
-	SanitizeEnabled bool
-
-	// Config specific to Kubernetes Secrets provider
-	PodNamespace       string
-	RequiredK8sSecrets []string
-
-	// Config specific to Push to File provider
-	SecretFileBasePath   string
-	TemplateFileBasePath string
-	AnnotationsMap       map[string]string
-}
-
 type annotationType int
 
 // Represents each annotation input value type,

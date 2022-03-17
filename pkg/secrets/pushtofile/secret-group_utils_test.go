@@ -23,9 +23,10 @@ type pushToWriterArgs struct {
 }
 
 type pushToWriterSpy struct {
-	args   pushToWriterArgs
-	err    error
-	_calls int
+	args           pushToWriterArgs
+	targetsUpdated bool
+	err            error
+	_calls         int
 }
 
 func (spy *pushToWriterSpy) Call(
@@ -33,7 +34,7 @@ func (spy *pushToWriterSpy) Call(
 	groupName string,
 	groupTemplate string,
 	groupSecrets []*Secret,
-) error {
+) (bool, error) {
 	spy._calls++
 	// This is to ensure the spy is only ever used once!
 	if spy._calls > 1 {
@@ -47,7 +48,7 @@ func (spy *pushToWriterSpy) Call(
 		groupSecrets:  groupSecrets,
 	}
 
-	return spy.err
+	return spy.targetsUpdated, spy.err
 }
 
 //// openWriteCloserFunc

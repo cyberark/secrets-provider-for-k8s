@@ -16,6 +16,9 @@ import (
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/log/messages"
 )
 
+// SecretRetriever implements a Retrieve function that is capable of
+// authenticating with Conjur and retrieving multiple Conjur variables
+// in bulk.
 type SecretRetriever struct {
 	authn authenticator.Authenticator
 }

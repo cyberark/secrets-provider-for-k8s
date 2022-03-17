@@ -78,12 +78,17 @@ type K8sProvider struct {
 	traceContext       context.Context
 }
 
+// K8sProviderConfig provides config specific to Kubernetes Secrets provider
+type K8sProviderConfig struct {
+	PodNamespace       string
+	RequiredK8sSecrets []string
+}
+
 // NewProvider creates a new secret provider for K8s Secrets mode.
 func NewProvider(
 	traceContext context.Context,
 	retrieveConjurSecrets conjur.RetrieveSecretsFunc,
-	requiredK8sSecrets []string,
-	podNamespace string,
+	providerConfig K8sProviderConfig,
 ) K8sProvider {
 	return newProvider(
 		k8sProviderDeps{
@@ -102,8 +107,8 @@ func NewProvider(
 				log.Debug,
 			},
 		},
-		requiredK8sSecrets,
-		podNamespace,
+		providerConfig.RequiredK8sSecrets,
+		providerConfig.PodNamespace,
 		traceContext)
 }
 
@@ -131,27 +136,28 @@ func newProvider(
 }
 
 // Provide implements a ProviderFunc to retrieve and push secrets to K8s secrets.
-func (p K8sProvider) Provide() error {
+func (p K8sProvider) Provide() (bool, error) {
 	// Use the global TracerProvider
 	tr := trace.NewOtelTracer(otel.Tracer("secrets-provider"))
 	// Retrieve required K8s Secrets and parse their Data fields.
 	if err := p.retrieveRequiredK8sSecrets(tr); err != nil {
-		return p.log.recordedError(messages.CSPFK021E)
+		return false, p.log.recordedError(messages.CSPFK021E)
 	}
 
 	// Retrieve Conjur secrets for all K8s Secrets.
 	retrievedConjurSecrets, err := p.retrieveConjurSecrets(tr)
 	if err != nil {
-		return p.log.recordedError(messages.CSPFK034E, err.Error())
+		return false, p.log.recordedError(messages.CSPFK034E, err.Error())
 	}
 
 	// Update all K8s Secrets with the retrieved Conjur secrets.
-	if err = p.updateRequiredK8sSecrets(retrievedConjurSecrets, tr); err != nil {
-		return p.log.recordedError(messages.CSPFK023E)
+	updated, err := p.updateRequiredK8sSecrets(retrievedConjurSecrets, tr)
+	if err != nil {
+		return updated, p.log.recordedError(messages.CSPFK023E)
 	}
 
 	p.log.info(messages.CSPFK009I)
-	return nil
+	return updated, nil
 }
 
 // retrieveRequiredK8sSecrets retrieves all K8s Secrets that need to be
@@ -257,7 +263,9 @@ func (p K8sProvider) retrieveConjurSecrets(tracer trace.Tracer) (map[string][]by
 }
 
 func (p K8sProvider) updateRequiredK8sSecrets(
-	conjurSecrets map[string][]byte, tracer trace.Tracer) error {
+	conjurSecrets map[string][]byte, tracer trace.Tracer) (bool, error) {
+
+	var updated bool
 
 	spanCtx, span := tracer.Start(p.traceContext, "Update K8s Secrets")
 	defer span.End()
@@ -296,9 +304,10 @@ func (p K8sProvider) updateRequiredK8sSecrets(
 			// Error messages returned from K8s should be printed only in debug mode
 			p.log.debug(messages.CSPFK005D, err.Error())
 			childSpan.RecordErrorAndSetStatus(err)
-			return p.log.recordedError(messages.CSPFK022E)
+			return updated, p.log.recordedError(messages.CSPFK022E)
 		}
+		updated = true
 	}
 
-	return nil
+	return updated, nil
 }

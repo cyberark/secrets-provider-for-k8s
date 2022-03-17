@@ -73,23 +73,27 @@ func (m testMocks) newProvider(requiredSecrets []string) K8sProvider {
 		context.Background())
 }
 
-type assertFunc func(*testing.T, testMocks, error, string)
+type assertFunc func(*testing.T, testMocks, bool, error, string)
 type expectedK8sSecrets map[string]map[string]string
 type expectedMissingValues map[string][]string
 
 func assertErrorContains(expErrStr string) assertFunc {
 	return func(t *testing.T, _ testMocks,
-		err error, desc string) {
+		updated bool, err error, desc string) {
 
-		assert.Error(t, err, desc)
-		assert.Contains(t, err.Error(), expErrStr, desc)
+		assert.Error(t, err)
+		assert.False(t, updated)
+		assert.Contains(t, err.Error(), expErrStr)
 	}
 }
 
 func assertSecretsUpdated(expK8sSecrets expectedK8sSecrets,
 	expMissingValues expectedMissingValues) assertFunc {
-	return func(t *testing.T, mocks testMocks, err error, desc string) {
-		assert.NoError(t, err, desc)
+	return func(t *testing.T, mocks testMocks, updated bool,
+		err error, desc string) {
+
+		assert.NoError(t, err)
+		assert.True(t, updated)
 		// Check that K8s Secrets contain expected Conjur secret values
 		for k8sSecretName, expSecretData := range expK8sSecrets {
 			actualSecretData := mocks.kubeClient.InspectSecret(k8sSecretName)
@@ -112,10 +116,11 @@ func assertSecretsUpdated(expK8sSecrets expectedK8sSecrets,
 }
 
 func assertErrorLogged(msg string, args ...interface{}) assertFunc {
-	return func(t *testing.T, mocks testMocks, err error, desc string) {
+	return func(t *testing.T, mocks testMocks, updated bool, err error, desc string) {
 		errStr := fmt.Sprintf(msg, args...)
 		newDesc := desc + ", error logged: " + errStr
 		assert.True(t, mocks.logger.ErrorWasLogged(errStr), newDesc)
+		assert.False(t, updated)
 	}
 }
 
@@ -365,21 +370,23 @@ func TestProvide(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		// Set up test case
-		mocks := newTestMocks()
-		mocks.setPermissions(tc.denyConjurRetrieve, tc.denyK8sRetrieve,
-			tc.denyK8sUpdate)
-		for secretName, secretData := range tc.k8sSecrets {
-			mocks.kubeClient.AddSecret(secretName, secretData)
-		}
-		provider := mocks.newProvider(tc.requiredSecrets)
+		t.Run(tc.desc, func(t *testing.T) {
+			// Set up test case
+			mocks := newTestMocks()
+			mocks.setPermissions(tc.denyConjurRetrieve, tc.denyK8sRetrieve,
+				tc.denyK8sUpdate)
+			for secretName, secretData := range tc.k8sSecrets {
+				mocks.kubeClient.AddSecret(secretName, secretData)
+			}
+			provider := mocks.newProvider(tc.requiredSecrets)
 
-		// Run test case
-		err := provider.Provide()
+			// Run test case
+			updated, err := provider.Provide()
 
-		// Confirm results
-		for _, assert := range tc.asserts {
-			assert(t, mocks, err, tc.desc)
-		}
+			// Confirm results
+			for _, assert := range tc.asserts {
+				assert(t, mocks, updated, err, tc.desc)
+			}
+		})
 	}
 }
