@@ -82,6 +82,7 @@ COPY --from=busybox /bin/whoami /bin/whoami
 COPY --from=busybox /bin/mkdir /bin/mkdir
 COPY --from=busybox /bin/chmod /bin/chmod
 COPY --from=busybox /bin/cat /bin/cat
+COPY bin/run-time-scripts /usr/local/bin/
 
 RUN apk add -u shadow libc6-compat && \
     # Add limited user
@@ -94,15 +95,17 @@ RUN apk add -u shadow libc6-compat && \
             -r \
             secrets-provider && \
     # Ensure plugin dir is owned by secrets-provider user
-    mkdir -p /usr/local/lib/secrets-provider /etc/conjur/ssl /run/conjur && \
+    mkdir -p /usr/local/lib/secrets-provider /etc/conjur/ssl /run/conjur /conjur/status && \
     # Use GID of 0 since that is what OpenShift will want to be able to read things
     chown secrets-provider:0 /usr/local/lib/secrets-provider \
                            /etc/conjur/ssl \
-                           /run/conjur && \
+                           /run/conjur \
+                           /conjur/status && \
     # We need open group permissions in these directories since OpenShift won't
     # match our UID when we try to write files to them
     chmod 770 /etc/conjur/ssl \
-              /run/conjur
+              /run/conjur && \
+    chmod 777 /conjur/status
 
 USER secrets-provider
 
@@ -154,17 +157,20 @@ RUN groupadd -r secrets-provider \
             -r \
             secrets-provider && \
     # Ensure plugin dir is owned by secrets-provider user
-    mkdir -p /usr/local/lib/secrets-provider /etc/conjur/ssl /run/conjur /licenses && \
+    mkdir -p /usr/local/lib/secrets-provider /etc/conjur/ssl /run/conjur /conjur/status /licenses && \
     # Use GID of 0 since that is what OpenShift will want to be able to read things
     chown secrets-provider:0 /usr/local/lib/secrets-provider \
                            /etc/conjur/ssl \
-                           /run/conjur && \
+                           /run/conjur \
+                           /conjur/status && \
     # We need open group permissions in these directories since OpenShift won't
     # match our UID when we try to write files to them
     chmod 770 /etc/conjur/ssl \
-              /run/conjur
+              /run/conjur && \
+    chmod 777 /conjur/status
 
 COPY --from=secrets-provider-builder /opt/secrets-provider-for-k8s/secrets-provider /usr/local/bin/
+COPY bin/run-time-scripts /usr/local/bin/
 
 COPY LICENSE.md /licenses
 

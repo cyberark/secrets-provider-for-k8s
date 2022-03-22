@@ -19,10 +19,16 @@ type pushToFileWithDepsTestCase struct {
 	description            string
 	group                  SecretGroup
 	overrideSecrets        []*Secret // Overrides secrets generated from group secret specs
-	overridePushToWriter   func(writer io.Writer, groupName string, groupTemplate string, groupSecrets []*Secret) error
+	overridePushToWriter   func(writer io.Writer, groupName string, groupTemplate string, groupSecrets []*Secret) (bool, error)
 	toWriterPusherErr      error
 	toWriteCloserOpenerErr error
-	assert                 func(t *testing.T, spyOpenWriteCloser openWriteCloserSpy, closableBuf *ClosableBuffer, spyPushToWriter pushToWriterSpy, err error)
+	targetsUpdated         bool
+	assert                 func(t *testing.T,
+		spyOpenWriteCloser openWriteCloserSpy,
+		closableBuf *ClosableBuffer,
+		spyPushToWriter pushToWriterSpy,
+		updated bool,
+		err error)
 }
 
 func (tc *pushToFileWithDepsTestCase) Run(t *testing.T) {
@@ -33,7 +39,8 @@ func (tc *pushToFileWithDepsTestCase) Run(t *testing.T) {
 		// Setup mocks
 		closableBuf := new(ClosableBuffer)
 		spyPushToWriter := pushToWriterSpy{
-			err: tc.toWriterPusherErr,
+			targetsUpdated: tc.targetsUpdated,
+			err:            tc.toWriterPusherErr,
 		}
 		spyOpenWriteCloser := openWriteCloserSpy{
 			writeCloser: closableBuf,
@@ -60,12 +67,12 @@ func (tc *pushToFileWithDepsTestCase) Run(t *testing.T) {
 		}
 
 		// Exercise
-		err := group.pushToFileWithDeps(
+		updated, err := group.pushToFileWithDeps(
 			spyOpenWriteCloser.Call,
 			pushToWriterFunc,
 			secrets)
 
-		tc.assert(t, spyOpenWriteCloser, closableBuf, spyPushToWriter, err)
+		tc.assert(t, spyOpenWriteCloser, closableBuf, spyPushToWriter, updated, err)
 	})
 }
 
@@ -627,7 +634,7 @@ func TestNewSecretGroups(t *testing.T) {
 
 var pushToFileWithDepsTestCases = []pushToFileWithDepsTestCase{
 	{
-		description:          "happy path",
+		description:          "happy path, no targets updated",
 		group:                modifyGoodGroup(),
 		overrideSecrets:      nil,
 		overridePushToWriter: nil,
@@ -636,10 +643,60 @@ var pushToFileWithDepsTestCases = []pushToFileWithDepsTestCase{
 			spyOpenWriteCloser openWriteCloserSpy,
 			closableBuf *ClosableBuffer,
 			spyPushToWriter pushToWriterSpy,
+			updated bool,
 			err error,
 		) {
 			// Assertions
 			assert.NoError(t, err)
+			assert.False(t, updated)
+			// Assert on pushToWriterFunc
+			assert.Equal(
+				t,
+				pushToWriterArgs{
+					writer:        closableBuf,
+					groupName:     "groupname",
+					groupTemplate: "filetemplate",
+					groupSecrets: []*Secret{
+						{
+							Alias: "alias1",
+							Value: "value-path1",
+						},
+						{
+							Alias: "alias2",
+							Value: "value-path2",
+						},
+					},
+				},
+				spyPushToWriter.args,
+			)
+			// Assert on WriteCloserOpener
+			assert.Equal(
+				t,
+				openWriteCloserArgs{
+					path:        "path/to/file",
+					permissions: 123,
+				},
+				spyOpenWriteCloser.args,
+			)
+		},
+	},
+	{
+		description:          "happy path, targets updated",
+		group:                modifyGoodGroup(),
+		overrideSecrets:      nil,
+		overridePushToWriter: nil,
+		targetsUpdated:       true,
+		assert: func(
+			t *testing.T,
+			spyOpenWriteCloser openWriteCloserSpy,
+			closableBuf *ClosableBuffer,
+			spyPushToWriter pushToWriterSpy,
+			updated bool,
+			err error,
+		) {
+			// Assertions
+			assert.NoError(t, err)
+			assert.True(t, updated)
 			// Assert on pushToWriterFunc
 			assert.Equal(
 				t,
@@ -685,6 +742,7 @@ var pushToFileWithDepsTestCases = []pushToFileWithDepsTestCase{
 			spyOpenWriteCloser openWriteCloserSpy,
 			closableBuf *ClosableBuffer,
 			spyPushToWriter pushToWriterSpy,
+			updated bool,
 			err error,
 		) {
 			// Assertions
@@ -704,6 +762,7 @@ var pushToFileWithDepsTestCases = []pushToFileWithDepsTestCase{
 			spyOpenWriteCloser openWriteCloserSpy,
 			closableBuf *ClosableBuffer,
 			spyPushToWriter pushToWriterSpy,
+			updated bool,
 			err error,
 		) {
 			// Assertions
@@ -727,6 +786,7 @@ var pushToFileWithDepsTestCases = []pushToFileWithDepsTestCase{
 			spyOpenWriteCloser openWriteCloserSpy,
 			closableBuf *ClosableBuffer,
 			spyPushToWriter pushToWriterSpy,
+			updated bool,
 			err error,
 		) {
 			// Assertions
@@ -740,14 +800,15 @@ var pushToFileWithDepsTestCases = []pushToFileWithDepsTestCase{
 		description:     "template execution error",
 		group:           modifyGoodGroup(),
 		overrideSecrets: nil,
-		overridePushToWriter: func(writer io.Writer, groupName string, groupTemplate string, groupSecrets []*Secret) error {
-			return errors.New("underlying error message")
+		overridePushToWriter: func(writer io.Writer, groupName string, groupTemplate string, groupSecrets []*Secret) (bool, error) {
+			return false, errors.New("underlying error message")
 		},
 		assert: func(
 			t *testing.T,
 			spyOpenWriteCloser openWriteCloserSpy,
 			closableBuf *ClosableBuffer,
 			spyPushToWriter pushToWriterSpy,
+			updated bool,
 			err error,
 		) {
 			// Assertions
@@ -762,7 +823,7 @@ var pushToFileWithDepsTestCases = []pushToFileWithDepsTestCase{
 		description:     "template execution panic",
 		group:           modifyGoodGroup(),
 		overrideSecrets: nil,
-		overridePushToWriter: func(writer io.Writer, groupName string, groupTemplate string, groupSecrets []*Secret) error {
+		overridePushToWriter: func(writer io.Writer, groupName string, groupTemplate string, groupSecrets []*Secret) (bool, error) {
 			panic("canned panic response - maybe containing secrets")
 		},
 		assert: func(
@@ -770,6 +831,7 @@ var pushToFileWithDepsTestCases = []pushToFileWithDepsTestCase{
 			spyOpenWriteCloser openWriteCloserSpy,
 			closableBuf *ClosableBuffer,
 			spyPushToWriter pushToWriterSpy,
+			updated bool,
 			err error,
 		) {
 			// Assertions
@@ -802,6 +864,7 @@ func TestSecretGroup_pushToFileWithDeps(t *testing.T) {
 				spyOpenWriteCloser openWriteCloserSpy,
 				closableBuf *ClosableBuffer,
 				spyPushToWriter pushToWriterSpy,
+				updated bool,
 				err error,
 			) {
 				// Assertions
@@ -855,7 +918,7 @@ func TestSecretGroup_PushToFile(t *testing.T) {
 					},
 				},
 			}
-			err = group.PushToFile([]*Secret{
+			_, err = group.PushToFile([]*Secret{
 				{
 					Alias: "alias1",
 					Value: "value1",
@@ -902,7 +965,7 @@ func TestSecretGroup_PushToFile(t *testing.T) {
 				},
 			},
 		}
-		err = group.PushToFile([]*Secret{
+		_, err = group.PushToFile([]*Secret{
 			{
 				Alias: "alias1",
 				Value: "value1",
@@ -935,7 +998,7 @@ func TestSecretGroup_PushToFile(t *testing.T) {
 				},
 			},
 		}
-		err = group.PushToFile([]*Secret{
+		_, err = group.PushToFile([]*Secret{
 			{
 				Alias: "alias1",
 				Value: "value1",

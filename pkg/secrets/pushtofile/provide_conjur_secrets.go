@@ -9,7 +9,6 @@ import (
 	"github.com/cyberark/conjur-opentelemetry-tracer/pkg/trace"
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/log/messages"
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/clients/conjur"
-	"github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/config"
 	"go.opentelemetry.io/otel"
 )
 
@@ -26,16 +25,22 @@ type fileProviderDepFuncs struct {
 	depPushToWriter     pushToWriterFunc
 }
 
+// P2FProviderConfig provides config specific to Push-to-File provider
+type P2FProviderConfig struct {
+	SecretFileBasePath   string
+	TemplateFileBasePath string
+	AnnotationsMap       map[string]string
+}
+
 // NewProvider creates a new provider for Push-to-File mode.
 func NewProvider(
 	retrieveSecretsFunc conjur.RetrieveSecretsFunc,
-	providerConfig *config.ProviderConfig) (*fileProvider, []error) {
+	sanitizeEnabled bool,
+	config P2FProviderConfig,
+) (*fileProvider, []error) {
 
-	secretGroups, err := NewSecretGroups(
-		providerConfig.SecretFileBasePath,
-		providerConfig.TemplateFileBasePath,
-		providerConfig.AnnotationsMap,
-	)
+	secretGroups, err := NewSecretGroups(config.SecretFileBasePath,
+		config.TemplateFileBasePath, config.AnnotationsMap)
 	if err != nil {
 		return nil, err
 	}
@@ -44,12 +49,12 @@ func NewProvider(
 		retrieveSecretsFunc: retrieveSecretsFunc,
 		secretGroups:        secretGroups,
 		traceContext:        nil,
-		sanitizeEnabled:     providerConfig.SanitizeEnabled,
+		sanitizeEnabled:     sanitizeEnabled,
 	}, nil
 }
 
 // Provide implements a ProviderFunc to retrieve and push secrets to the filesystem.
-func (p fileProvider) Provide() error {
+func (p fileProvider) Provide() (bool, error) {
 	return provideWithDeps(
 		p.traceContext,
 		p.secretGroups,
@@ -71,7 +76,7 @@ func provideWithDeps(
 	groups []*SecretGroup,
 	sanitizeEnabled bool,
 	depFuncs fileProviderDepFuncs,
-) error {
+) (bool, error) {
 	// Use the global TracerProvider
 	tr := trace.NewOtelTracer(otel.Tracer("secrets-provider"))
 	spanCtx, span := tr.Start(traceContext, "Fetch Conjur Secrets")
@@ -87,16 +92,17 @@ func provideWithDeps(
 
 		span.RecordErrorAndSetStatus(err)
 		span.End()
-		return err
+		return false, err
 	}
 	span.End()
 
 	spanCtx, span = tr.Start(traceContext, "Write Secret Files")
 	defer span.End()
+	var updated bool
 	for _, group := range groups {
 		_, childSpan := tr.Start(spanCtx, "Write Secret Files for group")
 		defer childSpan.End()
-		err := group.pushToFileWithDeps(
+		groupUpdated, err := group.pushToFileWithDeps(
 			depFuncs.depOpenWriteCloser,
 			depFuncs.depPushToWriter,
 			secretsByGroup[group.Name],
@@ -104,10 +110,13 @@ func provideWithDeps(
 		if err != nil {
 			childSpan.RecordErrorAndSetStatus(err)
 			span.RecordErrorAndSetStatus(err)
-			return err
+			return updated, err
+		}
+		if groupUpdated {
+			updated = true
 		}
 	}
 
 	log.Info(messages.CSPFK015I)
-	return nil
+	return updated, nil
 }

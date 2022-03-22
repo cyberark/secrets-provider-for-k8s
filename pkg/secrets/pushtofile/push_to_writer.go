@@ -27,7 +27,7 @@ type pushToWriterFunc func(
 	groupName string,
 	groupTemplate string,
 	groupSecrets []*Secret,
-) error
+) (bool, error)
 
 // openWriteCloserFunc is the func definition for openFileAsWriteCloser. It allows switching
 // out openFileAsWriteCloser for a mock implementation
@@ -72,7 +72,7 @@ func pushToWriter(
 	groupName string,
 	groupTemplate string,
 	groupSecrets []*Secret,
-) error {
+) (bool, error) {
 	secretsMap := map[string]*Secret{}
 	for _, s := range groupSecrets {
 		secretsMap[s.Alias] = s
@@ -95,7 +95,7 @@ func pushToWriter(
 		"b64dec": b64decTemplateFunc,
 	}).Parse(groupTemplate)
 	if err != nil {
-		return err
+		return false, err
 	}
 
 	// Render the secret file content
@@ -105,7 +105,7 @@ func pushToWriter(
 	}
 	fileContent, err := renderFile(tpl, tplData)
 	if err != nil {
-		return err
+		return false, err
 	}
 
 	return writeContent(writer, fileContent, groupName)
@@ -117,10 +117,10 @@ func renderFile(tpl *template.Template, tplData templateData) (*bytes.Buffer, er
 	return buf, err
 }
 
-func writeContent(writer io.Writer, fileContent *bytes.Buffer, groupName string) error {
+func writeContent(writer io.Writer, fileContent *bytes.Buffer, groupName string) (bool, error) {
 	if writer == io.Discard {
 		_, err := writer.Write(fileContent.Bytes())
-		return err
+		return false, err
 	}
 
 	// Calculate a sha256 checksum on the content
@@ -129,16 +129,16 @@ func writeContent(writer io.Writer, fileContent *bytes.Buffer, groupName string)
 	// If file contents haven't changed, don't rewrite the file
 	if !contentHasChanged(groupName, checksum) {
 		log.Info(messages.CSPFK018I)
-		return nil
+		return false, nil
 	}
 
 	// Write the file and update the checksum
 	if _, err := writer.Write(fileContent.Bytes()); err != nil {
-		return err
+		return false, err
 	}
 	prevFileChecksums[groupName] = checksum
 
-	return nil
+	return true, nil
 }
 
 // fileChecksum calculates a checksum on the file content

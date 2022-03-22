@@ -16,6 +16,8 @@ import (
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/annotations"
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/clients/conjur"
 	secretsConfigProvider "github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/config"
+	k8sSecretsStorage "github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/k8s_secrets_storage"
+	"github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/pushtofile"
 	"go.opentelemetry.io/otel/attribute"
 )
 
@@ -80,8 +82,8 @@ func main() {
 		return
 	}
 
-	// Gather secrets config and create a retryable Secrets Provider
-	provideSecrets, _, err := retryableSecretsProvider(ctx, tracer, secretRetriever)
+	// Gather secrets config and create a repeatable Secrets Provider
+	provideSecrets, _, err := repeatableSecretsProvider(ctx, tracer, secretRetriever)
 	if err != nil {
 		logError(err.Error())
 		return
@@ -139,12 +141,12 @@ func secretRetriever(ctx context.Context,
 	return secretRetriever, nil
 }
 
-func retryableSecretsProvider(
+func repeatableSecretsProvider(
 	ctx context.Context,
 	tracer trace.Tracer,
-	secretRetriever *conjur.SecretRetriever) (secrets.ProviderFunc, *secretsConfigProvider.Config, error) {
+	secretRetriever *conjur.SecretRetriever) (secrets.RepeatableProviderFunc, *secretsConfigProvider.Config, error) {
 
-	_, span := tracer.Start(ctx, "Create retryable secrets provider")
+	_, span := tracer.Start(ctx, "Create repeatable secrets provider")
 	defer span.End()
 
 	// Initialize Secrets Provider configuration
@@ -154,14 +156,20 @@ func retryableSecretsProvider(
 		span.RecordErrorAndSetStatus(err)
 		return nil, nil, err
 	}
-	providerConfig := &secretsConfigProvider.ProviderConfig{
-		StoreType:            secretsConfig.StoreType,
-		PodNamespace:         secretsConfig.PodNamespace,
-		RequiredK8sSecrets:   secretsConfig.RequiredK8sSecrets,
-		SanitizeEnabled:      secretsConfig.SanitizeEnabled,
-		SecretFileBasePath:   secretsBasePath,
-		TemplateFileBasePath: templatesBasePath,
-		AnnotationsMap:       annotationsMap,
+	providerConfig := &secrets.ProviderConfig{
+		CommonProviderConfig: secrets.CommonProviderConfig{
+			StoreType:       secretsConfig.StoreType,
+			SanitizeEnabled: secretsConfig.SanitizeEnabled,
+		},
+		K8sProviderConfig: k8sSecretsStorage.K8sProviderConfig{
+			PodNamespace:       secretsConfig.PodNamespace,
+			RequiredK8sSecrets: secretsConfig.RequiredK8sSecrets,
+		},
+		P2FProviderConfig: pushtofile.P2FProviderConfig{
+			SecretFileBasePath:   secretsBasePath,
+			TemplateFileBasePath: templatesBasePath,
+			AnnotationsMap:       annotationsMap,
+		},
 	}
 
 	// Tag the span with the secrets provider mode
@@ -189,13 +197,17 @@ func retryableSecretsProvider(
 	// on this channel to trigger a graceful shut down of the Secrets Provider.
 	providerQuit := make(chan struct{})
 
-	provideSecrets = secrets.SecretProvider(
-		secretsConfig.SecretsRefreshInterval,
-		getContainerMode(),
+	refreshConfig := secrets.ProviderRefreshConfig{
+		Mode:                  getContainerMode(),
+		SecretRefreshInterval: secretsConfig.SecretsRefreshInterval,
+		ProviderQuit:          providerQuit,
+	}
+
+	repeatableProvideSecrets := secrets.RepeatableSecretProvider(
+		refreshConfig,
 		provideSecrets,
-		providerQuit,
 	)
-	return provideSecrets, secretsConfig, nil
+	return repeatableProvideSecrets, secretsConfig, nil
 }
 
 func customEnv(key string) string {

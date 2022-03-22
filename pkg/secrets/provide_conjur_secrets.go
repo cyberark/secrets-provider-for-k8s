@@ -20,28 +20,48 @@ const (
 	secretProviderGracePeriod = time.Duration(10 * time.Millisecond)
 )
 
-// ProviderFunc describes a function type responsible for providing secrets to an unspecified target.
-type ProviderFunc func() error
+// CommonProviderConfig provides config that is common to all providers
+type CommonProviderConfig struct {
+	StoreType       string
+	SanitizeEnabled bool
+}
+
+// ProviderConfig provides the configuration necessary to create a secrets
+// Provider.
+type ProviderConfig struct {
+	CommonProviderConfig
+	k8sSecretsStorage.K8sProviderConfig
+	pushtofile.P2FProviderConfig
+}
+
+// ProviderFunc describes a function type responsible for providing secrets to
+// an unspecified target. It returns either an error, or a flag that indicates
+// whether any target secret files or Kubernetes Secrets have been updated.
+type ProviderFunc func() (updated bool, err error)
+
+// RepeatableProviderFunc describes a function type that is capable of looping
+// indefinitely while providing secrets to unspecified targets.
+type RepeatableProviderFunc func() error
 
 // NewProviderForType returns a ProviderFunc responsible for providing secrets in a given mode.
 func NewProviderForType(
 	traceContext context.Context,
 	secretsRetrieverFunc conjur.RetrieveSecretsFunc,
-	providerConfig config.ProviderConfig,
+	providerConfig ProviderConfig,
 ) (ProviderFunc, []error) {
 	switch providerConfig.StoreType {
 	case config.K8s:
 		provider := k8sSecretsStorage.NewProvider(
 			traceContext,
 			secretsRetrieverFunc,
-			providerConfig.RequiredK8sSecrets,
-			providerConfig.PodNamespace,
+			providerConfig.K8sProviderConfig,
 		)
 		return provider.Provide, nil
 	case config.File:
 		provider, err := pushtofile.NewProvider(
 			secretsRetrieverFunc,
-			&providerConfig,
+			providerConfig.CommonProviderConfig.SanitizeEnabled,
+			providerConfig.P2FProviderConfig,
 		)
 		if err != nil {
 			return nil, err
@@ -68,51 +88,82 @@ func RetryableSecretProvider(
 		retryCountLimit,
 	)
 
-	return func() error {
+	return func() (bool, error) {
+		var updated bool
+		var retErr error
+
 		err := backoff.Retry(func() error {
 			if limitedBackOff.RetryCount() > 0 {
 				log.Info(fmt.Sprintf(messages.CSPFK010I, limitedBackOff.RetryCount(), limitedBackOff.RetryLimit))
 			}
-			return provideSecrets()
+			updated, retErr = provideSecrets()
+			return retErr
 		}, limitedBackOff)
 
 		if err != nil {
 			log.Error(messages.CSPFK038E, err)
 		}
-		return err
+		return updated, err
 	}
 }
 
-// SecretProvider returns a new ProviderFunc, which wraps a retryable
+// ProviderRefreshConfig specifies the secret refresh configuration
+// for a repeatable secret provider.
+type ProviderRefreshConfig struct {
+	Mode                  string
+	SecretRefreshInterval time.Duration
+	ProviderQuit          chan struct{}
+}
+
+// RepeatableSecretProvider returns a new ProviderFunc, which wraps a retryable
 // ProviderFunc inside a function that operates in one of three modes:
 //  - Run once and return (for init or application container modes)
 //  - Run once and sleep forever (for sidecar mode without periodic refresh)
 //  - Run periodically (for sidecar mode with periodic refresh)
-func SecretProvider(
-	secretRefreshInterval time.Duration,
-	mode string,
+func RepeatableSecretProvider(
+	refreshConfig ProviderRefreshConfig,
 	provideSecrets ProviderFunc,
-	providerQuit chan struct{},
-) ProviderFunc {
+) RepeatableProviderFunc {
+	return repeatableSecretProvider(refreshConfig, provideSecrets,
+		defaultStatusUpdater)
+}
+
+func repeatableSecretProvider(
+	config ProviderRefreshConfig,
+	provideSecrets ProviderFunc,
+	status statusUpdater,
+) RepeatableProviderFunc {
 
 	var periodicQuit = make(chan struct{})
 	var periodicError = make(chan error)
 	var ticker *time.Ticker
+	var err error
 
 	return func() error {
-		err := provideSecrets()
-		switch {
-		case err != nil:
+		if err = status.copyScripts(); err != nil {
+			return err
+		}
+		if _, err = provideSecrets(); err != nil {
 			// Return immediately upon error, regardless of operating mode
 			return err
-		case mode != "sidecar":
-			// Run once and return if not in sidecar mode
+		}
+		err = status.setSecretsProvided()
+		if err != nil {
 			return err
-		case secretRefreshInterval > 0:
+		}
+		switch {
+		case config.Mode != "sidecar":
+			// Run once and return if not in sidecar mode
+			return nil
+		case config.SecretRefreshInterval > 0:
 			// Run periodically if in sidecar mode with periodic refresh
-			ticker = time.NewTicker(secretRefreshInterval)
-			go periodicSecretProvider(provideSecrets, ticker,
-				periodicQuit, periodicError)
+			ticker = time.NewTicker(config.SecretRefreshInterval)
+			config := periodicConfig{
+				ticker:        ticker,
+				periodicQuit:  periodicQuit,
+				periodicError: periodicError,
+			}
+			go periodicSecretProvider(provideSecrets, config, status)
 		default:
 			// Run once and sleep forever if in sidecar mode without
 			// periodic refresh (fall through)
@@ -121,14 +172,14 @@ func SecretProvider(
 		// Wait here for a signal to quit providing secrets or an error
 		// from the periodicSecretProvider() function
 		select {
-		case <-providerQuit:
+		case <-config.ProviderQuit:
 			break
 		case err = <-periodicError:
 			break
 		}
 
 		// Allow the periodicSecretProvider goroutine to gracefully shut down
-		if secretRefreshInterval > 0 {
+		if config.SecretRefreshInterval > 0 {
 			// Kill the ticker
 			ticker.Stop()
 			periodicQuit <- struct{}{}
@@ -139,20 +190,28 @@ func SecretProvider(
 	}
 }
 
+type periodicConfig struct {
+	ticker        *time.Ticker
+	periodicQuit  <-chan struct{}
+	periodicError chan<- error
+}
+
 func periodicSecretProvider(
 	provideSecrets ProviderFunc,
-	ticker *time.Ticker,
-	periodicQuit <-chan struct{},
-	periodicError chan<- error,
+	config periodicConfig,
+	status statusUpdater,
 ) {
 	for {
 		select {
-		case <-periodicQuit:
+		case <-config.periodicQuit:
 			return
-		case <-ticker.C:
-			err := provideSecrets()
+		case <-config.ticker.C:
+			updated, err := provideSecrets()
+			if err == nil && updated {
+				err = status.setSecretsUpdated()
+			}
 			if err != nil {
-				periodicError <- err
+				config.periodicError <- err
 			}
 		}
 	}

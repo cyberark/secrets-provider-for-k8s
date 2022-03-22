@@ -17,7 +17,7 @@ type pushToWriterTestCase struct {
 func (tc pushToWriterTestCase) Run(t *testing.T) {
 	t.Run(tc.description, func(t *testing.T) {
 		buf := new(bytes.Buffer)
-		err := pushToWriter(
+		_, err := pushToWriter(
 			buf,
 			"group path",
 			tc.template,
@@ -160,19 +160,20 @@ func Test_pushToWriter_contentChanges(t *testing.T) {
 		template := `{{secret "alias"}}`
 
 		buf := new(bytes.Buffer)
-		err := pushToWriter(
+		updated, err := pushToWriter(
 			buf,
 			groupName,
 			template,
 			secrets,
 		)
 		assert.NoError(t, err)
+		assert.True(t, updated)
 		assert.Equal(t, "secret value", buf.String())
 
 		// Now clear the buffer and call pushToWriter again. Since the secret is the same,
 		// it should not update the buffer.
 		buf.Reset()
-		err = pushToWriter(
+		updated, err = pushToWriter(
 			buf,
 			groupName,
 			template,
@@ -180,29 +181,32 @@ func Test_pushToWriter_contentChanges(t *testing.T) {
 		)
 
 		assert.NoError(t, err)
+		assert.False(t, updated)
 		assert.Zero(t, buf.Len())
 
 		// Now change the secret and call pushToWriter again. This time, the buffer should
 		// be updated because the secret has changed.
-		err = pushToWriter(
+		updated, err = pushToWriter(
 			buf,
 			groupName,
 			template,
 			[]*Secret{{Alias: "alias", Value: "secret changed"}},
 		)
 		assert.NoError(t, err)
+		assert.True(t, updated)
 		assert.Equal(t, "secret changed", buf.String())
 
 		// Repeat the test but this time change the template instead of the secret. The buffer should still
 		// be updated because the rendered output should be different.
 		buf.Reset()
-		err = pushToWriter(
+		updated, err = pushToWriter(
 			buf,
 			groupName,
 			`- {{secret "alias"}}`,
 			[]*Secret{{Alias: "alias", Value: "secret changed"}},
 		)
 		assert.NoError(t, err)
+		assert.True(t, updated)
 		assert.Equal(t, "- secret changed", buf.String())
 	})
 }
