@@ -71,7 +71,15 @@ There are two new annotations introduced and one annotation is updated.
 Prerequisites:
 
 Requires secrets-provider-for-k8s v1.4.0 or later.
+
+<details><summary>For Push to File mode</summary>
+
 Follow the procedure to set up Secrets Provider for [Push to File](PUSH_TO_FILE.md#set-up-secrets-provider-for-push-to-file)
+</details>
+<details><summary>For Kubernetes Secrets mode</summary>
+
+Follow the procedure to set up [Kubernetes Secrets](https://docs.cyberark.com/Product-Doc/OnlineHelp/AAM-DAP/Latest/en/Content/Integrations/k8s-ocp/cjr-k8s-secrets-provider-ic.htm?tocpath=Integrations%7COpenShift%252FKubernetes%7CSet%20up%20applications%7CSecrets%20Provider%20for%20Kubernetes%7CInit%20container%7C_____1#SetupSecretsProviderasaninitcontainer)
+</details>
 
 Modify the Kubernetes manifest
 1. Change the Secrets provider container to be a sidecar. If it was configured
@@ -135,7 +143,5 @@ This feature is a **Community** level project that is still under development.
 There could be changes to the documentation so please check back often for updates and additions.
 Future enhancements to this feature will include:
 
-- Support for secrets rotation of Kubernetes secrets
 - atomic writes for multiple Conjur secret values
 - reporting of multiple errored secret variables for bulk Conjur secret retrieval and selective deletion of secret values from files
-- atomic write of secret files

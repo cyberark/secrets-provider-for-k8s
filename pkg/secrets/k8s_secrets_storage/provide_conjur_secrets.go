@@ -1,7 +1,9 @@
 package k8ssecretsstorage
 
 import (
+	"bytes"
 	"context"
+	"fmt"
 
 	"github.com/cyberark/conjur-authn-k8s-client/pkg/log"
 	"go.opentelemetry.io/otel"
@@ -13,6 +15,7 @@ import (
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/clients/conjur"
 	k8sClient "github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/clients/k8s"
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/config"
+	"github.com/cyberark/secrets-provider-for-k8s/pkg/utils"
 )
 
 // Secrets that have been retrieved from Conjur may need to be updated in
@@ -30,7 +33,7 @@ type k8sSecretsState struct {
 	// from K8s.
 	originalK8sSecrets map[string]*v1.Secret
 
-	// Maps a Conjur variable ID (policy path) to all of the updateDestination
+	// Maps a Conjur variable ID (policy path) to all the updateDestination
 	// targets which will need to be updated with the corresponding Conjur
 	// secret value after it has been retrieved.
 	updateDestinations map[string][]updateDestination
@@ -76,6 +79,10 @@ type K8sProvider struct {
 	requiredK8sSecrets []string
 	secretsState       k8sSecretsState
 	traceContext       context.Context
+	//prevSecretsChecksums maps a k8s secret name to a sha256 checksum of the
+	// corresponding secret content. This is used to detect changes in
+	// secret content.
+	prevSecretsChecksums map[string]utils.Checksum
 }
 
 // K8sProviderConfig provides config specific to Kubernetes Secrets provider
@@ -132,6 +139,7 @@ func newProvider(
 			updateDestinations: map[string][]updateDestination{},
 		},
 		traceContext: traceContext,
+		prevSecretsChecksums: map[string]utils.Checksum{},
 	}
 }
 
@@ -294,19 +302,35 @@ func (p K8sProvider) updateRequiredK8sSecrets(
 	for k8sSecretName, secretData := range newSecretData {
 		_, childSpan := tracer.Start(spanCtx, "Update K8s Secret")
 		defer childSpan.End()
-
-		err := p.k8s.updateSecret(
-			p.podNamespace,
-			k8sSecretName,
-			p.secretsState.originalK8sSecrets[k8sSecretName],
-			secretData)
+		b := new(bytes.Buffer)
+		_, err := fmt.Fprintf(b, "%v", secretData)
 		if err != nil {
-			// Error messages returned from K8s should be printed only in debug mode
 			p.log.debug(messages.CSPFK005D, err.Error())
 			childSpan.RecordErrorAndSetStatus(err)
 			return updated, p.log.recordedError(messages.CSPFK022E)
 		}
-		updated = true
+
+		// Calculate a sha256 checksum on the content
+		checksum, _ := utils.FileChecksum(b)
+
+		if utils.ContentHasChanged(k8sSecretName, checksum, p.prevSecretsChecksums) {
+			err := p.k8s.updateSecret(
+				p.podNamespace,
+				k8sSecretName,
+				p.secretsState.originalK8sSecrets[k8sSecretName],
+				secretData)
+			if err != nil {
+				// Error messages returned from K8s should be printed only in debug mode
+				p.log.debug(messages.CSPFK005D, err.Error())
+				childSpan.RecordErrorAndSetStatus(err)
+				return false, p.log.recordedError(messages.CSPFK022E)
+			}
+			p.prevSecretsChecksums[k8sSecretName] = checksum
+			updated = true
+		} else {
+			p.log.info(messages.CSPFK020I)
+			updated = false
+		}
 	}
 
 	return updated, nil

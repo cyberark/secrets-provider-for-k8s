@@ -12,6 +12,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
   [cyberark/secrets-provider-for-k8s#447](https://github.com/cyberark/secrets-provider-for-k8s/pull/447)
 - Secrets Provider allows for its status to be monitored through the creation of a couple of empty sentinel files: `CONJUR_SECRETS_PROVIDED` and `CONJUR_SECRETS_UPDATED`. The first file is created when SP has completed its first round of providing secrets via secret files / Kubernetes Secrets. It creates/recreates the second file whenever it has updated secret files / Kubernetes Secrets. If desirable, application containers can mount these files via a shared volume.
   [cyberark/secrets-provider-for-k8s#450](https://github.com/cyberark/secrets-provider-for-k8s/pull/450)
+- Adds support for secrets rotation with Kubernetes Secrets.
+  [cyberark/secrets-provider-for-k8s#448](https://github.com/cyberark/secrets-provider-for-k8s/pull/448)
 
 ## [1.4.0] - 2022-02-15
 
