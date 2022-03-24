@@ -765,9 +765,18 @@ is as follows:
 Since we want to detect this situation and restart the Secrets Provider
 to attempt to recovery fairly quickly, the rate at which this status file
 is created should be high. Since the creation of the status file is relatively
-inexpensive, the rate can be set to once/second. (The configured periodic
-refresh interval, on the other hand, can be configured to a rate much slower.)
-The `livenessProbe` interval should be something longer, e.g. 5 seconds.
+inexpensive, the rate can be set to once/second. The creation of this status
+file should be done in the same goroutine/thread that is used to periodically
+check for secret rotation. In other words, the Secrets Provider will do
+the following in a goroutine that is driven by once-per-second ticks
+from a ticker:
+
+- Create the `SECRETS_PROVIDER_ALIVE` status file
+- Increment a tick counter. If this is the `N`th tick since the last check
+  for rotated secrets (Where `N` is the number of seconds in a secret
+  rotation periodic refresh cycle), check for and process rotated secrets.
+
+The `livenessProbe` interval should be something longer than the once-per-second rate that the status file is created, e.g. 5 seconds.
 
 ### Conjur API Enhancements
 
