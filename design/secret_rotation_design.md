@@ -257,7 +257,21 @@ Annotation-based configuration independent of operating modes.
     in this status file is detected, the file watcher can reset all
     processes in the application container.
 
-  - **OPTION 3: FUTURE SUPPORT: Configure Secrets Provider to Send Restart Signal**
+    NOTE: It would be rather convenient if we include the `inotify` binary
+    in the Secrets Provider Docker container image, and copy this to the
+    `/conjur/status` directory. This would make the `inotify` binary
+    available to use e.g. in `livenessProbe` definitions for application
+    containers. (This would require a `volumeMount` for the application
+    container to make the `inotify` binary available for the liveness probe).
+
+  - **OPTION 3: (For Kubernetes Secrets Mode Only) Use Kubernetes Reloader**
+    For applications that are using the Secrets Provider in Kubernetes Secrets
+    mode, the [Kubernetes Reloader](https://github.com/stakater/Reloader)
+    project can be used to watch for changes in an application ConfigMap,
+    and trigger a rolling upgrade of the associated Deployment whenever
+    ConfigMap contents have changed.
+
+  - **OPTION 4: FUTURE SUPPORT: Configure Secrets Provider to Send Restart Signal**
     In a future version of Secrets Provider, it will be possible to configure
     the configure the Secrets Provider to send a configurable restart signal
     (e.g. SIGKILL, SIGTERM, etc.) to the application process(es) after target
