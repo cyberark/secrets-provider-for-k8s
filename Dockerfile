@@ -25,6 +25,7 @@ WORKDIR /opt/secrets-provider-for-k8s
 EXPOSE 8080
 
 COPY go.mod go.sum ./
+COPY modules/ ./modules
 
 # Add a layer of prefetched modules so the modules are already cached in case we rebuild
 RUN go mod download
