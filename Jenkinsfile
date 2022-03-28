@@ -1,5 +1,34 @@
 #!/usr/bin/env groovy
 
+// Automated release, promotion and dependencies
+properties([
+  // Include the automated release parameters for the build
+  release.addParams(),
+  // Dependencies of the project that should trigger builds
+  dependencies([
+    'cyberark/conjur-opentelemetry-tracer',
+    'cyberark/conjur-authn-k8s-client',
+    'cyberark/conjur-api-go'
+  ])
+])
+
+// Performs release promotion.  No other stages will be run
+if (params.MODE == "PROMOTE") {
+  release.promote(params.VERSION_TO_PROMOTE) { sourceVersion, targetVersion, assetDirectory ->
+    // Any assets from sourceVersion Github release are available in assetDirectory
+    // Any version number updates from sourceVersion to targetVersion occur here
+    // Any publishing of targetVersion artifacts occur here
+    // Anything added to assetDirectory will be attached to the Github Release
+
+    // Pull existing images from internal registry in order to promote
+    sh "docker pull registry.tld/secrets-provider-for-k8s:${sourceVersion}"
+    sh "docker pull registry.tld/secrets-provider-for-k8s-redhat:${sourceVersion}"
+    // Promote source version to target version.
+    sh "summon ./bin/publish --promote --source ${sourceVersion} --target ${targetVersion}"
+  }
+  return
+}
+
 pipeline {
   agent { label 'executor-v2' }
 
@@ -13,6 +42,11 @@ pipeline {
     timeout(time: 3, unit: 'HOURS')
   }
 
+  environment {
+    // Sets the MODE to the specified or autocalculated value as appropriate
+    MODE = release.canonicalizeMode()
+  }
+
   parameters {
     booleanParam(name: 'TEST_OCP_NEXT', defaultValue: false, description: 'Run DAP tests against our running "next version" of Openshift')
 
@@ -20,6 +54,21 @@ pipeline {
   }
 
   stages {
+    // Aborts any builds triggered by another project that wouldn't include any changes
+    stage ("Skip build if triggering job didn't create a release") {
+      when {
+        expression {
+          MODE == "SKIP"
+        }
+      }
+      steps {
+        script {
+          currentBuild.result = 'ABORTED'
+          error("Aborting build because this build was triggered from upstream, but no release was built")
+        }
+      }
+    }
+
     stage('Validate') {
       parallel {
         stage('Changelog') {
@@ -30,6 +79,13 @@ pipeline {
             validateLogMessages()
           }
         }
+      }
+    }
+
+    // Generates a VERSION file based on the current build number and latest version in CHANGELOG.md
+    stage('Validate Changelog and set version') {
+      steps {
+        updateVersion("CHANGELOG.md", "${BUILD_NUMBER}")
       }
     }
 
@@ -176,32 +232,34 @@ pipeline {
           }
         }
 
+        // Allows for the promotion of images.
+        stage('Push images to internal registry') {
+          steps {
+            sh './bin/publish --internal'
+          }
+        }
+
         stage('Release') {
+          when {
+            expression {
+              MODE == "RELEASE"
+            }
+          }
           parallel {
             stage('Push Images') {
               steps {
-                script {
-                  BRANCH_NAME=env.BRANCH_NAME
-                }
-                withCredentials(
-                  [
-                    usernamePassword(
-                      credentialsId: 'conjur-jenkins-api',
-                      usernameVariable: 'GIT_USER',
-                      passwordVariable: 'GIT_PASSWORD'
-                    )
-                  ]
-                ) {
-                    sh '''
-                        git config --local credential.helper '! echo username=${GIT_USER}; echo password=${GIT_PASSWORD}; echo > /dev/null'
-                        git fetch --tags
-                        export GIT_DESCRIPTION=$(git describe --tags)
-                        export BRANCH_NAME=${BRANCH_NAME}
-                        summon ./bin/publish
-                    '''
+                release { billOfMaterialsDirectory, assetDirectory, toolsDirectory ->
+                  // Publish release artifacts to all the appropriate locations
+                  // Copy any artifacts to assetDirectory to attach them to the Github release
+
+                  //    // Create Go application SBOM using the go.mod version for the golang container image
+                  sh """go-bom --tools "${toolsDirectory}" --go-mod ./go.mod --image "golang" --main "cmd/secrets-provider/" --output "${billOfMaterialsDirectory}/go-app-bom.json" """
+                  //    // Create Go module SBOM
+                  sh """go-bom --tools "${toolsDirectory}" --go-mod ./go.mod --image "golang" --output "${billOfMaterialsDirectory}/go-mod-bom.json" """
+                  sh 'summon ./bin/publish --edge'
                   }
+                }
               }
-            }
             stage('Package artifacts') {
               steps {
                 sh 'ci/jenkins_build'
