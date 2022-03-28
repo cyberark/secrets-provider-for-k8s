@@ -22,6 +22,7 @@ RUN apk add -u curl \
                musl-dev
 
 COPY go.mod go.sum /secrets-provider-for-k8s/
+COPY modules/ /secrets-provider-for-k8s/modules
 
 RUN go mod download
 
