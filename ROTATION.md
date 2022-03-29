@@ -8,6 +8,7 @@
 - [How Secrets Rotation Works](#how-secrets-rotation-works)
 - [Set up Secrets Provider for secrets rotation](#set-up-secrets-provider-for-secrets-rotation)
 - [Additional Configuration Annotations](#reference-table-of-configuration-annotations)
+- [Using Sentinel files](#using-sentinel-files-for-checking-provider-status)
 - [Troubleshooting](#troubleshooting)
 - [Limitations](#limitations)
 
@@ -15,8 +16,6 @@
 
 The secrets rotation feature detailed below allows Kubernetes applications to
 refresh Conjur secrets if there are any changes to the secrets.
-
-Secrets rotation is only supported for Push to File mode, though K8s Secrets will be part of the GA release.
 
 
 ## Certification Level
@@ -36,13 +35,13 @@ how Push to File works.
 
 
 1. The Secrets Provider authenticates to the Conjur server using the
-   Kubernetes Authenticator (`authn-k8s`).
+   Kubernetes Authenticator (`conjur-authn-k8s-client`).
 
 2. The Secrets Provider reads all Conjur secrets required across all
-   secret groups.
+   [secret groups](PUSH_TO_FILE.md#reference-table-of-configuration-annotations).
 
 3. The Secrets Provider sidecar container starts up and retrieves the initial secrets.
-   If enabled, after the duration specified by `conjur.org/secrets-refresh-interval` or the default interval
+   If secrets rotation is enabled, after the duration specified by `conjur.org/secrets-refresh-interval` or the default interval
    the Secrets Provider will check if the secrets have changed by comparing the SHA-256 checksums
    of the secrets with the previous checksums. The Secrets Provider does not save any of the unencrypted secrets.
   If the time needed to fetch the secrets is longer than is specified
@@ -83,12 +82,13 @@ Follow the procedure to set up [Kubernetes Secrets](https://docs.cyberark.com/Pr
 
 Modify the Kubernetes manifest
 1. Change the Secrets provider container to be a sidecar. If it was configured
-   as an init container remove the `initContainers`:
+   as an init container remove the `initContainers` so the image is in the containers section as below:
    ```
     spec:
       containers:
       - image: secrets-provider-for-k8s:latest
     ```
+   
 2. Update the `conjur.org/container-mode` annotation:
    ```
    conjur.org/container-mode: sidecar
@@ -103,7 +103,7 @@ Modify the Kubernetes manifest
    duration is not specified with the `conjur.org/secrets-refresh-interval`.
 
 
-   `conjur.org/secrets-refresh-enabled` Sets the duration and is a string as defined [here](https://pkg.go.dev/time#ParseDuration).
+   `conjur.org/secrets-refresh-interval` Sets the duration and is a string as defined [here](https://pkg.go.dev/time#ParseDuration).
    Setting a time implicitly enables refresh. Valid time units are `s`, `m`, and `h` 
    (for seconds, minutes, and hours, respectively). Some examples of valid duration 
    strings:<ul><li>`5m`</li><li>`2h30m`</li><li>`48h`</li></ul>The minimum refresh interval is 1 second.
@@ -112,6 +112,78 @@ Modify the Kubernetes manifest
    conjur.org/secrets-refresh-enabled: "true"
    conjur.org/secrets-refresh-interval: 10m
    ```
+   [Here is the example push file manifest modified for rotation.](assets/p2f-rotation.yaml)
+
+   [For comparison, a push to file manifest as an init container.](assets/push-to-file.yaml)
+
+   Secrets Rotation can also be used with Kubernetes secrets.
+
+   [Here is an example Kubernetes Secrets manifest modified for rotation.](assets/k8s-rotation.yaml)
+
+   [For comparison, a Kubernetes Secrets manifest as an init container.](assets/k8s-secrets.yaml)
+
+   Secrets Rotation can also be used with JWT authentication.
+   [Here is an example JWT based push to file manifest modified for rotation.](assets/jwt-ptf-rotation.yaml)
+
+   [Here is an example JWT based Kubernetes secrets manifest modified for rotation.](assets/jwt-k8s-rotation.yaml)
+
+## Using sentinel files for checking provider status
+
+Secrets Provider allows for its status to be monitored through the creation of a couple of empty sentinel files:
+`CONJUR_SECRETS_PROVIDED` and `CONJUR_SECRETS_UPDATED`. The first file is created when the SP has completed its first
+round of providing secrets via secret files / Kubernetes Secrets. It creates/recreates the second file whenever it
+has updated secret files / Kubernetes Secrets. If desirable, application containers can mount these files via a
+shared volume.
+
+The Pod would need a Volume defined:
+```
+    volumes:
+    - name: conjur-status
+      emptyDir:
+        medium: Memory
+```
+
+The application container and SP container would need to include volumeMounts similar to this:
+```
+    volumeMounts:
+    - mountPath: /conjur/status
+      name: conjur-status
+```
+
+These sentinel files can be used to delay the start of the application until after the 
+Secrets provider has started up and written the secrets. Kubelet will start the pod containers
+in the order they are listed in the manifest. A `postStart` lifecycle hook
+can be added to the Secrets Provider manifest which will delay the start of the app container
+until the `postStart` lifecycle hook is complete.
+See [conjur-secrets-provided](https://github.com/cyberark/secrets-provider-for-k8s/blob/main/bin/run-time-scripts/conjur-secrets-provided.sh)
+for an example of the Secrets Provider script.
+
+```
+        lifecycle:
+          postStart:
+            exec:
+              command:
+              - /usr/local/bin/conjur-secrets-provided.sh
+
+```
+
+
+A `livenessProbe` for an application container that would serve as a "file watcher" can potentially look 
+something like this (assuming the livenessProbe is not already being used by the container as a health probe).
+This will cause the application to be restarted after there secrets have been updated.
+
+```
+ livenessProbe:
+          exec:
+            command:
+            - /mounted/status/conjur-secrets-unchanged.sh
+          failureThreshold: 1
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          successThreshold: 1
+          timeoutSeconds: 1
+```
+
 
 ## Reference Table of Configuration Annotations
 
@@ -120,8 +192,8 @@ below is a list of annotations that are needed for secrets rotation.
 
 | K8s Annotation  | Description |
 |-----------------------------------------|----------------------------------|
-| `conjur.org/container-mode`         | Allowed values: <ul><li>`init`</li><li>`application`</li><li>`sidecar`</li></ul>Defaults to `init`.<br>Must be set (or default) to `init` or `sidecar`for Push to File mode.|
-| `conjur.org/secrets-refresh-enabled`  | Set to `true` to enable Secrets Rotation. Defaults to `false` unless `conjur.org/secrets-rotation-interval` is explicitly set. Secrets Provider will exit with error if this is set to `false` and `conjur.org/secrets-rotation-interval` is set. |
+| `conjur.org/container-mode`         | Configurable values: <ul><li>`init`</li><li>`application`</li><li>`sidecar`</li></ul>Defaults to `init`.<br>Must be set to `sidecar`for secrets rotation.|
+| `conjur.org/secrets-refresh-enabled`  | Set to `true` to enable Secrets Rotation. Defaults to `false` unless `conjur.org/secrets-refresh-interval` is explicitly set. Secrets Provider will exit with error if this is set to `false` and `conjur.org/secrets-refresh-interval` is set. |
 | `conjur.org/secrets-refresh-interval` | Set to a valid duration string as defined [here](https://pkg.go.dev/time#ParseDuration). Setting a time implicitly enables refresh. Valid time units are `s`, `m`, and `h` (for seconds, minutes, and hours, respectively). Some examples of valid duration strings:<ul><li>`5m`</li><li>`2h30m`</li><li>`48h`</li></ul>The minimum refresh interval is 1 second. A refresh interval of 0 seconds is treated as a fatal configuration error. The default refresh interval is 5 minutes. The maximum refresh interval is approximately 290 years. |
 | `conjur.org/remove-deleted-secrets-enabled` | Set to `false` to disable deletion of secrets files from the shared volume when a secret is removed or access is revoked in Conjur. Defaults to `true`. |
 

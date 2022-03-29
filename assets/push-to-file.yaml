@@ -1,0 +1,74 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: test-app-secrets-provider-p2f
+  name: test-app-secrets-provider-p2f
+  namespace: app-test
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: test-app-secrets-provider-p2f
+  template:
+    metadata:
+      labels:
+        app: test-app-secrets-provider-p2f
+      annotations:
+        conjur.org/authn-identity: host/conjur/authn-k8s/my-authenticator-id/apps/test-app-secrets-provider-p2f
+        conjur.org/container-mode: init
+        conjur.org/secrets-destination: file
+        conjur.org/conjur-secrets.test-app: |
+          - admin-username: username
+          - admin-password: password
+        conjur.org/conjur-secrets-policy-path.test-app: test-secrets-provider-p2f-app-db/
+        conjur.org/secret-file-path.test-app: "./application.yaml"
+        conjur.org/secret-file-format.test-app: "yaml"
+    spec:
+      serviceAccountName: test-app-secrets-provider-p2f
+      containers:
+        - name: test-app
+          image: ubuntu:latest
+          command: [ "sleep" ]
+          args: [ "infinity" ]
+          volumeMounts:
+            - name: conjur-secrets
+              mountPath: /mounted/secrets
+              readOnly: true
+      initContainers:
+        - name: cyberark-secrets-provider-for-k8s
+          image: 'cyberark/secrets-provider-for-k8s:latest'
+          imagePullPolicy: Always
+          env:
+            - name: MY_POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: MY_POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+          envFrom:
+            - configMapRef:
+                name: conjur-connect
+          volumeMounts:
+            - name: conjur-certs
+              mountPath: /etc/conjur/ssl
+            - name: podinfo
+              mountPath: /conjur/podinfo
+            - name: conjur-secrets
+              mountPath: /conjur/secrets
+      volumes:
+        - name: conjur-certs
+          emptyDir:
+            medium: Memory
+        - name: podinfo
+          downwardAPI:
+            items:
+              - path: "annotations"
+                fieldRef:
+                  fieldPath: metadata.annotations
+        - name: conjur-secrets
+          emptyDir:
+            medium: Memory
+

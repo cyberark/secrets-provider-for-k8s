@@ -1,0 +1,91 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: test-app
+  name: test-app
+  namespace: test-app-namespace
+template:
+ metadata:
+   annotations:
+     conjur.org/container-mode: sidecar
+     conjur.org/secrets-refresh-interval: 10s
+spec:
+  selector:
+    matchLabels:
+      app: test-app
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: test-app
+    spec:
+      serviceAccountName: test-app-sa
+      containers:
+        - name: test-app
+          image: <APPLICATION_IMAGE>
+          imagePullPolicy: <PULL_POLICY>
+          ports:
+            - containerPort: 8080
+          env:
+            - name: DB_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: db-credentials
+                  key: username
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: db-credentials
+                  key: password
+        - image: cyberark/secrets-provider-for-k8s
+          imagePullPolicy: Always
+          name: cyberark-secrets-provider-for-k8s
+          volumeMounts:
+          - name: jwt-token
+            mountPath: /var/run/secrets/tokens
+          - mountPath: /run/conjur
+            name: conjur-access-token
+          - mountPath: /etc/conjur/ssl
+            name: conjur-certs
+          - mountPath: /conjur/podinfo
+            name: podinfo
+          env:
+            - name: JWT_TOKEN_PATH
+              value: /var/run/secrets/tokens/jwt
+            - name: CONTAINER_MODE
+              value: init
+            - name: MY_POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: K8S_SECRETS
+              value: db-credentials
+            - name: SECRETS_DESTINATION
+              value: k8s_secrets
+          envFrom:
+            - configMapRef:
+                name: conjur-connect
+      volumes:
+      - name: jwt-token
+        projected:
+          sources:
+            - serviceAccountToken:
+                path: jwt
+                expirationSeconds: 6000
+                audience: https://conjur.host.name/
+      - emptyDir:
+          medium: Memory
+        name: conjur-access-token
+      - emptyDir:
+          medium: Memory
+        name: conjur-certs
+      - downwardAPI:
+          defaultMode: 420
+          items:
+          - fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.annotations
+            path: annotations
+        name: podinfo
+
