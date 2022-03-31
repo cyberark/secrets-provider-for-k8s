@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/cyberark/conjur-authn-k8s-client/pkg/log"
 	"go.opentelemetry.io/otel"
@@ -79,6 +80,7 @@ type K8sProvider struct {
 	requiredK8sSecrets []string
 	secretsState       k8sSecretsState
 	traceContext       context.Context
+	sanitizeEnabled    bool
 	//prevSecretsChecksums maps a k8s secret name to a sha256 checksum of the
 	// corresponding secret content. This is used to detect changes in
 	// secret content.
@@ -95,7 +97,8 @@ type K8sProviderConfig struct {
 func NewProvider(
 	traceContext context.Context,
 	retrieveConjurSecrets conjur.RetrieveSecretsFunc,
-	providerConfig K8sProviderConfig,
+	sanitizeEnabled bool,
+	config K8sProviderConfig,
 ) K8sProvider {
 	return newProvider(
 		k8sProviderDeps{
@@ -114,8 +117,8 @@ func NewProvider(
 				log.Debug,
 			},
 		},
-		providerConfig.RequiredK8sSecrets,
-		providerConfig.PodNamespace,
+		sanitizeEnabled,
+		config,
 		traceContext)
 }
 
@@ -124,21 +127,22 @@ func NewProvider(
 // Secrets objects.
 func newProvider(
 	providerDeps k8sProviderDeps,
-	requiredK8sSecrets []string,
-	podNamespace string,
+	sanitizeEnabled bool,
+	config K8sProviderConfig,
 	traceContext context.Context,
 ) K8sProvider {
 	return K8sProvider{
 		k8s:                providerDeps.k8s,
 		conjur:             providerDeps.conjur,
 		log:                providerDeps.log,
-		podNamespace:       podNamespace,
-		requiredK8sSecrets: requiredK8sSecrets,
+		podNamespace:       config.PodNamespace,
+		requiredK8sSecrets: config.RequiredK8sSecrets,
+		sanitizeEnabled:    sanitizeEnabled,
 		secretsState: k8sSecretsState{
 			originalK8sSecrets: map[string]*v1.Secret{},
 			updateDestinations: map[string][]updateDestination{},
 		},
-		traceContext: traceContext,
+		traceContext:         traceContext,
 		prevSecretsChecksums: map[string]utils.Checksum{},
 	}
 }
@@ -155,6 +159,17 @@ func (p K8sProvider) Provide() (bool, error) {
 	// Retrieve Conjur secrets for all K8s Secrets.
 	retrievedConjurSecrets, err := p.retrieveConjurSecrets(tr)
 	if err != nil {
+		// Delete K8s secret files for Conjur variables that no longer exist or the user no longer has permissions to.
+		// In the future we'll delete only the secrets that are revoked, but for now we delete all secrets in
+		// the group because we don't have a way to determine which secrets are revoked.
+		if (strings.Contains(err.Error(), "403") || strings.Contains(err.Error(), "404")) && p.sanitizeEnabled {
+			rmErr := p.removeDeletedSecrets(tr)
+			if rmErr != nil {
+				p.log.recordedError(messages.CSPFK063E)
+				// Don't return here - continue processing
+			}
+		}
+
 		return false, p.log.recordedError(messages.CSPFK034E, err.Error())
 	}
 
@@ -166,6 +181,23 @@ func (p K8sProvider) Provide() (bool, error) {
 
 	p.log.info(messages.CSPFK009I)
 	return updated, nil
+}
+
+func (p K8sProvider) removeDeletedSecrets(tr trace.Tracer) error {
+	log.Info(messages.CSPFK021I)
+	emptySecrets := make(map[string][]byte)
+	variablesToDelete, err := p.listConjurSecretsToFetch()
+	if err != nil {
+		return err
+	}
+	for _, secret := range variablesToDelete {
+		emptySecrets[secret] = []byte("")
+	}
+	_, err = p.updateRequiredK8sSecrets(emptySecrets, tr)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 // retrieveRequiredK8sSecrets retrieves all K8s Secrets that need to be
@@ -246,10 +278,7 @@ func (p K8sProvider) parseConjurSecretsYAML(secretsYAML []byte,
 	return nil
 }
 
-func (p K8sProvider) retrieveConjurSecrets(tracer trace.Tracer) (map[string][]byte, error) {
-	spanCtx, span := tracer.Start(p.traceContext, "Fetch Conjur Secrets")
-	defer span.End()
-
+func (p K8sProvider) listConjurSecretsToFetch() ([]string, error) {
 	updateDests := p.secretsState.updateDestinations
 	if len(updateDests) == 0 {
 		return nil, p.log.recordedError(messages.CSPFK025E)
@@ -260,6 +289,17 @@ func (p K8sProvider) retrieveConjurSecrets(tracer trace.Tracer) (map[string][]by
 	var variableIDs []string
 	for key := range updateDests {
 		variableIDs = append(variableIDs, key)
+	}
+	return variableIDs, nil
+}
+
+func (p K8sProvider) retrieveConjurSecrets(tracer trace.Tracer) (map[string][]byte, error) {
+	spanCtx, span := tracer.Start(p.traceContext, "Fetch Conjur Secrets")
+	defer span.End()
+
+	variableIDs, err := p.listConjurSecretsToFetch()
+	if err != nil {
+		return nil, err
 	}
 
 	retrievedConjurSecrets, err := p.conjur.retrieveSecrets(variableIDs, spanCtx)

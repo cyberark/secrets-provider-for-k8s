@@ -13,17 +13,15 @@ import (
 */
 
 type ConjurClient struct {
-	CanExecute bool
-	// TODO: CanExecute is really just used to assert on the presence of errors
-	// 	and should probably just be an optional error.
-	Database map[string]string
+	ErrOnExecute error
+	Database     map[string]string
 }
 
 func (c *ConjurClient) RetrieveSecrets(secretIds []string, ctx context.Context) (map[string][]byte, error) {
 	res := make(map[string][]byte)
 
-	if !c.CanExecute {
-		return nil, errors.New("custom error")
+	if c.ErrOnExecute != nil {
+		return nil, c.ErrOnExecute
 	}
 
 	for _, secretId := range secretIds {
@@ -47,8 +45,8 @@ func NewConjurClient() *ConjurClient {
 	}
 
 	return &ConjurClient{
-		CanExecute: true,
-		Database:   database,
+		ErrOnExecute: nil,
+		Database:     database,
 	}
 }
 

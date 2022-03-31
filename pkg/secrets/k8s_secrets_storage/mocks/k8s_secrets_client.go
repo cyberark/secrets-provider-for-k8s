@@ -11,7 +11,7 @@ import (
 // into the mock Kubernetes client's database. The logical hierarchy
 // represented by this structure is:
 // - Each Kubernetes Secret contains a 'Data' field.
-// - Each 'Data' field contains one or entries that are key/value pairs.
+// - Each 'Data' field contains one or more entries that are key/value pairs.
 // - The value in each 'Data' field entry can be a nested set of
 //   key/value pairs. In particular, for the entry with the key
 //   'conjur-info', the value is expected to be a mapping of application
