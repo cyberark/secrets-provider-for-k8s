@@ -19,7 +19,7 @@ spec:
     metadata:
       labels:
         app: test-env
-    annotations:
+      annotations:
         conjur.org/authn-identity: '$CONJUR_AUTHN_LOGIN'
         conjur.org/container-mode: "sidecar"
         conjur.org/secrets-refresh-enabled: "true"
