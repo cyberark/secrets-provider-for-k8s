@@ -113,7 +113,7 @@ pipeline {
             script {
               def tasks = [:]
               tasks["Kubernetes GKE, DAP"] = {
-                sh "./bin/start --docker --dap --gke"
+                sh "./bin/start --docker --dap --gke --test-prefix=TEST_ID_29"
               }
               parallel tasks
             }
@@ -121,22 +121,22 @@ pipeline {
         }
 
         stage ("DAP Integration Tests on OpenShift") {
-          when {
-            // Run integration tests against OpenShift only on the main branch
-            //
-            // There's been a lot of flakiness around OpenShift, which has the negative effect of impeding developer velocity.
-            // Generally speaking the integration tests for this repository interact with the generic Kubernetes API, for
-            // scheduling and giving identity to workloads. There is no platform-specifc functionality within the secrets provider.
-            // We can reasonably assume that if a branch is green in GKE then it will likely be green for OpenShift.
-            // With that in mind, for now we have chosen to run Openshift integration tests only on the main branch while we figure
-            // out a better way to address the flakiness.
-            branch 'main'
-          }
+          // when {
+          //   // Run integration tests against OpenShift only on the main branch
+          //   //
+          //   // There's been a lot of flakiness around OpenShift, which has the negative effect of impeding developer velocity.
+          //   // Generally speaking the integration tests for this repository interact with the generic Kubernetes API, for
+          //   // scheduling and giving identity to workloads. There is no platform-specifc functionality within the secrets provider.
+          //   // We can reasonably assume that if a branch is green in GKE then it will likely be green for OpenShift.
+          //   // With that in mind, for now we have chosen to run Openshift integration tests only on the main branch while we figure
+          //   // out a better way to address the flakiness.
+          //   branch 'main'
+          // }
           steps {
             script {
               def tasks = [:]
               tasks["Openshift v3.11, DAP"] = {
-                  sh "./bin/start --docker --dap --oc311"
+                  sh "./bin/start --docker --dap --oc311 --test-prefix=TEST_ID_29"
               }
               if ( params.TEST_OCP_OLDEST ) {
                 tasks["Openshift (Oldest), DAP"] = {
@@ -144,7 +144,7 @@ pipeline {
                 }
               }
               tasks["Openshift (Current), DAP"] = {
-                sh "./bin/start --docker --dap --current"
+                sh "./bin/start --docker --dap --current --test-prefix=TEST_ID_29"
               }
               if ( params.TEST_OCP_NEXT ) {
                 tasks["Openshift (Next), DAP"] = {

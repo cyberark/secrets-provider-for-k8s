@@ -23,7 +23,7 @@ spec:
         conjur.org/authn-identity: '$CONJUR_AUTHN_LOGIN'
         conjur.org/container-mode: "sidecar"
         conjur.org/secrets-refresh-enabled: "true"
-        conjur.org/secrets-refresh-interval: "10s"
+        conjur.org/secrets-refresh-interval: "5s"
         conjur.org/secrets-destination: k8s_secrets
         conjur.org/k8s-secrets: |
           - test-k8s-secret
@@ -56,17 +56,29 @@ spec:
               secretKeyRef:
                 name: test-k8s-secret
                 key: non-conjur-key
-        lifecycle:
-          postStart:
-            exec:
-              command:
-              - /usr/local/bin/conjur-secrets-provided.sh
+        
+        livenessProbe:
+          exec:
+            command:
+            - /conjur/status/conjur-secrets-unchanged.sh
+          failureThreshold: 1
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          successThreshold: 1
+          timeoutSeconds: 1
+
+        volumeMounts:
+        - name: conjur-status
+          mountPath: /conjur/status
+
       - image: '${PULL_DOCKER_REGISTRY_PATH}/${APP_NAMESPACE_NAME}/secrets-provider:latest'
         imagePullPolicy: Always
         name: cyberark-secrets-provider-for-k8s
         volumeMounts:
           - mountPath: /conjur/podinfo
             name: podinfo
+          - name: conjur-status
+            mountPath: /conjur/status
         env:
           - name: MY_POD_NAME
             valueFrom:
@@ -97,6 +109,12 @@ spec:
 
           - name: CONJUR_AUTHN_LOGIN
             value: ${CONJUR_AUTHN_LOGIN}
+      
+        lifecycle:
+          postStart:
+            exec:
+              command:
+              - /usr/local/bin/conjur-secrets-provided.sh
 
       imagePullSecrets:
         - name: dockerpullsecret
@@ -110,6 +128,9 @@ spec:
               fieldPath: metadata.annotations
             path: annotations
         name: podinfo
+      - name: conjur-status
+        emptyDir:
+          medium: Memory
 ---
 apiVersion: v1
 kind: ConfigMap

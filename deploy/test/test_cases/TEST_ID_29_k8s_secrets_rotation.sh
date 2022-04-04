@@ -43,13 +43,19 @@ echo "Verify pod $pod_name1 has environment variable 'TEST_SECRET' with value 's
 verify_secret_value_in_pod $pod_name1 TEST_SECRET supersecret
 
 set_conjur_secret secrets/test_secret secret2
-sleep 10
+sleep 15
+
+# Pod will be restarted by livenessProbe after secret changes. Get name of new pod.
+pod_name1="$(get_pod_name "$APP_NAMESPACE_NAME" 'app=test-env')"
 
 verify_secret_value_in_pod $pod_name1 TEST_SECRET secret2
 
 delete_test_secret
 
-sleep 10
+sleep 15
+
+# Pod will be restarted by livenessProbe after secret changes. Get name of new pod.
+pod_name1="$(get_pod_name "$APP_NAMESPACE_NAME" 'app=test-env')"
 
 verify_secret_value_in_pod $pod_name1 TEST_SECRET ""
 
