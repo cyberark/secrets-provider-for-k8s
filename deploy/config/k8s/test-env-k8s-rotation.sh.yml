@@ -24,7 +24,7 @@ spec:
         conjur.org/authn-identity: '$CONJUR_AUTHN_LOGIN'
         conjur.org/container-mode: "sidecar"
         conjur.org/secrets-refresh-enabled: "true"
-        conjur.org/secrets-refresh-interval: "5s"
+        conjur.org/secrets-refresh-interval: "10s"
         conjur.org/secrets-destination: k8s_secrets
         conjur.org/k8s-secrets: |
           - test-k8s-secret

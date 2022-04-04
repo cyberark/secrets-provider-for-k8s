@@ -445,36 +445,6 @@ set_conjur_secret() {
   set_namespace $APP_NAMESPACE_NAME
 }
 
-delete_test_secret() {
-  load_policy "conjur-delete-secret"
-}
-
-restore_test_secret() {
-  load_policy "conjur-secrets"
-}
-
-load_policy() {
-  filename=$1
-  set_namespace "$CONJUR_NAMESPACE_NAME"
-  configure_cli_pod
-
-  pushd "../../policy"
-    mkdir -p ./generated
-    ./templates/$filename.template.sh.yml > ./generated/$APP_NAMESPACE_NAME.$filename.yml
-  popd
-  
-  conjur_cli_pod=$(get_conjur_cli_pod_name)
-  $cli_with_timeout "exec $conjur_cli_pod -- rm -rf /policy"
-  $cli_with_timeout "cp ../../policy $conjur_cli_pod:/policy"
-
-  $cli_with_timeout "exec $(get_conjur_cli_pod_name) -- \
-    conjur policy load --delete root \"/policy/generated/$APP_NAMESPACE_NAME.$filename.yml\""
-
-  $cli_with_timeout "exec $conjur_cli_pod -- rm -rf ./policy"
-
-  set_namespace $APP_NAMESPACE_NAME
-}
-
 yaml_print_key_name_value() {
   spaces=$1
   key_name=${2:-""}
@@ -516,15 +486,6 @@ verify_secret_value_in_pod() {
   environment_variable_name=$2
   expected_value=$3
 
-  if [[ $expected_value == "" ]] ; then
-    # Ensure that the secret is empty by using 'grep -v .'
-    expected_value="-v ."
-  fi
-
-  actual_value=$($cli_with_timeout "exec -n $APP_NAMESPACE_NAME ${pod_name} -- \
-      printenv | grep $environment_variable_name | cut -d '=' -f 2-")
-  echo "Actual value: $actual_value"
-      
   $cli_with_timeout "exec -n $APP_NAMESPACE_NAME ${pod_name} -- \
     printenv | grep $environment_variable_name | cut -d '=' -f 2- | grep $expected_value"
 }
