@@ -98,7 +98,7 @@ func TestProvideWithDeps(t *testing.T) {
 		provider        fileProvider
 		createFileName  string
 		sanitizeEnabled bool
-		assert          func(*testing.T, fileProvider, error, *ClosableBuffer, pushToWriterSpy, openWriteCloserSpy)
+		assert          func(*testing.T, fileProvider, bool, error, *ClosableBuffer, pushToWriterSpy, openWriteCloserSpy)
 	}{
 		{
 			description: "happy path",
@@ -110,11 +110,13 @@ func TestProvideWithDeps(t *testing.T) {
 			assert: func(
 				t *testing.T,
 				p fileProvider,
+				updated bool,
 				err error,
 				closableBuf *ClosableBuffer,
 				spyPushToWriter pushToWriterSpy,
 				spyOpenWriteCloser openWriteCloserSpy,
 			) {
+				assert.True(t, updated)
 				assert.Equal(t, closableBuf, spyPushToWriter.args.writer)
 				assert.Equal(t, spyOpenWriteCloser.args.path, p.secretGroups[0].FilePath)
 				assert.Nil(t, err)
@@ -131,11 +133,13 @@ func TestProvideWithDeps(t *testing.T) {
 			assert: func(
 				t *testing.T,
 				p fileProvider,
+				updated bool,
 				err error,
 				closableBuf *ClosableBuffer,
 				spyPushToWriter pushToWriterSpy,
 				spyOpenWriteCloser openWriteCloserSpy,
 			) {
+				assert.True(t, updated)
 				assert.Error(t, err)
 				// File should be deleted because of 403 error
 				assert.NoFileExists(t, "path_to_file.yaml")
@@ -152,11 +156,13 @@ func TestProvideWithDeps(t *testing.T) {
 			assert: func(
 				t *testing.T,
 				p fileProvider,
+				updated bool,
 				err error,
 				closableBuf *ClosableBuffer,
 				spyPushToWriter pushToWriterSpy,
 				spyOpenWriteCloser openWriteCloserSpy,
 			) {
+				assert.False(t, updated)
 				assert.Error(t, err)
 				// File should not be deleted because of generic error
 				assert.FileExists(t, "path_to_file.yaml")
@@ -173,11 +179,13 @@ func TestProvideWithDeps(t *testing.T) {
 			assert: func(
 				t *testing.T,
 				p fileProvider,
+				updated bool,
 				err error,
 				closableBuf *ClosableBuffer,
 				spyPushToWriter pushToWriterSpy,
 				spyOpenWriteCloser openWriteCloserSpy,
 			) {
+				assert.False(t, updated)
 				assert.Error(t, err)
 				// File shouldn't be deleted because sanitize is disabled
 				assert.FileExists(t, "path_to_file.yaml")
@@ -189,7 +197,9 @@ func TestProvideWithDeps(t *testing.T) {
 		t.Run(tc.description, func(t *testing.T) {
 			// Setup mocks
 			closableBuf := new(ClosableBuffer)
-			spyPushToWriter := pushToWriterSpy{}
+			spyPushToWriter := pushToWriterSpy{
+				targetsUpdated: true,
+			}
 			spyOpenWriteCloser := openWriteCloserSpy{
 				writeCloser: closableBuf,
 			}
@@ -200,7 +210,7 @@ func TestProvideWithDeps(t *testing.T) {
 				defer os.Remove(tc.createFileName)
 			}
 
-			_, err := provideWithDeps(
+			updated, err := provideWithDeps(
 				context.Background(),
 				tc.provider.secretGroups,
 				tc.sanitizeEnabled,
@@ -211,7 +221,7 @@ func TestProvideWithDeps(t *testing.T) {
 				},
 			)
 
-			tc.assert(t, tc.provider, err, closableBuf, spyPushToWriter, spyOpenWriteCloser)
+			tc.assert(t, tc.provider, updated, err, closableBuf, spyPushToWriter, spyOpenWriteCloser)
 		})
 	}
 }
