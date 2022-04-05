@@ -443,13 +443,18 @@ both or neither method fails before retrieving secrets from Conjur.
    Custom templates can be provided as fields in a ConfigMap. This feature
    requires the following:
 
-   - The ConfigMap containing template files must be mounted in the Secrets
-     Provider container at `/conjur/templates`
+   - The ConfigMap containing template files must be created before the Secrets
+     Provider container.
+   - The ConfigMap must be mounted in the Secrets
+     Provider container at `/conjur/templates`.
    - Each template's key in the ConfigMap's `data` field must be formatted as
      `{secret-group}.tpl`.
 
-   The following is an example of a ConfigMap defining a custom Go template for
-   a secret group `example`:
+   ### Creating ConfigMaps for Secret File Templates
+   #### Defining Templates in a ConfigMap Manifest
+
+   The following is an example of a ConfigMap manifest defining a custom Go
+   template for a secret group `example`:
 
    ```
    apiVersion: v1
@@ -464,8 +469,47 @@ both or neither method fails before retrieving secrets from Conjur.
        }
    ```
 
+   If custom secret file templates are required for multiple secret groups, add
+   entries to the `data` field, adhering to the `{secret-group}.tpl` key
+   pattern.
+
+   #### Creating a ConfigMap from a Valid Template File
+
+   A ConfigMap can also be created from an existing, compatible template file,
+   allowing secret file templates to be checked into version control independent
+   from a K8s manifest.
+
+   Given the following secret file template, `example.tpl`:
+
+   ```
+   "database": {
+     "username": {{ secret "admin-username" }},
+     "password": {{ secret "admin-password" }},
+   }
+   ```
+
+   Create a ConfigMap from the template files:
+
+   ```
+   kubectl create configmap my-custom-template --from-file=/path/to/example.tpl
+   ```
+
+   The resulting ConfigMap will be functionally identical to one created from
+   the provided [example manifest](#defining-templates-in-a-configmap-manifest).
+
+   If custom secret file templates are required for multiple secret groups, a
+   ConfigMap can be created from a directory of template files, each adhering to
+   the `{secret-group}.tpl` naming pattern:
+
+   ```
+   kubectl create configmap my-custom-template --from-file=/path/to/template/dir/
+   ```
+
+   ### Configuring Secrets Provider for ConfigMap-based Templates
+
    The following annotations describe a valid secret group that uses a custom
-   template defined in the above ConfigMap:
+   template defined in the
+   [example ConfigMap](#defining-templates-in-a-configmap-manifest) shown above:
 
    ```
    conjur.org/secret-group.example: |
@@ -655,6 +699,22 @@ Secrets Provider will render the following content for the file
 ```
 postgresql://my-user:my-secret-pa$$w0rd@database.example.com:5432/postgres??sslmode=require
 ```
+
+### Example Custom Templates: Spring Boot application
+
+Many Spring Boot applications are configured using [externalized configuration](https://docs.spring.io/spring-boot/docs/current/reference/html/features.html#features.external-config)
+loaded at start-up. Secrets Provider's Push-to-File feature can generate
+properly formatted configuration files, populated with secret data, using custom
+templates.
+
+<!--
+TODO:
+  1. Provide example template of typical Spring Boot properties file
+  2. Provide workflow for creating a ConfigMap from an independent template file
+  3. Provide sample command for running a SB app with custom config file
+  4. Provide sample manifest, tying these parts into a functional deployment
+-->
+
 ## Configuring Pod Volumes and Container Volume Mounts for Push to File
 
 Enabling Push to File on your application Pod requires the addition of several Volumes and VolumeMounts.
