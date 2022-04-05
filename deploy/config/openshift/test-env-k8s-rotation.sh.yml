@@ -35,6 +35,18 @@ spec:
         name: test-app
         command: ["sleep"]
         args: ["infinity"]
+        livenessProbe:
+          exec:
+            command:
+            - /mounted/status/conjur-secrets-unchanged.sh
+          failureThreshold: 1
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          successThreshold: 1
+          timeoutSeconds: 1
+        volumeMounts:
+        - name: conjur-status
+          mountPath: /mounted/status
         env:
           - name: TEST_SECRET
             valueFrom:
@@ -56,17 +68,19 @@ spec:
               secretKeyRef:
                 name: test-k8s-secret
                 key: non-conjur-key
+      - image: '${PULL_DOCKER_REGISTRY_PATH}/${APP_NAMESPACE_NAME}/secrets-provider:latest'
+        imagePullPolicy: Always
+        name: cyberark-secrets-provider-for-k8s
         lifecycle:
           postStart:
             exec:
               command:
               - /usr/local/bin/conjur-secrets-provided.sh
-      - image: '${PULL_DOCKER_REGISTRY_PATH}/${APP_NAMESPACE_NAME}/secrets-provider:latest'
-        imagePullPolicy: Always
-        name: cyberark-secrets-provider-for-k8s
         volumeMounts:
           - mountPath: /conjur/podinfo
             name: podinfo
+          - name: conjur-status
+            mountPath: /conjur/status
         env:
           - name: MY_POD_NAME
             valueFrom:
@@ -110,6 +124,9 @@ spec:
               fieldPath: metadata.annotations
             path: annotations
         name: podinfo
+      - name: conjur-status
+        emptyDir:
+          medium: Memory
 ---
 apiVersion: v1
 kind: ConfigMap
