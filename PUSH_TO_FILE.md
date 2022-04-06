@@ -450,7 +450,8 @@ both or neither method fails before retrieving secrets from Conjur.
    - Each template's key in the ConfigMap's `data` field must be formatted as
      `{secret-group}.tpl`.
 
-   ### Creating ConfigMaps for Secret File Templates
+   ### Creating a ConfigMap for Secret File Templates
+
    #### Defining Templates in a ConfigMap Manifest
 
    The following is an example of a ConfigMap manifest defining a custom Go
@@ -473,13 +474,13 @@ both or neither method fails before retrieving secrets from Conjur.
    entries to the `data` field, adhering to the `{secret-group}.tpl` key
    pattern.
 
-   #### Creating a ConfigMap from a Valid Template File
+   #### Creating a ConfigMap from an Existing Template File
 
    A ConfigMap can also be created from an existing, compatible template file,
    allowing secret file templates to be checked into version control independent
    from a K8s manifest.
 
-   Given the following secret file template, `example.tpl`:
+   Given the following template file, `example.tpl`:
 
    ```
    "database": {
@@ -495,21 +496,21 @@ both or neither method fails before retrieving secrets from Conjur.
    ```
 
    The resulting ConfigMap will be functionally identical to one created from
-   the provided [example manifest](#defining-templates-in-a-configmap-manifest).
+   the [example ConfigMap manifest](#defining-templates-in-a-configmap-manifest)
+   shown above.
 
-   If custom secret file templates are required for multiple secret groups, a
-   ConfigMap can be created from a directory of template files, each adhering to
-   the `{secret-group}.tpl` naming pattern:
+   If secret file templates are required for multiple secret groups, a ConfigMap
+   can be created from a directory of template files, each adhering to the
+   `{secret-group}.tpl` naming pattern:
 
    ```
    kubectl create configmap my-custom-template --from-file=/path/to/template/dir/
    ```
 
-   ### Configuring Secrets Provider for ConfigMap-based Templates
+   ### Configuring Secrets Provider to Consume ConfigMap-based Templates
 
-   The following annotations describe a valid secret group that uses a custom
-   template defined in the
-   [example ConfigMap](#defining-templates-in-a-configmap-manifest) shown above:
+   The following annotations describe a valid secret group that uses the custom
+   template created by either of the previously described methods:
 
    ```
    conjur.org/secret-group.example: |
@@ -700,20 +701,143 @@ Secrets Provider will render the following content for the file
 postgresql://my-user:my-secret-pa$$w0rd@database.example.com:5432/postgres??sslmode=require
 ```
 
-### Example Custom Templates: Spring Boot application
+### Example Custom Templates: Spring Boot configuration
 
-Many Spring Boot applications are configured using [externalized configuration](https://docs.spring.io/spring-boot/docs/current/reference/html/features.html#features.external-config)
-loaded at start-up. Secrets Provider's Push-to-File feature can generate
-properly formatted configuration files, populated with secret data, using custom
-templates.
+Many Spring Boot applications use [externalized configuration](https://docs.spring.io/spring-boot/docs/current/reference/html/features.html#features.external-config)
+loaded at start-up, usually as an `application.yaml` or `.properties` file. For
+Spring Boot applications deployed in Kubernetes, Secrets Provider's Push-to-File
+feature can generate properly formatted config files, populated with secret
+data, using custom templates.
 
-<!--
-TODO:
-  1. Provide example template of typical Spring Boot properties file
-  2. Provide workflow for creating a ConfigMap from an independent template file
-  3. Provide sample command for running a SB app with custom config file
-  4. Provide sample manifest, tying these parts into a functional deployment
--->
+This example assumes that the target Conjur server has been loaded with the
+following secrets, representing a PostgreSQL database and its credentials:
+- `backend/pg/url`
+- `backend/pg/username`
+- `backend/pg/password`
+
+These secrets will be used by a secret group, `spring-app`, to render a Spring
+Boot configuration file.
+
+Create a file defining a Spring Boot configuration template, saved as
+`spring-app.tpl`. The following represent template examples for an
+`application.yml` template:
+
+```
+spring:
+  datasource:
+    platform: postgres
+    url: jdbc:{{ secret "url" }}
+    username: {{ secret "username" }}
+    password: {{ secret "password" }}
+  jpa:
+    generate-ddl: true
+    hibernate:
+      ddl-auto: update
+```
+
+...and an `application.properties` template:
+```
+spring.datasource.platform: postgres
+spring.datasource.url: jdbc:{{ secret "url" }}
+spring.datasource.username: {{ secret "username" }}
+spring.datasource.password: {{ secret "password" }}
+spring.jpa.generate-ddl: true
+spring.jpa.hibernate.ddl-auto: update
+```
+
+Create a ConfigMap from the new template file:
+
+```
+kubectl create configmap spring-boot-templates \
+  --from-file=/path/to/spring-app.tpl \
+  --namespace test-app-namespace
+```
+
+Now that the `spring-boot-templates` ConfigMap is deployed to the desired
+namespace, set up a Deployment manifest, with:
+- a Secrets Provider init container configured for Push-to-File with custom
+  secret file templates,
+- a Spring Boot application container, configured to consume the newly-generated
+  configuration file with the `--spring.config.location` flag.
+
+Copy the following manifest and load it into the application namespace,
+`test-app-namespace`. Configuration unique to this example is marked in <b>bold</b>.
+
+<pre><code>apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: test-app
+  name: test-app
+  namespace: test-app-namespace
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: test-app
+  template:
+    metadata:
+      labels:
+        app: test-app
+      annotations:
+        conjur.org/authn-identity: host/test-app
+        conjur.org/container-mode: init
+        conjur.org/secrets-destination: file
+        <b>conjur.org/conjur-secrets-policy-path.spring-app: backend/pg/
+        conjur.org/conjur-secrets.spring-app: |
+          - url
+          - username
+          - password
+        conjur.org/secret-file-path.spring-app: "./application.{yaml|properties}"
+        conjur.org/secret-file-format.spring-app: "template"</b>
+    spec:
+      serviceAccountName: test-app-sa
+      containers:
+      - name: test-app
+        image: myorg/test-springboot-app
+        <b>command: ["java", "-jar", "/app.jar", "--spring.config.location=file:/opt/secrets/conjur/application.{yaml|properties}"]</b>
+        volumeMounts:
+          - name: conjur-secrets
+            mountPath: /opt/secrets/conjur
+            readOnly: true
+      initContainers:
+      - name: cyberark-secrets-provider-for-k8s
+        image: 'cyberark/secrets-provider-for-k8s:latest'
+        imagePullPolicy: Never
+        env:
+        - name: MY_POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: MY_POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        envFrom:
+        - configMapRef:
+            name: conjur-connect
+        volumeMounts:
+          - name: podinfo
+            mountPath: /conjur/podinfo
+          - name: conjur-secrets
+            mountPath: /conjur/secrets
+          <b>- name: conjur-templates
+            mountPath: /conjur/templates</b>
+      volumes:
+        - name: podinfo
+          downwardAPI:
+            items:
+              - path: "annotations"
+                fieldRef:
+                  fieldPath: metadata.annotations
+        - name: conjur-secrets
+          emptyDir:
+            medium: Memory
+        <b>- name: conjur-templates
+          configMap:
+            name: spring-boot-templates</b>
+            
+</code></pre>
 
 ## Configuring Pod Volumes and Container Volume Mounts for Push to File
 
