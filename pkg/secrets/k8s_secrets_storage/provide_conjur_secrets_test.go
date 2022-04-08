@@ -83,13 +83,13 @@ type assertFunc func(*testing.T, testMocks, bool, error, string)
 type expectedK8sSecrets map[string]map[string]string
 type expectedMissingValues map[string][]string
 
-func assertErrorContains(expErrStr string) assertFunc {
+func assertErrorContains(expErrStr string, expectUpdated bool) assertFunc {
 	return func(t *testing.T, _ testMocks,
 		updated bool, err error, desc string) {
 
-		assert.Error(t, err)
-		assert.False(t, updated)
-		assert.Contains(t, err.Error(), expErrStr)
+		assert.Error(t, err, desc)
+		assert.Contains(t, err.Error(), expErrStr, desc)
+		assert.Equal(t, expectUpdated, updated, desc)
 	}
 }
 
@@ -100,10 +100,9 @@ func assertSecretsUpdated(expK8sSecrets expectedK8sSecrets,
 
 		if expectError {
 			assert.Error(t, err, desc)
-			assert.False(t, updated)
 		} else {
 			assert.NoError(t, err, desc)
-			assert.True(t, updated)
+			assert.True(t, updated, desc)
 		}
 
 		// Check that K8s Secrets contain expected Conjur secret values
@@ -132,7 +131,6 @@ func assertErrorLogged(msg string, args ...interface{}) assertFunc {
 		errStr := fmt.Sprintf(msg, args...)
 		newDesc := desc + ", error logged: " + errStr
 		assert.True(t, mocks.logger.ErrorWasLogged(errStr), newDesc)
-		assert.False(t, updated)
 	}
 }
 
@@ -300,7 +298,7 @@ func TestProvide(t *testing.T) {
 			denyK8sRetrieve: true,
 			asserts: []assertFunc{
 				assertErrorLogged(messages.CSPFK020E),
-				assertErrorContains(messages.CSPFK021E),
+				assertErrorContains(messages.CSPFK021E, false),
 			},
 		},
 		{
@@ -314,7 +312,7 @@ func TestProvide(t *testing.T) {
 			denyK8sRetrieve: true,
 			asserts: []assertFunc{
 				assertErrorLogged(messages.CSPFK020E),
-				assertErrorContains(messages.CSPFK021E),
+				assertErrorContains(messages.CSPFK021E, false),
 			},
 		},
 		{
@@ -328,7 +326,7 @@ func TestProvide(t *testing.T) {
 			denyConjurRetrieve: true,
 			asserts: []assertFunc{
 				assertErrorLogged(messages.CSPFK034E, "custom error"),
-				assertErrorContains(fmt.Sprintf(messages.CSPFK034E, "custom error")),
+				assertErrorContains(fmt.Sprintf(messages.CSPFK034E, "custom error"), false),
 			},
 		},
 		{
@@ -342,7 +340,7 @@ func TestProvide(t *testing.T) {
 			denyK8sUpdate:   true,
 			asserts: []assertFunc{
 				assertErrorLogged(messages.CSPFK022E),
-				assertErrorContains(messages.CSPFK023E),
+				assertErrorContains(messages.CSPFK023E, false),
 			},
 		},
 		{
@@ -355,7 +353,7 @@ func TestProvide(t *testing.T) {
 			requiredSecrets: []string{"non-existent-k8s-secret"},
 			asserts: []assertFunc{
 				assertErrorLogged(messages.CSPFK020E),
-				assertErrorContains(messages.CSPFK021E),
+				assertErrorContains(messages.CSPFK021E, false),
 			},
 		},
 		{
@@ -368,7 +366,7 @@ func TestProvide(t *testing.T) {
 			requiredSecrets: []string{"k8s-secret1"},
 			asserts: []assertFunc{
 				assertErrorLogged(messages.CSPFK028E, "k8s-secret1"),
-				assertErrorContains(messages.CSPFK021E),
+				assertErrorContains(messages.CSPFK021E, false),
 			},
 		},
 		{
@@ -381,7 +379,7 @@ func TestProvide(t *testing.T) {
 			requiredSecrets: []string{"k8s-secret1"},
 			asserts: []assertFunc{
 				assertErrorLogged(messages.CSPFK028E, "k8s-secret1"),
-				assertErrorContains(messages.CSPFK021E),
+				assertErrorContains(messages.CSPFK021E, false),
 			},
 		},
 	}
@@ -520,7 +518,7 @@ func TestProvideSanitization(t *testing.T) {
 			retrieveErrorMsg: "403",
 			asserts: []assertFunc{
 				assertErrorLogged(messages.CSPFK034E, "403"),
-				assertErrorContains(fmt.Sprintf(messages.CSPFK034E, "403")),
+				assertErrorContains(fmt.Sprintf(messages.CSPFK034E, "403"), true),
 				assertSecretsUpdated(
 					expectedK8sSecrets{
 						"k8s-secret1": {"secret1": ""},
@@ -542,7 +540,7 @@ func TestProvideSanitization(t *testing.T) {
 			retrieveErrorMsg: "404",
 			asserts: []assertFunc{
 				assertErrorLogged(messages.CSPFK034E, "404"),
-				assertErrorContains(fmt.Sprintf(messages.CSPFK034E, "404")),
+				assertErrorContains(fmt.Sprintf(messages.CSPFK034E, "404"), true),
 				assertSecretsUpdated(
 					expectedK8sSecrets{
 						"k8s-secret1": {"secret1": ""},
@@ -564,7 +562,7 @@ func TestProvideSanitization(t *testing.T) {
 			retrieveErrorMsg: "generic error",
 			asserts: []assertFunc{
 				assertErrorLogged(messages.CSPFK034E, "generic error"),
-				assertErrorContains(fmt.Sprintf(messages.CSPFK034E, "generic error")),
+				assertErrorContains(fmt.Sprintf(messages.CSPFK034E, "generic error"), false),
 				assertSecretsUpdated(
 					expectedK8sSecrets{
 						"k8s-secret1": {"secret1": "secret-value1"},
@@ -586,7 +584,7 @@ func TestProvideSanitization(t *testing.T) {
 			retrieveErrorMsg: "403",
 			asserts: []assertFunc{
 				assertErrorLogged(messages.CSPFK034E, "403"),
-				assertErrorContains(fmt.Sprintf(messages.CSPFK034E, "403")),
+				assertErrorContains(fmt.Sprintf(messages.CSPFK034E, "403"), false),
 				assertSecretsUpdated(
 					expectedK8sSecrets{
 						"k8s-secret1": {"secret1": "secret-value1"},

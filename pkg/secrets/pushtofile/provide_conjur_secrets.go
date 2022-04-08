@@ -80,10 +80,14 @@ func provideWithDeps(
 	// Use the global TracerProvider
 	tr := trace.NewOtelTracer(otel.Tracer("secrets-provider"))
 	spanCtx, span := tr.Start(traceContext, "Fetch Conjur Secrets")
+	var updated bool
 	secretsByGroup, err := FetchSecretsForGroups(depFuncs.retrieveSecretsFunc, groups, spanCtx)
 	if err != nil {
-		// Delete secret files for variables that no longer exist or the user no longer has permissions to
+		// Delete secret files for variables that no longer exist or the user no longer has permissions to.
+		// In the future we'll delete only the secrets that are revoked, but for now we delete all secrets in
+		// the group because we don't have a way to determine which secrets are revoked.
 		if (strings.Contains(err.Error(), "403") || strings.Contains(err.Error(), "404")) && sanitizeEnabled {
+			updated = true
 			for _, group := range groups {
 				log.Info(messages.CSPFK019I)
 				rmErr := os.Remove(group.FilePath)
@@ -95,13 +99,12 @@ func provideWithDeps(
 
 		span.RecordErrorAndSetStatus(err)
 		span.End()
-		return false, err
+		return updated, err
 	}
 	span.End()
 
 	spanCtx, span = tr.Start(traceContext, "Write Secret Files")
 	defer span.End()
-	var updated bool
 	for _, group := range groups {
 		_, childSpan := tr.Start(spanCtx, "Write Secret Files for group")
 		defer childSpan.End()

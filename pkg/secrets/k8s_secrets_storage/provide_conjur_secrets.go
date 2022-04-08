@@ -157,12 +157,14 @@ func (p K8sProvider) Provide() (bool, error) {
 	}
 
 	// Retrieve Conjur secrets for all K8s Secrets.
+	var updated bool
 	retrievedConjurSecrets, err := p.retrieveConjurSecrets(tr)
 	if err != nil {
-		// Delete K8s secret files for Conjur variables that no longer exist or the user no longer has permissions to.
+		// Delete K8s secrets for Conjur variables that no longer exist or the user no longer has permissions to.
 		// In the future we'll delete only the secrets that are revoked, but for now we delete all secrets in
 		// the group because we don't have a way to determine which secrets are revoked.
 		if (strings.Contains(err.Error(), "403") || strings.Contains(err.Error(), "404")) && p.sanitizeEnabled {
+			updated = true
 			rmErr := p.removeDeletedSecrets(tr)
 			if rmErr != nil {
 				p.log.recordedError(messages.CSPFK063E)
@@ -170,11 +172,11 @@ func (p K8sProvider) Provide() (bool, error) {
 			}
 		}
 
-		return false, p.log.recordedError(messages.CSPFK034E, err.Error())
+		return updated, p.log.recordedError(messages.CSPFK034E, err.Error())
 	}
 
 	// Update all K8s Secrets with the retrieved Conjur secrets.
-	updated, err := p.updateRequiredK8sSecrets(retrievedConjurSecrets, tr)
+	updated, err = p.updateRequiredK8sSecrets(retrievedConjurSecrets, tr)
 	if err != nil {
 		return updated, p.log.recordedError(messages.CSPFK023E)
 	}
