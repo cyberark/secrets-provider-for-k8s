@@ -25,6 +25,11 @@ pipeline {
         stage('Changelog') {
           steps { sh './bin/parse-changelog.sh' }
         }
+        stage('Log messages') {
+          steps {
+            validateLogMessages()
+          }
+        }
       }
     }
 
