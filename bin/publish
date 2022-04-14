@@ -2,45 +2,130 @@
 
 set -e
 
+# The following is used to:
+# Publish images on pre-release and tag as edge
+# Promote pre-releases to releases and tag as latest
+
 . bin/build_utils
 
-readonly VERSION="$(short_version_tag)"
-readonly FULL_VERSION_TAG="$(full_version_tag)"
+function print_help() {
+  echo "Build Usage: $0 --internal"
+  echo "Release Usage: $0 --edge"
+  echo "Promote Usage: $0 --promote --source <VERSION> --target <VERSION>"
+  echo " --internal: publish images to registry.tld"
+  echo " --edge: publish docker images to docker hub"
+  echo " --source <VERSION>: specify version number of local image"
+  echo " --target <VERSION>: specify version number of remote image"
+}
+
+# Fail if no arguments are given.
+if [[ $# -lt 1 ]]; then
+  print_help
+  exit 1
+fi
+
+PUBLISH_INTERNAL=false
+PUBLISH_EDGE=false
+PROMOTE=false
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+  --internal)
+    PUBLISH_INTERNAL=true
+    ;;
+  --edge)
+    PUBLISH_EDGE=true
+    ;;
+  --promote)
+    PROMOTE=true
+    ;;
+  --source)
+    SOURCE_ARG="$2"
+    shift
+    ;;
+  --target)
+    TARGET_ARG="$2"
+    shift
+    ;;
+  --help)
+    print_help
+    exit 1
+    ;;
+  *)
+    echo "Unknown option: ${1}"
+    print_help
+    exit 1
+    ;;
+  esac
+  shift
+done
+
 readonly REDHAT_IMAGE="scan.connect.redhat.com/ospid-56594c20-22fc-4eeb-9c2e-402cf43bcb79/secrets-provider-for-k8s"
-
-readonly TAGS=(
-  "$VERSION"
-  "latest"
-)
-
+readonly REDHAT_LOCAL_IMAGE="secrets-provider-for-k8s-redhat"
 readonly IMAGE_NAME="secrets-provider-for-k8s"
-
 readonly REGISTRY='cyberark'
+# Version derived from CHANGLEOG and automated release library
+VERSION=$(<VERSION)
+readonly VERSION
+FULL_VERSION_TAG="$VERSION-$(git_tag)"
+readonly FULL_VERSION_TAG
 
-# if the tag matches the VERSION, push VERSION and latest releases
-# and x and x.y releases
-if [ "$GIT_DESCRIPTION" = "v${VERSION}" ]; then
-  echo "Revision $GIT_DESCRIPTION matches version $VERSION exactly. Pushing to Dockerhub..."
+if [[ ${PUBLISH_INTERNAL} = true ]]; then
+  echo "Publishing built images internally to registry.tld."
+  SOURCE_TAG=$FULL_VERSION_TAG
+  REMOTE_TAG=$VERSION
 
-  for tag in "${TAGS[@]}" $(gen_versions "$VERSION"); do
+  tag_and_push "${IMAGE_NAME}:${SOURCE_TAG}" "registry.tld/${IMAGE_NAME}:${REMOTE_TAG}"
+  tag_and_push "${REDHAT_LOCAL_IMAGE}:${SOURCE_TAG}" "registry.tld/${REDHAT_LOCAL_IMAGE}:${REMOTE_TAG}"
+fi
+
+if [[ ${PUBLISH_EDGE} = true ]]; then
+  echo "Performing edge release."
+  SOURCE_TAG=$FULL_VERSION_TAG
+  REMOTE_TAG=edge
+  readonly TAGS=(
+    "$VERSION"
+    "$REMOTE_TAG"
+  )
+
+  for tag in "${TAGS[@]}"; do
+    tag_and_push "$IMAGE_NAME:$SOURCE_TAG" "$REGISTRY/$IMAGE_NAME:$tag"
+  done
+fi
+
+if [[ ${PROMOTE} = true ]]; then
+  if [[ -z ${SOURCE_ARG:-} || -z ${TARGET_ARG:-} ]]; then
+  echo "When promoting, --source and --target flags are required."
+  print_help
+  exit 1
+  fi
+
+  # Update vars to utilize build_utils
+  SOURCE_TAG=$SOURCE_ARG
+  REMOTE_TAG=$TARGET_ARG
+
+  echo "Promoting image to $REMOTE_TAG"
+  readonly TAGS=(
+    "$REMOTE_TAG"
+    "latest"
+  )
+
+  for tag in "${TAGS[@]}" $(gen_versions "$REMOTE_TAG"); do
     echo "Tagging and pushing $REGISTRY/$IMAGE_NAME:$tag"
-
-    docker tag "$IMAGE_NAME:$FULL_VERSION_TAG" "$REGISTRY/$IMAGE_NAME:$tag"
-    docker push "$REGISTRY/$IMAGE_NAME:$tag"
+    tag_and_push "$IMAGE_NAME:$SOURCE_TAG" "$REGISTRY/$IMAGE_NAME:$tag"
   done
 
-  # Publish RedHat image to Internal Registry
-  docker tag "secrets-provider-for-k8s-redhat:${FULL_VERSION_TAG}" "$REGISTRY/secrets-provider-for-k8s-redhat:${VERSION}"
-  docker push "$REGISTRY/secrets-provider-for-k8s-redhat:${VERSION}"
+  # Publish RedHat image to docker hub
+  tag_and_push "${REDHAT_LOCAL_IMAGE}:${SOURCE_TAG}" "$REGISTRY/${REDHAT_LOCAL_IMAGE}:${REMOTE_TAG}"
 
   # Publish only latest to Redhat Registries
   echo "Tagging and pushing ${REDHAT_IMAGE}"
-  docker tag "secrets-provider-for-k8s-redhat:${FULL_VERSION_TAG}" "${REDHAT_IMAGE}:${VERSION}"
+  echo docker tag "${REDHAT_LOCAL_IMAGE}:${SOURCE_TAG}" "${REDHAT_IMAGE}:${REMOTE_TAG}"
 
   # Publish RedHat image to RedHat Registry
   if docker login scan.connect.redhat.com -u unused -p "${REDHAT_API_KEY}"; then
     # you can't push the same tag twice to redhat registry, so ignore errors
-    if ! docker push "${REDHAT_IMAGE}:${VERSION}"; then
+    if ! docker push "${REDHAT_IMAGE}:${REMOTE_TAG}"; then
       echo 'Red Hat push FAILED! (maybe the image was pushed already?)'
       exit 0
     fi
@@ -48,8 +133,5 @@ if [ "$GIT_DESCRIPTION" = "v${VERSION}" ]; then
     echo 'Failed to log in to scan.connect.redhat.com'
     exit 1
   fi
-elif [ "$BRANCH_NAME" = "main" ]; then
-  echo "Successful Master build. Tagging and pushing $REGISTRY/$IMAGE_NAME:edge"
-  docker tag "$IMAGE_NAME:$FULL_VERSION_TAG" "$REGISTRY/$IMAGE_NAME:edge"
-  docker push "$REGISTRY/$IMAGE_NAME:edge"
+
 fi
