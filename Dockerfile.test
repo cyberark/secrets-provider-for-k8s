@@ -23,16 +23,8 @@ RUN apk add -u curl \
 
 COPY go.mod go.sum /secrets-provider-for-k8s/
 
-# Get upstream dependencies latest changes.
-RUN go get github.com/cyberark/conjur-api-go@latest && \
-    go get github.com/cyberark/conjur-authn-k8s-client@latest && \
-    go get github.com/cyberark/conjur-opentelemetry-tracer@latest
-
 RUN go mod download
 
 COPY . .
-
-# Update go.mod to include the upstream dependencies.
-RUN go mod tidy
 
 ENTRYPOINT [ "go", "test", "-v", "-timeout", "3m" ]
