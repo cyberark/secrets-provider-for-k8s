@@ -89,6 +89,12 @@ pipeline {
       }
     }
 
+    stage('Get latest upstream dependencies') {
+      steps {
+        updateGoDependencies('${WORKSPACE}/go.mod')
+      }
+    }
+
     stage('Build and test Secrets Provider') {
       when {
         // Run tests only when EITHER of the following is true:

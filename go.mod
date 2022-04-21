@@ -14,6 +14,10 @@ require (
 )
 
 require (
+	// Requires latest version for automated release process
+	github.com/cyberark/conjur-opentelemetry-tracer latest
+	github.com/cyberark/conjur-api-go latest
+	github.com/cyberark/conjur-authn-k8s-client latest
 	github.com/bgentry/go-netrc v0.0.0-20140422174119-9fd32a8b3d3d // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/fullsailor/pkcs7 v0.0.0-20190404230743-d7302db945fa // indirect

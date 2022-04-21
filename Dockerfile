@@ -26,11 +26,6 @@ EXPOSE 8080
 
 COPY go.mod go.sum ./
 
-# Get upstream dependencies latest changes.
-RUN go get github.com/cyberark/conjur-api-go@latest && \
-    go get github.com/cyberark/conjur-authn-k8s-client@latest && \
-    go get github.com/cyberark/conjur-opentelemetry-tracer@latest
-
 # Add a layer of prefetched modules so the modules are already cached in case we rebuild
 RUN go mod download
 
@@ -39,9 +34,6 @@ RUN go mod download
 FROM secrets-provider-builder-base as secrets-provider-builder
 
 COPY . .
-
-# Update go.mod to include the upstream dependencies.
-RUN go mod tidy
 
 # this value is set in ./bin/build
 ARG TAG
