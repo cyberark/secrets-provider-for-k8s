@@ -136,13 +136,11 @@ pipeline {
               sh """cat "${billOfMaterialsDirectory}/go-mod-bom.json" """
               sh """cat go.mod """
               sh """ exit 1 """
-              }
             }
           }
         }
       }
     }
-  }
 
   post {
     always {
