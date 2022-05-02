@@ -245,6 +245,7 @@ follow the instructions in this section.
 1. Create a new branch for the version bump.
 1. Based on the changelog content, determine the new version number.
 1. Update this version in the following files:
+    1. [version.go](pkg/secrets/version.go)
     1. [Chart version](helm/secrets-provider/Chart.yaml)
     1. [Default deployed version](helm/secrets-provider/values.yaml)
     1. [Helm unit test for chart defaults](helm/secrets-provider/tests/secrets_provider_test.yaml)
