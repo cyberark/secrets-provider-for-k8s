@@ -6,6 +6,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [1.4.2] - 2022-05-03
+
 ## [1.4.1] - 2022-04-01
 ### Changed
 - Update to automated release process. [cyberark/secrets-provider-for-k8s#455](https://github.com/cyberark/secrets-provider-for-k8s/pull/455)
@@ -213,7 +215,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ### Changed
   - Escape secrets with backslashes before patching in k8s
 
-[Unreleased]: https://github.com/cyberark/secrets-provider-for-k8s/compare/v1.4.0...HEAD
+[Unreleased]: https://github.com/cyberark/secrets-provider-for-k8s/compare/v1.4.2...HEAD
+[1.4.2]: https://github.com/cyberark/secrets-provider-for-k8s/compare/v1.4.1...v1.4.2
+[1.4.1]: https://github.com/cyberark/secrets-provider-for-k8s/compare/v1.4.0...v1.4.1
 [1.4.0]: https://github.com/cyberark/secrets-provider-for-k8s/compare/v1.3.0...v1.4.0
 [1.3.0]: https://github.com/cyberark/secrets-provider-for-k8s/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/cyberark/secrets-provider-for-k8s/compare/v1.1.6...v1.2.0
