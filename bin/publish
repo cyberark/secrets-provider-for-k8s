@@ -106,6 +106,8 @@ if [[ ${PROMOTE} = true ]]; then
   REMOTE_TAG=$TARGET_ARG
 
   echo "Promoting image to $REMOTE_TAG"
+  echo "list docker images"
+  docker image ls
   readonly TAGS=(
     "$REMOTE_TAG"
     "latest"
