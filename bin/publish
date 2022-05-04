@@ -122,6 +122,7 @@ if [[ ${PROMOTE} = true ]]; then
   # Publish only latest to Redhat Registries
   echo "Tagging and pushing ${REDHAT_IMAGE}"
   echo docker tag "${LOCAL_REGISTRY}/${REDHAT_LOCAL_IMAGE}:${SOURCE_TAG}" "${REDHAT_IMAGE}:${REMOTE_TAG}"
+  exit 0
 
   # Publish RedHat image to RedHat Registry
   if docker login scan.connect.redhat.com -u unused -p "${REDHAT_API_KEY}"; then
