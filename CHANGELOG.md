@@ -6,8 +6,6 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
-## [1.4.2] - 2022-05-03
-
 ## [1.4.1] - 2022-04-01
 ### Changed
 - Update to automated release process. [cyberark/secrets-provider-for-k8s#455](https://github.com/cyberark/secrets-provider-for-k8s/pull/455)
