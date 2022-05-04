@@ -64,6 +64,7 @@ readonly REDHAT_IMAGE="scan.connect.redhat.com/ospid-56594c20-22fc-4eeb-9c2e-402
 readonly REDHAT_LOCAL_IMAGE="secrets-provider-for-k8s-redhat"
 readonly IMAGE_NAME="secrets-provider-for-k8s"
 readonly REGISTRY='cyberark'
+readonly LOCAL_REGISTRY='registry.tld'
 # Version derived from CHANGLEOG and automated release library
 VERSION=$(<VERSION)
 readonly VERSION
@@ -75,8 +76,8 @@ if [[ ${PUBLISH_INTERNAL} = true ]]; then
   SOURCE_TAG=$FULL_VERSION_TAG
   REMOTE_TAG=$VERSION
 
-  tag_and_push "${IMAGE_NAME}:${SOURCE_TAG}" "registry.tld/${IMAGE_NAME}:${REMOTE_TAG}"
-  tag_and_push "${REDHAT_LOCAL_IMAGE}:${SOURCE_TAG}" "registry.tld/${REDHAT_LOCAL_IMAGE}:${REMOTE_TAG}"
+  tag_and_push "${IMAGE_NAME}:${SOURCE_TAG}" "${LOCAL_REGISTRY}/${IMAGE_NAME}:${REMOTE_TAG}"
+  tag_and_push "${REDHAT_LOCAL_IMAGE}:${SOURCE_TAG}" "${LOCAL_REGISTRY}/${REDHAT_LOCAL_IMAGE}:${REMOTE_TAG}"
 fi
 
 if [[ ${PUBLISH_EDGE} = true ]]; then
@@ -112,15 +113,15 @@ if [[ ${PROMOTE} = true ]]; then
 
   for tag in "${TAGS[@]}" $(gen_versions "$REMOTE_TAG"); do
     echo "Tagging and pushing $REGISTRY/$IMAGE_NAME:$tag"
-    tag_and_push "$IMAGE_NAME:$SOURCE_TAG" "$REGISTRY/$IMAGE_NAME:$tag"
+    tag_and_push "${LOCAL_REGISTRY}/$IMAGE_NAME:$SOURCE_TAG" "$REGISTRY/$IMAGE_NAME:$tag"
   done
 
   # Publish RedHat image to docker hub
-  tag_and_push "${REDHAT_LOCAL_IMAGE}:${SOURCE_TAG}" "$REGISTRY/${REDHAT_LOCAL_IMAGE}:${REMOTE_TAG}"
+  tag_and_push "${LOCAL_REGISTRY}/${REDHAT_LOCAL_IMAGE}:${SOURCE_TAG}" "$REGISTRY/${REDHAT_LOCAL_IMAGE}:${REMOTE_TAG}"
 
   # Publish only latest to Redhat Registries
   echo "Tagging and pushing ${REDHAT_IMAGE}"
-  echo docker tag "${REDHAT_LOCAL_IMAGE}:${SOURCE_TAG}" "${REDHAT_IMAGE}:${REMOTE_TAG}"
+  echo docker tag "${LOCAL_REGISTRY}/${REDHAT_LOCAL_IMAGE}:${SOURCE_TAG}" "${REDHAT_IMAGE}:${REMOTE_TAG}"
 
   # Publish RedHat image to RedHat Registry
   if docker login scan.connect.redhat.com -u unused -p "${REDHAT_API_KEY}"; then
