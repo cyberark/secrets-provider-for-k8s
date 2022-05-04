@@ -95,18 +95,21 @@ if [[ ${PUBLISH_EDGE} = true ]]; then
 fi
 
 if [[ ${PROMOTE} = true ]]; then
+  echo "list docker images"
+  docker image ls
   if [[ -z ${SOURCE_ARG:-} || -z ${TARGET_ARG:-} ]]; then
   echo "When promoting, --source and --target flags are required."
   print_help
   exit 1
   fi
 
+  echo "SOURCE AND TARGET ARE:"
+  echo "${SOURCE_ARG}"
+  echo "${TARGET_ARG}"
   # Update vars to utilize build_utils
   SOURCE_TAG=$SOURCE_ARG
   REMOTE_TAG=$TARGET_ARG
 
-  echo "list docker images"
-  docker image ls
   echo "Promoting image to $REMOTE_TAG"
   readonly TAGS=(
     "$REMOTE_TAG"
