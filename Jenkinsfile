@@ -23,7 +23,7 @@ if (params.MODE == "PROMOTE") {
     // Pull existing images from internal registry in order to promote
     sh "docker pull registry.tld/secrets-provider-for-k8s:${sourceVersion}"
     sh "docker pull registry.tld/secrets-provider-for-k8s-redhat:${sourceVersion}"
-    sh "docker tag registry.tld/secrets-provider-for-k8s:${sourceVersion} registry.tld/secrets-provider-for-k8s:${sourceVersion}"
+    sh "docker tag registry.tld/secrets-provider-for-k8s:${sourceVersion} secrets-provider-for-k8s:${sourceVersion}"
     // Promote source version to target version.
     sh "summon ./bin/publish --promote --source ${sourceVersion} --target ${targetVersion}"
   }

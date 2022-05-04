@@ -105,9 +105,9 @@ if [[ ${PROMOTE} = true ]]; then
   SOURCE_TAG=$SOURCE_ARG
   REMOTE_TAG=$TARGET_ARG
 
-  echo "Promoting image to $REMOTE_TAG"
   echo "list docker images"
   docker image ls
+  echo "Promoting image to $REMOTE_TAG"
   readonly TAGS=(
     "$REMOTE_TAG"
     "latest"
