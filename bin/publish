@@ -95,17 +95,12 @@ if [[ ${PUBLISH_EDGE} = true ]]; then
 fi
 
 if [[ ${PROMOTE} = true ]]; then
-  echo "list docker images"
-  docker image ls
   if [[ -z ${SOURCE_ARG:-} || -z ${TARGET_ARG:-} ]]; then
   echo "When promoting, --source and --target flags are required."
   print_help
   exit 1
   fi
 
-  echo "SOURCE AND TARGET ARE:"
-  echo "${SOURCE_ARG}"
-  echo "${TARGET_ARG}"
   # Update vars to utilize build_utils
   SOURCE_TAG=$SOURCE_ARG
   REMOTE_TAG=$TARGET_ARG
@@ -126,8 +121,7 @@ if [[ ${PROMOTE} = true ]]; then
 
   # Publish only latest to Redhat Registries
   echo "Tagging and pushing ${REDHAT_IMAGE}"
-  echo docker tag "${LOCAL_REGISTRY}/${REDHAT_LOCAL_IMAGE}:${SOURCE_TAG}" "${REDHAT_IMAGE}:${REMOTE_TAG}"
-  exit 0
+  docker tag "${LOCAL_REGISTRY}/${REDHAT_LOCAL_IMAGE}:${SOURCE_TAG}" "${REDHAT_IMAGE}:${REMOTE_TAG}"
 
   # Publish RedHat image to RedHat Registry
   if docker login scan.connect.redhat.com -u unused -p "${REDHAT_API_KEY}"; then

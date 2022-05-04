@@ -36,17 +36,8 @@ function tag_and_push() {
   local target="$1"
   shift
 
-  echo "SOURCE"
-  echo "${source}"
-  echo
-  echo "TARGET"
-  echo "${target}"
-  echo
-
-  echo "Tagging and pushing $target"
-  echo
-  echo docker tag "${source}" "${target}"
-  echo docker push "${target}"
+  docker tag "${source}" "${target}"
+  docker push "${target}"
 }
 
 function retrieve_cyberark_ca_cert() {
