@@ -36,7 +36,6 @@ function tag_and_push() {
   local target="$1"
   shift
 
-  echo "Tagging and pushing $target..."
   docker tag "${source}" "${target}"
   docker push "${target}"
 }
