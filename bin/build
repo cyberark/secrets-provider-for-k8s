@@ -19,8 +19,9 @@ cd $(dirname $0)/..
 
 . bin/build_utils
 
-# Version derived from CHANGLEOG and automated release library
-VERSION=$(<VERSION)
+VERSION=unreleased
+# Version derived from CHANGELOG and automated release library
+[ -f VERSION ] && VERSION=$(<VERSION)
 FULL_VERSION_TAG="$VERSION-$(git_tag)"
 
 echo "---"
