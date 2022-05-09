@@ -1,5 +1,5 @@
 #!/usr/bin/env groovy
-
+@Library('conjur@dependency-checks') _
 // Automated release, promotion and dependencies
 properties([
   // Include the automated release parameters for the build
