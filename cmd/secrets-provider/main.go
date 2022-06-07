@@ -258,6 +258,8 @@ func getContainerMode() string {
 	containerMode := "init"
 	if mode, exists := annotationsMap[secretsConfigProvider.ContainerModeKey]; exists {
 		containerMode = mode
+	} else if mode = os.Getenv("CONTAINER_MODE"); mode == "sidecar" || mode == "application" {
+		containerMode = mode
 	}
 	return containerMode
 }

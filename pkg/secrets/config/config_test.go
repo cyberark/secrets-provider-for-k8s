@@ -354,6 +354,16 @@ var validateSecretsProviderSettingsTestCases = []validateSecretsProviderSettings
 		assert: assertEmptyErrorList(),
 	},
 	{
+		description: "if refresh enable is true container mode set with env, no errors are returned",
+		envAndAnnots: map[string]string{
+			"MY_POD_NAMESPACE":       "test-namespace",
+			SecretsDestinationKey:    "file",
+			SecretsRefreshEnabledKey: "true",
+			"CONTAINER_MODE":         "sidecar",
+		},
+		assert: assertEmptyErrorList(),
+	},
+	{
 		description: "if refresh enable is false and interval not set, no errors are returned",
 		envAndAnnots: map[string]string{
 			"MY_POD_NAMESPACE":       "test-namespace",
@@ -408,6 +418,18 @@ var validateSecretsProviderSettingsTestCases = []validateSecretsProviderSettings
 			ContainerModeKey:          "init",
 		},
 		assert: assertErrorInList(fmt.Errorf(messages.CSPFK051E, "Secrets refresh is enabled while container mode is set to", "init")),
+	},
+	{
+		description: "if refresh interval is set and container mode set with env",
+		envAndAnnots: map[string]string{
+			"MY_POD_NAMESPACE":        "test-namespace",
+			SecretsRefreshIntervalKey: "5s",
+			ContainerModeKey:          "",
+			"CONTAINER_MODE":          "sidecar",
+			"SECRETS_DESTINATION":     "k8s_secrets",
+			"K8S_SECRETS":             "another-secret-1,another-secret-2",
+		},
+		assert:  assertEmptyErrorList(),
 	},
 }
 
