@@ -12,6 +12,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
   [cyberark/secrets-provider-for-k8s#469](https://github.com/cyberark/secrets-provider-for-k8s/pull/469)
 
 ## [1.4.2] - 2022-05-03
+### Changed
+- Updated dependencies in go.mod (github.com/stretchr/testify -> v1.7.2, go.opentelemetry.io/otel -> 1.7.0,
+  gopkg.in/yaml.v3 -> v3.0.1, k8s.io/api -> 0.24.1, k8s.io/apimachinery -> 0.24.1, k8s.io/client-go -> 0.24.1)
+  [cyberark/secrets-provider-for-k8s#468](https://github.com/cyberark/secrets-provider-for-k8s/pull/468)
 
 ## [1.4.1] - 2022-04-01
 ### Changed
