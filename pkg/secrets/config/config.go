@@ -114,6 +114,7 @@ var validEnvVars = []string{
 	"RETRY_COUNT_LIMIT",
 	"JWT_TOKEN_PATH",
 	"REMOVE_DELETED_SECRETS",
+	"CONTAINER_MODE",
 }
 
 // ValidateAnnotations confirms that the provided annotations are properly
@@ -215,8 +216,7 @@ func ValidateSecretsProviderSettings(envAndAnnots map[string]string) ([]error, [
 
 	annotSecretsRefreshEnable := envAndAnnots[SecretsRefreshEnabledKey]
 	annotSecretsRefreshInterval := envAndAnnots[SecretsRefreshIntervalKey]
-	annotContainerMode := envAndAnnots[ContainerModeKey]
-	err = validRefreshInterval(annotSecretsRefreshInterval, annotSecretsRefreshEnable, annotContainerMode)
+	err = validRefreshInterval(annotSecretsRefreshInterval, annotSecretsRefreshEnable, envAndAnnots)
 	if err != nil {
 		errorList = append(errorList, err)
 	}
@@ -383,9 +383,16 @@ func validateStore(envStoreType string) (string, error) {
 	return storeType, err
 }
 
-func validRefreshInterval(intervalStr string, enableStr string, containerMode string) error {
+func validRefreshInterval(intervalStr string, enableStr string, envAndAnnots map[string]string) error {
 
 	var err error
+
+	containerMode := envAndAnnots[ContainerModeKey]
+	envContainerMode := envAndAnnots["CONTAINER_MODE"]
+	if containerMode == "" {
+		containerMode = envContainerMode
+	}
+
 	if intervalStr != "" || enableStr != "" {
 		if containerMode != "sidecar" {
 			return fmt.Errorf(messages.CSPFK051E, "Secrets refresh is enabled while container mode is set to", containerMode)
