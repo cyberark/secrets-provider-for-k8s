@@ -147,6 +147,8 @@ LABEL summary="Store secrets in Conjur or DAP and consume them in your Kubernete
 LABEL description="To retrieve the secrets from Conjur or DAP, the CyberArk Secrets Provider for Kubernetes runs as an \
  init container or separate application container and fetches the secrets that the pods require"
 
+RUN yum -y distro-sync
+
 # Add limited user
 RUN groupadd -r secrets-provider \
              -g 777 && \
