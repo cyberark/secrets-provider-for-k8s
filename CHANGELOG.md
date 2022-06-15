@@ -6,6 +6,11 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [1.4.3] - 2022-06-14
+### Security
+- Update the Red Hat ubi image in Dockerfile 
+  [cyberark/secrets-provider-for-k8s#469](https://github.com/cyberark/secrets-provider-for-k8s/pull/469)
+
 ## [1.4.2] - 2022-05-03
 
 ## [1.4.1] - 2022-04-01
