@@ -1,0 +1,70 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: test-app
+  name: test-app
+  namespace: test-app-namespace
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: test-app
+  template:
+    metadata:
+      labels:
+        app: test-app
+      annotations:
+        conjur.org/container-mode: sidecar
+        conjur.org/secrets-destination: file
+        conjur.org/jwt-token-path: /var/run/secrets/tokens/jwt
+        conjur.org/conjur-secrets.test-app: |
+          - admin-username: secrets/username
+          - admin-password: secrets/password
+        conjur.org/secret-file-path.test-app: "./credentials.yaml"
+        conjur.org/secret-file-format.test-app: "yaml"
+        conjur.org/secrets-refresh-interval: 10s
+    spec:
+      serviceAccountName: test-app-sa
+      containers:
+      - name: test-app
+        image: nginx
+        volumeMounts:
+          - name: conjur-secrets
+            mountPath: /opt/secrets/conjur
+            readOnly: true
+      - name: cyberark-secrets-provider-for-k8s
+        image: 'cyberark/secrets-provider-for-k8s:latest'
+        imagePullPolicy: Always
+        volumeMounts:
+        - name: podinfo
+          mountPath: /conjur/podinfo
+        - name: conjur-secrets
+          mountPath: /conjur/
+        - name: jwt-token
+          mountPath: /var/run/secrets/tokens
+        env:
+          - name: MY_POD_NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
+        envFrom:
+          - configMapRef:
+              name: conjur-connect
+      volumes:
+        - name: podinfo
+          downwardAPI:
+            items:
+              - path: "annotations"
+                fieldRef:
+                  fieldPath: metadata.annotations
+        - name: conjur-secrets
+          emptyDir:
+            medium: Memory
+        - name: jwt-token
+          projected:
+            sources:
+              - serviceAccountToken:
+                  path: jwt
+                  expirationSeconds: 6000
+                  audience: https://conjur.host.name/
