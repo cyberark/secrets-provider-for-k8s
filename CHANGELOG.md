@@ -9,7 +9,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ## [1.4.3] - 2022-06-14
 ### Security
 - Add replace statements to go.mod to prune vulnerable dependency versions from the dependency tree
-  [cyverark/secrets-provider-for-k8s#470](https://github.com/cyberark/secrets-provider-for-k8s/pull/470)
+  [cyberark/secrets-provider-for-k8s#470](https://github.com/cyberark/secrets-provider-for-k8s/pull/470)
+  [cyberark/secrets-provider-for-k8s#471](https://github.com/cyberark/secrets-provider-for-k8s/pull/471)
 - Update the Red Hat ubi image in Dockerfile 
   [cyberark/secrets-provider-for-k8s#469](https://github.com/cyberark/secrets-provider-for-k8s/pull/469)
 
