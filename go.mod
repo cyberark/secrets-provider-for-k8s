@@ -50,7 +50,7 @@ require (
 	go.opentelemetry.io/otel/trace v1.7.0 // indirect
 	golang.org/x/net v0.0.0-20220127200216-cd36cc0744dd // indirect
 	golang.org/x/oauth2 v0.0.0-20211104180415-d3ed0bb246c8 // indirect
-	golang.org/x/sys v0.0.0-20220209214540-3681064d5158 // indirect
+	golang.org/x/sys v0.0.0-20220520151302-bc2c85ada10a // indirect
 	golang.org/x/term v0.0.0-20210927222741-03fcf44c2211 // indirect
 	golang.org/x/text v0.3.7 // indirect
 	golang.org/x/time v0.0.0-20220210224613-90d013bbcef8 // indirect
@@ -64,3 +64,41 @@ require (
 	sigs.k8s.io/structured-merge-diff/v4 v4.2.1 // indirect
 	sigs.k8s.io/yaml v1.3.0 // indirect
 )
+
+// Security fixes to ensure we don't have old vulnerable packages in our
+// dependency tree.  Only put specific versions on the left side of the =>
+// so we don't downgrade future versions unintentionally.
+
+replace golang.org/x/crypto v0.0.0-20190308221718-c2843e01d9a2 => golang.org/x/crypto v0.0.0-20220525230936-793ad666bf5e
+
+replace golang.org/x/crypto v0.0.0-20190510104115-cbcb75029529 => golang.org/x/crypto v0.0.0-20220525230936-793ad666bf5e
+
+replace golang.org/x/crypto v0.0.0-20190605123033-f99c8df09eb5 => golang.org/x/crypto v0.0.0-20220525230936-793ad666bf5e
+
+replace golang.org/x/crypto v0.0.0-20191011191535-87dc89f01550 => golang.org/x/crypto v0.0.0-20220525230936-793ad666bf5e
+
+replace golang.org/x/text v0.3.1-0.20180807135948-17ff2d5776d2 => golang.org/x/text v0.3.7
+
+replace golang.org/x/text v0.3.2 => golang.org/x/text v0.3.7
+
+replace golang.org/x/text v0.3.3 => golang.org/x/text v0.3.7
+
+replace golang.org/x/text v0.3.4 => golang.org/x/text v0.3.7
+
+replace golang.org/x/text v0.3.5 => golang.org/x/text v0.3.7
+
+replace golang.org/x/text v0.3.6 => golang.org/x/text v0.3.7
+
+replace golang.org/x/net => golang.org/x/net v0.0.0-20220617184016-355a448f1bc9
+
+replace gopkg.in/yaml.v2 v2.2.1 => gopkg.in/yaml.v2 v2.2.8
+
+replace gopkg.in/yaml.v2 v2.2.2 => gopkg.in/yaml.v2 v2.2.8
+
+replace gopkg.in/yaml.v2 v2.2.4 => gopkg.in/yaml.v2 v2.2.8
+
+replace gopkg.in/yaml.v3 v3.0.0-20200313102051-9f266ea9e77c => gopkg.in/yaml.v3 v3.0.1
+
+replace gopkg.in/yaml.v3 v3.0.0-20200615113413-eeeca48fe776 => gopkg.in/yaml.v3 v3.0.1
+
+replace gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b => gopkg.in/yaml.v3 v3.0.1
