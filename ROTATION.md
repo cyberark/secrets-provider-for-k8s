@@ -129,6 +129,10 @@ Modify the Kubernetes manifest
 
 ## Using sentinel files for checking provider status
 
+Prerequisites for using sentinel files:
+
+Requires secrets-provider-for-k8s v1.4.1 or later.
+
 Secrets Provider allows for its status to be monitored through the creation of a couple of empty sentinel files:
 `CONJUR_SECRETS_PROVIDED` and `CONJUR_SECRETS_UPDATED`. The first file is created when the SP has completed its first
 round of providing secrets via secret files / Kubernetes Secrets. It creates/recreates the second file whenever it
