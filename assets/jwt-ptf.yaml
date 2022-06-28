@@ -15,7 +15,7 @@ spec:
       labels:
         app: test-app
       annotations:
-        conjur.org/container-mode: sidecar
+        conjur.org/container-mode: init
         conjur.org/secrets-destination: file
         conjur.org/jwt-token-path: /var/run/secrets/tokens/jwt
         conjur.org/conjur-secrets.test-app: |
@@ -24,7 +24,6 @@ spec:
           - test-secrets-provider-p2f-jwt-app-db/password
         conjur.org/secret-file-path.test-app: "./credentials.yaml"
         conjur.org/secret-file-format.test-app: "yaml"
-        conjur.org/secrets-refresh-interval: 10s
     spec:
       serviceAccountName: test-app-secrets-provider-p2f-jwt
       containers:
@@ -34,6 +33,7 @@ spec:
           - name: conjur-secrets
             mountPath: /opt/secrets/conjur
             readOnly: true
+      initContainers:
       - name: cyberark-secrets-provider-for-k8s
         image: 'cyberark/secrets-provider-for-k8s:latest'
         imagePullPolicy: Always
@@ -69,3 +69,4 @@ spec:
                   path: jwt
                   expirationSeconds: 6000
                   audience: https://conjur.host.name/
+
