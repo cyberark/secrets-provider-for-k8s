@@ -171,7 +171,7 @@ so no flag is required.
 For example:
 
 - Deploy Conjur Open Source on GKE, run  `./bin/start --oss --gke`
-- Deploy Conjur Enterprise on Openshift, run  `./bin/start --dap --oc311`
+- Deploy Conjur Enterprise on Openshift, run  `./bin/start --dap --current`
 
 It is also possible to run a single test instead of the full suite. This can be done by running `./bin/start` with the
 flag `--test-prefix=<prefix>`. For example, running with the flag `--test-prefix=TEST_ID_18` will run only the test

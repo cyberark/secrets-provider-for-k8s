@@ -71,7 +71,7 @@ __NOTE: If you are using the Secrets Provider "Push to file" mode, the
 
 - K8s 1.11+
 
-- Openshift 3.11, 4.5, 4.6, 4.7, and 4.8 _*(Conjur Enterprise only)*_
+- Openshift v4.6-v4.8 _*(Conjur Enterprise only)*_
 
 ## Using secrets-provider-for-k8s with Conjur Open Source 
 
