@@ -202,9 +202,6 @@ pipeline {
           steps {
             script {
               def tasks = [:]
-              tasks["Openshift v3.11, DAP"] = {
-                  sh "./bin/start --docker --dap --oc311"
-              }
               if ( params.TEST_OCP_OLDEST ) {
                 tasks["Openshift (Oldest), DAP"] = {
                   sh "./bin/start --docker --dap --oldest"

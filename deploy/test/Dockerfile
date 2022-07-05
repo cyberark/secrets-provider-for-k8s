@@ -20,7 +20,7 @@ RUN wget -O /usr/local/bin/kubectl ${KUBECTL_CLI_URL:-https://storage.googleapis
 # Install OpenShift oc CLI
 ARG OPENSHIFT_CLI_URL
 RUN mkdir -p ocbin && \
-    wget -O oc.tar.gz ${OPENSHIFT_CLI_URL:-https://github.com/openshift/origin/releases/download/v3.7.2/openshift-origin-client-tools-v3.7.2-282e43f-linux-64bit.tar.gz} && \
+    wget -O oc.tar.gz ${OPENSHIFT_CLI_URL:-https://mirror.openshift.com/pub/openshift-v4/x86_64/clients/ocp/stable/openshift-client-linux.tar.gz} && \
     tar xvf oc.tar.gz -C ocbin && \
     cp "$(find ./ocbin -name 'oc' -type f | tail -1)"  /usr/local/bin/oc  && \
     rm -rf ocbin oc.tar.gz
