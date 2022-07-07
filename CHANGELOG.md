@@ -6,18 +6,22 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
-## [1.4.3] - 2022-06-14
+## [1.4.3] - 2022-07-07
+### Removed
+- Support for OpenShift v3.11 is officially removed as of this release.
+  [cyberark/secrets-provider-for-k8s#474](https://github.com/cyberark/secrets-provider-for-k8s/pull/474)
+
 ### Security
-- Add replace statements to go.mod to prune vulnerable dependency versions from the dependency tree
+- Add replace statements to go.mod to prune vulnerable dependency versions from the dependency tree.
   [cyberark/secrets-provider-for-k8s#470](https://github.com/cyberark/secrets-provider-for-k8s/pull/470)
   [cyberark/secrets-provider-for-k8s#471](https://github.com/cyberark/secrets-provider-for-k8s/pull/471)
-- Update the Red Hat ubi image in Dockerfile 
+- Update the Red Hat ubi image in Dockerfile.
   [cyberark/secrets-provider-for-k8s#469](https://github.com/cyberark/secrets-provider-for-k8s/pull/469)
 
 ## [1.4.2] - 2022-05-03
 ### Changed
 - Updated dependencies in go.mod (github.com/stretchr/testify -> v1.7.2, go.opentelemetry.io/otel -> 1.7.0,
-  gopkg.in/yaml.v3 -> v3.0.1, k8s.io/api -> 0.24.1, k8s.io/apimachinery -> 0.24.1, k8s.io/client-go -> 0.24.1)
+  gopkg.in/yaml.v3 -> v3.0.1, k8s.io/api -> 0.24.1, k8s.io/apimachinery -> 0.24.1, k8s.io/client-go -> 0.24.1).
   [cyberark/secrets-provider-for-k8s#468](https://github.com/cyberark/secrets-provider-for-k8s/pull/468)
 
 ## [1.4.1] - 2022-04-01
@@ -227,7 +231,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ### Changed
   - Escape secrets with backslashes before patching in k8s
 
-[Unreleased]: https://github.com/cyberark/secrets-provider-for-k8s/compare/v1.4.2...HEAD
+[Unreleased]: https://github.com/cyberark/secrets-provider-for-k8s/compare/v1.4.3...HEAD
+[1.4.3]: https://github.com/cyberark/secrets-provider-for-k8s/compare/v1.4.2...v1.4.3
 [1.4.2]: https://github.com/cyberark/secrets-provider-for-k8s/compare/v1.4.1...v1.4.2
 [1.4.1]: https://github.com/cyberark/secrets-provider-for-k8s/compare/v1.4.0...v1.4.1
 [1.4.0]: https://github.com/cyberark/secrets-provider-for-k8s/compare/v1.3.0...v1.4.0
