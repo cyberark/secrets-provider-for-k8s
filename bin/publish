@@ -61,6 +61,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 readonly REDHAT_IMAGE="scan.connect.redhat.com/ospid-56594c20-22fc-4eeb-9c2e-402cf43bcb79/secrets-provider-for-k8s"
+readonly REDHAT_CERT_PID="5ec6353078e79e6a879fa296"
 readonly REDHAT_LOCAL_IMAGE="secrets-provider-for-k8s-redhat"
 readonly IMAGE_NAME="secrets-provider-for-k8s"
 readonly REGISTRY='cyberark'
@@ -130,6 +131,9 @@ if [[ ${PROMOTE} = true ]]; then
       echo 'Red Hat push FAILED! (maybe the image was pushed already?)'
       exit 0
     fi
+
+    # scan image with preflight tool
+    scan_redhat_image "${REDHAT_IMAGE}:${REMOTE_TAG}" "${REDHAT_CERT_PID}"
   else
     echo 'Failed to log in to scan.connect.redhat.com'
     exit 1
