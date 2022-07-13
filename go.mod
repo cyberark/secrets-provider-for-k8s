@@ -88,6 +88,8 @@ replace golang.org/x/crypto v0.0.0-20191011191535-87dc89f01550 => golang.org/x/c
 
 replace golang.org/x/crypto v0.0.0-20201002170205-7f63de1d35b0 => golang.org/x/crypto v0.0.0-20220525230936-793ad666bf5e
 
+replace golang.org/x/crypto v0.0.0-20210921155107-089bfa567519 => golang.org/x/crypto v0.0.0-20220525230936-793ad666bf5e
+
 replace golang.org/x/crypto v0.0.0-20220214200702-86341886e292 => golang.org/x/crypto v0.0.0-20220525230936-793ad666bf5e
 
 replace golang.org/x/net v0.0.0-20180826012351-8a410e7b638d => golang.org/x/net v0.0.0-20220617184016-355a448f1bc9
@@ -163,6 +165,10 @@ replace golang.org/x/net v0.0.0-20210226172049-e18ecbb05110 => golang.org/x/net 
 replace golang.org/x/net v0.0.0-20210316092652-d523dce5a7f4 => golang.org/x/net v0.0.0-20220617184016-355a448f1bc9
 
 replace golang.org/x/net v0.0.0-20210405180319-a5a99cb37ef4 => golang.org/x/net v0.0.0-20220617184016-355a448f1bc9
+
+replace golang.org/x/net v0.0.0-20210428140749-89ef3d95e781 => golang.org/x/net v0.0.0-20220617184016-355a448f1bc9
+
+replace golang.org/x/net v0.0.0-20211015210444-4f30a5c0130f => golang.org/x/net v0.0.0-20220617184016-355a448f1bc9
 
 replace golang.org/x/net v0.0.0-20211112202133-69e39bad7dc2 => golang.org/x/net v0.0.0-20220617184016-355a448f1bc9
 
