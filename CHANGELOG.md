@@ -6,6 +6,11 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [1.4.4] - 2022-07-12
+### Changed
+- Updated multiple go dependencies 
+  [cyberark/secrets-provider-for-k8s#477](https://github.com/cyberark/secrets-provider-for-k8s/pull/477)
+
 ## [1.4.3] - 2022-07-07
 ### Removed
 - Support for OpenShift v3.11 is officially removed as of this release.

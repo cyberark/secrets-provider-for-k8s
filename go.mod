@@ -4,19 +4,19 @@ go 1.17
 
 require (
 	github.com/cenkalti/backoff v2.2.1+incompatible
-	github.com/stretchr/testify v1.7.2
-	go.opentelemetry.io/otel v1.7.0
+	github.com/stretchr/testify v1.8.0
+	go.opentelemetry.io/otel v1.8.0
 	gopkg.in/yaml.v2 v2.4.0
 	gopkg.in/yaml.v3 v3.0.1
-	k8s.io/api v0.24.1
-	k8s.io/apimachinery v0.24.1
-	k8s.io/client-go v0.24.1
+	k8s.io/api v0.24.2
+	k8s.io/apimachinery v0.24.2
+	k8s.io/client-go v0.24.2
 )
 
 require (
 	github.com/PuerkitoBio/purell v1.1.1 // indirect
 	github.com/PuerkitoBio/urlesc v0.0.0-20170810143723-de5bf2ad4578 // indirect
-	github.com/emicklei/go-restful v2.9.5+incompatible // indirect
+	github.com/emicklei/go-restful/v3 v3.8.0 // indirect
 	github.com/go-openapi/jsonpointer v0.19.5 // indirect
 	github.com/go-openapi/jsonreference v0.19.5 // indirect
 	github.com/go-openapi/swag v0.19.14 // indirect
@@ -28,10 +28,9 @@ require (
 
 require (
 	github.com/bgentry/go-netrc v0.0.0-20140422174119-9fd32a8b3d3d // indirect
-	github.com/cyberark/conjur-api-go v0.10.1
-	github.com/cyberark/conjur-authn-k8s-client v0.23.1
-	// Requires latest version for automated release process
-	github.com/cyberark/conjur-opentelemetry-tracer latest
+	github.com/cyberark/conjur-api-go v0.10.1 // version will be ignored by auto release process
+	github.com/cyberark/conjur-authn-k8s-client v0.23.1 // version will be ignored by auto release process
+	github.com/cyberark/conjur-opentelemetry-tracer v1.55.55 // version will be ignored by auto release process
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/fullsailor/pkcs7 v0.0.0-20190404230743-d7302db945fa // indirect
 	github.com/go-logr/logr v1.2.3 // indirect
@@ -47,8 +46,8 @@ require (
 	go.opentelemetry.io/otel/exporters/jaeger v1.7.0 // indirect
 	go.opentelemetry.io/otel/exporters/stdout/stdouttrace v1.7.0 // indirect
 	go.opentelemetry.io/otel/sdk v1.7.0 // indirect
-	go.opentelemetry.io/otel/trace v1.7.0 // indirect
-	golang.org/x/net v0.0.0-20220127200216-cd36cc0744dd // indirect
+	go.opentelemetry.io/otel/trace v1.8.0 // indirect
+	golang.org/x/net v0.0.0-20220225172249-27dd8689420f // indirect
 	golang.org/x/oauth2 v0.0.0-20211104180415-d3ed0bb246c8 // indirect
 	golang.org/x/sys v0.0.0-20220520151302-bc2c85ada10a // indirect
 	golang.org/x/term v0.0.0-20210927222741-03fcf44c2211 // indirect
@@ -65,9 +64,19 @@ require (
 	sigs.k8s.io/yaml v1.3.0 // indirect
 )
 
+// Automated release process replaces
+// DO NOT EDIT: CHANGES TO THE 3 BELOW LINES WILL BREAK AUTOMATED RELEASES
+replace github.com/cyberark/conjur-api-go => github.com/cyberark/conjur-api-go latest
+
+replace github.com/cyberark/conjur-authn-k8s-client => github.com/cyberark/conjur-authn-k8s-client latest
+
+replace github.com/cyberark/conjur-opentelemetry-tracer => github.com/cyberark/conjur-opentelemetry-tracer latest
+
 // Security fixes to ensure we don't have old vulnerable packages in our
 // dependency tree.  Only put specific versions on the left side of the =>
 // so we don't downgrade future versions unintentionally.
+
+exclude github.com/emicklei/go-restful v2.9.5+incompatible
 
 replace golang.org/x/crypto v0.0.0-20190308221718-c2843e01d9a2 => golang.org/x/crypto v0.0.0-20220525230936-793ad666bf5e
 
@@ -186,3 +195,6 @@ replace gopkg.in/yaml.v3 v3.0.0-20200313102051-9f266ea9e77c => gopkg.in/yaml.v3 
 replace gopkg.in/yaml.v3 v3.0.0-20200615113413-eeeca48fe776 => gopkg.in/yaml.v3 v3.0.1
 
 replace gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b => gopkg.in/yaml.v3 v3.0.1
+
+// Resolves CVE-2022-1996 until k8s.io/client-go v0.25.0+ is released
+replace k8s.io/kube-openapi v0.0.0-20220328201542-3ee0da9b0b42 => k8s.io/kube-openapi v0.0.0-20220627174259-011e075b9cb8
