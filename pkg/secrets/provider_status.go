@@ -1,6 +1,7 @@
 package secrets
 
 import (
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -30,20 +31,24 @@ type statusUpdater interface {
 	copyScripts() error
 }
 
-type chmodFunc func(string, os.FileMode) error
-type createFunc func(string) (*os.File, error)
-type openFunc func(string) (*os.File, error)
+type chmodFunc    func(string, os.FileMode) error
+type createFunc   func(string) (*os.File, error)
+type openFunc     func(string) (*os.File, error)
+type mkdirAllFunc func(string, os.FileMode) error
+
 
 type osFuncs struct {
-	chmod  chmodFunc
-	create createFunc
-	open   openFunc
+	chmod     chmodFunc
+	create    createFunc
+	open      openFunc
+	mkdirAll  mkdirAllFunc
 }
 
 var stdOSFuncs = osFuncs{
-	chmod:  os.Chmod,
-	create: os.Create,
-	open:   os.Open,
+	chmod:    os.Chmod,
+	create:   os.Create,
+	open:     os.Open,
+	mkdirAll: os.MkdirAll,
 }
 
 // fileUpdater implements the statusUpdater interface. It records provider
@@ -84,6 +89,13 @@ func (f fileUpdater) setSecretsUpdated() error {
 }
 
 func (f fileUpdater) copyScripts() error {
+
+	// Create the directory
+	err := f.os.mkdirAll(f.scriptDestDir, os.ModePerm)
+	if err != nil {
+		return fmt.Errorf("unable to mkdir at %q: %s", f.scriptDestDir, err)
+	}
+
 	for _, script := range f.scripts {
 		srcFile := filepath.Join(f.scriptSrcDir, script)
 		destFile := filepath.Join(f.scriptDestDir, script)
@@ -98,6 +110,7 @@ func (f fileUpdater) copyScripts() error {
 }
 
 func (f fileUpdater) copyFile(srcPath, destPath string) error {
+
 	src, err := f.os.open(srcPath)
 	if err != nil {
 		return err

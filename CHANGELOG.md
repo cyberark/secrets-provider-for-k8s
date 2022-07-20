@@ -15,6 +15,11 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - Add replace statements to go.mod to prune vulnerable dependency versions from the dependency tree.
   [cyberark/secrets-provider-for-k8s#478](https://github.com/cyberark/secrets-provider-for-k8s/pull/478)
 
+### Fixed
+- Fixes the following error seen on boot up when the status volumemount is not added
+  "open /conjur/status/conjur-secrets-unchanged.sh: no such file or directory"
+  [cyberark/secrets-provider-for-k8s#479](https://github.com/cyberark/secrets-provider-for-k8s/pull/479)
+
 ## [1.4.3] - 2022-07-07
 ### Removed
 - Support for OpenShift v3.11 is officially removed as of this release.
