@@ -42,21 +42,32 @@ func testOpen(injectErr error) openFunc {
 	}
 }
 
+func testMkdirAll(injectErr error) mkdirAllFunc {
+	return func(path string, mode os.FileMode) error {
+		if injectErr != nil {
+			return injectErr
+		}
+		return stdOSFuncs.mkdirAll(path, mode)
+	}
+}
+
 // injectErrs defines a set of errors that should be injected for a given
 // test case.
 type injectErrs struct {
 	chmodErr  error
 	createErr error
 	openErr   error
+	mkDirErr  error
 }
 
 // testOSFuncs generates a set of OS functions for testing, each of which
 // support an option to return an "injected" error.
 func testOSFuncs(inject injectErrs) osFuncs {
 	return osFuncs{
-		chmod:  testChmod(inject.chmodErr),
-		create: testCreate(inject.createErr),
-		open:   testOpen(inject.openErr),
+		chmod:    testChmod(inject.chmodErr),
+		create:   testCreate(inject.createErr),
+		open:     testOpen(inject.openErr),
+		mkdirAll: testMkdirAll(inject.mkDirErr),
 	}
 }
 
