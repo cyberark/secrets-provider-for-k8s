@@ -5,20 +5,18 @@ metadata:
     app: test-app
   name: test-app
   namespace: test-app-namespace
-template:
- metadata:
-   annotations:
-     conjur.org/container-mode: sidecar
-     conjur.org/secrets-refresh-interval: 10s
 spec:
+  replicas: 1
   selector:
     matchLabels:
       app: test-app
-  replicas: 1
   template:
     metadata:
       labels:
         app: test-app
+      annotations:
+        conjur.org/container-mode: sidecar
+        conjur.org/secrets-refresh-interval: 10s
     spec:
       serviceAccountName: test-app-sa
       containers:
@@ -38,10 +36,12 @@ spec:
                 secretKeyRef:
                   name: db-credentials
                   key: password
-        - image: cyberark/secrets-provider-for-k8s
+        - image: 'cyberark/secrets-provider-for-k8s:latest'
           imagePullPolicy: Always
           name: cyberark-secrets-provider-for-k8s
           volumeMounts:
+          - name: conjur-status
+            mountPath: /conjur/status
           - name: jwt-token
             mountPath: /var/run/secrets/tokens
           - mountPath: /run/conjur
@@ -67,25 +67,27 @@ spec:
             - configMapRef:
                 name: conjur-connect
       volumes:
-      - name: jwt-token
-        projected:
-          sources:
-            - serviceAccountToken:
-                path: jwt
-                expirationSeconds: 6000
-                audience: https://conjur.host.name/
-      - emptyDir:
-          medium: Memory
-        name: conjur-access-token
-      - emptyDir:
-          medium: Memory
-        name: conjur-certs
-      - downwardAPI:
-          defaultMode: 420
-          items:
-          - fieldRef:
-              apiVersion: v1
-              fieldPath: metadata.annotations
-            path: annotations
-        name: podinfo
-
+        - name: conjur-status
+          emptyDir:
+            medium: Memory
+        - name: jwt-token
+          projected:
+            sources:
+              - serviceAccountToken:
+                  path: jwt
+                  expirationSeconds: 6000
+                  audience: conjur
+        - emptyDir:
+            medium: Memory
+          name: conjur-access-token
+        - emptyDir:
+            medium: Memory
+          name: conjur-certs
+        - downwardAPI:
+            defaultMode: 420
+            items:
+            - fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.annotations
+              path: annotations
+          name: podinfo

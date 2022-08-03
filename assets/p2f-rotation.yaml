@@ -2,20 +2,20 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   labels:
-    app: test-app-secrets-provider-p2f
-  name: test-app-secrets-provider-p2f
-  namespace: app-test
+    app: test-app
+  name: test-app
+  namespace: test-app-namespace
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: test-app-secrets-provider-p2f
+      app: test-app
   template:
     metadata:
       labels:
-        app: test-app-secrets-provider-p2f
+        app: test-app
       annotations:
-        conjur.org/authn-identity: host/conjur/authn-k8s/my-authenticator-id/apps/test-app-secrets-provider-p2f
+        conjur.org/authn-identity: host/conjur/authn-k8s/my-authenticator-id/apps/test-app
         conjur.org/container-mode: sidecar
         conjur.org/secrets-destination: file
         conjur.org/conjur-secrets.test-app: |
@@ -27,7 +27,7 @@ spec:
         conjur.org/secrets-refresh-enabled: "true"
         conjur.org/secrets-refresh-interval: 10m
     spec:
-      serviceAccountName: test-app-secrets-provider-p2f
+      serviceAccountName: test-app-sa
       containers:
         - name: test-app
           image: ubuntu:latest
