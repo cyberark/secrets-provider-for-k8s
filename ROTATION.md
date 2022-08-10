@@ -131,7 +131,8 @@ Modify the Kubernetes manifest
 
 Prerequisites for using sentinel files:
 
-Requires secrets-provider-for-k8s v1.4.1 or later.
+Requires secrets-provider-for-k8s v1.4.1 or later.<br>
+Requires a shared volume that both the application and Secrets Provider can read and write to.
 
 Secrets Provider allows for its status to be monitored through the creation of a couple of empty sentinel files:
 `CONJUR_SECRETS_PROVIDED` and `CONJUR_SECRETS_UPDATED`. The first file is created when the SP has completed its first
@@ -188,6 +189,15 @@ This will cause the application to be restarted after there secrets have been up
           timeoutSeconds: 1
 ```
 
+By default, the Secrets Provider container runs using a default username `secrets-provider`,
+user ID `777`, and group ID `777`. For the application to delete the sentinel files the app and
+the Secrets provider should run as the same UID. For example the below securityContext 
+can be added to both the Secrets Provider and the Application, replacing 9999 with your desired value.
+
+```
+        securityContext:
+          runAsUser: 9999
+```
 
 ## Reference Table of Configuration Annotations
 
