@@ -1,6 +1,6 @@
 # This app is created to run end-to-end tests with the Secrets Provider Job to ensure the updated K8s Secret appear as
 # environment variables
-apiVersion: v1
+apiVersion: apps.openshift.io/v1
 kind: DeploymentConfig
 metadata:
   labels:
