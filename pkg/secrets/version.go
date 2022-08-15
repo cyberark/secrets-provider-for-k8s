@@ -3,7 +3,7 @@ package secrets
 import "fmt"
 
 // Version field is a SemVer that should indicate the baked-in version
-var Version = "1.4.3"
+var Version = "1.4.4"
 
 // Tag field denotes the specific build type for the broker. It may
 // be replaced by compile-time variables if needed to provide the git
