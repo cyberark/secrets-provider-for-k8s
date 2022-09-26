@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [1.4.5] - 2022-09-26
 ### Changed
+- Updated Go to 1.19
+  [cyberark/secrets-provider-for-k8s#484](https://github.com/cyberark/secrets-provider-for-k8s/pull/484)
 - Updated go.opentelmetry.io/otel to 1.10.0 and k8s.io/api, k8s.io/apimachinery, 
   and k8s.io/client-go to latest versions 
   [cyberark/secrets-provider-for-k8s#484](https://github.com/cyberark/secrets-provider-for-k8s/pull/484)
@@ -254,7 +256,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ### Changed
   - Escape secrets with backslashes before patching in k8s
 
-[Unreleased]: https://github.com/cyberark/secrets-provider-for-k8s/compare/v1.4.4...HEAD
+[Unreleased]: https://github.com/cyberark/secrets-provider-for-k8s/compare/v1.4.5...HEAD
+[1.4.5]: https://github.com/cyberark/secrets-provider-for-k8s/compare/v1.4.4...v1.4.5
 [1.4.4]: https://github.com/cyberark/secrets-provider-for-k8s/compare/v1.4.3...v1.4.4
 [1.4.3]: https://github.com/cyberark/secrets-provider-for-k8s/compare/v1.4.2...v1.4.3
 [1.4.2]: https://github.com/cyberark/secrets-provider-for-k8s/compare/v1.4.1...v1.4.2

@@ -18,7 +18,7 @@ ENV GOOS=linux \
 ADD build_ca_certificate /usr/local/share/ca-certificates/
 RUN update-ca-certificates
 
-RUN go get -u github.com/jstemmer/go-junit-report
+RUN go install github.com/jstemmer/go-junit-report/v2@latest
 
 WORKDIR /opt/secrets-provider-for-k8s
 
