@@ -1,6 +1,6 @@
 module github.com/cyberark/secrets-provider-for-k8s
 
-go 1.17
+go 1.19
 
 require (
 	github.com/cenkalti/backoff v2.2.1+incompatible
@@ -29,7 +29,7 @@ require (
 require (
 	github.com/bgentry/go-netrc v0.0.0-20140422174119-9fd32a8b3d3d // indirect
 	github.com/cyberark/conjur-api-go v0.10.1 // version will be ignored by auto release process
-	github.com/cyberark/conjur-authn-k8s-client v0.23.1 // version will be ignored by auto release process
+	github.com/cyberark/conjur-authn-k8s-client v0.23.8 // version will be ignored by auto release process
 	github.com/cyberark/conjur-opentelemetry-tracer v1.55.55 // version will be ignored by auto release process
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/fullsailor/pkcs7 v0.0.0-20190404230743-d7302db945fa // indirect
@@ -66,11 +66,11 @@ require (
 
 // Automated release process replaces
 // DO NOT EDIT: CHANGES TO THE 3 BELOW LINES WILL BREAK AUTOMATED RELEASES
-replace github.com/cyberark/conjur-api-go => github.com/cyberark/conjur-api-go v0.10.1
+replace github.com/cyberark/conjur-api-go => github.com/cyberark/conjur-api-go latest
 
-replace github.com/cyberark/conjur-authn-k8s-client => github.com/cyberark/conjur-authn-k8s-client v0.23.8
+replace github.com/cyberark/conjur-authn-k8s-client => github.com/cyberark/conjur-authn-k8s-client latest
 
-replace github.com/cyberark/conjur-opentelemetry-tracer => github.com/cyberark/conjur-opentelemetry-tracer v0.0.1-512
+replace github.com/cyberark/conjur-opentelemetry-tracer => github.com/cyberark/conjur-opentelemetry-tracer latest
 
 // Security fixes to ensure we don't have old vulnerable packages in our
 // dependency tree.  Only put specific versions on the left side of the =>
