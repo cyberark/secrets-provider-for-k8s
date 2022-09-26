@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ## [Unreleased]
 
 ## [1.4.5] - 2022-09-26
+### Changed
+- Updated go.opentelmetry.io/otel to 1.10.0 and k8s.io/api, k8s.io/apimachinery, 
+  and k8s.io/client-go to latest versions 
+  [cyberark/secrets-provider-for-k8s#484](https://github.com/cyberark/secrets-provider-for-k8s/pull/484)
+
 ### Security
 - Updated replace statements in go.mod to remove vulnerable versions of golang.org/x/net [cyberark/secrets-provider-for-k8s#484](https://github.com/cyberark/secrets-provider-for-k8s/pull/484)
 
