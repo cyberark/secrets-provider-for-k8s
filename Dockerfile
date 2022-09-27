@@ -1,6 +1,6 @@
 # =================== BASE BUILD LAYER ===================
 # this layer is used to prepare a common layer for both debug and release builds
-FROM golang:1.17 as secrets-provider-builder-base
+FROM golang:1.19 as secrets-provider-builder-base
 MAINTAINER CyberArk Software Ltd.
 
 ENV GOOS=linux \
@@ -18,7 +18,7 @@ ENV GOOS=linux \
 ADD build_ca_certificate /usr/local/share/ca-certificates/
 RUN update-ca-certificates
 
-RUN go get -u github.com/jstemmer/go-junit-report
+RUN go install github.com/jstemmer/go-junit-report/v2@latest
 
 WORKDIR /opt/secrets-provider-for-k8s
 
