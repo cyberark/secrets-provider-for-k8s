@@ -176,6 +176,8 @@ replace golang.org/x/net v0.0.0-20220127200216-cd36cc0744dd => golang.org/x/net 
 
 replace golang.org/x/net v0.0.0-20220225172249-27dd8689420f => golang.org/x/net v0.0.0-20220923203811-8be639271d50
 
+replace golang.org/x/net v0.0.0-20220722155237-a158d28d115b => golang.org/x/net v0.0.0-20220923203811-8be639271d50
+
 replace golang.org/x/text v0.0.0-20170915032832-14c0d48ead0c => golang.org/x/text v0.3.7
 
 replace golang.org/x/text v0.3.0 => golang.org/x/text v0.3.7
