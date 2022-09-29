@@ -47,7 +47,7 @@ require (
 	go.opentelemetry.io/otel/exporters/stdout/stdouttrace v1.7.0 // indirect
 	go.opentelemetry.io/otel/sdk v1.7.0 // indirect
 	go.opentelemetry.io/otel/trace v1.10.0 // indirect
-	golang.org/x/net v0.0.0-20220722155237-a158d28d115b // indirect
+	golang.org/x/net v0.0.0-20220923203811-8be639271d50 // indirect
 	golang.org/x/oauth2 v0.0.0-20211104180415-d3ed0bb246c8 // indirect
 	golang.org/x/sys v0.0.0-20220728004956-3c1f35247d10 // indirect
 	golang.org/x/term v0.0.0-20210927222741-03fcf44c2211 // indirect
@@ -89,6 +89,8 @@ replace golang.org/x/crypto v0.0.0-20191011191535-87dc89f01550 => golang.org/x/c
 replace golang.org/x/crypto v0.0.0-20201002170205-7f63de1d35b0 => golang.org/x/crypto v0.0.0-20220525230936-793ad666bf5e
 
 replace golang.org/x/crypto v0.0.0-20210921155107-089bfa567519 => golang.org/x/crypto v0.0.0-20220525230936-793ad666bf5e
+
+replace golang.org/x/crypto v0.0.0-20211215153901-e495a2d5b3d3 => golang.org/x/crypto v0.0.0-20220525230936-793ad666bf5e
 
 replace golang.org/x/crypto v0.0.0-20220214200702-86341886e292 => golang.org/x/crypto v0.0.0-20220525230936-793ad666bf5e
 
@@ -168,6 +170,8 @@ replace golang.org/x/net v0.0.0-20210405180319-a5a99cb37ef4 => golang.org/x/net 
 
 replace golang.org/x/net v0.0.0-20210428140749-89ef3d95e781 => golang.org/x/net v0.0.0-20220923203811-8be639271d50
 
+replace golang.org/x/net v0.0.0-20210503060351-7fd8e65b6420 => golang.org/x/net v0.0.0-20220923203811-8be639271d50
+
 replace golang.org/x/net v0.0.0-20211015210444-4f30a5c0130f => golang.org/x/net v0.0.0-20220923203811-8be639271d50
 
 replace golang.org/x/net v0.0.0-20211112202133-69e39bad7dc2 => golang.org/x/net v0.0.0-20220923203811-8be639271d50
@@ -197,6 +201,8 @@ replace golang.org/x/text v0.3.6 => golang.org/x/text v0.3.7
 replace gopkg.in/yaml.v2 v2.2.1 => gopkg.in/yaml.v2 v2.2.8
 
 replace gopkg.in/yaml.v2 v2.2.2 => gopkg.in/yaml.v2 v2.2.8
+
+replace gopkg.in/yaml.v2 v2.2.3 => gopkg.in/yaml.v2 v2.2.8
 
 replace gopkg.in/yaml.v2 v2.2.4 => gopkg.in/yaml.v2 v2.2.8
 
