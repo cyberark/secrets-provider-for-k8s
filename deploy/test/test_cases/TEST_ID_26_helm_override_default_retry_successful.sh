@@ -20,13 +20,13 @@ popd
 pod_name="$(get_pod_name "$APP_NAMESPACE_NAME" 'app=test-helm')"
 
 # Find initial authentication error that should trigger the retry
-$cli_with_timeout "logs $pod_name | grep 'CSPFK010E Failed to authenticate'" | head -1
+$cli_with_timeout "logs $pod_name | grep 'CSPFK010E Failed to authenticate'"
 failure_time=$($cli_without_timeout logs $pod_name | grep 'CSPFK010E Failed to authenticate' | head -1 | awk '{ print $3 }' | awk -F: '{ print ($1 * 3600) + ($2 * 60) + int($3) }')
 
 
 # Validate that the Secrets Provider retry mechanism takes user input of RETRY_INTERVAL_SEC of 5 and RETRY_COUNT_LIMIT of 2
 echo "Expecting Secrets Provider retry configurations to take their defaults of RETRY_INTERVAL_SEC of 5 and RETRY_COUNT_LIMIT of 2"
-$cli_with_timeout "logs $pod_name | grep 'CSPFK010I Updating Kubernetes Secrets: 1 retries out of $RETRY_COUNT_LIMIT'" | head -1
+$cli_with_timeout "logs $pod_name | grep 'CSPFK010I Updating Kubernetes Secrets: 1 retries out of $RETRY_COUNT_LIMIT'"
 retry_time=$($cli_without_timeout logs $pod_name | grep "CSPFK010I Updating Kubernetes Secrets: 1 retries out of $RETRY_COUNT_LIMIT" | head -1 | awk '{ print $3 }' | awk -F: '{ print ($1 * 3600) + ($2 * 60) + int($3) }')
 
 duration=$(( retry_time - failure_time ))
