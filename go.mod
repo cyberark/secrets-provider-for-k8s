@@ -51,7 +51,7 @@ require (
 	golang.org/x/oauth2 v0.0.0-20211104180415-d3ed0bb246c8 // indirect
 	golang.org/x/sys v0.0.0-20220728004956-3c1f35247d10 // indirect
 	golang.org/x/term v0.0.0-20210927222741-03fcf44c2211 // indirect
-	golang.org/x/text v0.3.7 // indirect
+	golang.org/x/text v0.4.0 // indirect
 	golang.org/x/time v0.0.0-20220210224613-90d013bbcef8 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
 	google.golang.org/protobuf v1.28.0 // indirect
@@ -66,11 +66,11 @@ require (
 
 // Automated release process replaces
 // DO NOT EDIT: CHANGES TO THE 3 BELOW LINES WILL BREAK AUTOMATED RELEASES
-replace github.com/cyberark/conjur-api-go => github.com/cyberark/conjur-api-go latest
+replace github.com/cyberark/conjur-api-go => github.com/cyberark/conjur-api-go v0.10.2
 
-replace github.com/cyberark/conjur-authn-k8s-client => github.com/cyberark/conjur-authn-k8s-client latest
+replace github.com/cyberark/conjur-authn-k8s-client => github.com/cyberark/conjur-authn-k8s-client v0.23.8
 
-replace github.com/cyberark/conjur-opentelemetry-tracer => github.com/cyberark/conjur-opentelemetry-tracer latest
+replace github.com/cyberark/conjur-opentelemetry-tracer => github.com/cyberark/conjur-opentelemetry-tracer v0.0.1-655
 
 // Security fixes to ensure we don't have old vulnerable packages in our
 // dependency tree.  Only put specific versions on the left side of the =>
@@ -182,21 +182,21 @@ replace golang.org/x/net v0.0.0-20220225172249-27dd8689420f => golang.org/x/net 
 
 replace golang.org/x/net v0.0.0-20220722155237-a158d28d115b => golang.org/x/net v0.0.0-20220923203811-8be639271d50
 
-replace golang.org/x/text v0.0.0-20170915032832-14c0d48ead0c => golang.org/x/text v0.3.7
+replace golang.org/x/text v0.0.0-20170915032832-14c0d48ead0c => golang.org/x/text v0.4.0
 
-replace golang.org/x/text v0.3.0 => golang.org/x/text v0.3.7
+replace golang.org/x/text v0.3.0 => golang.org/x/text v0.4.0
 
-replace golang.org/x/text v0.3.1-0.20180807135948-17ff2d5776d2 => golang.org/x/text v0.3.7
+replace golang.org/x/text v0.3.1-0.20180807135948-17ff2d5776d2 => golang.org/x/text v0.4.0
 
-replace golang.org/x/text v0.3.2 => golang.org/x/text v0.3.7
+replace golang.org/x/text v0.3.2 => golang.org/x/text v0.4.0
 
-replace golang.org/x/text v0.3.3 => golang.org/x/text v0.3.7
+replace golang.org/x/text v0.3.3 => golang.org/x/text v0.4.0
 
-replace golang.org/x/text v0.3.4 => golang.org/x/text v0.3.7
+replace golang.org/x/text v0.3.4 => golang.org/x/text v0.4.0
 
-replace golang.org/x/text v0.3.5 => golang.org/x/text v0.3.7
+replace golang.org/x/text v0.3.5 => golang.org/x/text v0.4.0
 
-replace golang.org/x/text v0.3.6 => golang.org/x/text v0.3.7
+replace golang.org/x/text v0.3.6 => golang.org/x/text v0.4.0
 
 replace gopkg.in/yaml.v2 v2.2.1 => gopkg.in/yaml.v2 v2.2.8
 
