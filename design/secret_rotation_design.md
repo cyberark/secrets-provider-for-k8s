@@ -1070,9 +1070,9 @@ three phases of development:
 
 | Description | Jira Story | Estimated<br />Story<br />Points<br /> | Completed |
 |-------------|------------|-----------|-----------|
-| Solution design approval | [ONYX-15257](https://ca-il-jira.il.cyber-ark.com:8443/secure/RapidBoard.jspa?rapidView=1591&view=detail&selectedIssue=ONYX-15257) | 5 | |
-| Security review approval (minimally-featured Community release) | [ONYX-15257](https://ca-il-jira.il.cyber-ark.com:8443/secure/RapidBoard.jspa?rapidView=1591&view=detail&selectedIssue=ONYX-15257) | 1 | |
-| Annotation Parsing and Validation | [ONYX-16504](https://ca-il-jira.il.cyber-ark.com:8443/browse/ONYX-16504) | 3 | |
+| Solution design approval | ONYX-15257 | 5 | |
+| Security review approval (minimally-featured Community release) | ONYX-15257 | 1 | |
+| Annotation Parsing and Validation | ONYX-16504 | 3 | |
 | Implement periodic provider (without UT) | | 3 | |
 | Periodic provider UT | | 3 | |
 | Detect changes in rendered file content (`file` mode) with UT | | 5 | | 
