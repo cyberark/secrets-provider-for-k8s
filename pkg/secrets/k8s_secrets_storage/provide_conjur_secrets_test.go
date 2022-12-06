@@ -44,12 +44,12 @@ func (m testMocks) setPermissions(denyConjurRetrieve, denyK8sRetrieve,
 		m.conjurClient.ErrOnExecute = errors.New("custom error")
 	}
 	if denyK8sRetrieve {
-		m.kubeClient.CanRetrieve = false
+		m.kubeClient.ErrOnRetrieve = errors.New("custom error")
 	}
 	if denyK8sUpdate {
-		m.kubeClient.CanUpdate = false
+		m.kubeClient.ErrOnUpdate = errors.New("custom error")
 	} else {
-		m.kubeClient.CanUpdate = true
+		m.kubeClient.ErrOnUpdate = nil
 	}
 }
 
