@@ -10,13 +10,13 @@ import (
 // K8sSecrets represents a collection of Kubernetes Secrets to be populated
 // into the mock Kubernetes client's database. The logical hierarchy
 // represented by this structure is:
-// - Each Kubernetes Secret contains a 'Data' field.
-// - Each 'Data' field contains one or more entries that are key/value pairs.
-// - The value in each 'Data' field entry can be a nested set of
-//   key/value pairs. In particular, for the entry with the key
-//   'conjur-info', the value is expected to be a mapping of application
-//   secret names to the corresponding Conjur variable ID (or policy path)
-//   that should be used to retrieve the secret value.
+//   - Each Kubernetes Secret contains a 'Data' field.
+//   - Each 'Data' field contains one or more entries that are key/value pairs.
+//   - The value in each 'Data' field entry can be a nested set of
+//     key/value pairs. In particular, for the entry with the key
+//     'conjur-info', the value is expected to be a mapping of application
+//     secret names to the corresponding Conjur variable ID (or policy path)
+//     that should be used to retrieve the secret value.
 type K8sSecrets map[string]k8sSecretData
 type k8sSecretData map[string]k8sSecretDataValues
 type k8sSecretDataValues map[string]string
@@ -27,26 +27,22 @@ type k8sSecretDataValues map[string]string
 // - A Kubernetes Secret update function
 // Kubernetes Secrets are populated for this mock client via the
 // AddSecret method. Retrieval and update errors can be simulated
-// for testing by setting the 'CanRetrieve' and 'CanUpdate' flags
-// (respectively) to false.
+// for testing by mapping 'ErrOnRetrieve' and 'ErrOnUpdate'
+// (respectively) to a custom error.
 type KubeSecretsClient struct {
 	// Mocks a K8s database. Maps k8s secret names to K8s secrets.
-	database map[string]map[string][]byte
-	// TODO: CanRetrieve and CanUpdate are really just used to assert on the presence of errors
-	// 	and should probably just be an optional error.
-	CanRetrieve bool
-	CanUpdate   bool
+	database      map[string]map[string][]byte
+	ErrOnRetrieve error
+	ErrOnUpdate   error
 }
 
 // NewKubeSecretsClient creates an instance of a KubeSecretsClient
 func NewKubeSecretsClient() *KubeSecretsClient {
-	client := KubeSecretsClient{
-		database:    map[string]map[string][]byte{},
-		CanRetrieve: true,
-		CanUpdate:   true,
+	return &KubeSecretsClient{
+		database:      map[string]map[string][]byte{},
+		ErrOnRetrieve: nil,
+		ErrOnUpdate:   nil,
 	}
-
-	return &client
 }
 
 // AddSecret adds a Kubernetes Secret to the mock Kubernetes Secrets client's
@@ -72,8 +68,8 @@ func (c *KubeSecretsClient) AddSecret(
 // Secrets client's database.
 func (c *KubeSecretsClient) RetrieveSecret(_ string, secretName string) (*v1.Secret, error) {
 
-	if !c.CanRetrieve {
-		return nil, errors.New("custom error")
+	if c.ErrOnRetrieve != nil {
+		return nil, c.ErrOnRetrieve
 	}
 
 	// Check if the secret exists in the mock K8s DB
@@ -94,8 +90,8 @@ func (c *KubeSecretsClient) UpdateSecret(
 	originalK8sSecret *v1.Secret,
 	stringDataEntriesMap map[string][]byte) error {
 
-	if !c.CanUpdate {
-		return errors.New("custom error")
+	if c.ErrOnUpdate != nil {
+		return c.ErrOnUpdate
 	}
 
 	secretToUpdate := c.database[secretName]
