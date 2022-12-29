@@ -60,10 +60,6 @@ COPY . .
 # Build debug flavor without compilation optimizations using "all=-N -l"
 RUN go build -a -installsuffix cgo -gcflags="all=-N -l" -o secrets-provider ./cmd/secrets-provider
 
-# =================== BUSYBOX LAYER ===================
-# this layer is used to get binaries into the main container
-FROM busybox
-
 # =================== BASE MAIN CONTAINER ===================
 # this layer is used to prepare a common layer for both debug and release containers
 FROM alpine:3.14 as secrets-provider-base
@@ -72,16 +68,6 @@ MAINTAINER CyberArk Software Ltd.
 # Ensure openssl development libraries are always up to date
 RUN apk add --no-cache openssl-dev
 
-# copy a few commands from busybox
-COPY --from=busybox /bin/tar /bin/tar
-COPY --from=busybox /bin/sleep /bin/sleep
-COPY --from=busybox /bin/sh /bin/sh
-COPY --from=busybox /bin/ls /bin/ls
-COPY --from=busybox /bin/id /bin/id
-COPY --from=busybox /bin/whoami /bin/whoami
-COPY --from=busybox /bin/mkdir /bin/mkdir
-COPY --from=busybox /bin/chmod /bin/chmod
-COPY --from=busybox /bin/cat /bin/cat
 COPY bin/run-time-scripts /usr/local/bin/
 
 RUN apk add -u shadow libc6-compat && \
