@@ -10,7 +10,6 @@
   - [Stable release definition](#stable-release-definition)
 - [Development](#development)
 - [Documentation](#documentation)
-- [Maintainers](#maintainers)
 - [Community](#community)
 - [License](#license)
 
@@ -168,28 +167,6 @@ how to get started and descriptions of our development workflows, see our [contr
 
 # Documentation
 You can find official documentation on [our site](https://docs.conjur.org/Latest/en/Content/Integrations/k8s-ocp/cjr-secrets-provider-lp.htm).
-
-# Maintainers
-
-[Oren Ben Meir](https://github.com/orenbm)
-
-[Nessi Lahav](https://github.com/nessiLahav)
-
-[Sigal Sax](https://github.com/sigalsax)
-
-[Moti Cohen](https://github.com/moticless)
- 
-[Dekel Asaf](https://github.com/tovli)
-
-[Elad Kugman](https://github.com/eladkug)
-
-[Abraham Kotev Emet](https://github.com/abrahamko)
-
-[Eran Hadar](https://github.com/eranha)
-
-[Tamir Zheleznyak](https://github.com/tzheleznyak)
-
-[Inbal Zilberman](https://github.com/InbalZilberman)
 
 # Community
 
