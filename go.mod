@@ -47,10 +47,10 @@ require (
 	go.opentelemetry.io/otel/exporters/stdout/stdouttrace v1.7.0 // indirect
 	go.opentelemetry.io/otel/sdk v1.7.0 // indirect
 	go.opentelemetry.io/otel/trace v1.10.0 // indirect
-	golang.org/x/net v0.0.0-20220923203811-8be639271d50 // indirect
+	golang.org/x/net v0.1.1-0.20221104162952-702349b0e862 // indirect
 	golang.org/x/oauth2 v0.0.0-20211104180415-d3ed0bb246c8 // indirect
-	golang.org/x/sys v0.0.0-20220728004956-3c1f35247d10 // indirect
-	golang.org/x/term v0.0.0-20210927222741-03fcf44c2211 // indirect
+	golang.org/x/sys v0.1.0 // indirect
+	golang.org/x/term v0.1.0 // indirect
 	golang.org/x/text v0.4.0 // indirect
 	golang.org/x/time v0.0.0-20220210224613-90d013bbcef8 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
@@ -177,6 +177,8 @@ replace golang.org/x/net v0.0.0-20211015210444-4f30a5c0130f => golang.org/x/net 
 replace golang.org/x/net v0.0.0-20211112202133-69e39bad7dc2 => golang.org/x/net v0.0.0-20220923203811-8be639271d50
 
 replace golang.org/x/net v0.0.0-20220127200216-cd36cc0744dd => golang.org/x/net v0.0.0-20220923203811-8be639271d50
+
+replace golang.org/x/net v0.0.0-20220923203811-8be639271d50 => golang.org/x/net v0.0.0-20220923203811-8be639271d50
 
 replace golang.org/x/net v0.0.0-20220225172249-27dd8689420f => golang.org/x/net v0.0.0-20220923203811-8be639271d50
 

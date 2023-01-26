@@ -6,7 +6,11 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
-## [1.4.6] - 2022-12-02
+## [1.4.6] - 2023-01-26
+
+### Security
+- Updated replace statements in go.mod to remove vulnerable versions of golang.org/x/net
+  [cyberark/secrets-provider-for-k8s#496](https://github.com/cyberark/secrets-provider-for-k8s/pull/496)
 
 ## [1.4.5] - 2022-09-26
 ### Changed
