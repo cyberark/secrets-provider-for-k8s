@@ -258,6 +258,8 @@ pipeline {
                   // Publish release artifacts to all the appropriate locations
                   // Copy any artifacts to assetDirectory to attach them to the Github release
 
+                  //    // Add the current directory to the list of safe directories for bundling VCS information
+                  sh 'git config --global --add safe.directory .'
                   //    // Create Go application SBOM using the go.mod version for the golang container image
                   sh """go-bom --tools "${toolsDirectory}" --go-mod ./go.mod --image "golang" --main "cmd/secrets-provider/" --output "${billOfMaterialsDirectory}/go-app-bom.json" """
                   //    // Create Go module SBOM
