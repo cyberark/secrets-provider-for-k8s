@@ -242,6 +242,11 @@ setup_helm_environment() {
   done
 
   set_namespace $APP_NAMESPACE_NAME
+
+  # Ensure we are logged in to the registry to prevent image pull errors on Openshift
+  if [[ $PLATFORM == openshift && "${DEV}" = "false" ]]; then
+    $cli_with_timeout "login -u $OPENSHIFT_USERNAME -p $OPENSHIFT_PASSWORD"
+  fi
 }
 
 set_image_path() {
