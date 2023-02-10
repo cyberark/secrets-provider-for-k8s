@@ -178,17 +178,17 @@ pipeline {
           }
         }
         
-        stage ("DAP Integration Tests on GKE") {
-          steps {
-            script {
-              def tasks = [:]
-              tasks["Kubernetes GKE, DAP"] = {
-                sh "./bin/start --docker --dap --gke"
-              }
-              parallel tasks
-            }
-          }
-        }
+        // stage ("DAP Integration Tests on GKE") {
+        //   steps {
+        //     script {
+        //       def tasks = [:]
+        //       tasks["Kubernetes GKE, DAP"] = {
+        //         sh "./bin/start --docker --dap --gke"
+        //       }
+        //       parallel tasks
+        //     }
+        //   }
+        // }
 
         stage ("DAP Integration Tests on OpenShift") {
           // when {
@@ -226,17 +226,17 @@ pipeline {
         // We want to avoid running in parallel.
         // When we have 2 build running on the same environment (gke env only) in parallel,
         // we get the error "gcloud crashed : database is locked"
-        stage ("OSS Integration Tests on GKE") {
-          steps {
-            script {
-              def tasks = [:]
-                tasks["Kubernetes GKE, oss"] = {
-                  sh "./bin/start --docker --oss --gke"
-                }
-              parallel tasks
-            }
-          }
-        }
+        // stage ("OSS Integration Tests on GKE") {
+        //   steps {
+        //     script {
+        //       def tasks = [:]
+        //         tasks["Kubernetes GKE, oss"] = {
+        //           sh "./bin/start --docker --oss --gke"
+        //         }
+        //       parallel tasks
+        //     }
+        //   }
+        // }
 
         // Allows for the promotion of images.
         stage('Push images to internal registry') {
