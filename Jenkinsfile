@@ -191,17 +191,17 @@ pipeline {
         }
 
         stage ("DAP Integration Tests on OpenShift") {
-          when {
-            // Run integration tests against OpenShift only on the main branch
-            //
-            // There's been a lot of flakiness around OpenShift, which has the negative effect of impeding developer velocity.
-            // Generally speaking the integration tests for this repository interact with the generic Kubernetes API, for
-            // scheduling and giving identity to workloads. There is no platform-specifc functionality within the secrets provider.
-            // We can reasonably assume that if a branch is green in GKE then it will likely be green for OpenShift.
-            // With that in mind, for now we have chosen to run Openshift integration tests only on the main branch while we figure
-            // out a better way to address the flakiness.
-            branch 'main'
-          }
+          // when {
+          //   // Run integration tests against OpenShift only on the main branch
+          //   //
+          //   // There's been a lot of flakiness around OpenShift, which has the negative effect of impeding developer velocity.
+          //   // Generally speaking the integration tests for this repository interact with the generic Kubernetes API, for
+          //   // scheduling and giving identity to workloads. There is no platform-specifc functionality within the secrets provider.
+          //   // We can reasonably assume that if a branch is green in GKE then it will likely be green for OpenShift.
+          //   // With that in mind, for now we have chosen to run Openshift integration tests only on the main branch while we figure
+          //   // out a better way to address the flakiness.
+          //   branch 'main'
+          // }
           steps {
             script {
               def tasks = [:]
