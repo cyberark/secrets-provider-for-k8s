@@ -83,7 +83,7 @@ func retrieveConjurSecrets(accessToken []byte, variableIDs []string) (map[string
 		return nil, log.RecordedError(messages.CSPFK033E)
 	}
 
-	retrievedSecretsByFullIDs, err := conjurClient.RetrieveBatchSecrets(variableIDs)
+	retrievedSecretsByFullIDs, err := conjurClient.RetrieveBatchSecretsSafe(variableIDs)
 	if err != nil {
 		return nil, err
 	}

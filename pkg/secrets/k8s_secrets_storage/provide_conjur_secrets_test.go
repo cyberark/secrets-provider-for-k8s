@@ -18,6 +18,8 @@ var testConjurSecrets = map[string]string{
 	"conjur/var/path2":        "secret-value2",
 	"conjur/var/path3":        "secret-value3",
 	"conjur/var/path4":        "secret-value4",
+	"conjur/var/umlaut":       "ÄäÖöÜü",
+	"conjur/var/binary":       "\xf0\xff\x4a\xc3",
 	"conjur/var/empty-secret": "",
 }
 
@@ -281,6 +283,42 @@ func TestProvide(t *testing.T) {
 				assertSecretsUpdated(
 					expectedK8sSecrets{
 						"k8s-secret1": {"secret1": ""},
+					},
+					expectedMissingValues{},
+					false,
+				),
+			},
+		},
+		{
+			desc: "Happy path, secret with umlaut characters",
+			k8sSecrets: k8sStorageMocks.K8sSecrets{
+				"k8s-secret1": {
+					"conjur-map": {"secret1": "conjur/var/umlaut"},
+				},
+			},
+			requiredSecrets: []string{"k8s-secret1"},
+			asserts: []assertFunc{
+				assertSecretsUpdated(
+					expectedK8sSecrets{
+						"k8s-secret1": {"secret1": "ÄäÖöÜü"},
+					},
+					expectedMissingValues{},
+					false,
+				),
+			},
+		},
+		{
+			desc: "Happy path, binary secret",
+			k8sSecrets: k8sStorageMocks.K8sSecrets{
+				"k8s-secret1": {
+					"conjur-map": {"secret1": "conjur/var/binary"},
+				},
+			},
+			requiredSecrets: []string{"k8s-secret1"},
+			asserts: []assertFunc{
+				assertSecretsUpdated(
+					expectedK8sSecrets{
+						"k8s-secret1": {"secret1": "\xf0\xff\x4a\xc3"},
 					},
 					expectedMissingValues{},
 					false,

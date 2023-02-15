@@ -35,6 +35,7 @@ done
 conjur variable values add secrets/test_secret "some-secret"
 conjur variable values add "secrets/var with spaces" "some-secret"
 conjur variable values add "secrets/var+with+pluses" "some-secret"
+conjur variable values add "secrets/umlaut" "some-secret"
 conjur variable values add secrets/url "postgresql://test-app-backend.app-test.svc.cluster.local:5432"
 conjur variable values add secrets/username "some-user"
 conjur variable values add secrets/password "7H1SiSmYp@5Sw0rd"

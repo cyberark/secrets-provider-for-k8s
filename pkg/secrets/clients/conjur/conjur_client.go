@@ -8,13 +8,13 @@ import (
 )
 
 /*
-	Client for communication with Conjur. In this project it is used only for
-    batch secrets retrieval so we expose only this method of the client.
+Client for communication with Conjur. In this project it is used only for
+batch secrets retrieval so we expose only this method of the client.
 
-	The name ConjurClient also improves readability as Client can be ambiguous.
+The name ConjurClient also improves readability as Client can be ambiguous.
 */
 type ConjurClient interface {
-	RetrieveBatchSecrets([]string) (map[string][]byte, error)
+	RetrieveBatchSecretsSafe([]string) (map[string][]byte, error)
 }
 
 func NewConjurClient(tokenData []byte) (ConjurClient, error) {
