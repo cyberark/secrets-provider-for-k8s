@@ -123,6 +123,7 @@ runDockerCommand() {
       -e CONJUR_DEPLOYMENT \
       -e RUN_IN_DOCKER \
       -e SUMMON_ENV \
+      -e IMAGE_PULL_SECRET \
       -v $GCLOUD_SERVICE_KEY:/tmp$GCLOUD_SERVICE_KEY \
       -v /var/run/docker.sock:/var/run/docker.sock \
       -v ~/.config:/root/.config \
@@ -165,6 +166,7 @@ runDockerCommand() {
       -e CONJUR_DEPLOYMENT \
       -e RUN_IN_DOCKER \
       -e SUMMON_ENV \
+      -e IMAGE_PULL_SECRET \
       -v /var/run/docker.sock:/var/run/docker.sock \
       -v ~/.config:/root/.config \
       -v "$PWD/../helm":/helm \
@@ -286,6 +288,7 @@ fill_helm_chart() {
       -e "s#{{ DEBUG }}# ${DEBUG:-"false"}#g" \
       -e "s#{{ RETRY_COUNT_LIMIT }}# ${RETRY_COUNT_LIMIT:-"5"}#g" \
       -e "s#{{ RETRY_INTERVAL_SEC }}# ${RETRY_INTERVAL_SEC:-"5"}#g" \
+      -e "s#{{ IMAGE_PULL_SECRET }}# ${IMAGE_PULL_SECRET:-""}#g" \
       "$helm_path/helm/secrets-provider/ci/test-values-template.yaml" > "$helm_path/helm/secrets-provider/ci/${id}test-values-$UNIQUE_TEST_ID.yaml"
   done
 }

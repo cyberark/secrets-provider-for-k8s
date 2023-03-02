@@ -18,6 +18,7 @@ check_env_var "APP_NAMESPACE_NAME"
 if [[ "${DEV}" = "false" ]]; then
   check_env_var "DOCKER_REGISTRY_PATH"
   check_env_var "DOCKER_REGISTRY_URL"
+  check_env_var "IMAGE_PULL_SECRET"
 
   if [[ "$PLATFORM" = "openshift" ]]; then
     check_env_var "OPENSHIFT_USERNAME"

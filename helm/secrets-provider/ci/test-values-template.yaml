@@ -15,6 +15,7 @@ secretsProvider:
   imagePullPolicy: {{ IMAGE_PULL_POLICY }}
   tag: {{ TAG }}
   name: cyberark-secrets-provider-for-k8s
+  imagePullSecret: {{ IMAGE_PULL_SECRET }}
 
 # Additional labels to apply to all resources.
 labels: { {{ LABELS }} }

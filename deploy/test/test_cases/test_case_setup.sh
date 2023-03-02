@@ -4,7 +4,7 @@ set -euxo pipefail
 if [ "${DEV}" = "false" ]; then
   announce "Creating image pull secret."
   if [[ "${PLATFORM}" == "kubernetes" ]]; then
-   $cli_with_timeout delete --ignore-not-found secret dockerpullsecret
+   $cli_with_timeout delete --ignore-not-found secret $IMAGE_PULL_SECRET
 
    $cli_with_timeout create secret docker-registry dockerpullsecret \
     --docker-server="${PULL_DOCKER_REGISTRY_URL}" \
@@ -14,7 +14,7 @@ if [ "${DEV}" = "false" ]; then
   elif [[ "$PLATFORM" == "openshift" ]]; then
     $cli_with_timeout delete --ignore-not-found secrets dockerpullsecret
 
-    $cli_with_timeout create secret docker-registry dockerpullsecret \
+    $cli_with_timeout create secret docker-registry $IMAGE_PULL_SECRET \
       --docker-server="${PULL_DOCKER_REGISTRY_PATH}" \
       --docker-username=_ \
       --docker-password=$($cli_with_timeout whoami -t) \
