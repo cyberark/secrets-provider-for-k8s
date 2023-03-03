@@ -16,17 +16,18 @@ require (
 require (
 	github.com/PuerkitoBio/purell v1.1.1 // indirect
 	github.com/PuerkitoBio/urlesc v0.0.0-20170810143723-de5bf2ad4578 // indirect
+	github.com/alessio/shellescape v1.4.1 // indirect
+	github.com/danieljoos/wincred v1.1.2 // indirect
 	github.com/emicklei/go-restful/v3 v3.8.0 // indirect
 	github.com/go-openapi/jsonpointer v0.19.5 // indirect
 	github.com/go-openapi/jsonreference v0.19.5 // indirect
 	github.com/go-openapi/swag v0.19.14 // indirect
+	github.com/godbus/dbus/v5 v5.1.0 // indirect
 	github.com/google/gnostic v0.5.7-v3refs // indirect
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/mailru/easyjson v0.7.6 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
-)
-
-require (
+	github.com/zalando/go-keyring v0.2.2 // indirect
 	github.com/bgentry/go-netrc v0.0.0-20140422174119-9fd32a8b3d3d // indirect
 	github.com/cyberark/conjur-api-go v0.10.1 // version will be ignored by auto release process
 	github.com/cyberark/conjur-authn-k8s-client v0.23.8 // version will be ignored by auto release process
@@ -66,11 +67,11 @@ require (
 
 // Automated release process replaces
 // DO NOT EDIT: CHANGES TO THE 3 BELOW LINES WILL BREAK AUTOMATED RELEASES
-replace github.com/cyberark/conjur-api-go => github.com/cyberark/conjur-api-go latest
+replace github.com/cyberark/conjur-api-go => github.com/cyberark/conjur-api-go v0.11.0
 
-replace github.com/cyberark/conjur-authn-k8s-client => github.com/cyberark/conjur-authn-k8s-client latest
+replace github.com/cyberark/conjur-authn-k8s-client => github.com/cyberark/conjur-authn-k8s-client v0.24.0
 
-replace github.com/cyberark/conjur-opentelemetry-tracer => github.com/cyberark/conjur-opentelemetry-tracer latest
+replace github.com/cyberark/conjur-opentelemetry-tracer => github.com/cyberark/conjur-opentelemetry-tracer v0.0.1-859
 
 // Security fixes to ensure we don't have old vulnerable packages in our
 // dependency tree.  Only put specific versions on the left side of the =>

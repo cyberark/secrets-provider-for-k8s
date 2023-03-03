@@ -3,7 +3,9 @@ package k8ssecretsstorage
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"fmt"
+	"reflect"
 	"strings"
 
 	"github.com/cyberark/conjur-authn-k8s-client/pkg/log"
@@ -27,6 +29,7 @@ import (
 type updateDestination struct {
 	k8sSecretName string
 	secretName    string
+	encoding      string
 }
 
 type k8sSecretsState struct {
@@ -67,11 +70,11 @@ type k8sProviderDeps struct {
 
 // K8sProvider is the secret provider to be used for K8s Secrets mode. It
 // makes secrets available to applications by:
-// - Retrieving a list of required K8s Secrets
-// - Retrieving all Conjur secrets that are referenced (via variable ID,
-//   a.k.a. policy path) by those K8s Secrets.
-// - Updating the K8s Secrets by replacing each Conjur variable ID
-//   with the corresponding secret value that was retrieved from Conjur.
+//   - Retrieving a list of required K8s Secrets
+//   - Retrieving all Conjur secrets that are referenced (via variable ID,
+//     a.k.a. policy path) by those K8s Secrets.
+//   - Updating the K8s Secrets by replacing each Conjur variable ID
+//     with the corresponding secret value that was retrieved from Conjur.
 type K8sProvider struct {
 	k8s                k8sAccessDeps
 	conjur             conjurAccessDeps
@@ -148,7 +151,7 @@ func newProvider(
 }
 
 // Provide implements a ProviderFunc to retrieve and push secrets to K8s secrets.
-func (p K8sProvider) Provide() (bool, error) {
+func (p *K8sProvider) Provide() (bool, error) {
 	// Use the global TracerProvider
 	tr := trace.NewOtelTracer(otel.Tracer("secrets-provider"))
 	// Retrieve required K8s Secrets and parse their Data fields.
@@ -185,7 +188,7 @@ func (p K8sProvider) Provide() (bool, error) {
 	return updated, nil
 }
 
-func (p K8sProvider) removeDeletedSecrets(tr trace.Tracer) error {
+func (p *K8sProvider) removeDeletedSecrets(tr trace.Tracer) error {
 	log.Info(messages.CSPFK021I)
 	emptySecrets := make(map[string][]byte)
 	variablesToDelete, err := p.listConjurSecretsToFetch()
@@ -204,7 +207,7 @@ func (p K8sProvider) removeDeletedSecrets(tr trace.Tracer) error {
 
 // retrieveRequiredK8sSecrets retrieves all K8s Secrets that need to be
 // managed/updated by the Secrets Provider.
-func (p K8sProvider) retrieveRequiredK8sSecrets(tracer trace.Tracer) error {
+func (p *K8sProvider) retrieveRequiredK8sSecrets(tracer trace.Tracer) error {
 	spanCtx, span := tracer.Start(p.traceContext, "Gather required K8s Secrets")
 	defer span.End()
 
@@ -222,7 +225,7 @@ func (p K8sProvider) retrieveRequiredK8sSecrets(tracer trace.Tracer) error {
 
 // retrieveRequiredK8sSecret retrieves an individual K8s Secrets that needs
 // to be managed/updated by the Secrets Provider.
-func (p K8sProvider) retrieveRequiredK8sSecret(k8sSecretName string) error {
+func (p *K8sProvider) retrieveRequiredK8sSecret(k8sSecretName string) error {
 
 	// Retrieve the K8s Secret
 	k8sSecret, err := p.k8s.retrieveSecret(p.podNamespace, k8sSecretName)
@@ -258,29 +261,43 @@ func (p K8sProvider) retrieveRequiredK8sSecret(k8sSecretName string) error {
 // Parse the YAML-formatted Conjur secrets mapping that has been retrieved
 // from a K8s Secret. This secrets mapping uses application secret names
 // as keys and Conjur variable IDs (a.k.a. policy paths) as values.
-func (p K8sProvider) parseConjurSecretsYAML(secretsYAML []byte,
+func (p *K8sProvider) parseConjurSecretsYAML(secretsYAML []byte,
 	k8sSecretName string) error {
 
-	conjurMap := map[string]string{}
+	conjurMap := map[string]any{}
+
 	if err := yaml.Unmarshal(secretsYAML, &conjurMap); err != nil {
 		p.log.debug(messages.CSPFK007D, k8sSecretName, config.ConjurMapKey, err.Error())
 		return p.log.recordedError(messages.CSPFK028E, k8sSecretName)
 	}
+
 	if len(conjurMap) == 0 {
 		p.log.debug(messages.CSPFK007D, k8sSecretName, config.ConjurMapKey, "value is empty")
 		return p.log.recordedError(messages.CSPFK028E, k8sSecretName)
 	}
 
-	for secretName, varID := range conjurMap {
-		dest := updateDestination{k8sSecretName, secretName}
-		p.secretsState.updateDestinations[varID] =
-			append(p.secretsState.updateDestinations[varID], dest)
+	for secretName, contents := range conjurMap {
+		switch value := contents.(type) {
+		case string:
+			dest := updateDestination{k8sSecretName, secretName, "text"}
+			p.secretsState.updateDestinations[value] = append(p.secretsState.updateDestinations[value], dest)
+		case map[interface{}]interface{}:
+			if value["content-type"].(string) == "base64" {
+				dest := updateDestination{k8sSecretName, secretName, "base64"}
+				p.secretsState.updateDestinations[value["path"].(string)] = append(p.secretsState.updateDestinations[value["path"].(string)], dest)
+			} else {
+				dest := updateDestination{k8sSecretName, secretName, "text"}
+				p.secretsState.updateDestinations[value["path"].(string)] = append(p.secretsState.updateDestinations[value["path"].(string)], dest)
+			}
+		default:
+			return fmt.Errorf("unknown type: %v", reflect.TypeOf(contents))
+		}
 	}
 
 	return nil
 }
 
-func (p K8sProvider) listConjurSecretsToFetch() ([]string, error) {
+func (p *K8sProvider) listConjurSecretsToFetch() ([]string, error) {
 	updateDests := p.secretsState.updateDestinations
 	if len(updateDests) == 0 {
 		return nil, p.log.recordedError(messages.CSPFK025E)
@@ -295,7 +312,7 @@ func (p K8sProvider) listConjurSecretsToFetch() ([]string, error) {
 	return variableIDs, nil
 }
 
-func (p K8sProvider) retrieveConjurSecrets(tracer trace.Tracer) (map[string][]byte, error) {
+func (p *K8sProvider) retrieveConjurSecrets(tracer trace.Tracer) (map[string][]byte, error) {
 	spanCtx, span := tracer.Start(p.traceContext, "Fetch Conjur Secrets")
 	defer span.End()
 
@@ -309,10 +326,11 @@ func (p K8sProvider) retrieveConjurSecrets(tracer trace.Tracer) (map[string][]by
 		span.RecordErrorAndSetStatus(err)
 		return nil, p.log.recordedError(messages.CSPFK034E, err.Error())
 	}
+
 	return retrievedConjurSecrets, nil
 }
 
-func (p K8sProvider) updateRequiredK8sSecrets(
+func (p *K8sProvider) updateRequiredK8sSecrets(
 	conjurSecrets map[string][]byte, tracer trace.Tracer) (bool, error) {
 
 	var updated bool
@@ -334,7 +352,18 @@ func (p K8sProvider) updateRequiredK8sSecrets(
 			if newSecretData[k8sSecretName] == nil {
 				newSecretData[k8sSecretName] = map[string][]byte{}
 			}
-			newSecretData[k8sSecretName][secretName] = secretValue
+
+			// check if secret needs to be decoded
+			if dest.encoding == "base64" {
+				decodedVal, err := base64.StdEncoding.DecodeString(string(secretValue))
+				if err != nil {
+					p.log.debug("Failed to decode secret with base64 content-type", err.Error())
+					return updated, p.log.recordedError(messages.CSPFK022E)
+				}
+				newSecretData[k8sSecretName][secretName] = decodedVal
+			} else {
+				newSecretData[k8sSecretName][secretName] = secretValue
+			}
 		}
 		// Null out the secret value
 		conjurSecrets[variableID] = []byte{}

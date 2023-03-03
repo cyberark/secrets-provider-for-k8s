@@ -2,6 +2,7 @@ package pushtofile
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/clients/conjur"
@@ -39,6 +40,11 @@ func FetchSecretsForGroups(
 					spec.Alias,
 				)
 				return nil, err
+			}
+
+			// Decode if necessary
+			if spec.ContentType == "base64" {
+				sValue, err = base64.StdEncoding.DecodeString(string(sValue))
 			}
 
 			secretsByGroup[group.Name] = append(

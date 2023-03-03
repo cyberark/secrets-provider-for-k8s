@@ -130,9 +130,11 @@ func newMockSecretFetcher() mockSecretFetcher {
 			"dev/openshift/api-url":  "https://postgres.example.com",
 			"dev/openshift/username": "admin",
 			"dev/openshift/password": "open-$e$ame",
+			"dev/openshift/encoded":  "c2VjcmV0LXZhbHVl", // == secret-value
 			"ci/openshift/api-url":   "https://ci.postgres.example.com",
 			"ci/openshift/username":  "administrator",
 			"ci/openshift/password":  "open-$e$ame",
+			"ci/openshift/encoded":   "c2VjcmV0LXZhbHVl", // == secret-value
 		},
 	)
 

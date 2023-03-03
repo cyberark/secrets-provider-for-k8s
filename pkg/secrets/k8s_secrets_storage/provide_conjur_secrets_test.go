@@ -20,6 +20,8 @@ var testConjurSecrets = map[string]string{
 	"conjur/var/path4":        "secret-value4",
 	"conjur/var/umlaut":       "ÄäÖöÜü",
 	"conjur/var/binary":       "\xf0\xff\x4a\xc3",
+	"conjur/var/encoded1":     "c2VjcmV0LXZhbHVl", // == secret-value
+	"conjur/var/encoded2":     "c2VjcmV0LXZhbHVl", // == secret-value
 	"conjur/var/empty-secret": "",
 }
 
@@ -326,6 +328,56 @@ func TestProvide(t *testing.T) {
 			},
 		},
 		{
+			desc: "Happy path, encoded secrets",
+			k8sSecrets: k8sStorageMocks.K8sSecrets{
+				"k8s-secret1": {
+					"conjur-map": {
+						"secret1": map[string]interface{}{
+							"path":         "conjur/var/path1",
+							"content-type": "text",
+						},
+						"test-decoding": map[string]interface{}{
+							"path":         "conjur/var/encoded1",
+							"content-type": "base64",
+						},
+						"secret2": "conjur/var/path2",
+						"test-decoding2": map[string]interface{}{
+							"path":         "conjur/var/encoded2",
+							"content-type": "base64",
+						},
+					},
+				},
+				"k8s-secret2": {
+					"conjur-map": {
+						"test-still-encoded": "conjur/var/encoded1",
+						"test-still-encoded2": map[string]interface{}{
+							"path":         "conjur/var/encoded2",
+							"content-type": "text",
+						},
+					},
+				},
+			},
+			requiredSecrets: []string{"k8s-secret1", "k8s-secret2"},
+			asserts: []assertFunc{
+				assertSecretsUpdated(
+					expectedK8sSecrets{
+						"k8s-secret1": {
+							"secret1":        "secret-value1",
+							"test-decoding":  "secret-value",
+							"secret2":        "secret-value2",
+							"test-decoding2": "secret-value",
+						},
+						"k8s-secret2": {
+							"test-still-encoded":  "c2VjcmV0LXZhbHVl",
+							"test-still-encoded2": "c2VjcmV0LXZhbHVl",
+						},
+					},
+					expectedMissingValues{},
+					false,
+				),
+			},
+		},
+		{
 			desc: "K8s Secrets maps to a non-existent Conjur secret",
 			k8sSecrets: k8sStorageMocks.K8sSecrets{
 				"k8s-secret1": {
@@ -428,10 +480,12 @@ func TestProvide(t *testing.T) {
 			mocks := newTestMocks()
 			mocks.setPermissions(tc.denyConjurRetrieve, tc.denyK8sRetrieve,
 				tc.denyK8sUpdate)
+
+			provider := mocks.newProvider(tc.requiredSecrets)
+
 			for secretName, secretData := range tc.k8sSecrets {
 				mocks.kubeClient.AddSecret(secretName, secretData)
 			}
-			provider := mocks.newProvider(tc.requiredSecrets)
 
 			// Run test case
 			updated, err := provider.Provide()

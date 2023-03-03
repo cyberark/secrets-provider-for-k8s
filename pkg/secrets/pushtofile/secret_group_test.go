@@ -135,12 +135,14 @@ func TestNewSecretGroups(t *testing.T) {
 			PolicyPathPrefix: "path/to/secret/",
 			SecretSpecs: []SecretSpec{
 				{
-					Alias: "first1",
-					Path:  "path/to/secret/first1",
+					Alias:       "first1",
+					Path:        "path/to/secret/first1",
+					ContentType: "text",
 				},
 				{
-					Alias: "aliasfirst2",
-					Path:  "path/to/secret/first2",
+					Alias:       "aliasfirst2",
+					Path:        "path/to/secret/first2",
+					ContentType: "text",
 				},
 			},
 		})
@@ -152,8 +154,9 @@ func TestNewSecretGroups(t *testing.T) {
 			FilePermissions: defaultFilePermissions,
 			SecretSpecs: []SecretSpec{
 				{
-					Alias: "second",
-					Path:  "path/to/secret/second",
+					Alias:       "second",
+					Path:        "path/to/secret/second",
+					ContentType: "text",
 				},
 			},
 		})
@@ -460,7 +463,7 @@ func TestNewSecretGroups(t *testing.T) {
 			FilePermissions:  defaultFilePermissions,
 			PolicyPathPrefix: "",
 			SecretSpecs: []SecretSpec{
-				{Alias: "first1", Path: "path/to/secret/first1"},
+				{Alias: "first1", Path: "path/to/secret/first1", ContentType: "text"},
 			},
 		})
 	})
@@ -551,7 +554,7 @@ func TestNewSecretGroups(t *testing.T) {
 			FilePermissions:  defaultFilePermissions,
 			PolicyPathPrefix: "",
 			SecretSpecs: []SecretSpec{
-				{Alias: "first1", Path: "path/to/secret/first1"},
+				{Alias: "first1", Path: "path/to/secret/first1", ContentType: "text"},
 			},
 		})
 	})

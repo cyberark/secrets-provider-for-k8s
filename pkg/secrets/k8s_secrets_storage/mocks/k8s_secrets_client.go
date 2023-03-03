@@ -19,7 +19,7 @@ import (
 //     that should be used to retrieve the secret value.
 type K8sSecrets map[string]k8sSecretData
 type k8sSecretData map[string]k8sSecretDataValues
-type k8sSecretDataValues map[string]string
+type k8sSecretDataValues map[string]any
 
 // KubeSecretsClient implements a mock Kubernetes client for testing
 // Kubernetes Secrets access by the Secrets Provider. This client provides:

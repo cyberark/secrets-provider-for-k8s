@@ -11,3 +11,7 @@ junit.xml
 
 # Temporary directory to store the CyberArk proxy CA certificate
 build_ca_certificate/
+
+# Ignore generated policy files and manifests
+deploy/policy/generated/*
+deploy/dev/config/k8s/*.yml

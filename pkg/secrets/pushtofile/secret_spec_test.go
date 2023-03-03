@@ -44,18 +44,20 @@ var secretsSpecTestCases = []secretsSpecTestCase{
 	{
 		description: "valid secret spec formats",
 		contents: `
-- dev/openshift/api-url
-- admin-password: dev/openshift/password
-`,
+  - dev/openshift/api-url
+  - admin-password: dev/openshift/password
+  `,
 		assert: assertGoodSecretSpecs(
 			[]SecretSpec{
 				{
-					Alias: "api-url",
-					Path:  "dev/openshift/api-url",
+					Alias:       "api-url",
+					Path:        "dev/openshift/api-url",
+					ContentType: "text",
 				},
 				{
-					Alias: "admin-password",
-					Path:  "dev/openshift/password",
+					Alias:       "admin-password",
+					Path:        "dev/openshift/password",
+					ContentType: "text",
 				},
 			},
 		),
@@ -63,16 +65,16 @@ var secretsSpecTestCases = []secretsSpecTestCase{
 	{
 		description: "secret specs are not a list",
 		contents: `
-admin-password: dev/openshift/password
-another-password: dev/openshift/password
-`,
+  admin-password: dev/openshift/password
+  another-password: dev/openshift/password
+  `,
 		assert: func(t *testing.T, result []SecretSpec, err error) {
 			assert.Contains(t, err.Error(), "cannot unmarshal")
-			assert.Contains(t, err.Error(), "into []pushtofile.SecretSpec")
+			assert.Contains(t, err.Error(), "[]pushtofile.SecretSpec")
 		},
 	},
 	{
-		description: "secret spec map with multiple keys",
+		description: "secret spec map with 2 keys (not including content-type)",
 		contents: `
 - admin-password: dev/openshift/password 
   another-admin-password: dev/openshift/password
@@ -84,12 +86,71 @@ another-password: dev/openshift/password
 		},
 	},
 	{
+		description: "secret spec map with 2 keys (including content-type)",
+		contents: `
+- admin-password: dev/openshift/password
+  content-type: base64
+- dev/openshift/api-url
+`,
+		assert: assertGoodSecretSpecs(
+			[]SecretSpec{
+				{
+					Alias:       "admin-password",
+					Path:        "dev/openshift/password",
+					ContentType: "base64",
+				},
+				{
+					Alias:       "api-url",
+					Path:        "dev/openshift/api-url",
+					ContentType: "text",
+				},
+			},
+		),
+	},
+	{
+		description: "secret spec map with 3+ keys (including content-type)",
+		contents: `
+- admin-password: dev/openshift/password 
+  another-admin-password: dev/openshift/password
+  content-type: text
+- dev/openshift/api-url
+`,
+		assert: func(t *testing.T, result []SecretSpec, err error) {
+			assert.Contains(t, err.Error(), "expected a")
+			assert.Contains(t, err.Error(), "on line 2")
+		},
+	},
+	{
+		description: "secret spec map with content-type mapping node under variable path",
+		contents: `
+- dev/openshift/password:
+    content-type: base64
+- dev/openshift/api-url
+`,
+		assert: assertGoodSecretSpecs(
+			[]SecretSpec{
+				{
+					Alias:       "password",
+					Path:        "dev/openshift/password",
+					ContentType: "base64",
+				},
+				{
+					Alias:       "api-url",
+					Path:        "dev/openshift/api-url",
+					ContentType: "text",
+				},
+			},
+		),
+	},
+	{
 		description: "secret spec map value is not a string",
 		contents: `
-- dev/openshift/api-url
-- key: 
-    inner-key: inner-value
-`,
+    - dev/openshift/api-url
+    - key:
+      inner-key: inner-value
+  
+  `,
+
 		assert: func(t *testing.T, result []SecretSpec, err error) {
 			assert.Contains(t, err.Error(), "expected a")
 			assert.Contains(t, err.Error(), "on line 3")
@@ -98,10 +159,11 @@ another-password: dev/openshift/password
 	{
 		description: "unrecognized secret spec format",
 		contents: `
-- dev/openshift/api-url
-- api-password: dev/openshift/api-password
-- - list item
-`,
+  - dev/openshift/api-url
+  - api-password: dev/openshift/api-password
+  - - list item
+  `,
+
 		assert: func(t *testing.T, result []SecretSpec, err error) {
 			assert.Contains(t, err.Error(), "expected a")
 			assert.Contains(t, err.Error(), "on line 4")

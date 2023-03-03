@@ -29,6 +29,11 @@ spec:
         conjur.org/k8s-secrets: |
           - test-k8s-secret
         conjur.org/debug-logging: "true"
+        conjur.org/conjur-secrets.group1: |
+          - encoded: secrets/encoded
+            content-type: base64
+          - test: secrets/test_secret
+            content-type: text
     spec:
       serviceAccountName: ${APP_NAMESPACE_NAME}-sa
       containers:
@@ -69,6 +74,11 @@ spec:
               secretKeyRef:
                 name: test-k8s-secret
                 key: var_with_umlaut
+          - name: VARIABLE_WITH_ENCODED_SECRET
+            valueFrom:
+              secretKeyRef:
+                name: test-k8s-secret
+                key: var_with_encoded
           - name: NON_CONJUR_SECRET
             valueFrom:
               secretKeyRef:
