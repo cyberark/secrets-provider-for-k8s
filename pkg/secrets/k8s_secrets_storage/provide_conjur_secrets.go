@@ -358,9 +358,10 @@ func (p *K8sProvider) updateRequiredK8sSecrets(
 				decodedVal, err := base64.StdEncoding.DecodeString(string(secretValue))
 				if err != nil {
 					p.log.debug("Failed to decode secret with base64 content-type", err.Error())
-					return updated, p.log.recordedError(messages.CSPFK022E)
+					newSecretData[k8sSecretName][secretName] = secretValue
+				} else {
+					newSecretData[k8sSecretName][secretName] = decodedVal
 				}
-				newSecretData[k8sSecretName][secretName] = decodedVal
 			} else {
 				newSecretData[k8sSecretName][secretName] = secretValue
 			}

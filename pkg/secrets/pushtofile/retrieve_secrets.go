@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"fmt"
 
+	"github.com/cyberark/conjur-authn-k8s-client/pkg/log"
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/clients/conjur"
 )
 
@@ -44,7 +45,12 @@ func FetchSecretsForGroups(
 
 			// Decode if necessary
 			if spec.ContentType == "base64" {
-				sValue, err = base64.StdEncoding.DecodeString(string(sValue))
+				decodedValue, err := base64.StdEncoding.DecodeString(string(sValue))
+				if err != nil {
+					log.Debug("Failed to decode secret. Error: %v", err)
+				} else {
+					sValue = decodedValue
+				}
 			}
 
 			secretsByGroup[group.Name] = append(
