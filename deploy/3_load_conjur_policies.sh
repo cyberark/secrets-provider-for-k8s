@@ -33,7 +33,7 @@ if [[ "${DEPLOY_MASTER_CLUSTER}" == "true" ]]; then
   $cli_with_timeout "cp ./policy $conjur_cli_pod:/policy"
 
   $cli_with_timeout "exec $conjur_cli_pod -- \
-    bash -c \"
+    sh -c \"
       CONJUR_ADMIN_PASSWORD=${CONJUR_ADMIN_PASSWORD} \
       APP_NAMESPACE_NAME=${APP_NAMESPACE_NAME} \
       /policy/load_policies.sh

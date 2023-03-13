@@ -191,9 +191,9 @@ configure_cli_pod() {
 
   conjur_cli_pod=$(get_conjur_cli_pod_name)
 
-  $cli_with_timeout "exec $conjur_cli_pod -- bash -c \"yes yes | conjur init -a $CONJUR_ACCOUNT -u $conjur_url\""
+  $cli_with_timeout "exec $conjur_cli_pod -- sh -c \"echo y | conjur init -a $CONJUR_ACCOUNT -u $conjur_url --self-signed --force\""
 
-  $cli_with_timeout exec $conjur_cli_pod -- conjur authn login -u admin -p $CONJUR_ADMIN_PASSWORD
+  $cli_with_timeout exec $conjur_cli_pod -- conjur login -i admin -p $CONJUR_ADMIN_PASSWORD
 }
 
 configure_conjur_url() {
@@ -216,7 +216,7 @@ fetch_ssl_from_conjur() {
   cert_location="/opt/conjur/etc/ssl/conjur.pem"
   if [ "$CONJUR_DEPLOYMENT" = "oss" ]; then
     selector="app=conjur-cli"
-    export cert_location="/root/conjur-${CONJUR_ACCOUNT}.pem"
+    export cert_location="/root/conjur-server.pem"
   fi
 
   export conjur_pod_name="$(get_pod_name "$CONJUR_NAMESPACE_NAME" "$selector")"
@@ -227,9 +227,9 @@ setup_helm_environment() {
 
   configure_conjur_url
 
-  ssl_location="conjur-$UNIQUE_TEST_ID.pem"
+  ssl_location="conjur-server.pem"
   if [ "${DEV}" = "true" ]; then
-    ssl_location="../conjur-$UNIQUE_TEST_ID.pem"
+    ssl_location="../conjur-server.pem"
   fi
 
   fetch_ssl_from_conjur
@@ -327,7 +327,7 @@ deploy_chart() {
     fill_helm_chart
     helm install -f "helm/secrets-provider/ci/test-values-$UNIQUE_TEST_ID.yaml" \
       secrets-provider ./helm/secrets-provider \
-      --set-file environment.conjur.sslCertificate.value="conjur-$UNIQUE_TEST_ID.pem"
+      --set-file environment.conjur.sslCertificate.value="conjur-server.pem"
   popd
 }
 
@@ -444,7 +444,7 @@ set_conjur_secret() {
   echo "Set secret '$SECRET_NAME' to '$SECRET_VALUE'"
   set_namespace "$CONJUR_NAMESPACE_NAME"
   configure_cli_pod
-  $cli_with_timeout "exec $(get_conjur_cli_pod_name) -- conjur variable values add $SECRET_NAME $SECRET_VALUE"
+  $cli_with_timeout "exec $(get_conjur_cli_pod_name) -- conjur variable set -i $SECRET_NAME -v $SECRET_VALUE"
   set_namespace $APP_NAMESPACE_NAME
 }
 
@@ -471,7 +471,7 @@ load_policy() {
   $cli_with_timeout "cp ../../policy $conjur_cli_pod:/policy"
 
   $cli_with_timeout "exec $(get_conjur_cli_pod_name) -- \
-    conjur policy load --delete root \"/policy/generated/$APP_NAMESPACE_NAME.$filename.yml\""
+    conjur policy update -b root -f \"/policy/generated/$APP_NAMESPACE_NAME.$filename.yml\""
 
   $cli_with_timeout "exec $conjur_cli_pod -- rm -rf ./policy"
 
@@ -504,7 +504,7 @@ test_secret_is_provided() {
 
   set_namespace "$CONJUR_NAMESPACE_NAME"
   conjur_cli_pod=$(get_conjur_cli_pod_name)
-  $cli_with_timeout "exec $conjur_cli_pod -- conjur variable values add \"$variable_name\" $secret_value"
+  $cli_with_timeout "exec $conjur_cli_pod -- conjur variable set -i \"$variable_name\" -v $secret_value"
 
   set_namespace "$APP_NAMESPACE_NAME"
   deploy_init_env

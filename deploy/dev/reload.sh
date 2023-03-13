@@ -32,7 +32,7 @@ main() {
     cert_location="/opt/conjur/etc/ssl/conjur.pem"
     if [ "$CONJUR_DEPLOYMENT" = "oss" ]; then
       selector="app=conjur-cli"
-      cert_location="/root/conjur-${CONJUR_ACCOUNT}.pem"
+      cert_location="/root/conjur-server.pem"
     fi
 
     conjur_pod_name="$(get_pod_name "$CONJUR_NAMESPACE_NAME" "$selector")"
