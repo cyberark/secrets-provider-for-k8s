@@ -16,7 +16,7 @@ pushd ../../
   fill_helm_chart_no_override_defaults
   helm install -f "../helm/secrets-provider/ci/take-default-test-values-$UNIQUE_TEST_ID.yaml" \
     secrets-provider ../helm/secrets-provider \
-    --set-file environment.conjur.sslCertificate.value="test/test_cases/conjur-$UNIQUE_TEST_ID.pem"
+    --set-file environment.conjur.sslCertificate.value="test/test_cases/conjur-server.pem"
 popd
 
 # Validate that known defaults were taken if not supplied

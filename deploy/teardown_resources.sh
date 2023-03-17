@@ -25,7 +25,7 @@ fi
 
 set_namespace $CONJUR_NAMESPACE_NAME
 
-$cli_with_timeout "exec $(get_conjur_cli_pod_name) -- conjur variable values add secrets/test_secret \"supersecret\""
+$cli_with_timeout "exec $(get_conjur_cli_pod_name) -- conjur variable set -i secrets/test_secret -v \"supersecret\""
 
 set_namespace $APP_NAMESPACE_NAME
 
