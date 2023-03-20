@@ -27,6 +27,7 @@ import (
 type updateDestination struct {
 	k8sSecretName string
 	secretName    string
+	contentType   string
 }
 
 type k8sSecretsState struct {
@@ -67,11 +68,11 @@ type k8sProviderDeps struct {
 
 // K8sProvider is the secret provider to be used for K8s Secrets mode. It
 // makes secrets available to applications by:
-// - Retrieving a list of required K8s Secrets
-// - Retrieving all Conjur secrets that are referenced (via variable ID,
-//   a.k.a. policy path) by those K8s Secrets.
-// - Updating the K8s Secrets by replacing each Conjur variable ID
-//   with the corresponding secret value that was retrieved from Conjur.
+//   - Retrieving a list of required K8s Secrets
+//   - Retrieving all Conjur secrets that are referenced (via variable ID,
+//     a.k.a. policy path) by those K8s Secrets.
+//   - Updating the K8s Secrets by replacing each Conjur variable ID
+//     with the corresponding secret value that was retrieved from Conjur.
 type K8sProvider struct {
 	k8s                k8sAccessDeps
 	conjur             conjurAccessDeps
@@ -255,13 +256,10 @@ func (p K8sProvider) retrieveRequiredK8sSecret(k8sSecretName string) error {
 	return p.parseConjurSecretsYAML(conjurSecretsYAML, k8sSecretName)
 }
 
-// Parse the YAML-formatted Conjur secrets mapping that has been retrieved
-// from a K8s Secret. This secrets mapping uses application secret names
-// as keys and Conjur variable IDs (a.k.a. policy paths) as values.
-func (p K8sProvider) parseConjurSecretsYAML(secretsYAML []byte,
-	k8sSecretName string) error {
-
-	conjurMap := map[string]string{}
+// parseConjurSecretsYAML parses the YAML-formatted Conjur secrets mapping
+// that has been retrieved from a K8s Secret.
+func (p K8sProvider) parseConjurSecretsYAML(secretsYAML []byte, k8sSecretName string) error {
+	conjurMap := map[string]interface{}{}
 	if err := yaml.Unmarshal(secretsYAML, &conjurMap); err != nil {
 		p.log.debug(messages.CSPFK007D, k8sSecretName, config.ConjurMapKey, err.Error())
 		return p.log.recordedError(messages.CSPFK028E, k8sSecretName)
@@ -270,13 +268,39 @@ func (p K8sProvider) parseConjurSecretsYAML(secretsYAML []byte,
 		p.log.debug(messages.CSPFK007D, k8sSecretName, config.ConjurMapKey, "value is empty")
 		return p.log.recordedError(messages.CSPFK028E, k8sSecretName)
 	}
+	return p.refreshUpdateDestinations(conjurMap, k8sSecretName)
+}
 
-	for secretName, varID := range conjurMap {
-		dest := updateDestination{k8sSecretName, secretName}
-		p.secretsState.updateDestinations[varID] =
-			append(p.secretsState.updateDestinations[varID], dest)
+// refreshUpdateDestinations populates the Provider's updateDestinations
+// with the Conjur secret variable ID, K8s secret, secret name, and
+// content-type as specified in the Conjur secrets mapping.
+// The key is an application secret name, the value can be either a
+// string (varID) or a map {id: varID (required), content-type: base64 (optional)}.
+func (p K8sProvider) refreshUpdateDestinations(conjurMap map[string]interface{}, k8sSecretName string) error {
+	for secretName, contents := range conjurMap {
+		switch value := contents.(type) {
+		case string:
+			dest := updateDestination{k8sSecretName, secretName, "text"}
+			p.secretsState.updateDestinations[value] = append(p.secretsState.updateDestinations[value], dest)
+		case map[interface{}]interface{}:
+			varId, ok := value["id"].(string)
+			if !ok || varId == "" {
+				return p.log.recordedError(messages.CSPFK037E, secretName, k8sSecretName)
+			}
+
+			contentType, ok := value["content-type"].(string)
+			if ok && contentType == "base64" {
+				dest := updateDestination{k8sSecretName, secretName, "base64"}
+				p.secretsState.updateDestinations[varId] = append(p.secretsState.updateDestinations[varId], dest)
+				p.log.info(messages.CSPFK022I, secretName, k8sSecretName)
+			} else {
+				dest := updateDestination{k8sSecretName, secretName, "text"}
+				p.secretsState.updateDestinations[varId] = append(p.secretsState.updateDestinations[varId], dest)
+			}
+		default:
+			return p.log.recordedError(messages.CSPFK028E, k8sSecretName)
+		}
 	}
-
 	return nil
 }
 

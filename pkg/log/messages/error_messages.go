@@ -51,7 +51,7 @@ const CSPFK033E string = "CSPFK033E Failed to create DAP/Conjur client"
 const CSPFK034E string = "CSPFK034E Failed to retrieve DAP/Conjur secrets. Reason: %s"
 const CSPFK035E string = "CSPFK035E Failed to parse DAP/Conjur variable ID"
 const CSPFK036E string = "CSPFK036E Variable ID '%s' is not in the format '<account>:variable:<variable_id>'"
-const CSPFK037E string = "CSPFK037E Failed to parse DAP/Conjur variable IDs"
+const CSPFK037E string = "CSPFK037E Failed to parse DAP/Conjur variable ID for secret '%s' in destination '%s'"
 
 // General
 const CSPFK038E string = "CSPFK038E Retransmission backoff exhausted"

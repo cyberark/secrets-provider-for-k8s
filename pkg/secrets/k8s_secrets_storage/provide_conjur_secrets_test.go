@@ -21,6 +21,9 @@ var testConjurSecrets = map[string]string{
 	"conjur/var/umlaut":       "ÄäÖöÜü",
 	"conjur/var/binary":       "\xf0\xff\x4a\xc3",
 	"conjur/var/empty-secret": "",
+	"conjur/var/encoded1":     "ZGVjb2RlZC12YWx1ZS0x", // == decoded-value-1
+	"conjur/var/encoded2":     "ZGVjb2RlZC12YWx1ZS0y", // == decoded-value-2
+	"conjur/var/encoded3":     "ZGVjb2RlZC12YWx1ZS0z", // == decoded-value-3
 }
 
 type testMocks struct {
@@ -133,6 +136,20 @@ func assertErrorLogged(msg string, args ...interface{}) assertFunc {
 		errStr := fmt.Sprintf(msg, args...)
 		newDesc := desc + ", error logged: " + errStr
 		assert.True(t, mocks.logger.ErrorWasLogged(errStr), newDesc)
+	}
+}
+
+func assertInfoLogged(expected bool, msg string, args ...interface{}) assertFunc {
+	return func(t *testing.T, mocks testMocks, updated bool, err error, desc string) {
+		infoStr := fmt.Sprintf(msg, args...)
+		var logDesc string
+		if expected {
+			logDesc = ", expected info log to contain: "
+		} else {
+			logDesc = ", expected info log NOT to contain: "
+		}
+		newDesc := desc + logDesc + infoStr
+		assert.Equal(t, expected, mocks.logger.InfoWasLogged(infoStr), newDesc)
 	}
 }
 
@@ -323,6 +340,121 @@ func TestProvide(t *testing.T) {
 					expectedMissingValues{},
 					false,
 				),
+			},
+		},
+		{
+			desc: "Happy path, encoded secrets with valid content-type",
+			k8sSecrets: k8sStorageMocks.K8sSecrets{
+				"k8s-secret1": {
+					"conjur-map": {
+						"test-decoding": map[string]interface{}{
+							"id":           "conjur/var/encoded1",
+							"content-type": "base64",
+						},
+						"test-decoding2": map[string]interface{}{
+							"id":           "conjur/var/encoded2",
+							"content-type": "base64",
+						},
+					},
+				},
+				"k8s-secret2": {
+					"conjur-map": {
+						"test-still-encoded": "conjur/var/encoded1",
+						"test-still-encoded2": map[string]interface{}{
+							"id":           "conjur/var/encoded2",
+							"content-type": "text",
+						},
+					},
+				},
+			},
+			requiredSecrets: []string{"k8s-secret1", "k8s-secret2"},
+			asserts: []assertFunc{
+				// TODO - uncomment when decoding is implemented
+				// assertSecretsUpdated(
+				// 	expectedK8sSecrets{
+				// 		"k8s-secret1": {
+				// 			"test-decoding":  "decoded-value-1",
+				// 			"test-decoding2": "decoded-value-2",
+				// 		},
+				// 		"k8s-secret2": {
+				// 			"test-still-encoded":  "ZGVjb2RlZC12YWx1ZS0x",
+				// 			"test-still-encoded2": "ZGVjb2RlZC12YWx1ZS0y",
+				// 		},
+				// 	},
+				// 	expectedMissingValues{},
+				// 	false,
+				// ),
+				assertInfoLogged(true, messages.CSPFK022I, "test-decoding", "k8s-secret1"),
+				assertInfoLogged(true, messages.CSPFK022I, "test-decoding2", "k8s-secret1"),
+				assertInfoLogged(false, messages.CSPFK022I, "test-still-encoded", "k8s-secret2"),
+				assertInfoLogged(false, messages.CSPFK022I, "test-still-encoded2", "k8s-secret2"),
+			},
+		},
+		{
+			desc: "Invalid or empty content-type is treated as text",
+			k8sSecrets: k8sStorageMocks.K8sSecrets{
+				"k8s-secret1": {
+					"conjur-map": {
+						"test-decoding": map[string]interface{}{
+							"id":           "conjur/var/encoded1",
+							"content-type": "gibberish",
+						},
+						"test-decoding2": map[string]interface{}{
+							"id":           "conjur/var/encoded2",
+							"content-type": "",
+						},
+						"test-decoding3": map[string]interface{}{
+							"id": "conjur/var/encoded3",
+						},
+					},
+				},
+			},
+			requiredSecrets: []string{"k8s-secret1"},
+			asserts: []assertFunc{
+				assertSecretsUpdated(
+					expectedK8sSecrets{
+						"k8s-secret1": {
+							"test-decoding":  "ZGVjb2RlZC12YWx1ZS0x",
+							"test-decoding2": "ZGVjb2RlZC12YWx1ZS0y",
+							"test-decoding3": "ZGVjb2RlZC12YWx1ZS0z",
+						},
+					},
+					expectedMissingValues{},
+					false,
+				),
+			},
+		},
+		{
+			desc: "Empty var ID throws error",
+			k8sSecrets: k8sStorageMocks.K8sSecrets{
+				"k8s-secret1": {
+					"conjur-map": {
+						"test-decoding": map[string]interface{}{
+							"id":           "",
+							"content-type": "text",
+						},
+					},
+				},
+			},
+			requiredSecrets: []string{"k8s-secret1"},
+			asserts: []assertFunc{
+				assertErrorLogged(messages.CSPFK037E, "test-decoding", "k8s-secret1"),
+			},
+		},
+		{
+			desc: "Missing var ID throws error",
+			k8sSecrets: k8sStorageMocks.K8sSecrets{
+				"k8s-secret1": {
+					"conjur-map": {
+						"test-decoding": map[string]interface{}{
+							"content-type": "text",
+						},
+					},
+				},
+			},
+			requiredSecrets: []string{"k8s-secret1"},
+			asserts: []assertFunc{
+				assertErrorLogged(messages.CSPFK037E, "test-decoding", "k8s-secret1"),
 			},
 		},
 		{
