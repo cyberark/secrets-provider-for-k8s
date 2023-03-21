@@ -332,6 +332,7 @@ deploy_chart() {
 }
 
 set_config_directory_path() {
+  export DEV_CONFIG_DIR="dev/config/k8s"
   export CONFIG_DIR="config/k8s"
   if [[ "$PLATFORM" = "openshift" ]]; then
     export CONFIG_DIR="config/openshift"
@@ -380,8 +381,9 @@ deploy_init_env() {
   echo "Running Deployment Manifest"
 
   if [[ "$DEV" = "true" ]]; then
-    ./dev/config/k8s/secrets-provider-init-container.sh.yml > ./dev/config/k8s/secrets-provider-init-container.yml
-    $cli_with_timeout apply -f ./dev/config/k8s/secrets-provider-init-container.yml
+    mkdir -p $DEV_CONFIG_DIR/generated
+    $DEV_CONFIG_DIR/secrets-provider-init-container.sh.yml > $DEV_CONFIG_DIR/generated/secrets-provider-init-container.yml
+    $cli_with_timeout apply -f $DEV_CONFIG_DIR/generated/secrets-provider-init-container.yml
 
     $cli_with_timeout "get pods --namespace=$APP_NAMESPACE_NAME --selector app=init-env --no-headers | wc -l"
   else
@@ -407,8 +409,9 @@ deploy_k8s_rotation_env() {
   echo "Running Deployment Manifest"
 
   if [[ "$DEV" = "true" ]]; then
-    ./dev/config/k8s/secrets-provider-k8s-rotation.sh.yml > ./dev/config/k8s/secrets-provider-k8s-rotation.yml
-    $cli_with_timeout apply -f ./dev/config/k8s/secrets-provider-k8s-rotation.yml
+    mkdir -p $DEV_CONFIG_DIR/generated
+    $DEV_CONFIG_DIR/secrets-provider-k8s-rotation.sh.yml > $DEV_CONFIG_DIR/generated/secrets-provider-k8s-rotation.yml
+    $cli_with_timeout apply -f $DEV_CONFIG_DIR/generated/secrets-provider-k8s-rotation.yml
 
     $cli_with_timeout "get pods --namespace=$APP_NAMESPACE_NAME --selector app=test-app --no-headers | wc -l"
   else
@@ -649,8 +652,9 @@ deploy_push_to_file() {
   deployment_name="test-env"
 
   if [[ "$DEV" = "true" ]]; then
-    "./dev/config/k8s/$dev_yaml_file_name.sh.yml" > "./dev/config/k8s/$dev_yaml_file_name.yml"
-    $cli_with_timeout apply -f "./dev/config/k8s/$dev_yaml_file_name.yml"
+    mkdir -p $DEV_CONFIG_DIR/generated
+    "$DEV_CONFIG_DIR/$dev_yaml_file_name.sh.yml" > "$DEV_CONFIG_DIR/generated/$dev_yaml_file_name.yml"
+    $cli_with_timeout apply -f "$DEV_CONFIG_DIR/generated/$dev_yaml_file_name.yml"
 
     $cli_with_timeout "get pods --namespace=$APP_NAMESPACE_NAME --selector app=$deployment_name --no-headers | wc -l"
   else
