@@ -44,7 +44,7 @@ main() {
 
     $cli_with_timeout "delete deployment init-env --ignore-not-found=true"
 
-    deploy_init_env
+    deploy_env
   fi
 }
 

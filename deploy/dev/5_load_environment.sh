@@ -26,7 +26,7 @@ main() {
 
     create_secret_access_role_binding
 
-    deploy_init_env
+    deploy_env
   fi
 }
 

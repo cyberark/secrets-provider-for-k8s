@@ -8,8 +8,8 @@ echo "Deploying test_env without CONTAINER_MODE environment variable"
 export CONTAINER_MODE_KEY_VALUE=$KEY_VALUE_NOT_EXIST
 
 echo "Running Deployment push-to-file secrets rotation"
-
-deploy_push_to_file "secrets-provider-p2f-rotation" "test-env-p2f-rotation"
+export SECRETS_MODE="p2f-rotation"
+deploy_env
 
 echo "Expecting secrets provider to succeed as a sidecar container"
 

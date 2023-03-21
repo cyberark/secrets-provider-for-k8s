@@ -7,7 +7,7 @@ wait_for_it 600  "$CONFIG_DIR/secrets-access-role.sh.yml | $cli_without_timeout 
 echo "Creating secrets access role binding"
 wait_for_it 600 "$CONFIG_DIR/secrets-access-role-binding.sh.yml | $cli_without_timeout apply -f -"
 
-deploy_init_env
+deploy_env
 
 pod_name1="$(get_pod_name "$APP_NAMESPACE_NAME" 'app=test-env')"
 

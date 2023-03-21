@@ -5,7 +5,8 @@ create_secret_access_role
 
 create_secret_access_role_binding
 
-deploy_k8s_rotation_env
+export SECRETS_MODE="k8s-rotation"
+deploy_env
 
 pod_name1="$(get_pod_name "$APP_NAMESPACE_NAME" 'app=test-env')"
 
