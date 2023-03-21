@@ -3,6 +3,7 @@ package k8ssecretsstorage
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"fmt"
 	"strings"
 
@@ -344,25 +345,7 @@ func (p K8sProvider) updateRequiredK8sSecrets(
 	spanCtx, span := tracer.Start(p.traceContext, "Update K8s Secrets")
 	defer span.End()
 
-	// Create a map of entries to be added to the 'Data' fields of each
-	// K8s Secret. Each entry will map an application secret name to
-	// a value retrieved from Conjur.
-	newSecretData := map[string]map[string][]byte{}
-	for variableID, secretValue := range conjurSecrets {
-		dests := p.secretsState.updateDestinations[variableID]
-		for _, dest := range dests {
-			k8sSecretName := dest.k8sSecretName
-			secretName := dest.secretName
-			// If there are no data entries for this K8s Secret yet, initialize
-			// its map of data entries.
-			if newSecretData[k8sSecretName] == nil {
-				newSecretData[k8sSecretName] = map[string][]byte{}
-			}
-			newSecretData[k8sSecretName][secretName] = secretValue
-		}
-		// Null out the secret value
-		conjurSecrets[variableID] = []byte{}
-	}
+	newSecretData := p.createSecretData(conjurSecrets)
 
 	// Update K8s Secrets with the retrieved Conjur secrets
 	for k8sSecretName, secretData := range newSecretData {
@@ -400,4 +383,42 @@ func (p K8sProvider) updateRequiredK8sSecrets(
 	}
 
 	return updated, nil
+}
+
+// createSecretData creates a map of entries to be added to the 'Data' fields
+// of each K8s Secret. Each entry will map an application secret name to a
+// value retrieved from Conjur. If a secret has a 'base64' content type, the
+// resulting secret value will be decoded.
+func (p K8sProvider) createSecretData(conjurSecrets map[string][]byte) map[string]map[string][]byte {
+	secretData := map[string]map[string][]byte{}
+	for variableID, secretValue := range conjurSecrets {
+		dests := p.secretsState.updateDestinations[variableID]
+		for _, dest := range dests {
+			k8sSecretName := dest.k8sSecretName
+			secretName := dest.secretName
+			// If there are no data entries for this K8s Secret yet, initialize
+			// its map of data entries.
+			if secretData[k8sSecretName] == nil {
+				secretData[k8sSecretName] = map[string][]byte{}
+			}
+
+			// Check if the secret value should be decoded in this K8s Secret
+			if dest.contentType == "base64" {
+				decodedSecretValue, err := base64.StdEncoding.DecodeString(string(secretValue))
+				if err != nil {
+					// Log the error as a warning but still provide the original secret value
+					p.log.warn(messages.CSPFK064E, secretName, dest.contentType, err.Error())
+					secretData[k8sSecretName][secretName] = secretValue
+				} else {
+					secretData[k8sSecretName][secretName] = decodedSecretValue
+				}
+			} else {
+				secretData[k8sSecretName][secretName] = secretValue
+			}
+		}
+		// Null out the secret value
+		conjurSecrets[variableID] = []byte{}
+	}
+
+	return secretData
 }

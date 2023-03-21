@@ -139,17 +139,28 @@ func assertErrorLogged(msg string, args ...interface{}) assertFunc {
 	}
 }
 
-func assertInfoLogged(expected bool, msg string, args ...interface{}) assertFunc {
+func assertLogged(expected bool, logLevel string, msg string, args ...interface{}) assertFunc {
 	return func(t *testing.T, mocks testMocks, updated bool, err error, desc string) {
-		infoStr := fmt.Sprintf(msg, args...)
+		logStr := fmt.Sprintf(msg, args...)
 		var logDesc string
 		if expected {
-			logDesc = ", expected info log to contain: "
+			logDesc = fmt.Sprintf(", expected %s log to contain: ", logLevel)
 		} else {
-			logDesc = ", expected info log NOT to contain: "
+			logDesc = fmt.Sprintf(", expected  %s log NOT to contain: ", logLevel)
 		}
-		newDesc := desc + logDesc + infoStr
-		assert.Equal(t, expected, mocks.logger.InfoWasLogged(infoStr), newDesc)
+		newDesc := desc + logDesc + logStr
+		switch logLevel {
+		case "debug":
+			assert.Equal(t, expected, mocks.logger.DebugWasLogged(logStr), newDesc)
+		case "info":
+			assert.Equal(t, expected, mocks.logger.InfoWasLogged(logStr), newDesc)
+		case "warn":
+			assert.Equal(t, expected, mocks.logger.WarningWasLogged(logStr), newDesc)
+		case "error":
+			assert.Equal(t, expected, mocks.logger.ErrorWasLogged(logStr), newDesc)
+		default:
+			assert.Fail(t, "Invalid log level: "+logLevel)
+		}
 	}
 }
 
@@ -369,25 +380,50 @@ func TestProvide(t *testing.T) {
 			},
 			requiredSecrets: []string{"k8s-secret1", "k8s-secret2"},
 			asserts: []assertFunc{
-				// TODO - uncomment when decoding is implemented
-				// assertSecretsUpdated(
-				// 	expectedK8sSecrets{
-				// 		"k8s-secret1": {
-				// 			"test-decoding":  "decoded-value-1",
-				// 			"test-decoding2": "decoded-value-2",
-				// 		},
-				// 		"k8s-secret2": {
-				// 			"test-still-encoded":  "ZGVjb2RlZC12YWx1ZS0x",
-				// 			"test-still-encoded2": "ZGVjb2RlZC12YWx1ZS0y",
-				// 		},
-				// 	},
-				// 	expectedMissingValues{},
-				// 	false,
-				// ),
-				assertInfoLogged(true, messages.CSPFK022I, "test-decoding", "k8s-secret1"),
-				assertInfoLogged(true, messages.CSPFK022I, "test-decoding2", "k8s-secret1"),
-				assertInfoLogged(false, messages.CSPFK022I, "test-still-encoded", "k8s-secret2"),
-				assertInfoLogged(false, messages.CSPFK022I, "test-still-encoded2", "k8s-secret2"),
+				assertSecretsUpdated(
+					expectedK8sSecrets{
+						"k8s-secret1": {
+							"test-decoding":  "decoded-value-1",
+							"test-decoding2": "decoded-value-2",
+						},
+						"k8s-secret2": {
+							"test-still-encoded":  "ZGVjb2RlZC12YWx1ZS0x",
+							"test-still-encoded2": "ZGVjb2RlZC12YWx1ZS0y",
+						},
+					},
+					expectedMissingValues{},
+					false,
+				),
+				assertLogged(true, "info", messages.CSPFK022I, "test-decoding", "k8s-secret1"),
+				assertLogged(true, "info", messages.CSPFK022I, "test-decoding2", "k8s-secret1"),
+				assertLogged(false, "info", messages.CSPFK022I, "test-still-encoded", "k8s-secret2"),
+				assertLogged(false, "info", messages.CSPFK022I, "test-still-encoded2", "k8s-secret2"),
+			},
+		},
+		{
+			desc: "Plaintext secret with base64 content-type returns the secret as is",
+			k8sSecrets: k8sStorageMocks.K8sSecrets{
+				"k8s-secret1": {
+					"conjur-map": {
+						"secret1": map[string]interface{}{
+							"id":           "conjur/var/path1",
+							"content-type": "base64",
+						},
+					},
+				},
+			},
+			requiredSecrets: []string{"k8s-secret1"},
+			asserts: []assertFunc{
+				assertSecretsUpdated(
+					expectedK8sSecrets{
+						"k8s-secret1": {
+							"secret1": "secret-value1",
+						},
+					},
+					expectedMissingValues{},
+					false,
+				),
+				assertLogged(true, "warn", messages.CSPFK064E, "secret1", "base64", "illegal base64 data"),
 			},
 		},
 		{
@@ -560,6 +596,7 @@ func TestProvide(t *testing.T) {
 			mocks := newTestMocks()
 			mocks.setPermissions(tc.denyConjurRetrieve, tc.denyK8sRetrieve,
 				tc.denyK8sUpdate)
+
 			for secretName, secretData := range tc.k8sSecrets {
 				mocks.kubeClient.AddSecret(secretName, secretData)
 			}

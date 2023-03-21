@@ -84,3 +84,6 @@ const CSPFK058E string = "CSPFK058E Could not rename temporary file '%s' to '%s'
 const CSPFK059E string = "CSPFK059E Could not delete temporary file '%s'. Truncated file."
 const CSPFK060E string = "CSPFK060E Could not delete temporary file '%s'. File may be left on disk."
 const CSPFK061E string = "CSPFK061E Could not write content to temporary file for '%s'"
+
+// Secrets Decoding
+const CSPFK064E string = "CSPFK064E Failed to decode secret '%s' with '%s' content-type. Reason: %s"
