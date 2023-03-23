@@ -7,7 +7,8 @@ echo "Deploying test_env without CONTAINER_MODE environment variable"
 export CONTAINER_MODE_KEY_VALUE=$KEY_VALUE_NOT_EXIST
 
 echo "Running Deployment push to file"
-deploy_push_to_file "secrets-provider-init-push-to-file" "test-env-push-to-file"
+export SECRETS_MODE="p2f"
+deploy_env
 
 echo "Expecting secrets provider to succeed as an init container"
 

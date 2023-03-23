@@ -8,7 +8,7 @@ create_secret_access_role
 
 create_secret_access_role_binding
 
-deploy_init_env
+deploy_env
 
 k8s_secret_key="NON_CONJUR_SECRET"
 secret_value="some-value"

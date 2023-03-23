@@ -375,62 +375,6 @@ create_k8s_secret_for_helm_deployment() {
   $cli_with_timeout create -f $helm_app_path
 }
 
-deploy_init_env() {
-  configure_conjur_url
-
-  echo "Running Deployment Manifest"
-
-  if [[ "$DEV" = "true" ]]; then
-    mkdir -p $DEV_CONFIG_DIR/generated
-    $DEV_CONFIG_DIR/secrets-provider-init-container.sh.yml > $DEV_CONFIG_DIR/generated/secrets-provider-init-container.yml
-    $cli_with_timeout apply -f $DEV_CONFIG_DIR/generated/secrets-provider-init-container.yml
-
-    $cli_with_timeout "get pods --namespace=$APP_NAMESPACE_NAME --selector app=init-env --no-headers | wc -l"
-  else
-    wait_for_it 600 "$CONFIG_DIR/test-env.sh.yml | $cli_without_timeout apply -f -"
-
-    expected_num_replicas=`$CONFIG_DIR/test-env.sh.yml |  awk '/replicas:/ {print $2}' `
-
-    # Deployment (Deployment for k8s and DeploymentConfig for Openshift) might fail on error flows, even before creating the pods. If so, re-deploy.
-    if [[ "$PLATFORM" = "kubernetes" ]]; then
-        $cli_with_timeout "get deployment test-env -o jsonpath={.status.replicas} | grep '^${expected_num_replicas}$'|| $cli_without_timeout rollout latest deployment test-env"
-    elif [[ "$PLATFORM" = "openshift" ]]; then
-        $cli_with_timeout "get dc/test-env -o jsonpath={.status.replicas} | grep '^${expected_num_replicas}$'|| $cli_without_timeout rollout latest dc/test-env"
-    fi
-
-    echo "Expecting $expected_num_replicas deployed pods"
-    $cli_with_timeout "get pods --namespace=$APP_NAMESPACE_NAME --selector app=test-env --no-headers | wc -l | grep $expected_num_replicas"
-  fi
-}
-
-deploy_k8s_rotation_env() {
-  configure_conjur_url
-
-  echo "Running Deployment Manifest"
-
-  if [[ "$DEV" = "true" ]]; then
-    mkdir -p $DEV_CONFIG_DIR/generated
-    $DEV_CONFIG_DIR/secrets-provider-k8s-rotation.sh.yml > $DEV_CONFIG_DIR/generated/secrets-provider-k8s-rotation.yml
-    $cli_with_timeout apply -f $DEV_CONFIG_DIR/generated/secrets-provider-k8s-rotation.yml
-
-    $cli_with_timeout "get pods --namespace=$APP_NAMESPACE_NAME --selector app=test-app --no-headers | wc -l"
-  else
-    wait_for_it 600 "$CONFIG_DIR/test-env-k8s-rotation.sh.yml | $cli_without_timeout apply -f -"
-
-    expected_num_replicas=`$CONFIG_DIR/test-env-k8s-rotation.sh.yml |  awk '/replicas:/ {print $2}' `
-
-    # Deployment (Deployment for k8s and DeploymentConfig for Openshift) might fail on error flows, even before creating the pods. If so, re-deploy.
-    if [[ "$PLATFORM" = "kubernetes" ]]; then
-        $cli_with_timeout "get deployment test-env -o jsonpath={.status.replicas} | grep '^${expected_num_replicas}$'|| $cli_without_timeout rollout latest deployment test-env"
-    elif [[ "$PLATFORM" = "openshift" ]]; then
-        $cli_with_timeout "get dc/test-env -o jsonpath={.status.replicas} | grep '^${expected_num_replicas}$'|| $cli_without_timeout rollout latest dc/test-env"
-    fi
-
-    echo "Expecting $expected_num_replicas deployed pods"
-    $cli_with_timeout "get pods --namespace=$APP_NAMESPACE_NAME --selector app=test-env --no-headers | wc -l | grep $expected_num_replicas"
-  fi
-}
-
 create_secret_access_role() {
   echo "Creating secrets access role"
   wait_for_it 600  "$CONFIG_DIR/secrets-access-role.sh.yml | $cli_without_timeout apply -f -"
@@ -510,7 +454,7 @@ test_secret_is_provided() {
   $cli_with_timeout "exec $conjur_cli_pod -- conjur variable set -i \"$variable_name\" -v $secret_value"
 
   set_namespace "$APP_NAMESPACE_NAME"
-  deploy_init_env
+  deploy_env
 
   echo "Verifying pod test_env has environment variable '$environment_variable_name' with value '$secret_value'"
   pod_name="$(get_pod_name "$APP_NAMESPACE_NAME" 'app=test-env')"
@@ -644,23 +588,64 @@ wait_for_job() {
   fi
 }
 
-deploy_push_to_file() {
+deploy_env() {
+  export SECRETS_MODE=${SECRETS_MODE:-"k8s"}
+  local yaml_template_name="test-env"
+
+  case $SECRETS_MODE in
+    "k8s")
+      if [[ "$DEV" = "true" ]]; then
+        yaml_template_name="secrets-provider-init-container"
+      else
+        yaml_template_name="test-env"
+      fi
+      ;;
+    "k8s-rotation")
+      if [[ "$DEV" = "true" ]]; then
+        yaml_template_name="secrets-provider-k8s-rotation"
+      else
+        yaml_template_name="test-env-k8s-rotation"
+      fi
+      ;;
+    "p2f")
+      if [[ "$DEV" = "true" ]]; then
+        yaml_template_name="secrets-provider-init-push-to-file"
+      else
+        yaml_template_name="test-env-push-to-file"
+      fi
+      ;;
+    "p2f-rotation")
+      if [[ "$DEV" = "true" ]]; then
+        yaml_template_name="secrets-provider-p2f-rotation"
+      else
+        yaml_template_name="test-env-p2f-rotation"
+      fi
+      ;;
+    *)
+      echo "Invalid or missing SECRETS_MODE variable. Allowed values are: k8s, k8s-rotation, p2f, p2f-rotation."
+      echo "Deploying with default config (k8s)."
+      ;;
+  esac
+
+  generate_manifest_and_deploy $yaml_template_name
+}
+
+generate_manifest_and_deploy() {
+  local yaml_template_name=$1
+  local deployment_name="test-env"
+
   configure_conjur_url
-  
-  dev_yaml_file_name=$1
-  test_yaml_file_name=$2
-  deployment_name="test-env"
 
   if [[ "$DEV" = "true" ]]; then
     mkdir -p $DEV_CONFIG_DIR/generated
-    "$DEV_CONFIG_DIR/$dev_yaml_file_name.sh.yml" > "$DEV_CONFIG_DIR/generated/$dev_yaml_file_name.yml"
-    $cli_with_timeout apply -f "$DEV_CONFIG_DIR/generated/$dev_yaml_file_name.yml"
+    "$DEV_CONFIG_DIR/$yaml_template_name.sh.yml" > "$DEV_CONFIG_DIR/generated/$yaml_template_name.yml"
+    $cli_with_timeout apply -f "$DEV_CONFIG_DIR/generated/$yaml_template_name.yml"
 
     $cli_with_timeout "get pods --namespace=$APP_NAMESPACE_NAME --selector app=$deployment_name --no-headers | wc -l"
   else
-    wait_for_it 600 "$CONFIG_DIR/$test_yaml_file_name.sh.yml | $cli_without_timeout apply -f -" || true
+    wait_for_it 600 "$CONFIG_DIR/$yaml_template_name.sh.yml | $cli_without_timeout apply -f -" || true
 
-    expected_num_replicas=`$CONFIG_DIR/$test_yaml_file_name.sh.yml |  awk '/replicas:/ {print $2}' `
+    expected_num_replicas=`$CONFIG_DIR/$yaml_template_name.sh.yml |  awk '/replicas:/ {print $2}' `
     
     # Deployment (Deployment for k8s and DeploymentConfig for Openshift) might fail on error flows, even before creating the pods. If so, re-deploy.
     if [[ "$PLATFORM" = "kubernetes" ]]; then
