@@ -177,7 +177,7 @@ func (sg *SecretGroup) validate() []error {
 	fileTemplate := sg.FileTemplate
 	secretSpecs := sg.SecretSpecs
 
-	if errors := validateSecretPaths(secretSpecs, groupName); len(errors) > 0 {
+	if errors := validateSecretPathsAndContents(secretSpecs, groupName); len(errors) > 0 {
 		return errors
 	}
 

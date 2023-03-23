@@ -69,8 +69,9 @@ func TestNewProvider(t *testing.T) {
 					FilePermissions: defaultFilePermissions,
 					SecretSpecs: []SecretSpec{
 						{
-							Alias: "password",
-							Path:  "path1",
+							Alias:       "password",
+							Path:        "path1",
+							ContentType: "text",
 						},
 					},
 				},

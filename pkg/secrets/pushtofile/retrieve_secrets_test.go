@@ -93,6 +93,53 @@ var retrieveSecretsTestCases = []retrieveSecretsTestCase{
 		}),
 	},
 	{
+		description: "Happy Base64 Case",
+		secretSpecs: map[string][]SecretSpec{
+			"cache": []SecretSpec{
+				{Alias: "api-url", Path: "dev/openshift/api-url"},
+				{Alias: "username", Path: "dev/openshift/username"},
+				{Alias: "password", Path: "dev/openshift/password",
+					ContentType: "text"},
+			},
+			"db": []SecretSpec{
+				{Alias: "api-url", Path: "ci/openshift/api-url"},
+				{Alias: "username", Path: "ci/openshift/username"},
+				{Alias: "encoded-password", Path: "ci/openshift/encoded-password",
+					ContentType: "base64"},
+			},
+		},
+		assert: assertGoodResults(map[string][]*Secret{
+			"cache": []*Secret{
+				{Alias: "api-url", Value: "https://postgres.example.com"},
+				{Alias: "username", Value: "admin"},
+				{Alias: "password", Value: "open-$e$ame"},
+			},
+			"db": []*Secret{
+				{Alias: "api-url", Value: "https://ci.postgres.example.com"},
+				{Alias: "username", Value: "administrator"},
+				{Alias: "encoded-password", Value: "open-$e$ame"},
+			},
+		}),
+	},
+	{
+		description: "Cannot decode Base64 Case",
+		secretSpecs: map[string][]SecretSpec{
+			"db": []SecretSpec{
+				{Alias: "api-url", Path: "ci/openshift/api-url"},
+				{Alias: "username", Path: "ci/openshift/username"},
+				{Alias: "encoded-password", Path: "ci/openshift/password",
+					ContentType: "base64"},
+			},
+		},
+		assert: assertGoodResults(map[string][]*Secret{
+			"db": []*Secret{
+				{Alias: "api-url", Value: "https://ci.postgres.example.com"},
+				{Alias: "username", Value: "administrator"},
+				{Alias: "encoded-password", Value: "open-$e$ame"},
+			},
+		}),
+	},
+	{
 		description: "Bad ID",
 		secretSpecs: map[string][]SecretSpec{
 			"cache": []SecretSpec{
@@ -133,6 +180,7 @@ func newMockSecretFetcher() mockSecretFetcher {
 			"ci/openshift/api-url":   "https://ci.postgres.example.com",
 			"ci/openshift/username":  "administrator",
 			"ci/openshift/password":  "open-$e$ame",
+			"ci/openshift/encoded-password":  "b3Blbi0kZSRhbWU=",
 		},
 	)
 
