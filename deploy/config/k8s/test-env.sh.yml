@@ -56,6 +56,11 @@ spec:
               secretKeyRef:
                 name: test-k8s-secret
                 key: var_with_umlaut
+          - name: VARIABLE_WITH_BASE64_SECRET
+            valueFrom:
+              secretKeyRef:
+                name: test-k8s-secret
+                key: var_with_base64
           - name: NON_CONJUR_SECRET
             valueFrom:
               secretKeyRef:
