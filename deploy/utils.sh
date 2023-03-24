@@ -444,21 +444,12 @@ yaml_print_key_name_value() {
   fi
 }
 
-test_secret_is_provided() {
-  secret_value=$1
-  variable_name="${2:-secrets/test_secret}"
-  environment_variable_name="${3:-TEST_SECRET}"
-
+set_conjur_secret() {
+  secret_name=$1
+  secret_value=$2
   set_namespace "$CONJUR_NAMESPACE_NAME"
   conjur_cli_pod=$(get_conjur_cli_pod_name)
-  $cli_with_timeout "exec $conjur_cli_pod -- conjur variable set -i \"$variable_name\" -v $secret_value"
-
-  set_namespace "$APP_NAMESPACE_NAME"
-  deploy_env
-
-  echo "Verifying pod test_env has environment variable '$environment_variable_name' with value '$secret_value'"
-  pod_name="$(get_pod_name "$APP_NAMESPACE_NAME" 'app=test-env')"
-  verify_secret_value_in_pod "$pod_name" "$environment_variable_name" "$secret_value"
+  $cli_with_timeout "exec $conjur_cli_pod -- conjur variable set -i \"$secret_name\" -v $secret_value"
 }
 
 verify_secret_value_in_pod() {
