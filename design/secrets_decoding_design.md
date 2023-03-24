@@ -24,9 +24,11 @@
   * [Tasks](#tasks)
     + [Add a struct for storing content-types of individual Conjur secrets (K8s Secrets)](#add-a-struct-for-storing-content-types-of-individual-conjur-secrets--k8s-secrets-)
     + [Add/update a struct for storing content-types of individual Conjur secrets (P2F)](#add-update-a-struct-for-storing-content-types-of-individual-conjur-secrets--p2f-)
-    + [Add decoding of secrets with 'base64' content-types](#add-decoding-of-secrets-with--base64--content-types)
-    + [Update e2e tests and dev environment scripts/manifests](#update-e2e-tests-and-dev-environment-scripts-manifests)
+    + [Secrets with 'base64' content-types are decoded (K8s Secrets)](#secrets-with--base64--content-types-are-decoded--k8s-secrets-)
+    + [Secrets with 'base64' content-types are decoded (P2F)](#secrets-with--base64--content-types-are-decoded--p2f-)
+    + [Add e2e secrets decoding test and update manifests for the following cases:](#add-e2e-secrets-decoding-test-and-update-manifests-for-the-following-cases-)
     + [Create/update docs](#create-update-docs)
+    + [Create artifact for tech writers](#create-artifact-for-tech-writers)
     + [Docs walkthrough](#docs-walkthrough)
 
 ## Useful links
@@ -56,7 +58,7 @@ stringData:
   conjur-map: |-
     secret: secrets/test_secret
     user: 
-      path: policy/path/base64_user
+      id: policy/path/base64_user
       content-type: base64
 ```
 
@@ -66,8 +68,6 @@ Kubernetes Pod annotations are currently used to define which Conjur secrets are
 conjur.org/conjur-secrets.groupname: |
   - user: policy/path/base64_user     # valid annotation with content-type
     content-type: base64
-  - policy/path/base64_password:      # this is also valid when no alias is needed
-      content-type: base64
 ```
 
 P2F already leverages Kubernetes' Downward API and volumeMounts to pass these annotations into the Secrets Provider container. This will make it possible to determine which secrets should be decoded before pushing them to the Kubernetes secret file. 
@@ -81,7 +81,7 @@ In both modes the solution will need to be backwards compatible with existing an
 
 The logic and structs should added for this feature should be shared between both modes when possible. For example, P2F mode uses [SecretSpec struct](https://github.com/cyberark/secrets-provider-for-k8s/tree/main/pkg/secrets/common/secret_spec.go) which could be updated with a ContentType field. Ideally both YAML formats can be unmarshaled into a common struct since they will contain the same data:
 * Alias
-* Path
+* Variable ID / Path
 * ContentType
   * Allowed values = ['text', 'base64']
   * Default = 'text'
@@ -92,9 +92,11 @@ In order to keep Conjur secrets configuration from creeping into other locations
 conjur-map: |-
   <alias_value>: <path_value>                 # supported
   <alias_value>:                              # to be added
-    path: <path_value>
+    id: <path_value>
     content-type: <content_type_value>    
 ```
+
+In the case where multiple Kubernetes secrets reference the same Conjur secret, we should support a different content-type definition for each instance of the secret. i.e. 'k8s-secret-decode' can reference `path/to/somevar` with a content-type of base64, and `k8s-secret-dont-decode` can reference `path/to/somevar` with a content-type of text, and each K8s secret will be updated with the correct decoded or non-decoded secret value.
 
 ### P2F Mode
 For P2F, we can update the existing `conjur.org/conjur-secrets.{secret-group}` annotations with the following allowed formats:
@@ -104,9 +106,9 @@ conjur.org/conjur-secrets.groupname: |
   - <path_value>                              # supported
   - <alias_value>: <path_value>               # to be added
     content-type: <content_type_value>
-  - <path_value>:                             # to be added
-      content-type: <content_type_value>
 ```
+
+In the case where multiple secret groups reference the same Conjur secret, we should support a different content-type definition for each instance of the secret. i.e. `conjur.org/conjur-secrets.decode-this-group` can reference `path/to/somevar` with a content-type of base64, and `conjur.org/conjur-secrets.dont-decode-this-group` can reference `path/to/somevar` with a content-type of text, and each secret group's output file will be updated with the correct decoded or non-decoded secret value.
 
 ### Backwards compatibility
 This enhancement will not modify the default behavior of Secrets Provider. It will continue to assume that secrets should be delivered "as-is" unless it specifically finds a content-type annotation which indicates that the secret value should be decoded.
@@ -117,38 +119,39 @@ Ensure that the 'base64' content-type of a Secret is captured for valid configur
 ```
 conjur-map: |-
   user: 
-    path: policy/path/base64_user
+    id: policy/path/base64_user
     content-type: base64
 ```
 
-Ensure that the 'text' content-type of a Secret is captured by default or when specified:
+Ensure that the 'text' content-type of a Secret is captured by default, when specified, or when an invalid content-type is provided:
 ```
 conjur-map: |-
   user: 
-    path: policy/path/base64_user
+    id: policy/path/base64_user
     content-type: text
 ```
 ```
 conjur-map: |-
   user: policy/path/user
 ```
+```
+conjur-map: |-
+  user: 
+    id: policy/path/base64_user
+    content-type: invalidtype
+```
 
 Unit tests should also be implemented for error messages that result from invalid annotations, parsing errors, etc.
 
 ### Annotation Tests (P2F)
-Ensure that the 'base64' content-type of a Secret is captured for each valid configuration:
+Ensure that the 'base64' content-type of a Secret is captured for valid configuration:
 ```
 conjur.org/conjur-secrets.groupname: |
   - user: policy/path/base64_user     # valid annotation with content-type
     content-type: base64
 ```
-```
-conjur.org/conjur-secrets.groupname: |
-  - policy/path/base64_password:      # this is also valid (no alias)
-      content-type: base64
-```
 
-Ensure that the 'text' content-type of a Secret is captured by default or when specified:
+Ensure that the 'text' content-type of a Secret is captured by default, when specified, or when an invalid content-type is provided::
 ```
 conjur.org/conjur-secrets.groupname: |
   - user: policy/path/user            # explicit 'text' content-type is valid
@@ -156,13 +159,12 @@ conjur.org/conjur-secrets.groupname: |
 ```
 ```
 conjur.org/conjur-secrets.groupname: |
-  - policy/path/text_secret:          # explicit 'text' content-type is valid (no alias)
-  content-type: text
+  - url: policy/path/url              # will default to 'text' content type
 ```
 ```
 conjur.org/conjur-secrets.groupname: |
-  - url: policy/path/url              # will default to 'text' content type
-  - policy/path/some_other_url        # will default to 'text' content type
+  - user: policy/path/user            # invalid content-type defaults to 'text'
+    content-type: invalidtype
 ```
 
 Unit tests should also be implemented for error messages that result from invalid annotations, parsing errors, etc.
@@ -173,35 +175,61 @@ Unit tests for any helper functions added to assist with decoding secrets.
 Update integration tests in both [K8s secrets mode](https://github.com/cyberark/secrets-provider-for-k8s/tree/main/pkg/secrets/k8s_secrets_storage/provide_conjur_secrets_test.go) and [P2F mode](https://github.com/cyberark/secrets-provider-for-k8s/tree/main/pkg/secrets/pushtofile/provide_conjur_secrets_test.go) to validate that an encoded variable with base64 content-type is decoded.
 
 ### e2e Tests
-At least one e2e test should be added for validating that an encoded secret with valid annotations is provided and decoded to match the expected value.
+In addition to the unit/integration tests, we likely will want five e2e tests to cover the following cases with secrets decoding:
+* K8s Secrets
+* K8s Secrets with rotation
+* Push-to-file
+* Push-to-file with rotation
+* Decoding secrets > 65k characters
 
 ### Audit 
-The solution should produce an audit entry for each secret that was decoded as a result of the secrets configuration.
+The solution should produce an audit entry for each secret that was decoded as a result of the secrets configuration. It should also log errors/warnings on the following conditions:
+
+Failure on configuration:
+  - Malformed secret (alias/path)
+    - Log YAML parsing error
+    - Secrets Provider fails to start
+  - Malformed content-type
+    - If YAML can still be parsed, create a secret with default content type (text)
+    - Log (warning)
+
+Failure on providing secrets:
+- Fail to decode an encoded secret (invalid base64)
+   - Log (warning)
+   - Provide original value
+   - Secrets provider continues to run
 
 ## Documentation
 Since this feature is activated via the manifest, it would be reasonable to add a note to any sample manifests in existing documentation about the optional 'content-type' field for secret annotations. Both K8s Secrets and P2F documentation should have a brief mention of where and how configuration is needed to activate the feature respectively.
 
 ## Open questions
-* Conjur variables support a mime-type attribute and custom annotations. See: [Conjur policy variable attributes](https://docs.cyberark.com/Product-Doc/OnlineHelp/AAM-DAP/12.4/en/Content/Operations/Policy/statement-ref-variable.htm#Attributes). Either of these could potentially be used to determine that an individual Conjur secret is encoded. This likely wouldn't be compatible with the current implementation using Conjur API's batch retrieval endpoint, but it would allow the decoding to be handled in the API instead of Secrets Provider. Could also have compatility issues with secrets that come from synchronizer and/or require manual updating of secret metadata in Conjur.
+* (Out of scope) Conjur variables support a mime-type attribute and custom annotations. See: [Conjur policy variable attributes](https://docs.cyberark.com/Product-Doc/OnlineHelp/AAM-DAP/12.4/en/Content/Operations/Policy/statement-ref-variable.htm#Attributes). Either of these could be used to determine that an individual Conjur secret is encoded. This likely wouldn't be compatible with the current implementation using Conjur API's batch retrieval endpoint, but it would allow the decoding to be handled in the API instead of Secrets Provider. Could also have compatility issues with secrets that come from synchronizer and/or require manual updating of secret metadata in Conjur.
 
 
 ## Tasks
 * ### Add a struct for storing content-types of individual Conjur secrets (K8s Secrets)
-  * Add marshal/unmarshal logic to correctly parse YAML annotations into the new struct.
-  * Add/update tests for the new struct to include the expected content-type of secrets.
+  * Updated K8sProvider config which can store content-type of secrets
+  * Marshal/unmarshal logic to correctly parse new YAML annotations
+  * Add/update tests to check for the expected content-type of secrets
 * ### Add/update a struct for storing content-types of individual Conjur secrets (P2F)
-  * Can probably reuse the existing SecretSpec struct similar similar to the [POC branch](https://github.com/cyberark/secrets-provider-for-k8s/pull/502)
-  * Add marshal/unmarshal logic to correctly parse YAML annotations into the struct.
-  * Add/update tests for the struct to include the expected content-type of secrets.
-* ### Add decoding of secrets with 'base64' content-types
-  * Add logic to decode secrets based on content-type
-  * Likely want to handle this in or just beneath the Provide() function for each provider type (k8s_secrets and p2f)
-  * Unit tests for any helper functions added here
+  * Updated P2FProviderConfig which can store content-type of secrets for each secret group
+  * Marshal/unmarshal logic to correctly parse new YAML annotations
+  * Add/update tests to check for the expected content-type of secrets
+* ### Secrets with 'base64' content-types are decoded (K8s Secrets)
+  * Decode secrets based on content-type
   * Update integration tests to include decoded variables and expected values
-* ### Update e2e tests and dev environment scripts/manifests
-  * We should have at least one e2e test verifying a secret being decoded via this feature
-  * Dev environments for both K8s secrets and P2F mode should include a decoded secret example
+  * Update dev environments to allow easy demonstration of base64 decoding
+* ### Secrets with 'base64' content-types are decoded (P2F)
+  * Decode secrets based on content-type
+  * Update integration tests to include decoded variables and expected values
+  * Update dev environments to allow easy demonstration of base64 decoding
+* ### Add e2e secrets decoding test and update manifests for the following cases:
+  * K8s Secrets + rotation
+  * Push-to-file + rotation
+  * Decoding secrets > 65k characters (may be acceptable to document limits rather than adding a separate test)
 * ### Create/update docs
-  * Update existing docs and sample manifests where appropriate
+  * Update existing docs and sample manifests where appropriate.
+* ### Create artifact for tech writers
+  * Create doc artifact to hand over to TW for updating the docs.
 * ### Docs walkthrough
   * Manual UX testing
