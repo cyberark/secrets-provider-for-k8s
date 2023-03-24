@@ -43,7 +43,7 @@ pod_name="$(get_pod_name "$APP_NAMESPACE_NAME" 'app=test-env')"
 for i in "${!env_var_arr[@]}"
 do  
     env_var="${env_var_arr[$i]}"
-    secret_value="${values_arr[$i]}"
+    expected_value="${values_arr[$i]}"
 
     verify_secret_value_in_pod "$pod_name" "$env_var" "$expected_value"
 done
