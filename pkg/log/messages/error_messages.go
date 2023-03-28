@@ -87,3 +87,4 @@ const CSPFK061E string = "CSPFK061E Could not write content to temporary file fo
 
 // Secrets Decoding
 const CSPFK064E string = "CSPFK064E Failed to decode secret '%s' with '%s' content-type. Reason: %s"
+const CSPFK065E string = "CSPFK065E Secret group %s: the content-type of %s is invalid"

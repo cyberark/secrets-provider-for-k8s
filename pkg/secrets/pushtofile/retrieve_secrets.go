@@ -2,8 +2,11 @@ package pushtofile
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 
+	"github.com/cyberark/conjur-authn-k8s-client/pkg/log"
+	"github.com/cyberark/secrets-provider-for-k8s/pkg/log/messages"
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/clients/conjur"
 )
 
@@ -40,7 +43,15 @@ func FetchSecretsForGroups(
 				)
 				return nil, err
 			}
-
+			if spec.ContentType == "base64" {
+				decodedSecretValue, err := base64.StdEncoding.DecodeString(string(sValue))
+				if err != nil {
+					// Log the error as a warning but still provide the original secret value
+					log.Warn(messages.CSPFK064E, spec.Alias, spec.ContentType, err.Error())
+				} else {
+					sValue = decodedSecretValue
+				}
+			}
 			secretsByGroup[group.Name] = append(
 				secretsByGroup[group.Name],
 				&Secret{

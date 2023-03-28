@@ -11,6 +11,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ### Added
 - Adds support for binary secret values and values with special characters.
   [cyberark/secrets-provider-for-k8s#500](https://github.com/cyberark/secrets-provider-for-k8s/pull/500)
+- Adds support for content-type annotation.
+  [cyberark/secrets-provider-for-k8s#511](https://github.com/cyberark/secrets-provider-for-k8s/pull/511)
 
 ## [1.4.6] - 2023-01-26
 

@@ -2,9 +2,10 @@ package pushtofile
 
 import (
 	"fmt"
-	"strings"
-
+	"github.com/cyberark/conjur-authn-k8s-client/pkg/log"
+	"github.com/cyberark/secrets-provider-for-k8s/pkg/log/messages"
 	"gopkg.in/yaml.v3"
+	"strings"
 )
 
 const (
@@ -15,13 +16,14 @@ const (
 // its alias (i.e. the name of the secret from an application's perspective)
 // and its variable path in Conjur.
 type SecretSpec struct {
-	Alias string
-	Path  string
+	Alias       string
+	Path        string
+	ContentType string
 }
 
 // MarshalYAML is a custom marshaller for SecretSpec.
 func (t SecretSpec) MarshalYAML() (interface{}, error) {
-	return map[string]string{t.Alias: t.Path}, nil
+	return map[string]string{t.Alias: t.Path, "ContentType": t.ContentType}, nil
 }
 
 const invalidSecretSpecErr = `expected a "string (path)" or "single entry map of string to string (alias to path)" on line %d`
@@ -30,6 +32,7 @@ const invalidSecretSpecErr = `expected a "string (path)" or "single entry map of
 // unmarshal from different YAML node representations i.e. literal string or
 // map.
 func (t *SecretSpec) UnmarshalYAML(node *yaml.Node) error {
+
 	switch node.Kind {
 	case yaml.ScalarNode:
 		return t.unmarshalFromLiteralString(node)
@@ -51,6 +54,7 @@ func (t *SecretSpec) unmarshalFromLiteralString(node *yaml.Node) error {
 
 	t.Path = literalValue
 	t.Alias = literalValue[strings.LastIndex(literalValue, "/")+1:]
+	t.ContentType = "text"
 	return nil
 }
 
@@ -64,15 +68,21 @@ func (t *SecretSpec) unmarshalFromMap(node *yaml.Node) error {
 	}
 
 	// Mapping node but has multiple entries
-	if len(mapValue) != 1 {
-		return fmt.Errorf(invalidSecretSpecErr, node.Line)
-	}
 
+	t.ContentType = "text"
+	count := 0
 	for k, v := range mapValue {
-		t.Path = v
-		t.Alias = k
+		if k == "content-type" {
+			t.ContentType = v
+		} else {
+			count = count + 1
+			if count > 1 {
+				return fmt.Errorf(invalidSecretSpecErr, node.Line)
+			}
+			t.Path = v
+			t.Alias = k
+		}
 	}
-
 	return nil
 }
 
@@ -88,6 +98,20 @@ func NewSecretSpecs(raw []byte) ([]SecretSpec, error) {
 	return secretSpecs, nil
 }
 
+func validateSecretPathsAndContents(secretSpecs []SecretSpec, groupName string) []error {
+
+	errors := validateSecretPaths(secretSpecs,groupName)
+
+	errs := validateSecretContents(secretSpecs,groupName)
+	if errs != nil {
+		for _, err := range errs {
+			// Log the errors as warnings but allow it to proceed
+			log.Warn(messages.CSPFK065E, err.Error())
+		}
+	}
+	return errors
+}
+
 func validateSecretPaths(secretSpecs []SecretSpec, groupName string) []error {
 	var errors []error
 	for _, secretSpec := range secretSpecs {
@@ -96,6 +120,24 @@ func validateSecretPaths(secretSpecs []SecretSpec, groupName string) []error {
 		}
 	}
 	return errors
+}
+
+func validateSecretContents(secretSpecs []SecretSpec, groupName string) []error {
+	var errors []error
+	for _, secretSpec := range secretSpecs {
+		if err := validateSecretContent(secretSpec.ContentType, groupName); err != nil {
+			errors = append(errors, err)
+		}
+	}
+	return errors
+}
+
+func validateSecretContent(content, groupName string) error {
+	if content == "text" || content == "base64" {
+		return nil
+	} else {
+		return fmt.Errorf(messages.CSPFK065E, groupName, content)
+	}
 }
 
 func validateSecretPath(path, groupName string) error {

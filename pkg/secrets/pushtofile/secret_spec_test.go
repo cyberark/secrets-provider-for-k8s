@@ -50,12 +50,14 @@ var secretsSpecTestCases = []secretsSpecTestCase{
 		assert: assertGoodSecretSpecs(
 			[]SecretSpec{
 				{
-					Alias: "api-url",
-					Path:  "dev/openshift/api-url",
+					Alias:       "api-url",
+					Path:        "dev/openshift/api-url",
+					ContentType: "text",
 				},
 				{
-					Alias: "admin-password",
-					Path:  "dev/openshift/password",
+					Alias:       "admin-password",
+					Path:        "dev/openshift/password",
+					ContentType: "text",
 				},
 			},
 		),
@@ -74,7 +76,7 @@ another-password: dev/openshift/password
 	{
 		description: "secret spec map with multiple keys",
 		contents: `
-- admin-password: dev/openshift/password 
+- admin-password: dev/openshift/password
   another-admin-password: dev/openshift/password
 - dev/openshift/api-url
 `,
@@ -106,6 +108,38 @@ another-password: dev/openshift/password
 			assert.Contains(t, err.Error(), "expected a")
 			assert.Contains(t, err.Error(), "on line 4")
 		},
+	},
+	{
+		description: "valid secret content-type text",
+		contents: `
+- dev: dev/openshift/api-url
+  content-type: text
+`,
+		assert: assertGoodSecretSpecs(
+			[]SecretSpec{
+				{
+					Alias:       "dev",
+					Path:        "dev/openshift/api-url",
+					ContentType: "text",
+				},
+			},
+		),
+	},
+	{
+		description: "valid secret content-type base64",
+		contents: `
+- dev: dev/openshift/api-url
+  content-type: base64
+`,
+		assert: assertGoodSecretSpecs(
+			[]SecretSpec{
+				{
+					Alias:       "dev",
+					Path:        "dev/openshift/api-url",
+					ContentType: "base64",
+				},
+			},
+		),
 	},
 }
 
@@ -184,6 +218,72 @@ func TestValidateSecretSpecPaths(t *testing.T) {
 
 		// Run test case
 		err := validateSecretPaths(secretSpecs, "some-group-name")
+
+		// Check result
+		tc.assert(t, err, tc.description)
+	}
+}
+
+func TestValidateSecretSpecContents(t *testing.T) {
+
+	type assertFunc func(*testing.T, []error, string)
+
+	assertNoErrors := func() assertFunc {
+		return func(t *testing.T, errors []error, desc string) {
+			assert.Len(t, errors, 0, desc)
+		}
+	}
+
+	assertErrorsContain := func(expErrStrs ...string) assertFunc {
+		return func(t *testing.T, errors []error, desc string) {
+			assert.Len(t, errors, len(expErrStrs), desc)
+			for i, expErrStr := range expErrStrs {
+				assert.Contains(t, errors[i].Error(), expErrStr, desc)
+			}
+		}
+	}
+
+	testCases := []struct {
+		description string
+		Content1    string
+		Content2    string
+		assert      assertFunc
+	}{
+		{
+			"valid Conjur paths",
+			"text",
+			"text",
+			assertNoErrors(),
+		},
+		{
+			"valid Conjur paths",
+			"text",
+			"base64",
+			assertNoErrors(),
+		},
+		{
+			"valid Conjur paths",
+			"",
+			"base64",
+			assertErrorsContain("is invalid"),
+		},
+		{
+			"valid Conjur paths",
+			"text",
+			"base65",
+			assertErrorsContain("is invalid"),
+		},
+	}
+
+	for _, tc := range testCases {
+		// Set up test case
+		secretSpecs := []SecretSpec{
+			{Alias: "foo", Path: validConjurPath1, ContentType: tc.Content1},
+			{Alias: "bar", Path: validConjurPath1, ContentType: tc.Content2},
+		}
+
+		// Run test case
+		err := validateSecretContents(secretSpecs, "some-group-name")
 
 		// Check result
 		tc.assert(t, err, tc.description)
