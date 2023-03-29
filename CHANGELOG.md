@@ -11,7 +11,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ### Added
 - Adds support for binary secret values and values with special characters.
   [cyberark/secrets-provider-for-k8s#500](https://github.com/cyberark/secrets-provider-for-k8s/pull/500)
-- Adds support for content-type annotation.
+- Adds support for content-type annotation (K8s secrets) and base64 secrets decoding.
+  [cyberark/secrets-provider-for-k8s#508](https://github.com/cyberark/secrets-provider-for-k8s/pull/508)
+- Adds support for content-type annotation (P2F) and base64 secrets decoding.
   [cyberark/secrets-provider-for-k8s#511](https://github.com/cyberark/secrets-provider-for-k8s/pull/511)
 - Updating documentation for base64 decoding.
   [cyberark/secrets-provider-for-k8s#513](https://github.com/cyberark/secrets-provider-for-k8s/pull/513)
