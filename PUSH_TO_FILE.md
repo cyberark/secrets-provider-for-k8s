@@ -13,6 +13,8 @@
 - [Custom Templates for Secret Files](#custom-templates-for-secret-files)
 - [Configuring Pod Volumes and Container Volume Mounts](#configuring-pod-volumes-and-container-volume-mounts-for-push-to-file)
 - [Secret File Attributes](#secret-file-attributes)
+- [Deleting Secret Files](#deleting-secret-files)
+- [Decoding Base64 Encoded Secrets](#decoding-base64-encoded-secrets)
 - [Upgrading Existing Secrets Provider Deployments](#upgrading-existing-secrets-provider-deployments)
 - [Troubleshooting](#troubleshooting)
 
@@ -322,7 +324,7 @@ for a description of each environment variable setting:
 | `conjur.org/retry-count-limit`      | `RETRY_COUNT_LIMIT`   | Defaults to 5
 | `conjur.org/retry-interval-sec`     | `RETRY_INTERVAL_SEC`  | Defaults to 1 (sec)              |
 | `conjur.org/debug-logging`          | `DEBUG`               | Defaults to `false`              |
-| `conjur.org/conjur-secrets.{secret-group}`      | Note\* | List of secrets to be retrieved from Conjur. Each entry can be either:<ul><li>A Conjur variable path</li><li> A key/value pairs of the form `<alias>:<Conjur variable path>` where the `alias` represents the name of the secret to be written to the secrets file |
+| `conjur.org/conjur-secrets.{secret-group}`      | Note\* | List of secrets to be retrieved from Conjur. Each entry can be either:<ul><li>A Conjur variable path</li><li> A key/value pairs of the form <br>`<alias>:<Conjur variable path>`<br>`[content-type: <type>]`<br>where the `alias` represents the name of the secret to be written to the secrets file and the optional `content-type` is either text or base64, defaulting to text. See [Decoding Base64 Encoded Secrets](#decoding-base64-encoded-secrets) for more information.|
 | `conjur.org/conjur-secrets-policy-path.{secret-group}` | Note\* | Defines a common Conjur policy path, assumed to be relative to the root policy.<br><br>When this annotation is set, the policy paths defined by `conjur.org/conjur-secrets.{secret-group}` are relative to this common path.<br><br>When this annotation is not set, the policy paths defined by `conjur.org/conjur-secrets.{secret-group}` are themselves relative to the root policy.<br><br>(See [Example Common Policy Path](#example-common-policy-path) for an explicit example of this relationship.)|
 | `conjur.org/secret-file-path.{secret-group}`    | Note\* | Relative path for secret file or directory to be written. This path is assumed to be relative to the respective mount path for the shared secrets volume for each container.<br><br>If the `conjur.org/secret-file-format.{secret-group}` is set to `template`, then this secret file path defaults to `{secret-group}.out`. For example, if the secret group name is `my-app`, the the secret file path defaults to `my-app.out`.<br><br>Otherwise, this secret file path defaults to `{secret-group}.{secret-group-file-format}`. For example, if the secret group name is `my-app`, and the secret file format is set for YAML, the the secret file path defaults to `my-app.yaml`.
 | `conjur.org/secret-file-permissions.{secret-group}`| Note\*| Explicitly defines secret file permissions. <br><br>Defaults to `-rw-r--r--` (Octal `644`)<br><br>Values must be formatted as a valid permission string _(Directory bit is optional)_. For example:<li>`-rw-rw-r--`</li><li>`rw-rw-r--`</li>Owner must have at a minimum read/write permissions (`-rw-------`)
@@ -906,6 +908,82 @@ liveness or readiness probe failures. Because the Secrets Provider is run
 as an init container for the Push to File feature, this means that it is
 not restarted, and therefore secret files are not recreated, following
 liveness or readiness failures.
+
+## Decoding Base64 Encoded Secrets
+
+Secrets can be stored in Conjur as base64 encoded strings. If the applications consuming the secrets cannot be modified
+to decode the secrets, those secrets become unusable. Secrets Provider can decode the secrets before handing it over to
+the applications for consumption.
+
+### Decoding Base64 with Push to File
+
+Secrets Provider in push to file mode is configured using annotations.
+The `conjur.org/conjur-secrets.{secret-group}` annotation will need to be modified
+to decode secret.
+Add the `content-type` annotation.
+Note the `alias` must also be defined with the `path`.
+
+Given the following secrets annotation:
+```
+conjur.org/conjur-secrets.db: |
+  - url: policy/path/api-url
+  - policy/path/username
+  - policy/path/password
+```
+
+Update with base64 decode as below:
+
+```
+conjur.org/conjur-secrets.db: |
+  - url: policy/path/api-url
+  - policy/path/username
+  - password: policy/path/password
+    content-type: base64
+```
+
+With this annotation the contents of password will be base64 decoded.
+If the contents cannot be decoded, a warning is displayed in the log files
+and the contents retrieved will not be decoded.
+
+
+### Decoding Base64 with Kubernetes Secrets
+
+Secrets Provider in Kubernetes Secrets mode is configured using annotations and
+by configuring a kubernetes secret with a `conjur-map`.
+
+Given the following Kubernetes Secret configuration
+```
+apiVersion: v1
+kind: Secret
+metadata:
+  name: test-app-secrets-provider-k8s-secret
+type: Opaque
+stringData:
+  conjur-map: |-
+    DB_URL: test-secrets-provider-k8s-app-db/url
+    DB_USERNAME: test-secrets-provider-k8s-app-db/username
+    DB_PASSWORD: test-secrets-provider-k8s-app-db/password
+```
+
+To add base64 decoding to the `test-secrets-provider-k8s-app-db/password`
+modify the `DB_PASSWORD` with an id: and content-type: as below.
+
+```
+apiVersion: v1
+kind: Secret
+metadata:
+  name: test-app-secrets-provider-k8s-secret
+type: Opaque
+stringData:
+  conjur-map: |-
+    DB_URL: test-secrets-provider-k8s-app-db/url
+    DB_USERNAME: test-secrets-provider-k8s-app-db/username
+    DB_PASSWORD:
+      id: test-secrets-provider-k8s-app-db/password
+      content-type: base64
+```
+If the contents cannot be decoded, a warning is displayed in the log files
+and the contents retrieved will not be decoded.
 
 ## Upgrading Existing Secrets Provider Deployments
 
