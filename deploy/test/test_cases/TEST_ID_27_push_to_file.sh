@@ -21,8 +21,9 @@ FILES="group1.yaml group2.json some-dotenv.env group4.bash group5.template"
 declare -A expected_content
 expected_content[group1.yaml]='"url": "postgresql://test-app-backend.app-test.svc.cluster.local:5432"
 "username": "some-user"
-"password": "7H1SiSmYp@5Sw0rd"'
-expected_content[group2.json]='{"url":"postgresql://test-app-backend.app-test.svc.cluster.local:5432","username":"some-user","password":"7H1SiSmYp@5Sw0rd"}'
+"password": "7H1SiSmYp@5Sw0rd"
+"encoded": "secret-value"'
+expected_content[group2.json]='{"url":"postgresql://test-app-backend.app-test.svc.cluster.local:5432","username":"some-user","password":"7H1SiSmYp@5Sw0rd","still_encoded":"c2VjcmV0LXZhbHVl"}'
 expected_content[some-dotenv.env]='url="postgresql://test-app-backend.app-test.svc.cluster.local:5432"
 username="some-user"
 password="7H1SiSmYp@5Sw0rd"'

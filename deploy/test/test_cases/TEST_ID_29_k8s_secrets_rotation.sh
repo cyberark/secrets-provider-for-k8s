@@ -5,6 +5,9 @@ create_secret_access_role
 
 create_secret_access_role_binding
 
+set_conjur_secret secrets/test_secret supersecret
+set_conjur_secret secrets/encoded "$(echo "secret-value" | base64)"
+
 export SECRETS_MODE="k8s-rotation"
 deploy_env
 
