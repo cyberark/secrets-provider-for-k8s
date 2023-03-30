@@ -49,7 +49,7 @@ var envAnnotationsConversion = map[string]string{
 }
 
 func StartSecretsProvider() {
-	startSecretsProviderWithDeps(
+	exitCode := startSecretsProviderWithDeps(
 		defaultAnnotationsFilePath,
 		defaultSecretsBasePath,
 		defaultTemplatesBasePath,
@@ -57,6 +57,7 @@ func StartSecretsProvider() {
 		secrets.NewProviderForType,
 		secrets.DefaultStatusUpdater,
 	)
+	os.Exit(exitCode)
 }
 
 func startSecretsProviderWithDeps(
@@ -66,11 +67,8 @@ func startSecretsProviderWithDeps(
 	retrieverFactory conjur.RetrieverFactory,
 	providerFactory secrets.ProviderFactory,
 	statusUpdaterFactory secrets.StatusUpdaterFactory,
-) {
-	// os.Exit() does not call deferred functions, so defer exit until after
-	// all other deferred functions have been called.
-	exitCode := 0
-	defer func() { os.Exit(exitCode) }()
+) (exitCode int) {
+	exitCode = 0
 
 	logError := func(errStr string) {
 		log.Error(errStr)
@@ -120,6 +118,7 @@ func startSecretsProviderWithDeps(
 	if err = provideSecrets(); err != nil {
 		logError(err.Error())
 	}
+	return
 }
 
 func processAnnotations(ctx context.Context, tracer trace.Tracer, annotationsFilePath string) error {
