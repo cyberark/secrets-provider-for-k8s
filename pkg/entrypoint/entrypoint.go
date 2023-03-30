@@ -99,20 +99,32 @@ func startSecretsProviderWithDeps(
 		return
 	}
 
-	// Gather secrets config and create a repeatable Secrets Provider
-	provideSecrets, _, err := repeatableSecretsProvider(
+	provideSecretsFunc, secretsConfig, err := secretsProvider(
 		ctx,
 		tracer,
 		secretsBasePath,
 		templatesBasePath,
 		secretRetriever,
 		providerFactory,
-		statusUpdaterFactory,
 	)
 	if err != nil {
 		logError(err.Error())
 		return
 	}
+
+	provideSecretsFunc = secrets.RetryableSecretProvider(
+		time.Duration(secretsConfig.RetryIntervalSec)*time.Second,
+		secretsConfig.RetryCountLimit,
+		provideSecretsFunc,
+	)
+
+	provideSecrets := repeatableSecretsProvider(
+		ctx,
+		tracer,
+		secretsConfig.SecretsRefreshInterval,
+		provideSecretsFunc,
+		statusUpdaterFactory,
+	)
 
 	// Provide secrets
 	if err = provideSecrets(); err != nil {
@@ -170,17 +182,15 @@ func secretRetriever(
 	return secretRetriever, nil
 }
 
-func repeatableSecretsProvider(
+func secretsProvider(
 	ctx context.Context,
 	tracer trace.Tracer,
 	secretsBasePath string,
 	templatesBasePath string,
 	secretRetriever conjur.RetrieveSecretsFunc,
 	providerFactory secrets.ProviderFactory,
-	statusUpdaterFactory secrets.StatusUpdaterFactory,
-) (secrets.RepeatableProviderFunc, *secretsConfigProvider.Config, error) {
-
-	_, span := tracer.Start(ctx, "Create repeatable secrets provider")
+) (secrets.ProviderFunc, *secretsConfigProvider.Config, error) {
+	_, span := tracer.Start(ctx, "Create single-use secrets provider")
 	defer span.End()
 
 	// Initialize Secrets Provider configuration
@@ -218,11 +228,18 @@ func repeatableSecretsProvider(
 		return nil, nil, err
 	}
 
-	provideSecrets = secrets.RetryableSecretProvider(
-		time.Duration(secretsConfig.RetryIntervalSec)*time.Second,
-		secretsConfig.RetryCountLimit,
-		provideSecrets,
-	)
+	return provideSecrets, secretsConfig, nil
+}
+
+func repeatableSecretsProvider(
+	ctx context.Context,
+	tracer trace.Tracer,
+	refreshInterval time.Duration,
+	provideSecrets secrets.ProviderFunc,
+	statusUpdaterFactory secrets.StatusUpdaterFactory,
+) secrets.RepeatableProviderFunc {
+	_, span := tracer.Start(ctx, "Create repeatable secrets provider")
+	defer span.End()
 
 	// Create a channel to send a quit signal to the periodic secret provider.
 	// TODO: Currently, this is just used for testing, but in the future we
@@ -233,16 +250,15 @@ func repeatableSecretsProvider(
 
 	refreshConfig := secrets.ProviderRefreshConfig{
 		Mode:                  getContainerMode(),
-		SecretRefreshInterval: secretsConfig.SecretsRefreshInterval,
+		SecretRefreshInterval: refreshInterval,
 		ProviderQuit:          providerQuit,
 	}
 
-	repeatableProvideSecrets := secrets.RepeatableSecretProvider(
+	return secrets.RepeatableSecretProvider(
 		refreshConfig,
 		provideSecrets,
 		statusUpdaterFactory(),
 	)
-	return repeatableProvideSecrets, secretsConfig, nil
 }
 
 func customEnv(key string) string {
