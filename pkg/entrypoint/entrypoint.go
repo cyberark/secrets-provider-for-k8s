@@ -55,7 +55,7 @@ func StartSecretsProvider() {
 		defaultTemplatesBasePath,
 		conjur.NewSecretRetriever,
 		secrets.NewProviderForType,
-		secrets.DefaultStatusUpdater,
+		secrets.NewStatusUpdater,
 	)
 	os.Exit(exitCode)
 }
@@ -99,7 +99,7 @@ func startSecretsProviderWithDeps(
 		return
 	}
 
-	provideSecretsFunc, secretsConfig, err := secretsProvider(
+	provideSecrets, secretsConfig, err := secretsProvider(
 		ctx,
 		tracer,
 		secretsBasePath,
@@ -112,22 +112,26 @@ func startSecretsProviderWithDeps(
 		return
 	}
 
-	provideSecretsFunc = secrets.RetryableSecretProvider(
+	provideSecrets = secrets.RetryableSecretProvider(
 		time.Duration(secretsConfig.RetryIntervalSec)*time.Second,
 		secretsConfig.RetryCountLimit,
-		provideSecretsFunc,
+		provideSecrets,
 	)
 
-	provideSecrets := repeatableSecretsProvider(
-		ctx,
-		tracer,
-		secretsConfig.SecretsRefreshInterval,
-		provideSecretsFunc,
-		statusUpdaterFactory,
-	)
-
-	// Provide secrets
-	if err = provideSecrets(); err != nil {
+	if err = secrets.RunSecretsProvider(
+		secrets.ProviderRefreshConfig{
+			Mode:                  getContainerMode(),
+			SecretRefreshInterval: secretsConfig.SecretsRefreshInterval,
+			// Create a channel to send a quit signal to the periodic secret provider.
+			// TODO: Currently, this is just used for testing, but in the future we
+			// may want to create a SIGTERM or SIGHUP handler to catch a signal from
+			// a user / external entity, and then send an (empty struct) quit signal
+			// on this channel to trigger a graceful shut down of the Secrets Provider.
+			ProviderQuit: make(chan struct{}),
+		},
+		provideSecrets,
+		statusUpdaterFactory(),
+	); err != nil {
 		logError(err.Error())
 	}
 	return
@@ -229,36 +233,6 @@ func secretsProvider(
 	}
 
 	return provideSecrets, secretsConfig, nil
-}
-
-func repeatableSecretsProvider(
-	ctx context.Context,
-	tracer trace.Tracer,
-	refreshInterval time.Duration,
-	provideSecrets secrets.ProviderFunc,
-	statusUpdaterFactory secrets.StatusUpdaterFactory,
-) secrets.RepeatableProviderFunc {
-	_, span := tracer.Start(ctx, "Create repeatable secrets provider")
-	defer span.End()
-
-	// Create a channel to send a quit signal to the periodic secret provider.
-	// TODO: Currently, this is just used for testing, but in the future we
-	// may want to create a SIGTERM or SIGHUP handler to catch a signal from
-	// a user / external entity, and then send an (empty struct) quit signal
-	// on this channel to trigger a graceful shut down of the Secrets Provider.
-	providerQuit := make(chan struct{})
-
-	refreshConfig := secrets.ProviderRefreshConfig{
-		Mode:                  getContainerMode(),
-		SecretRefreshInterval: refreshInterval,
-		ProviderQuit:          providerQuit,
-	}
-
-	return secrets.RepeatableSecretProvider(
-		refreshConfig,
-		provideSecrets,
-		statusUpdaterFactory(),
-	)
 }
 
 func customEnv(key string) string {

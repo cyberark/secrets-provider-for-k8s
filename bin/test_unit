@@ -5,12 +5,10 @@ set -eox pipefail
 junit_output_file="./junit.output"
 . bin/build_utils
 
-test_case="${1-}"
-
 function main() {
   retrieve_cyberark_ca_cert
   build_docker_ut_image
-  run_unit_tests
+  run_unit_tests $@
 }
 
 function build_docker_ut_image() {
@@ -21,20 +19,15 @@ function build_docker_ut_image() {
 function run_unit_tests() {
   echo "Running unit tests..."
 
-  test_case_cmd=""
-  if [[ "$test_case" != "" ]]; then
-    test_case_cmd="--run $test_case"
-  fi
-
   docker run --rm -t \
              --volume "$PWD"/:/secrets-provider-for-k8s/test/ \
              secrets-provider-for-k8s-test-runner:latest \
              -coverprofile="./test/c.out" \
              ./cmd/... \
              ./pkg/... \
-             $test_case_cmd \
+             $@ \
              | tee -a "$junit_output_file"
   echo "Unit test exit status: $?"
 }
 
-main
+main $@

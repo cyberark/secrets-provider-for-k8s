@@ -120,71 +120,68 @@ type ProviderRefreshConfig struct {
 	ProviderQuit          chan struct{}
 }
 
-// RepeatableSecretProvider returns a new ProviderFunc, which wraps a retryable
-// ProviderFunc inside a function that operates in one of three modes:
+// RunSecretsProvider takes a retryable ProviderFunc, and runs it in one of three modes:
 //   - Run once and return (for init or application container modes)
 //   - Run once and sleep forever (for sidecar mode without periodic refresh)
 //   - Run periodically (for sidecar mode with periodic refresh)
-func RepeatableSecretProvider(
+func RunSecretsProvider(
 	config ProviderRefreshConfig,
 	provideSecrets ProviderFunc,
 	status StatusUpdater,
-) RepeatableProviderFunc {
+) error {
 
 	var periodicQuit = make(chan struct{})
 	var periodicError = make(chan error)
 	var ticker *time.Ticker
 	var err error
 
-	return func() error {
-		if err = status.CopyScripts(); err != nil {
-			return err
-		}
-		if _, err = provideSecrets(); err != nil {
-			// Return immediately upon error, regardless of operating mode
-			return err
-		}
-		err = status.SetSecretsProvided()
-		if err != nil {
-			return err
-		}
-		switch {
-		case config.Mode != "sidecar":
-			// Run once and return if not in sidecar mode
-			return nil
-		case config.SecretRefreshInterval > 0:
-			// Run periodically if in sidecar mode with periodic refresh
-			ticker = time.NewTicker(config.SecretRefreshInterval)
-			config := periodicConfig{
-				ticker:        ticker,
-				periodicQuit:  periodicQuit,
-				periodicError: periodicError,
-			}
-			go periodicSecretProvider(provideSecrets, config, status)
-		default:
-			// Run once and sleep forever if in sidecar mode without
-			// periodic refresh (fall through)
-		}
-
-		// Wait here for a signal to quit providing secrets or an error
-		// from the periodicSecretProvider() function
-		select {
-		case <-config.ProviderQuit:
-			break
-		case err = <-periodicError:
-			break
-		}
-
-		// Allow the periodicSecretProvider goroutine to gracefully shut down
-		if config.SecretRefreshInterval > 0 {
-			// Kill the ticker
-			ticker.Stop()
-			periodicQuit <- struct{}{}
-			// Let the go routine exit
-			time.Sleep(secretProviderGracePeriod)
-		}
+	if err = status.CopyScripts(); err != nil {
 		return err
 	}
+	if _, err = provideSecrets(); err != nil {
+		// Return immediately upon error, regardless of operating mode
+		return err
+	}
+	err = status.SetSecretsProvided()
+	if err != nil {
+		return err
+	}
+	switch {
+	case config.Mode != "sidecar":
+		// Run once and return if not in sidecar mode
+		return nil
+	case config.SecretRefreshInterval > 0:
+		// Run periodically if in sidecar mode with periodic refresh
+		ticker = time.NewTicker(config.SecretRefreshInterval)
+		config := periodicConfig{
+			ticker:        ticker,
+			periodicQuit:  periodicQuit,
+			periodicError: periodicError,
+		}
+		go periodicSecretProvider(provideSecrets, config, status)
+	default:
+		// Run once and sleep forever if in sidecar mode without
+		// periodic refresh (fall through)
+	}
+
+	// Wait here for a signal to quit providing secrets or an error
+	// from the periodicSecretProvider() function
+	select {
+	case <-config.ProviderQuit:
+		break
+	case err = <-periodicError:
+		break
+	}
+
+	// Allow the periodicSecretProvider goroutine to gracefully shut down
+	if config.SecretRefreshInterval > 0 {
+		// Kill the ticker
+		ticker.Stop()
+		periodicQuit <- struct{}{}
+		// Let the go routine exit
+		time.Sleep(secretProviderGracePeriod)
+	}
+	return err
 }
 
 type periodicConfig struct {

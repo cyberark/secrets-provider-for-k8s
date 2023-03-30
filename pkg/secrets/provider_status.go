@@ -59,9 +59,16 @@ var stdOSFuncs = osFuncs{
 // implementation.
 type StatusUpdaterFactory func() StatusUpdater
 
-// DefaultStatusUpdater returns the default StatusUpdater.
-func DefaultStatusUpdater() StatusUpdater {
-	return defaultStatusUpdater
+// NewStatusUpdater returns a new instance of the default StatusUpdater.
+func NewStatusUpdater() StatusUpdater {
+	return fileUpdater{
+		providedFile:  "/conjur/status/CONJUR_SECRETS_PROVIDED",
+		updatedFile:   "/conjur/status/CONJUR_SECRETS_UPDATED",
+		scripts:       []string{"conjur-secrets-unchanged.sh"},
+		scriptSrcDir:  "/usr/local/bin",
+		scriptDestDir: "/conjur/status",
+		os:            stdOSFuncs,
+	}
 }
 
 // fileUpdater implements the statusUpdater interface. It records provider
@@ -73,15 +80,6 @@ type fileUpdater struct {
 	scriptSrcDir  string
 	scriptDestDir string
 	os            osFuncs
-}
-
-var defaultStatusUpdater = fileUpdater{
-	providedFile:  "/conjur/status/CONJUR_SECRETS_PROVIDED",
-	updatedFile:   "/conjur/status/CONJUR_SECRETS_UPDATED",
-	scripts:       []string{"conjur-secrets-unchanged.sh"},
-	scriptSrcDir:  "/usr/local/bin",
-	scriptDestDir: "/conjur/status",
-	os:            stdOSFuncs,
 }
 
 func (f fileUpdater) setStatus(path string) error {
