@@ -34,12 +34,16 @@ spec:
           - username: secrets/username
           - password: secrets/password
           - test: secrets/test_secret
+          - encoded: secrets/encoded
+            content-type: base64
         conjur.org/conjur-secrets-policy-path.group2: secrets
         conjur.org/conjur-secrets.group2: |
           - url: url
           - username: username
           - password: password
           - test: test_secret
+          - still_encoded: encoded
+            content-type: text
         conjur.org/secret-file-format.group2: json
         conjur.org/conjur-secrets-policy-path.group3: secrets
         conjur.org/secret-file-path.group3: some-dotenv.env

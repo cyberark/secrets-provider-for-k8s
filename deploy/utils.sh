@@ -391,7 +391,7 @@ set_conjur_secret() {
   echo "Set secret '$SECRET_NAME' to '$SECRET_VALUE'"
   set_namespace "$CONJUR_NAMESPACE_NAME"
   configure_cli_pod
-  $cli_with_timeout "exec $(get_conjur_cli_pod_name) -- conjur variable set -i $SECRET_NAME -v $SECRET_VALUE"
+  $cli_with_timeout "exec $(get_conjur_cli_pod_name) -- conjur variable set -i $SECRET_NAME -v \"$SECRET_VALUE\""
   set_namespace $APP_NAMESPACE_NAME
 }
 
