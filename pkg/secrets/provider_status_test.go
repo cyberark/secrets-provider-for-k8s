@@ -239,10 +239,10 @@ func TestCopyScripts(t *testing.T) {
 
 			// Run test
 			fileUpdater := updater.fileUpdater
-			err = fileUpdater.copyScripts()
+			err = fileUpdater.CopyScripts()
 			if tc.runTwice {
 				assert.NoError(t, err)
-				err = fileUpdater.copyScripts()
+				err = fileUpdater.CopyScripts()
 			}
 
 			// Check results

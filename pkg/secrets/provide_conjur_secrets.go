@@ -43,6 +43,10 @@ type ProviderFunc func() (updated bool, err error)
 // indefinitely while providing secrets to unspecified targets.
 type RepeatableProviderFunc func() error
 
+// ProviderFactory defines a function type for creating a ProviderFunc given a
+// RetrieveSecretsFunc and ProviderConfig.
+type ProviderFactory func(traceContent context.Context, secretsRetrieverFunc conjur.RetrieveSecretsFunc, providerConfig ProviderConfig) (ProviderFunc, []error)
+
 // NewProviderForType returns a ProviderFunc responsible for providing secrets in a given mode.
 func NewProviderForType(
 	traceContext context.Context,
@@ -118,21 +122,13 @@ type ProviderRefreshConfig struct {
 
 // RepeatableSecretProvider returns a new ProviderFunc, which wraps a retryable
 // ProviderFunc inside a function that operates in one of three modes:
-//  - Run once and return (for init or application container modes)
-//  - Run once and sleep forever (for sidecar mode without periodic refresh)
-//  - Run periodically (for sidecar mode with periodic refresh)
+//   - Run once and return (for init or application container modes)
+//   - Run once and sleep forever (for sidecar mode without periodic refresh)
+//   - Run periodically (for sidecar mode with periodic refresh)
 func RepeatableSecretProvider(
-	refreshConfig ProviderRefreshConfig,
-	provideSecrets ProviderFunc,
-) RepeatableProviderFunc {
-	return repeatableSecretProvider(refreshConfig, provideSecrets,
-		defaultStatusUpdater)
-}
-
-func repeatableSecretProvider(
 	config ProviderRefreshConfig,
 	provideSecrets ProviderFunc,
-	status statusUpdater,
+	status StatusUpdater,
 ) RepeatableProviderFunc {
 
 	var periodicQuit = make(chan struct{})
@@ -141,14 +137,14 @@ func repeatableSecretProvider(
 	var err error
 
 	return func() error {
-		if err = status.copyScripts(); err != nil {
+		if err = status.CopyScripts(); err != nil {
 			return err
 		}
 		if _, err = provideSecrets(); err != nil {
 			// Return immediately upon error, regardless of operating mode
 			return err
 		}
-		err = status.setSecretsProvided()
+		err = status.SetSecretsProvided()
 		if err != nil {
 			return err
 		}
@@ -200,7 +196,7 @@ type periodicConfig struct {
 func periodicSecretProvider(
 	provideSecrets ProviderFunc,
 	config periodicConfig,
-	status statusUpdater,
+	status StatusUpdater,
 ) {
 	for {
 		select {
@@ -209,7 +205,7 @@ func periodicSecretProvider(
 		case <-config.ticker.C:
 			updated, err := provideSecrets()
 			if err == nil && updated {
-				err = status.setSecretsUpdated()
+				err = status.SetSecretsUpdated()
 			}
 			if err != nil {
 				config.periodicError <- err

@@ -298,7 +298,7 @@ func TestRepeatableSecretProvider(t *testing.T) {
 				SecretRefreshInterval: tc.interval,
 				ProviderQuit:          providerQuit,
 			}
-			provideSecrets := repeatableSecretProvider(
+			provideSecrets := RepeatableSecretProvider(
 				refreshConfig, tc.provider.provide, fileUpdater)
 
 			// Run the secrets provider

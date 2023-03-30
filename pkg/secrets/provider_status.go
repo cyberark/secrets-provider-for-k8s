@@ -12,36 +12,40 @@ const (
 	scriptFileMode = 0755
 )
 
-// statusUpdater defines an interface for recording a secret provider's
+// StatusUpdater defines an interface for recording a secret provider's
 // status, and for copying utility scripts for checking that recorded status.
 //
-// setSecretsProvided: A function that records that the secrets provider
-//                     has finished providing secrets (at least for its
-//                     initial iteration).
-// setSecretsUpdated:  A function that records that the secrets provider
-//                     has just updated the secret files or Kubernetes Secrets
-//                     with recently updated secret values retrieved from
-//                     Conjur.
-// copyScripts:        Copy utility scripts for checking provider status from
-//                     a "baked-in" container directory into a volume that is
-//                     potentially shared with application container(s).
-type statusUpdater interface {
-	setSecretsProvided() error
-	setSecretsUpdated() error
-	copyScripts() error
+// SetSecretsProvided: A function that records that the secrets provider
+//
+//	has finished providing secrets (at least for its
+//	initial iteration).
+//
+// SetSecretsUpdated:  A function that records that the secrets provider
+//
+//	has just updated the secret files or Kubernetes Secrets
+//	with recently updated secret values retrieved from
+//	Conjur.
+//
+// CopyScripts:        Copy utility scripts for checking provider status from
+//
+//	a "baked-in" container directory into a volume that is
+//	potentially shared with application container(s).
+type StatusUpdater interface {
+	SetSecretsProvided() error
+	SetSecretsUpdated() error
+	CopyScripts() error
 }
 
-type chmodFunc    func(string, os.FileMode) error
-type createFunc   func(string) (*os.File, error)
-type openFunc     func(string) (*os.File, error)
+type chmodFunc func(string, os.FileMode) error
+type createFunc func(string) (*os.File, error)
+type openFunc func(string) (*os.File, error)
 type mkdirAllFunc func(string, os.FileMode) error
 
-
 type osFuncs struct {
-	chmod     chmodFunc
-	create    createFunc
-	open      openFunc
-	mkdirAll  mkdirAllFunc
+	chmod    chmodFunc
+	create   createFunc
+	open     openFunc
+	mkdirAll mkdirAllFunc
 }
 
 var stdOSFuncs = osFuncs{
@@ -49,6 +53,15 @@ var stdOSFuncs = osFuncs{
 	create:   os.Create,
 	open:     os.Open,
 	mkdirAll: os.MkdirAll,
+}
+
+// StatusUpdaterFactory defines a function type for creating a StatusUpdater
+// implementation.
+type StatusUpdaterFactory func() StatusUpdater
+
+// DefaultStatusUpdater returns the default StatusUpdater.
+func DefaultStatusUpdater() StatusUpdater {
+	return defaultStatusUpdater
 }
 
 // fileUpdater implements the statusUpdater interface. It records provider
@@ -80,15 +93,15 @@ func (f fileUpdater) setStatus(path string) error {
 	return f.os.chmod(file.Name(), statusFileMode)
 }
 
-func (f fileUpdater) setSecretsProvided() error {
+func (f fileUpdater) SetSecretsProvided() error {
 	return f.setStatus(f.providedFile)
 }
 
-func (f fileUpdater) setSecretsUpdated() error {
+func (f fileUpdater) SetSecretsUpdated() error {
 	return f.setStatus(f.updatedFile)
 }
 
-func (f fileUpdater) copyScripts() error {
+func (f fileUpdater) CopyScripts() error {
 
 	// Create the directory
 	err := f.os.mkdirAll(f.scriptDestDir, os.ModePerm)

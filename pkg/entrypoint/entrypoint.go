@@ -49,6 +49,18 @@ var envAnnotationsConversion = map[string]string{
 }
 
 func StartSecretsProvider() {
+	startSecretsProviderWithDeps(
+		conjur.NewSecretRetriever,
+		secrets.NewProviderForType,
+		secrets.DefaultStatusUpdater,
+	)
+}
+
+func startSecretsProviderWithDeps(
+	retrieverFactory conjur.RetrieverFactory,
+	providerFactory secrets.ProviderFactory,
+	statusUpdaterFactory secrets.StatusUpdaterFactory,
+) {
 	// os.Exit() does not call deferred functions, so defer exit until after
 	// all other deferred functions have been called.
 	exitCode := 0
@@ -77,14 +89,14 @@ func StartSecretsProvider() {
 	}
 
 	// Gather K8s authenticator config and create a Conjur secret retriever
-	secretRetriever, err := secretRetriever(ctx, tracer)
+	secretRetriever, err := secretRetriever(ctx, tracer, retrieverFactory)
 	if err != nil {
 		logError(err.Error())
 		return
 	}
 
 	// Gather secrets config and create a repeatable Secrets Provider
-	provideSecrets, _, err := repeatableSecretsProvider(ctx, tracer, secretRetriever)
+	provideSecrets, _, err := repeatableSecretsProvider(ctx, tracer, secretRetriever, providerFactory, statusUpdaterFactory)
 	if err != nil {
 		logError(err.Error())
 		return
@@ -120,8 +132,11 @@ func processAnnotations(ctx context.Context, tracer trace.Tracer) error {
 	return nil
 }
 
-func secretRetriever(ctx context.Context,
-	tracer trace.Tracer) (*conjur.SecretRetriever, error) {
+func secretRetriever(
+	ctx context.Context,
+	tracer trace.Tracer,
+	retrieverFactory conjur.RetrieverFactory,
+) (conjur.RetrieveSecretsFunc, error) {
 	// Gather authenticator config
 	_, span := tracer.Start(ctx, "Gather authenticator config")
 	defer span.End()
@@ -134,7 +149,7 @@ func secretRetriever(ctx context.Context,
 	}
 
 	// Initialize a Conjur secret retriever
-	secretRetriever, err := conjur.NewSecretRetriever(authnConfig)
+	secretRetriever, err := retrieverFactory(authnConfig)
 	if err != nil {
 		log.Error(err.Error())
 		return nil, err
@@ -145,7 +160,10 @@ func secretRetriever(ctx context.Context,
 func repeatableSecretsProvider(
 	ctx context.Context,
 	tracer trace.Tracer,
-	secretRetriever *conjur.SecretRetriever) (secrets.RepeatableProviderFunc, *secretsConfigProvider.Config, error) {
+	secretRetriever conjur.RetrieveSecretsFunc,
+	providerFactory secrets.ProviderFactory,
+	statusUpdaterFactory secrets.StatusUpdaterFactory,
+) (secrets.RepeatableProviderFunc, *secretsConfigProvider.Config, error) {
 
 	_, span := tracer.Start(ctx, "Create repeatable secrets provider")
 	defer span.End()
@@ -177,8 +195,8 @@ func repeatableSecretsProvider(
 	span.SetAttributes(attribute.String("store_type", secretsConfig.StoreType))
 
 	// Create a secrets provider
-	provideSecrets, errs := secrets.NewProviderForType(ctx,
-		secretRetriever.Retrieve, *providerConfig)
+	provideSecrets, errs := providerFactory(ctx,
+		secretRetriever, *providerConfig)
 	if err := logErrorsAndInfos(errs, nil); err != nil {
 		log.Error(messages.CSPFK053E)
 		span.RecordErrorAndSetStatus(errors.New(messages.CSPFK053E))
@@ -207,6 +225,7 @@ func repeatableSecretsProvider(
 	repeatableProvideSecrets := secrets.RepeatableSecretProvider(
 		refreshConfig,
 		provideSecrets,
+		statusUpdaterFactory(),
 	)
 	return repeatableProvideSecrets, secretsConfig, nil
 }

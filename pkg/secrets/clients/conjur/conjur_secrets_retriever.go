@@ -19,16 +19,20 @@ import (
 // SecretRetriever implements a Retrieve function that is capable of
 // authenticating with Conjur and retrieving multiple Conjur variables
 // in bulk.
-type SecretRetriever struct {
+type secretRetriever struct {
 	authn authenticator.Authenticator
 }
 
 // RetrieveSecretsFunc defines a function type for retrieving secrets.
 type RetrieveSecretsFunc func(variableIDs []string, traceContext context.Context) (map[string][]byte, error)
 
+// RetrieverFactory defines a function type for creating a RetrieveSecretsFunc
+// implementation given an authenticator config.
+type RetrieverFactory func(authnConfig config.Configuration) (RetrieveSecretsFunc, error)
+
 // NewSecretRetriever creates a new SecretRetriever and Authenticator
 // given an authenticator config.
-func NewSecretRetriever(authnConfig config.Configuration) (*SecretRetriever, error) {
+func NewSecretRetriever(authnConfig config.Configuration) (RetrieveSecretsFunc, error) {
 	accessToken, err := memory.NewAccessToken()
 	if err != nil {
 		return nil, fmt.Errorf("%s", messages.CSPFK001E)
@@ -39,14 +43,14 @@ func NewSecretRetriever(authnConfig config.Configuration) (*SecretRetriever, err
 		return nil, fmt.Errorf("%s", messages.CSPFK009E)
 	}
 
-	return &SecretRetriever{
+	return secretRetriever{
 		authn: authn,
-	}, nil
+	}.Retrieve, nil
 }
 
 // Retrieve implements a RetrieveSecretsFunc for a given SecretRetriever.
 // Authenticates the client, and retrieves a given batch of variables from Conjur.
-func (retriever SecretRetriever) Retrieve(variableIDs []string, traceContext context.Context) (map[string][]byte, error) {
+func (retriever secretRetriever) Retrieve(variableIDs []string, traceContext context.Context) (map[string][]byte, error) {
 
 	authn := retriever.authn
 
