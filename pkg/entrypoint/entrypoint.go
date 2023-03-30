@@ -22,14 +22,14 @@ import (
 )
 
 const (
-	defaultContainerMode = "init"
-	annotationsFilePath  = "/conjur/podinfo/annotations"
-	secretsBasePath      = "/conjur/secrets"
-	templatesBasePath    = "/conjur/templates"
-	tracerName           = "secrets-provider"
-	tracerService        = "secrets-provider"
-	tracerEnvironment    = "production"
-	tracerID             = 1
+	defaultContainerMode       = "init"
+	defaultAnnotationsFilePath = "/conjur/podinfo/annotations"
+	defaultSecretsBasePath     = "/conjur/secrets"
+	defaultTemplatesBasePath   = "/conjur/templates"
+	tracerName                 = "secrets-provider"
+	tracerService              = "secrets-provider"
+	tracerEnvironment          = "production"
+	tracerID                   = 1
 )
 
 var annotationsMap map[string]string
@@ -50,6 +50,9 @@ var envAnnotationsConversion = map[string]string{
 
 func StartSecretsProvider() {
 	startSecretsProviderWithDeps(
+		defaultAnnotationsFilePath,
+		defaultSecretsBasePath,
+		defaultTemplatesBasePath,
 		conjur.NewSecretRetriever,
 		secrets.NewProviderForType,
 		secrets.DefaultStatusUpdater,
@@ -57,6 +60,9 @@ func StartSecretsProvider() {
 }
 
 func startSecretsProviderWithDeps(
+	annotationsFilePath string,
+	secretsBasePath string,
+	templatesBasePath string,
 	retrieverFactory conjur.RetrieverFactory,
 	providerFactory secrets.ProviderFactory,
 	statusUpdaterFactory secrets.StatusUpdaterFactory,
@@ -74,7 +80,7 @@ func startSecretsProviderWithDeps(
 	log.Info(messages.CSPFK008I, secrets.FullVersionName)
 
 	// Create a TracerProvider, Tracer, and top-level (parent) Span
-	tracerType, tracerURL := getTracerConfig()
+	tracerType, tracerURL := getTracerConfig(annotationsFilePath)
 	ctx, tracer, deferFunc, err := createTracer(tracerType, tracerURL)
 	defer deferFunc(ctx)
 	if err != nil {
@@ -83,7 +89,7 @@ func startSecretsProviderWithDeps(
 	}
 
 	// Process Pod Annotations
-	if err := processAnnotations(ctx, tracer); err != nil {
+	if err := processAnnotations(ctx, tracer, annotationsFilePath); err != nil {
 		logError(err.Error())
 		return
 	}
@@ -96,7 +102,15 @@ func startSecretsProviderWithDeps(
 	}
 
 	// Gather secrets config and create a repeatable Secrets Provider
-	provideSecrets, _, err := repeatableSecretsProvider(ctx, tracer, secretRetriever, providerFactory, statusUpdaterFactory)
+	provideSecrets, _, err := repeatableSecretsProvider(
+		ctx,
+		tracer,
+		secretsBasePath,
+		templatesBasePath,
+		secretRetriever,
+		providerFactory,
+		statusUpdaterFactory,
+	)
 	if err != nil {
 		logError(err.Error())
 		return
@@ -108,7 +122,7 @@ func startSecretsProviderWithDeps(
 	}
 }
 
-func processAnnotations(ctx context.Context, tracer trace.Tracer) error {
+func processAnnotations(ctx context.Context, tracer trace.Tracer, annotationsFilePath string) error {
 	// Only attempt to populate from annotations if the annotations file exists
 	// TODO: Figure out strategy for dealing with explicit annotation file path
 	// set by user. In that case we can't just ignore that the file is missing.
@@ -160,6 +174,8 @@ func secretRetriever(
 func repeatableSecretsProvider(
 	ctx context.Context,
 	tracer trace.Tracer,
+	secretsBasePath string,
+	templatesBasePath string,
 	secretRetriever conjur.RetrieveSecretsFunc,
 	providerFactory secrets.ProviderFactory,
 	statusUpdaterFactory secrets.StatusUpdaterFactory,
