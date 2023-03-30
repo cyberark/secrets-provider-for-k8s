@@ -13,6 +13,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
   [cyberark/secrets-provider-for-k8s#500](https://github.com/cyberark/secrets-provider-for-k8s/pull/500)
 - Adds support for content-type annotation.
   [cyberark/secrets-provider-for-k8s#511](https://github.com/cyberark/secrets-provider-for-k8s/pull/511)
+- Updating documentation for base64 decoding.
+  [cyberark/secrets-provider-for-k8s#513](https://github.com/cyberark/secrets-provider-for-k8s/pull/513)
 
 ## [1.4.6] - 2023-01-26
 
