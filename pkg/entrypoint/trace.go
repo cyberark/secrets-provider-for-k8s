@@ -1,4 +1,4 @@
-package main
+package entrypoint
 
 import (
 	"context"
@@ -9,10 +9,10 @@ import (
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/annotations"
 )
 
-func getTracerConfig() (trace.TracerProviderType, string) {
+func getTracerConfig(annotationsFilePath string) (trace.TracerProviderType, string) {
 	// First try to get the tracer config from annotations
 	log.Debug("Getting tracer config from annotations")
-	traceType, jaegerUrl, err := getTracerConfigFromAnnotations()
+	traceType, jaegerUrl, err := getTracerConfigFromAnnotations(annotationsFilePath)
 
 	// If no tracer is specified in annotations, get it from environment variables
 	if err != nil || traceType == trace.NoopProviderType {
@@ -35,7 +35,7 @@ func getTracerConfigFromEnv() (trace.TracerProviderType, string) {
 	return trace.NoopProviderType, ""
 }
 
-func getTracerConfigFromAnnotations() (trace.TracerProviderType, string, error) {
+func getTracerConfigFromAnnotations(annotationsFilePath string) (trace.TracerProviderType, string, error) {
 	annotationsMap, err := annotations.NewAnnotationsFromFile(annotationsFilePath)
 	if err != nil {
 		return trace.NoopProviderType, "", err

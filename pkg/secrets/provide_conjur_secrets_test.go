@@ -148,7 +148,7 @@ func TestRetryableSecretProvider(t *testing.T) {
 	}
 }
 
-func TestRepeatableSecretProvider(t *testing.T) {
+func TestRunSecretsProvider(t *testing.T) {
 	testCases := []struct {
 		description    string
 		mode           string
@@ -298,13 +298,11 @@ func TestRepeatableSecretProvider(t *testing.T) {
 				SecretRefreshInterval: tc.interval,
 				ProviderQuit:          providerQuit,
 			}
-			provideSecrets := repeatableSecretProvider(
-				refreshConfig, tc.provider.provide, fileUpdater)
 
 			// Run the secrets provider
 			testError := make(chan error)
 			go func() {
-				err := provideSecrets()
+				err := RunSecretsProvider(refreshConfig, tc.provider.provide, fileUpdater)
 				testError <- err
 			}()
 			select {
