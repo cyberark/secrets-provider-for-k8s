@@ -50,6 +50,7 @@ func FetchSecretsForGroups(
 					log.Warn(messages.CSPFK064E, spec.Alias, spec.ContentType, err.Error())
 				} else {
 					sValue = decodedSecretValue
+					decodedSecretValue = nil
 				}
 			}
 			secretsByGroup[group.Name] = append(
@@ -59,6 +60,7 @@ func FetchSecretsForGroups(
 					Value: string(sValue),
 				},
 			)
+			sValue = nil
 		}
 	}
 

@@ -411,13 +411,15 @@ func (p K8sProvider) createSecretData(conjurSecrets map[string][]byte) map[strin
 					secretData[k8sSecretName][secretName] = secretValue
 				} else {
 					secretData[k8sSecretName][secretName] = decodedSecretValue
+					decodedSecretValue = nil
 				}
 			} else {
 				secretData[k8sSecretName][secretName] = secretValue
 			}
 		}
-		// Null out the secret value
+		// Null out the secret values
 		conjurSecrets[variableID] = []byte{}
+		secretValue = nil
 	}
 
 	return secretData
