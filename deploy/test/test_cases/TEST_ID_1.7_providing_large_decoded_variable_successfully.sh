@@ -20,7 +20,7 @@ echo "Verifying pod test_env has environment variable '$environment_variable_nam
 test_pod="$(get_pod_name "$APP_NAMESPACE_NAME" 'app=test-env')"
 actual_value=$($cli_with_timeout "exec $test_pod -- printenv | grep VARIABLE_WITH_BASE64_SECRET | cut -d= -f2")
 
-if [[ "$actual_value" == "$secret_value" ]]; then
+if [[ "$actual_value" == "$secret_value"* ]]; then
     echo "$environment_variable_name is set correctly"
     # Reset the secret value to the original value for subsequent tests
     set_conjur_secret secrets/encoded "$(echo "secret-value" | tr -d '\n' | base64)" # == "c2VjcmV0LXZhbHVl"

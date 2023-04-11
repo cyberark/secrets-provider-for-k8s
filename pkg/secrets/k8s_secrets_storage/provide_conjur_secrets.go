@@ -404,22 +404,25 @@ func (p K8sProvider) createSecretData(conjurSecrets map[string][]byte) map[strin
 
 			// Check if the secret value should be decoded in this K8s Secret
 			if dest.contentType == "base64" {
-				decodedSecretValue, err := base64.StdEncoding.DecodeString(string(secretValue))
+				decodedSecretValue := make([]byte, base64.StdEncoding.DecodedLen(len(secretValue)))
+				_, err := base64.StdEncoding.Decode(decodedSecretValue, secretValue)
+				decodedSecretValue = bytes.Trim(decodedSecretValue, "\x00")
 				if err != nil {
 					// Log the error as a warning but still provide the original secret value
 					p.log.warn(messages.CSPFK064E, secretName, dest.contentType, err.Error())
 					secretData[k8sSecretName][secretName] = secretValue
 				} else {
 					secretData[k8sSecretName][secretName] = decodedSecretValue
-					decodedSecretValue = nil
 				}
+				// Null out the secret values
+				decodedSecretValue = []byte{}
 			} else {
 				secretData[k8sSecretName][secretName] = secretValue
 			}
 		}
 		// Null out the secret values
 		conjurSecrets[variableID] = []byte{}
-		secretValue = nil
+		secretValue = []byte{}
 	}
 
 	return secretData
