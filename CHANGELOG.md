@@ -9,14 +9,22 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ## [1.5.0] - 2023-02-13
 
 ### Added
+- Convert cmd/secrets-provider to unit testable entrypoint package.
+  [cyberark/secrets-provider-for-k8s#507](https://github.com/cyberark/secrets-provider-for-k8s/pull/507)
 - Adds support for binary secret values and values with special characters.
   [cyberark/secrets-provider-for-k8s#500](https://github.com/cyberark/secrets-provider-for-k8s/pull/500)
-- Adds support for content-type annotation (K8s secrets) and base64 secrets decoding.
+- Adds support for content-type annotation and base64 secrets decoding feature.
   [cyberark/secrets-provider-for-k8s#508](https://github.com/cyberark/secrets-provider-for-k8s/pull/508)
-- Adds support for content-type annotation (P2F) and base64 secrets decoding.
   [cyberark/secrets-provider-for-k8s#511](https://github.com/cyberark/secrets-provider-for-k8s/pull/511)
-- Updating documentation for base64 decoding.
   [cyberark/secrets-provider-for-k8s#513](https://github.com/cyberark/secrets-provider-for-k8s/pull/513)
+  [cyberark/secrets-provider-for-k8s#512](https://github.com/cyberark/secrets-provider-for-k8s/pull/512)
+  [cyberark/secrets-provider-for-k8s#509](https://github.com/cyberark/secrets-provider-for-k8s/pull/509)
+  [cyberark/secrets-provider-for-k8s#504](https://github.com/cyberark/secrets-provider-for-k8s/pull/504)
+  [cyberark/secrets-provider-for-k8s#506](https://github.com/cyberark/secrets-provider-for-k8s/pull/506)
+- Use Conjur CLI v8.0.
+  [cyberark/secrets-provider-for-k8s#505](https://github.com/cyberark/secrets-provider-for-k8s/pull/505)
+- Add ImagePullSecret to Helm deployment.
+  [cyberark/secrets-provider-for-k8s#503](https://github.com/cyberark/secrets-provider-for-k8s/pull/503)
 
 ## [1.4.6] - 2023-01-26
 
@@ -280,7 +288,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ### Changed
   - Escape secrets with backslashes before patching in k8s
 
-[Unreleased]: https://github.com/cyberark/secrets-provider-for-k8s/compare/v1.4.6...HEAD
+[Unreleased]: https://github.com/cyberark/secrets-provider-for-k8s/compare/v1.5.0...HEAD
+[1.5.0]: https://github.com/cyberark/secrets-provider-for-k8s/compare/v1.4.6...v1.5.0
 [1.4.6]: https://github.com/cyberark/secrets-provider-for-k8s/compare/v1.4.5...v1.4.6
 [1.4.5]: https://github.com/cyberark/secrets-provider-for-k8s/compare/v1.4.4...v1.4.5
 [1.4.4]: https://github.com/cyberark/secrets-provider-for-k8s/compare/v1.4.3...v1.4.4
