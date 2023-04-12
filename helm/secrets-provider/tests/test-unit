@@ -17,4 +17,4 @@ if [[ ! "$(helm plugin list | awk '/^unittest\t/{print $1}')" ]]; then
 fi
 
 # Run a Helm unit test
-helm unittest . --helm3
+helm unittest .
