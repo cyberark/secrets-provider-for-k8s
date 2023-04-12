@@ -1,6 +1,7 @@
 package pushtofile
 
 import (
+	"bytes"
 	"context"
 	"encoding/base64"
 	"fmt"
@@ -44,13 +45,16 @@ func FetchSecretsForGroups(
 				return nil, err
 			}
 			if spec.ContentType == "base64" {
-				decodedSecretValue, err := base64.StdEncoding.DecodeString(string(sValue))
+				decodedSecretValue := make([]byte, base64.StdEncoding.DecodedLen(len(sValue)))
+				_, err := base64.StdEncoding.Decode(decodedSecretValue, sValue)
+				decodedSecretValue = bytes.Trim(decodedSecretValue, "\x00")
 				if err != nil {
 					// Log the error as a warning but still provide the original secret value
 					log.Warn(messages.CSPFK064E, spec.Alias, spec.ContentType, err.Error())
 				} else {
 					sValue = decodedSecretValue
 				}
+				decodedSecretValue = []byte{}
 			}
 			secretsByGroup[group.Name] = append(
 				secretsByGroup[group.Name],
@@ -59,6 +63,7 @@ func FetchSecretsForGroups(
 					Value: string(sValue),
 				},
 			)
+			sValue = []byte{}
 		}
 	}
 

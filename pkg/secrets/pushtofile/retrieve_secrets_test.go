@@ -174,13 +174,13 @@ func newMockSecretFetcher() mockSecretFetcher {
 
 	m.conjurMockClient.AddSecrets(
 		map[string]string{
-			"dev/openshift/api-url":  "https://postgres.example.com",
-			"dev/openshift/username": "admin",
-			"dev/openshift/password": "open-$e$ame",
-			"ci/openshift/api-url":   "https://ci.postgres.example.com",
-			"ci/openshift/username":  "administrator",
-			"ci/openshift/password":  "open-$e$ame",
-			"ci/openshift/encoded-password":  "b3Blbi0kZSRhbWU=",
+			"dev/openshift/api-url":         "https://postgres.example.com",
+			"dev/openshift/username":        "admin",
+			"dev/openshift/password":        "open-$e$ame",
+			"ci/openshift/api-url":          "https://ci.postgres.example.com",
+			"ci/openshift/username":         "administrator",
+			"ci/openshift/password":         "open-$e$ame",
+			"ci/openshift/encoded-password": "b3Blbi0kZSRhbWU=",
 		},
 	)
 
