@@ -6,7 +6,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
-## [1.5.0] - 2023-02-13
+## [1.5.1] - 2023-04-17
+
+## [1.5.0] - 2023-04-12
 
 ### Added
 - Convert cmd/secrets-provider to unit testable entrypoint package.
