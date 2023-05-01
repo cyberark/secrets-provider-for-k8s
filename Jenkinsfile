@@ -51,6 +51,8 @@ pipeline {
     booleanParam(name: 'TEST_OCP_NEXT', defaultValue: false, description: 'Run DAP tests against our running "next version" of Openshift')
 
     booleanParam(name: 'TEST_OCP_OLDEST', defaultValue: false, description: 'Run DAP tests against our running "oldest version" of Openshift')
+
+    booleanParam(name: 'TEST_E2E', defaultValue: false, description: 'Run E2E tests on a branch')
   }
 
   stages {
@@ -179,6 +181,10 @@ pipeline {
         }
         
         stage ("DAP Integration Tests on GKE") {
+          when { anyOf {
+            branch 'main'
+            expression { params.TEST_E2E == true }
+          } }
           steps {
             script {
               def tasks = [:]
@@ -227,6 +233,10 @@ pipeline {
         // When we have 2 build running on the same environment (gke env only) in parallel,
         // we get the error "gcloud crashed : database is locked"
         stage ("OSS Integration Tests on GKE") {
+          when { anyOf {
+            branch 'main'
+            expression { params.TEST_E2E == true }
+          } }
           steps {
             script {
               def tasks = [:]
