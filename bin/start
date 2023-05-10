@@ -55,6 +55,7 @@ while true ; do
     --oldest ) SUMMON_ENV=oldest ; shift ;;
     --current ) SUMMON_ENV=current ; shift ;;
     --next ) SUMMON_ENV=next ; shift ;;
+    --template=* ) TEMPLATE_OVERRIDE="${1#*=}" ; export TEMPLATE_OVERRIDE; shift ;;
     -h | --help ) print_help ; shift ;;
      * ) if [ -z "$1" ]; then break; else echo "$1 is not a valid option"; exit 1; fi;;
   esac
@@ -69,9 +70,16 @@ export RUN_IN_DOCKER
 export CONJUR_DEPLOYMENT
 export DEV
 export SUMMON_ENV
+export TEST
+export TEMPLATE_OVERRIDE
+
+echo $TEMPLATE_OVERRIDE
 
 # summon environment variable
 export CONJUR_MAJOR_VERSION=5
+
+# make sure we are in the project root
+cd $(git rev-parse --show-toplevel)
 
 source bootstrap.env
 
