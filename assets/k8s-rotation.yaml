@@ -35,6 +35,11 @@ spec:
               secretKeyRef:
                 name: test-app-secrets-provider-k8s-secret
                 key: DB_PASSWORD
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+              - all
       - image: cyberark/secrets-provider-for-k8s:latest
         imagePullPolicy: Always
         name: cyberark-secrets-provider-for-k8s
@@ -65,6 +70,11 @@ spec:
           name: conjur-certs
         - mountPath: /conjur/podinfo
           name: podinfo
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+              - all
       volumes:
       - emptyDir:
           medium: Memory
