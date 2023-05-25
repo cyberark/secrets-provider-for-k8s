@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ## [1.5.1] - 2023-04-17
 
 ### Security
-- Forced github.com/emicklei/go-restful/v3 to use v3.10.0 to remove PRISMA-2022-0227 (found in Twistlock scan)
+- Forced github.com/emicklei/go-restful/v3 to use v3.10.2 to remove PRISMA-2022-0227 (found in Twistlock scan)
   and updated versions of gotelemetry.io/otel (to 1.16.0), github.com/stretchr/testify (to 1.8.3), and 
   the k8s.io libraries (to 0.27.2)
   [cyberark/secrets-provider-for-k8s#526](https://github.com/cyberark/secrets-provider-for-k8s/pull/526)

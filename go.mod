@@ -83,7 +83,7 @@ replace github.com/cyberark/conjur-opentelemetry-tracer => github.com/cyberark/c
 
 exclude github.com/emicklei/go-restful v2.9.5+incompatible
 
-replace github.com/emicklei/go-restful/v3 v3.9.0 => github.com/emicklei/go-restful/v3 v3.10.0
+replace github.com/emicklei/go-restful/v3 v3.9.0 => github.com/emicklei/go-restful/v3 v3.10.2
 
 replace golang.org/x/crypto v0.0.0-20190308221718-c2843e01d9a2 => golang.org/x/crypto v0.0.0-20220525230936-793ad666bf5e
 
