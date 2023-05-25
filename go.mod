@@ -192,6 +192,10 @@ replace golang.org/x/net v0.1.1-0.20221104162952-702349b0e862 => golang.org/x/ne
 
 replace golang.org/x/text v0.0.0-20170915032832-14c0d48ead0c => golang.org/x/text v0.4.0
 
+replace golang.org/x/net v0.4.0 => golang.org/x/net v0.7.0
+
+replace golang.org/x/net v0.0.0-20220425223048-2871e0cb64e4 => golang.org/x/net v0.7.0
+
 replace golang.org/x/text v0.3.0 => golang.org/x/text v0.4.0
 
 replace golang.org/x/text v0.3.1-0.20180807135948-17ff2d5776d2 => golang.org/x/text v0.4.0

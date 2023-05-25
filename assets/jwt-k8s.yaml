@@ -33,6 +33,11 @@ spec:
                 secretKeyRef:
                   name: db-credentials
                   key: password
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - all
       initContainers:
       - image: 'cyberark/secrets-provider-for-k8s:latest'
         imagePullPolicy: Always
@@ -58,6 +63,11 @@ spec:
         envFrom:
           - configMapRef:
               name: conjur-connect
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+              - all
       volumes:
       - name: conjur-status
         emptyDir:

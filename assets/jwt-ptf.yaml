@@ -32,6 +32,11 @@ spec:
           - name: conjur-secrets
             mountPath: /opt/secrets/conjur
             readOnly: true
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+              - all
       initContainers:
       - name: cyberark-secrets-provider-for-k8s
         image: 'cyberark/secrets-provider-for-k8s:latest'
@@ -53,6 +58,11 @@ spec:
         envFrom:
           - configMapRef:
               name: conjur-connect
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+              - all
       volumes:
         - name: conjur-status
           emptyDir:

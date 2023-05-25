@@ -37,6 +37,11 @@ spec:
             - name: conjur-secrets
               mountPath: /mounted/secrets
               readOnly: true
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - all
         - name: cyberark-secrets-provider-for-k8s
           image: 'cyberark/secrets-provider-for-k8s:latest'
           imagePullPolicy: Always
@@ -59,6 +64,11 @@ spec:
               mountPath: /conjur/podinfo
             - name: conjur-secrets
               mountPath: /conjur/secrets
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - all
       volumes:
         - name: conjur-certs
           emptyDir:
