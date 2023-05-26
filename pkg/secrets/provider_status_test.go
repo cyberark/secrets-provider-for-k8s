@@ -1,7 +1,6 @@
 package secrets
 
 import (
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
@@ -80,7 +79,7 @@ type testStatusUpdater struct {
 }
 
 func newTestStatusUpdater(injectErrs injectErrs) (*testStatusUpdater, error) {
-	tempDir, err := ioutil.TempDir("", "secrets-testing")
+	tempDir, err := os.MkdirTemp("", "secrets-testing")
 	if err != nil {
 		return nil, err
 	}

@@ -5,7 +5,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
@@ -83,7 +82,7 @@ func (m editableMap) Copy() editableMap {
 }
 
 func TestStartSecretsProvider(t *testing.T) {
-	tmpDir, _ := ioutil.TempDir("", "entrypoint_test")
+	tmpDir, _ := os.MkdirTemp("", "entrypoint_test")
 	defer os.RemoveAll(tmpDir)
 
 	env := map[string]string{

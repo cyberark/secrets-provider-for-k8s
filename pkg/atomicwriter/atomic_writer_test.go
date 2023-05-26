@@ -3,7 +3,6 @@ package atomicwriter
 import (
 	"bytes"
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"syscall"
@@ -41,9 +40,8 @@ type injectErrors struct {
 // wraps the equivalent standard OS function, and adds the following
 // functionality for testing:
 //
-//    - Track the number of times that the function was called
-//    - Optionally return an error for testing purposes
-//
+//   - Track the number of times that the function was called
+//   - Optionally return an error for testing purposes
 func newTestOSFuncs(injectErrs injectErrors) (osFuncs, *osFuncCounts) {
 	counts := &osFuncCounts{}
 	funcs := osFuncs{
@@ -124,7 +122,7 @@ func TestWriteAndClose(t *testing.T) {
 				// Check that the file exists
 				assert.FileExists(t, path)
 				// Check the contents of the file
-				contents, err := ioutil.ReadFile(path)
+				contents, err := os.ReadFile(path)
 				assert.NoError(t, err)
 				assert.Equal(t, "test content", string(contents))
 				// Check the file permissions
@@ -170,7 +168,7 @@ func TestWriteAndClose(t *testing.T) {
 			var tempFilePath string
 
 			// Create a temp file for writing secret files
-			tmpDir, _ := ioutil.TempDir("", "atomicwriter")
+			tmpDir, _ := os.MkdirTemp("", "atomicwriter")
 			defer os.RemoveAll(tmpDir)
 
 			// Create a test atomic writer
@@ -194,7 +192,7 @@ func TestWriteAndClose(t *testing.T) {
 }
 
 func TestWriterAtomicity(t *testing.T) {
-	tmpDir, _ := ioutil.TempDir("", "atomicwriter")
+	tmpDir, _ := os.MkdirTemp("", "atomicwriter")
 	defer os.RemoveAll(tmpDir)
 	path := filepath.Join(tmpDir, "test_file.txt")
 	initialContent := "initial content"
@@ -213,7 +211,7 @@ func TestWriterAtomicity(t *testing.T) {
 	writer2.Write([]byte("writer 2 line 2\n"))
 
 	// Ensure the destination file hasn't changed
-	contents, err := ioutil.ReadFile(path)
+	contents, err := os.ReadFile(path)
 	assert.NoError(t, err)
 	assert.Equal(t, initialContent, string(contents))
 
@@ -224,7 +222,7 @@ func TestWriterAtomicity(t *testing.T) {
 	// Check that the file exists
 	assert.FileExists(t, path)
 	// Check the contents of the file match the first writer (which was closed)
-	contents, err = ioutil.ReadFile(path)
+	contents, err = os.ReadFile(path)
 	assert.NoError(t, err)
 	assert.Equal(t, "writer 1 line 1\nwriter 1 line 2\n", string(contents))
 	// Check the file permissions match the first writer
@@ -280,7 +278,7 @@ func TestLogsErrors(t *testing.T) {
 
 				// Check that the temp file was truncated
 				assert.FileExists(t, tempFileName)
-				content, err := ioutil.ReadFile(tempFileName)
+				content, err := os.ReadFile(tempFileName)
 				assert.NoError(t, err)
 				assert.Equal(t, "", string(content))
 			},
@@ -352,7 +350,7 @@ func TestLogsErrors(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			tmpDir, _ := ioutil.TempDir("", "atomicwriter")
+			tmpDir, _ := os.MkdirTemp("", "atomicwriter")
 			defer os.RemoveAll(tmpDir)
 			path := filepath.Join(tmpDir, tc.path)
 

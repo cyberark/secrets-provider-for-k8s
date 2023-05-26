@@ -2,7 +2,7 @@ package pushtofile
 
 import (
 	"fmt"
-	"io/ioutil"
+	"io"
 	"os"
 	"path"
 	"path/filepath"
@@ -204,7 +204,7 @@ func (sg *SecretGroup) validate() []error {
 			dummySecrets = append(dummySecrets, &Secret{Alias: secretSpec.Alias, Value: "REDACTED"})
 		}
 
-		_, err := pushToWriter(ioutil.Discard, groupName, fileTemplate, dummySecrets)
+		_, err := pushToWriter(io.Discard, groupName, fileTemplate, dummySecrets)
 		if err != nil {
 			return []error{fmt.Errorf(
 				`unable to use file template for secret group %q: %s`,
