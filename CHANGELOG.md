@@ -6,7 +6,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
-## [1.5.1] - 2023-04-17
+## [1.5.1] - 2023-05-26
 
 ### Security
 - Forced github.com/emicklei/go-restful/v3 to use v3.10.2 to remove PRISMA-2022-0227 (found in Twistlock scan)
@@ -296,7 +296,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ### Changed
   - Escape secrets with backslashes before patching in k8s
 
-[Unreleased]: https://github.com/cyberark/secrets-provider-for-k8s/compare/v1.5.0...HEAD
+[Unreleased]: https://github.com/cyberark/secrets-provider-for-k8s/compare/v1.5.1...HEAD
+[1.5.1]: https://github.com/cyberark/secrets-provider-for-k8s/compare/v1.5.0...v1.5.1
 [1.5.0]: https://github.com/cyberark/secrets-provider-for-k8s/compare/v1.4.6...v1.5.0
 [1.4.6]: https://github.com/cyberark/secrets-provider-for-k8s/compare/v1.4.5...v1.4.6
 [1.4.5]: https://github.com/cyberark/secrets-provider-for-k8s/compare/v1.4.4...v1.4.5
