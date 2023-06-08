@@ -115,16 +115,16 @@ if [[ ${PROMOTE} = true ]]; then
     "latest"
   )
 
+  # Publish images to docker hub
   for tag in "${TAGS[@]}" $(gen_versions "$REMOTE_TAG"); do
     echo "Tagging and pushing $REGISTRY/$IMAGE_NAME:$tag"
     tag_and_push "${LOCAL_REGISTRY}/$IMAGE_NAME:$SOURCE_TAG" "$REGISTRY/$IMAGE_NAME:$tag"
+    tag_and_push "${LOCAL_REGISTRY}/${REDHAT_LOCAL_IMAGE}:${SOURCE_TAG}" "$REGISTRY/${REDHAT_LOCAL_IMAGE}:$tag"
   done
 
-  # Publish RedHat image to docker hub
-  tag_and_push "${LOCAL_REGISTRY}/${REDHAT_LOCAL_IMAGE}:${SOURCE_TAG}" "$REGISTRY/${REDHAT_LOCAL_IMAGE}:${REMOTE_TAG}"
 
   # Publish only latest to Redhat Registries
-  echo "Tagging and pushing ${REDHAT_REMOTE_IMAGE}"
+  echo "Tagging and pushing ${REDHAT_REMOTE_IMAGE} with tag ${REMOTE_TAG}"
   docker tag "${LOCAL_REGISTRY}/${REDHAT_LOCAL_IMAGE}:${SOURCE_TAG}" "${REDHAT_REMOTE_IMAGE}:${REMOTE_TAG}"
 
   # Publish RedHat image to RedHat Registry
@@ -137,6 +137,11 @@ if [[ ${PROMOTE} = true ]]; then
 
     # scan image with preflight tool
     scan_redhat_image "${REDHAT_REMOTE_IMAGE}:${REMOTE_TAG}" "${REDHAT_CERT_PID}"
+
+    # Publish latest tag to Redhat Registry
+    echo "Tagging and pushing ${REDHAT_REMOTE_IMAGE} with tag latest"
+    docker tag "${LOCAL_REGISTRY}/${REDHAT_LOCAL_IMAGE}:${SOURCE_TAG}" "${REDHAT_REMOTE_IMAGE}:latest"
+    docker push "${REDHAT_REMOTE_IMAGE}:latest"
   else
     echo 'Failed to log in to quay.io'
     exit 1
