@@ -32,8 +32,6 @@ const (
 	tracerID                   = 1
 )
 
-var annotationsMap map[string]string
-
 var envAnnotationsConversion = map[string]string{
 	"CONJUR_AUTHN_LOGIN":     "conjur.org/authn-identity",
 	"CONTAINER_MODE":         "conjur.org/container-mode",
@@ -87,13 +85,14 @@ func startSecretsProviderWithDeps(
 	}
 
 	// Process Pod Annotations
-	if err := processAnnotations(ctx, tracer, annotationsFilePath); err != nil {
+	annotationsMap, err := processAnnotations(ctx, tracer, annotationsFilePath)
+	if err != nil {
 		logError(err.Error())
 		return
 	}
 
 	// Gather K8s authenticator config and create a Conjur secret retriever
-	secretRetriever, err := secretRetriever(ctx, tracer, retrieverFactory)
+	secretRetriever, err := secretRetriever(ctx, tracer, annotationsMap, retrieverFactory)
 	if err != nil {
 		logError(err.Error())
 		return
@@ -104,6 +103,7 @@ func startSecretsProviderWithDeps(
 		tracer,
 		secretsBasePath,
 		templatesBasePath,
+		annotationsMap,
 		secretRetriever,
 		providerFactory,
 	)
@@ -120,7 +120,7 @@ func startSecretsProviderWithDeps(
 
 	if err = secrets.RunSecretsProvider(
 		secrets.ProviderRefreshConfig{
-			Mode:                  getContainerMode(),
+			Mode:                  getContainerMode(annotationsMap),
 			SecretRefreshInterval: secretsConfig.SecretsRefreshInterval,
 			// Create a channel to send a quit signal to the periodic secret provider.
 			// TODO: Currently, this is just used for testing, but in the future we
@@ -137,40 +137,47 @@ func startSecretsProviderWithDeps(
 	return
 }
 
-func processAnnotations(ctx context.Context, tracer trace.Tracer, annotationsFilePath string) error {
+func processAnnotations(ctx context.Context, tracer trace.Tracer, annotationsFilePath string) (map[string]string, error) {
 	// Only attempt to populate from annotations if the annotations file exists
 	// TODO: Figure out strategy for dealing with explicit annotation file path
 	// set by user. In that case we can't just ignore that the file is missing.
-	if _, err := os.Stat(annotationsFilePath); err == nil {
-		_, span := tracer.Start(ctx, "Process Annotations")
-		defer span.End()
-		annotationsMap, err = annotations.NewAnnotationsFromFile(annotationsFilePath)
-		if err != nil {
-			log.Error(err.Error())
-			span.RecordErrorAndSetStatus(err)
-			return err
-		}
-
-		errLogs, infoLogs := secretsConfigProvider.ValidateAnnotations(annotationsMap)
-		if err := logErrorsAndInfos(errLogs, infoLogs); err != nil {
-			log.Error(messages.CSPFK049E)
-			span.RecordErrorAndSetStatus(errors.New(messages.CSPFK049E))
-			return err
-		}
+	if _, err := os.Stat(annotationsFilePath); err != nil {
+		return nil, nil
 	}
-	return nil
+
+	_, span := tracer.Start(ctx, "Process Annotations")
+	defer span.End()
+	annotationsMap, err := annotations.NewAnnotationsFromFile(annotationsFilePath)
+	if err != nil {
+		log.Error(err.Error())
+		span.RecordErrorAndSetStatus(err)
+		return nil, err
+	}
+
+	errLogs, infoLogs := secretsConfigProvider.ValidateAnnotations(annotationsMap)
+	if err := logErrorsAndInfos(errLogs, infoLogs); err != nil {
+		log.Error(messages.CSPFK049E)
+		span.RecordErrorAndSetStatus(errors.New(messages.CSPFK049E))
+		return nil, err
+	}
+
+	return annotationsMap, nil
 }
 
 func secretRetriever(
 	ctx context.Context,
 	tracer trace.Tracer,
+	annotationsMap map[string]string,
 	retrieverFactory conjur.RetrieverFactory,
 ) (conjur.RetrieveSecretsFunc, error) {
 	// Gather authenticator config
 	_, span := tracer.Start(ctx, "Gather authenticator config")
 	defer span.End()
 
-	authnConfig, err := authnConfigProvider.NewConfigFromCustomEnv(ioutil.ReadFile, customEnv)
+	authnConfig, err := authnConfigProvider.NewConfigFromCustomEnv(
+		ioutil.ReadFile,
+		customEnv(annotationsMap),
+	)
 	if err != nil {
 		span.RecordErrorAndSetStatus(err)
 		log.Error(messages.CSPFK008E)
@@ -191,6 +198,7 @@ func secretsProvider(
 	tracer trace.Tracer,
 	secretsBasePath string,
 	templatesBasePath string,
+	annotationsMap map[string]string,
 	secretRetriever conjur.RetrieveSecretsFunc,
 	providerFactory secrets.ProviderFactory,
 ) (secrets.ProviderFunc, *secretsConfigProvider.Config, error) {
@@ -198,7 +206,7 @@ func secretsProvider(
 	defer span.End()
 
 	// Initialize Secrets Provider configuration
-	secretsConfig, err := setupSecretsConfig()
+	secretsConfig, err := setupSecretsConfig(annotationsMap)
 	if err != nil {
 		log.Error(err.Error())
 		span.RecordErrorAndSetStatus(err)
@@ -235,25 +243,26 @@ func secretsProvider(
 	return provideSecrets, secretsConfig, nil
 }
 
-func customEnv(key string) string {
-	if annotation, ok := envAnnotationsConversion[key]; ok {
-		if value := annotationsMap[annotation]; value != "" {
-			log.Info(messages.CSPFK014I, key, fmt.Sprintf("annotation %s", annotation))
-			return value
-		}
+func customEnv(annotationsMap map[string]string) func(key string) string {
+	return func(key string) string {
+		if annotation, ok := envAnnotationsConversion[key]; ok {
+			if value := annotationsMap[annotation]; value != "" {
+				log.Info(messages.CSPFK014I, key, fmt.Sprintf("annotation %s", annotation))
+				return value
+			}
 
-		if value := os.Getenv(key); value == "" && key == "CONTAINER_MODE" {
-			log.Info(messages.CSPFK014I, key, "default")
-			return defaultContainerMode
-		}
+			if value := os.Getenv(key); value == "" && key == "CONTAINER_MODE" {
+				log.Info(messages.CSPFK014I, key, "default")
+				return defaultContainerMode
+			}
 
-		log.Info(messages.CSPFK014I, key, "environment")
+			log.Info(messages.CSPFK014I, key, "environment")
+		}
+		return os.Getenv(key)
 	}
-
-	return os.Getenv(key)
 }
 
-func setupSecretsConfig() (*secretsConfigProvider.Config, error) {
+func setupSecretsConfig(annotationsMap map[string]string) (*secretsConfigProvider.Config, error) {
 	secretsProviderSettings := secretsConfigProvider.GatherSecretsProviderSettings(annotationsMap)
 
 	errLogs, infoLogs := secretsConfigProvider.ValidateSecretsProviderSettings(secretsProviderSettings)
@@ -278,7 +287,7 @@ func logErrorsAndInfos(errLogs []error, infoLogs []error) error {
 	return nil
 }
 
-func getContainerMode() string {
+func getContainerMode(annotationsMap map[string]string) string {
 	containerMode := "init"
 	if mode, exists := annotationsMap[secretsConfigProvider.ContainerModeKey]; exists {
 		containerMode = mode
