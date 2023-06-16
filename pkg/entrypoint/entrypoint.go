@@ -2,9 +2,7 @@ package entrypoint
 
 import (
 	"context"
-	"errors"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"time"
 
@@ -19,7 +17,6 @@ import (
 	secretsConfigProvider "github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/config"
 	k8sSecretsStorage "github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/k8s_secrets_storage"
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/pushtofile"
-	"go.opentelemetry.io/otel/attribute"
 )
 
 const (
@@ -92,27 +89,34 @@ func startSecretsProviderWithDeps(
 		return
 	}
 
-	// Gather K8s authenticator config and create a Conjur secret retriever
-	secretRetriever, err := secretRetriever(ctx, tracer, annotationsMap, retrieverFactory)
-	if err != nil {
-		logError(err.Error())
-		return
-	}
-
-	provideSecrets, secretsConfig, err := secretsProvider(
+	// Setup Required Configurations
+	secretsConfig, authnConfig, providerConfig, err := setupConfigs(
 		ctx,
 		tracer,
 		secretsBasePath,
 		templatesBasePath,
 		annotationsMap,
-		secretRetriever,
-		providerFactory,
 	)
 	if err != nil {
 		logError(err.Error())
 		return
 	}
 
+	// Create a Conjur Secret Retriever
+	secretRetriever, err := secretRetriever(ctx, tracer, annotationsMap, authnConfig, retrieverFactory)
+	if err != nil {
+		logError(err.Error())
+		return
+	}
+
+	// Create a Secrets Provider
+	provideSecrets, errs := secretsProvider(ctx, tracer, secretRetriever, providerConfig, providerFactory)
+	if err = spLog.LogErrorsAndInfos(errs, nil); err != nil {
+		logError(messages.CSPFK053E)
+		return
+	}
+
+	// Wrap Secrets Provider in Retry Logic
 	provideSecrets = secrets.RetryableSecretProvider(
 		time.Duration(secretsConfig.RetryIntervalSec)*time.Second,
 		secretsConfig.RetryCountLimit,
@@ -148,93 +152,34 @@ func processAnnotations(ctx context.Context, tracer trace.Tracer, annotationsFil
 
 	_, span := tracer.Start(ctx, "Process Annotations")
 	defer span.End()
-	annotationsMap, err := annotations.NewAnnotationsFromFile(annotationsFilePath)
-	if err != nil {
-		log.Error(err.Error())
-		span.RecordErrorAndSetStatus(err)
-		return nil, err
-	}
 
-	return annotationsMap, nil
+	return annotations.NewAnnotationsFromFile(annotationsFilePath)
 }
 
 func secretRetriever(
 	ctx context.Context,
 	tracer trace.Tracer,
 	annotationsMap map[string]string,
+	authnConfig *authnConfigProvider.Configuration,
 	retrieverFactory conjur.RetrieverFactory,
 ) (conjur.RetrieveSecretsFunc, error) {
-	// Gather authenticator config
-	_, span := tracer.Start(ctx, "Gather authenticator config")
+	_, span := tracer.Start(ctx, "Initialize a Conjur Secret Retriever")
 	defer span.End()
 
-	authnConfig, err := authnConfigProvider.NewConfigFromCustomEnv(
-		ioutil.ReadFile,
-		customEnv(annotationsMap),
-	)
-	if err != nil {
-		span.RecordErrorAndSetStatus(err)
-		log.Error(messages.CSPFK008E)
-		return nil, err
-	}
-
-	// Initialize a Conjur secret retriever
-	secretRetriever, err := retrieverFactory(authnConfig)
-	if err != nil {
-		log.Error(err.Error())
-		return nil, err
-	}
-	return secretRetriever, nil
+	return retrieverFactory(*authnConfig)
 }
 
 func secretsProvider(
 	ctx context.Context,
 	tracer trace.Tracer,
-	secretsBasePath string,
-	templatesBasePath string,
-	annotationsMap map[string]string,
 	secretRetriever conjur.RetrieveSecretsFunc,
+	providerConfig *secrets.ProviderConfig,
 	providerFactory secrets.ProviderFactory,
-) (secrets.ProviderFunc, *secretsConfigProvider.Config, error) {
-	_, span := tracer.Start(ctx, "Create single-use secrets provider")
+) (secrets.ProviderFunc, []error) {
+	_, span := tracer.Start(ctx, "Initialize a Secrets Provider")
 	defer span.End()
 
-	// Initialize Secrets Provider configuration
-	secretsConfig, err := setupSecretsConfig(annotationsMap)
-	if err != nil {
-		log.Error(err.Error())
-		span.RecordErrorAndSetStatus(err)
-		return nil, nil, err
-	}
-	providerConfig := &secrets.ProviderConfig{
-		CommonProviderConfig: secrets.CommonProviderConfig{
-			StoreType:       secretsConfig.StoreType,
-			SanitizeEnabled: secretsConfig.SanitizeEnabled,
-		},
-		K8sProviderConfig: k8sSecretsStorage.K8sProviderConfig{
-			PodNamespace:       secretsConfig.PodNamespace,
-			RequiredK8sSecrets: secretsConfig.RequiredK8sSecrets,
-		},
-		P2FProviderConfig: pushtofile.P2FProviderConfig{
-			SecretFileBasePath:   secretsBasePath,
-			TemplateFileBasePath: templatesBasePath,
-			AnnotationsMap:       annotationsMap,
-		},
-	}
-
-	// Tag the span with the secrets provider mode
-	span.SetAttributes(attribute.String("store_type", secretsConfig.StoreType))
-
-	// Create a secrets provider
-	provideSecrets, errs := providerFactory(ctx,
-		secretRetriever, *providerConfig)
-	if err := spLog.LogErrorsAndInfos(errs, nil); err != nil {
-		log.Error(messages.CSPFK053E)
-		span.RecordErrorAndSetStatus(errors.New(messages.CSPFK053E))
-		return nil, nil, err
-	}
-
-	return provideSecrets, secretsConfig, nil
+	return providerFactory(ctx, secretRetriever, *providerConfig)
 }
 
 func customEnv(annotationsMap map[string]string) func(key string) string {
@@ -256,10 +201,6 @@ func customEnv(annotationsMap map[string]string) func(key string) string {
 	}
 }
 
-func setupSecretsConfig(annotationsMap map[string]string) (*secretsConfigProvider.Config, error) {
-	return secretsConfigProvider.NewConfigFromEnvironmentAndAnnotations(annotationsMap)
-}
-
 func getContainerMode(annotationsMap map[string]string) string {
 	containerMode := "init"
 	if mode, exists := annotationsMap[secretsConfigProvider.ContainerModeKey]; exists {
@@ -268,4 +209,61 @@ func getContainerMode(annotationsMap map[string]string) string {
 		containerMode = mode
 	}
 	return containerMode
+}
+
+func setupConfigs(
+	ctx context.Context,
+	tracer trace.Tracer,
+	secretsBasePath string,
+	templatesBasePath string,
+	annotationsMap map[string]string,
+) (
+	*secretsConfigProvider.Config,
+	*authnConfigProvider.Configuration,
+	*secrets.ProviderConfig,
+	error,
+) {
+	// Setup Secrets Provider configuration
+	_, spSpan := tracer.Start(ctx, "Setup Secrets Provider Configuration")
+	secretsConfig, err := secretsConfigProvider.NewConfigFromEnvironmentAndAnnotations(annotationsMap)
+	spSpan.End()
+	if err != nil {
+		spSpan.RecordErrorAndSetStatus(err)
+		log.Error(messages.CSPFK008E)
+		return nil, nil, nil, err
+	}
+
+	// Setup AuthnK8s configuration
+	_, authnSpan := tracer.Start(ctx, "Setup AuthnK8s Configuration")
+	authnConfig, err := authnConfigProvider.NewConfigFromCustomEnv(
+		os.ReadFile,
+		customEnv(annotationsMap),
+	)
+	authnSpan.End()
+	if err != nil {
+		authnSpan.RecordErrorAndSetStatus(err)
+		log.Error(messages.CSPFK008E)
+		return secretsConfig, nil, nil, err
+	}
+
+	// Initialize Provider-specific configuration
+	_, provSpan := tracer.Start(ctx, "Setup Provider-Specific Configuration")
+	providerConfig := secrets.ProviderConfig{
+		CommonProviderConfig: secrets.CommonProviderConfig{
+			StoreType:       secretsConfig.StoreType,
+			SanitizeEnabled: secretsConfig.SanitizeEnabled,
+		},
+		K8sProviderConfig: k8sSecretsStorage.K8sProviderConfig{
+			PodNamespace:       secretsConfig.PodNamespace,
+			RequiredK8sSecrets: secretsConfig.RequiredK8sSecrets,
+		},
+		P2FProviderConfig: pushtofile.P2FProviderConfig{
+			SecretFileBasePath:   secretsBasePath,
+			TemplateFileBasePath: templatesBasePath,
+			AnnotationsMap:       annotationsMap,
+		},
+	}
+	provSpan.End()
+
+	return secretsConfig, &authnConfig, &providerConfig, nil
 }
