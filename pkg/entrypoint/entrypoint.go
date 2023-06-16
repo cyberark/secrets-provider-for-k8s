@@ -11,6 +11,7 @@ import (
 	authnConfigProvider "github.com/cyberark/conjur-authn-k8s-client/pkg/authenticator/config"
 	"github.com/cyberark/conjur-authn-k8s-client/pkg/log"
 	"github.com/cyberark/conjur-opentelemetry-tracer/pkg/trace"
+	spLog "github.com/cyberark/secrets-provider-for-k8s/pkg/log"
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/log/messages"
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/secrets"
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/annotations"
@@ -154,13 +155,6 @@ func processAnnotations(ctx context.Context, tracer trace.Tracer, annotationsFil
 		return nil, err
 	}
 
-	errLogs, infoLogs := secretsConfigProvider.ValidateAnnotations(annotationsMap)
-	if err := logErrorsAndInfos(errLogs, infoLogs); err != nil {
-		log.Error(messages.CSPFK049E)
-		span.RecordErrorAndSetStatus(errors.New(messages.CSPFK049E))
-		return nil, err
-	}
-
 	return annotationsMap, nil
 }
 
@@ -234,7 +228,7 @@ func secretsProvider(
 	// Create a secrets provider
 	provideSecrets, errs := providerFactory(ctx,
 		secretRetriever, *providerConfig)
-	if err := logErrorsAndInfos(errs, nil); err != nil {
+	if err := spLog.LogErrorsAndInfos(errs, nil); err != nil {
 		log.Error(messages.CSPFK053E)
 		span.RecordErrorAndSetStatus(errors.New(messages.CSPFK053E))
 		return nil, nil, err
@@ -263,28 +257,21 @@ func customEnv(annotationsMap map[string]string) func(key string) string {
 }
 
 func setupSecretsConfig(annotationsMap map[string]string) (*secretsConfigProvider.Config, error) {
+	errLogs, infoLogs := secretsConfigProvider.ValidateAnnotations(annotationsMap)
+	if err := spLog.LogErrorsAndInfos(errLogs, infoLogs); err != nil {
+		log.Error(messages.CSPFK049E)
+		return nil, err
+	}
+
 	secretsProviderSettings := secretsConfigProvider.GatherSecretsProviderSettings(annotationsMap)
 
-	errLogs, infoLogs := secretsConfigProvider.ValidateSecretsProviderSettings(secretsProviderSettings)
-	if err := logErrorsAndInfos(errLogs, infoLogs); err != nil {
+	errLogs, infoLogs = secretsConfigProvider.ValidateSecretsProviderSettings(secretsProviderSettings)
+	if err := spLog.LogErrorsAndInfos(errLogs, infoLogs); err != nil {
 		log.Error(messages.CSPFK015E)
 		return nil, err
 	}
 
 	return secretsConfigProvider.NewConfig(secretsProviderSettings), nil
-}
-
-func logErrorsAndInfos(errLogs []error, infoLogs []error) error {
-	for _, err := range infoLogs {
-		log.Info(err.Error())
-	}
-	if len(errLogs) > 0 {
-		for _, err := range errLogs {
-			log.Error(err.Error())
-		}
-		return errors.New("fatal errors occurred, check Secrets Provider logs")
-	}
-	return nil
 }
 
 func getContainerMode(annotationsMap map[string]string) string {
