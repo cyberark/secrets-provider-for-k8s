@@ -8,6 +8,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cyberark/conjur-authn-k8s-client/pkg/log"
+	spLog "github.com/cyberark/secrets-provider-for-k8s/pkg/log"
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/log/messages"
 )
 
@@ -221,6 +223,35 @@ func ValidateSecretsProviderSettings(envAndAnnots map[string]string) ([]error, [
 		errorList = append(errorList, err)
 	}
 	return errorList, infoList
+}
+
+// NewConfigFromEnvironment creates a new Secrets Provider configuration only
+// from existing environment variables. This function gathers and validates
+// settings and calls NewConfig.
+func NewConfigFromEnvironment() (*Config, error) {
+	return NewConfigFromEnvironmentAndAnnotations(map[string]string{})
+}
+
+// NewConfigFromEnvironmentAndAnnotations creates a new Secrets Provider
+// configuration from a provided map of K8s Pod annotations and existing
+// environment variables. This function gathers and validates settings and calls
+// NewConfig.
+func NewConfigFromEnvironmentAndAnnotations(annotations map[string]string) (*Config, error) {
+	errs, infos := ValidateAnnotations(annotations)
+	if err := spLog.LogErrorsAndInfos(errs, infos); err != nil {
+		log.Error(messages.CSPFK049E)
+		return nil, err
+	}
+
+	settings := GatherSecretsProviderSettings(annotations)
+
+	errs, infos = ValidateSecretsProviderSettings(settings)
+	if err := spLog.LogErrorsAndInfos(errs, infos); err != nil {
+		log.Error(messages.CSPFK015E)
+		return nil, err
+	}
+
+	return NewConfig(settings), nil
 }
 
 // NewConfig creates a new Secrets Provider configuration for a validated

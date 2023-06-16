@@ -257,21 +257,7 @@ func customEnv(annotationsMap map[string]string) func(key string) string {
 }
 
 func setupSecretsConfig(annotationsMap map[string]string) (*secretsConfigProvider.Config, error) {
-	errLogs, infoLogs := secretsConfigProvider.ValidateAnnotations(annotationsMap)
-	if err := spLog.LogErrorsAndInfos(errLogs, infoLogs); err != nil {
-		log.Error(messages.CSPFK049E)
-		return nil, err
-	}
-
-	secretsProviderSettings := secretsConfigProvider.GatherSecretsProviderSettings(annotationsMap)
-
-	errLogs, infoLogs = secretsConfigProvider.ValidateSecretsProviderSettings(secretsProviderSettings)
-	if err := spLog.LogErrorsAndInfos(errLogs, infoLogs); err != nil {
-		log.Error(messages.CSPFK015E)
-		return nil, err
-	}
-
-	return secretsConfigProvider.NewConfig(secretsProviderSettings), nil
+	return secretsConfigProvider.NewConfigFromEnvironmentAndAnnotations(annotationsMap)
 }
 
 func getContainerMode(annotationsMap map[string]string) string {
