@@ -6,6 +6,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Security
+- Upgrade google/cloud-sdk to v435.0.1 and google.golang.org/protobuf to v1.29.1
+  [cyberark/secrets-provider-for-k8s#531](https://github.com/cyberark/secrets-provider-for-k8s/pull/531)
+
 ## [1.5.2] - 2023-06-07
 
 ## [1.5.1] - 2023-05-26
