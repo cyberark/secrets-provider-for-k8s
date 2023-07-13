@@ -1,6 +1,5 @@
 package messages
 
-const CSPFK001D string = "CSPFK001D Debug mode is enabled"
 const CSPFK002D string = "CSPFK002D Failed to load in-cluster Kubernetes client config. Reason: %s"
 const CSPFK003D string = "CSPFK003D Failed to create Kubernetes client. Reason: %s"
 const CSPFK004D string = "CSPFK004D Failed to retrieve Kubernetes Secret. Reason: %s"

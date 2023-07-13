@@ -323,7 +323,7 @@ for a description of each environment variable setting:
 | `conjur.org/k8s-secrets`            | `K8S_SECRETS`         | This list is ignored when `conjur.org/secrets-destination` annotation is set to **`file`** |
 | `conjur.org/retry-count-limit`      | `RETRY_COUNT_LIMIT`   | Defaults to 5
 | `conjur.org/retry-interval-sec`     | `RETRY_INTERVAL_SEC`  | Defaults to 1 (sec)              |
-| `conjur.org/debug-logging`          | `DEBUG`               | Defaults to `false`              |
+| `conjur.org/log-level`              | `LOG_LEVEL`           | Allowed values: <ul><li>`debug`</li><li>`info`</li><li>`warn`</li><li>`error`</li></ul>Defaults to `info`.               |
 | `conjur.org/conjur-secrets.{secret-group}`      | Note\* | List of secrets to be retrieved from Conjur. Each entry can be either:<ul><li>A Conjur variable path</li><li> A key/value pairs of the form <br>`<alias>:<Conjur variable path>`<br>`[content-type: <type>]`<br>where the `alias` represents the name of the secret to be written to the secrets file and the optional `content-type` is either text or base64, defaulting to text. See [Decoding Base64 Encoded Secrets](#decoding-base64-encoded-secrets) for more information.|
 | `conjur.org/conjur-secrets-policy-path.{secret-group}` | Note\* | Defines a common Conjur policy path, assumed to be relative to the root policy.<br><br>When this annotation is set, the policy paths defined by `conjur.org/conjur-secrets.{secret-group}` are relative to this common path.<br><br>When this annotation is not set, the policy paths defined by `conjur.org/conjur-secrets.{secret-group}` are themselves relative to the root policy.<br><br>(See [Example Common Policy Path](#example-common-policy-path) for an explicit example of this relationship.)|
 | `conjur.org/secret-file-path.{secret-group}`    | Note\* | Relative path for secret file or directory to be written. This path is assumed to be relative to the respective mount path for the shared secrets volume for each container.<br><br>If the `conjur.org/secret-file-format.{secret-group}` is set to `template`, then this secret file path defaults to `{secret-group}.out`. For example, if the secret group name is `my-app`, the the secret file path defaults to `my-app.out`.<br><br>Otherwise, this secret file path defaults to `{secret-group}.{secret-group-file-format}`. For example, if the secret group name is `my-app`, and the secret file format is set for YAML, the the secret file path defaults to `my-app.yaml`.
@@ -1084,12 +1084,12 @@ following changes to the deployment:
 
 This section describes how to troubleshoot common Secrets Provider for Kubernetes issues.
 
-### Enable logs
+### Enable debug logs
 
-To enable logs, add the debug parameter to the application deployment manifest.
+To enable debug logs, add the debug parameter to the application deployment manifest.
 ```
 annotations:
-    conjur.org/debug-logging  "true"
+    conjur.org/log-level  "debug"
 ```
 For details, see [Reference Table of Configuration Annotations](#reference-table-of-configuration-annotations)
 

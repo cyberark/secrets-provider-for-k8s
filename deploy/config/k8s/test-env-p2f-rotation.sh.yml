@@ -26,7 +26,7 @@ spec:
         conjur.org/secrets-refresh-enabled: "true"
         conjur.org/secrets-refresh-interval: "10s"
         conjur.org/secrets-destination: file
-        conjur.org/debug-logging: "true"
+        conjur.org/log-level: "debug"
         conjur.org/retry-count-limit: "6"
         conjur.org/retry-interval-sec: "2"
         conjur.org/conjur-secrets.group1: |

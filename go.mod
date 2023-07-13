@@ -34,7 +34,7 @@ require (
 require (
 	github.com/bgentry/go-netrc v0.0.0-20140422174119-9fd32a8b3d3d // indirect
 	github.com/cyberark/conjur-api-go v0.10.1 // version will be ignored by auto release process
-	github.com/cyberark/conjur-authn-k8s-client v0.23.8 // version will be ignored by auto release process
+	github.com/cyberark/conjur-authn-k8s-client v0.26.0 // version will be ignored by auto release process
 	github.com/cyberark/conjur-opentelemetry-tracer v1.55.55 // version will be ignored by auto release process
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/fullsailor/pkcs7 v0.0.0-20190404230743-d7302db945fa // indirect

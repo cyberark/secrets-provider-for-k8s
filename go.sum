@@ -48,10 +48,10 @@ github.com/cncf/udpa/go v0.0.0-20191209042840-269d4d468f6f/go.mod h1:M8M6+tZqaGX
 github.com/creack/pty v1.1.9/go.mod h1:oKZEueFk5CKHvIhNR5MUki03XCEU+Q6VDXinZuGJ33E=
 github.com/cyberark/conjur-api-go v0.11.1 h1:vjaMkw0geJsA+ikMM6UDLg4VLFQWKo/B0i9IWlOQ1f0=
 github.com/cyberark/conjur-api-go v0.11.1/go.mod h1:n1p46Hj9l8wkZjM17cVYdfcatyPboWyioLGlC0QszCs=
-github.com/cyberark/conjur-authn-k8s-client v0.25.1 h1:CrAui950L1jKzMNp+5YvCgDaemJkz8bFqD4wYFqSLv8=
-github.com/cyberark/conjur-authn-k8s-client v0.25.1/go.mod h1:biD4y/VHqPWBzUk/nLoflQ/87f/RAJF4QJnuboKJHOY=
-github.com/cyberark/conjur-opentelemetry-tracer v0.0.1-1099 h1:Mjmvr9SDI0g9TKHmd3wzxVDqR9q3lkeknv0qz9kp6F0=
-github.com/cyberark/conjur-opentelemetry-tracer v0.0.1-1099/go.mod h1:7pNmWZ/E4jv5cJuFWuXbzHpX6T44JfAPfciTWVxR9Ec=
+github.com/cyberark/conjur-authn-k8s-client v0.25.3-0.20230718150056-8ef20bd68e9d h1:tNlfWTjm6+h6d2BJuB+wfTo8c9wXkGACDSkA/Saag1w=
+github.com/cyberark/conjur-authn-k8s-client v0.25.3-0.20230718150056-8ef20bd68e9d/go.mod h1:biD4y/VHqPWBzUk/nLoflQ/87f/RAJF4QJnuboKJHOY=
+github.com/cyberark/conjur-opentelemetry-tracer v0.0.1-1135 h1:M93qiR355OmNWBIMaz4emoCzdPr5qpyscltxHOJpyHU=
+github.com/cyberark/conjur-opentelemetry-tracer v0.0.1-1135/go.mod h1:7pNmWZ/E4jv5cJuFWuXbzHpX6T44JfAPfciTWVxR9Ec=
 github.com/danieljoos/wincred v1.1.2 h1:QLdCxFs1/Yl4zduvBdcHB8goaYk9RARS2SgLLRuAyr0=
 github.com/danieljoos/wincred v1.1.2/go.mod h1:GijpziifJoIBfYh+S7BbkdUTU4LfM+QnGqR5Vl2tAx0=
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=

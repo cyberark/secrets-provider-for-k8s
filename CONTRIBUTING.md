@@ -9,7 +9,7 @@ Thanks for your interest in the CyberArk Secrets Provider for Kubernetes. We wel
     + [Go](#go)
   * [Documentation](#documentation)
     + [Get up and running](#get-up-and-running)
-    + [Deploy a Local Dev Environment (K8s)](#deploy-a-local-dev-environment--k8s-)
+    + [Deploy a Local Dev Environment (K8s)](#deploy-a-local-dev-environment-k8s)
       - [Prerequisites](#prerequisites-1)
       - [Deploy a local development environment](#deploy-a-local-development-environment)
       - [Clean-up](#clean-up)
@@ -21,10 +21,9 @@ Thanks for your interest in the CyberArk Secrets Provider for Kubernetes. We wel
       - [Integration testing](#integration-testing)
   * [Releases](#releases)
     + [Pre-requisites](#pre-requisites)
-    + [Update the version, changelog, and notices](#update-the-version--changelog--and-notices)
-    + [Add a git tag](#add-a-git-tag)
+    + [Update the version, changelog, and notices](#update-the-version-changelog-and-notices)
     + [Push Helm package](#push-helm-package)
-    + [Publish the git release](#publish-the-git-release)
+    + [Release and Promote](#release-and-promote)
     + [Publish the Red Hat image](#publish-the-red-hat-image)
 
 ## Prerequisites
@@ -230,7 +229,7 @@ push to file E2E test:
 Releases should be created by maintainers only. To create a tag and release,
 follow the instructions in this section.
 
-### Pre-requisites 
+### Pre-requisites
 
 1. Review the git log and ensure the [changelog](CHANGELOG.md) contains all
    relevant recent changes with references to GitHub issues or PRs, if possible.
@@ -242,6 +241,7 @@ follow the instructions in this section.
 1. Scan the project for vulnerabilities
 
 ### Update the version, changelog, and notices
+
 1. Create a new branch for the version bump.
 1. Based on the changelog content, determine the new version number.
 1. Update this version in the following files:
@@ -252,20 +252,23 @@ follow the instructions in this section.
     1. [Test case hardcoded version](deploy/test/test_cases/TEST_ID_22_helm_rbac_defaults_taken_successfully.sh)
 1. Commit these changes - `Bump version to x.y.z` is an acceptable commit
    message - and open a PR for review.
-   
+
 ### Push Helm package
+
 1. Every build packages the Secrets Provider Helm chart for us. The package can be found under the 'Artifacts' tab of the Jenkins build and will resemble `secrets-provider-<version>.tgz`. 
 Navigate to the 'Artifacts' tab of the _tagged version_ build and save this file. You will need it for the next step.
 1. Clone the repo [helm-charts](https://github.com/cyberark/helm-charts) and do the following:
     1. Move the Helm package file created in the previous step to the *docs* folder in the `helm-charts` repo.
     1. Go to the `helm-charts` repo root folder and execute the `reindex.sh` script file located there.
     1. Create a PR with those changes.
-    
-                                                            
+
 ### Release and Promote
+
 1. Merging into main/master branches will automatically trigger a release. If successful, this release can be promoted at a later time.
 1. Jenkins build parameters can be utilized to promote a successful release or manually trigger aditional releases as needed.
 1. Reference the [internal automated release doc](https://github.com/conjurinc/docs/blob/master/reference/infrastructure/automated_releases.md#release-and-promotion-process) for releasing and promoting.
+
 ### Publish the Red Hat image
-1. Visit the [Red Hat project page](https://connect.redhat.com/project/4381831/view) once the images have been pushed 
+
+1. Visit the [Red Hat project page](https://connect.redhat.com/project/4381831/view) once the images have been pushed
 and manually choose to publish the latest release.
