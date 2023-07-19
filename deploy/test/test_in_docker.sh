@@ -45,7 +45,7 @@ deployConjur() {
   if [ $CONJUR_DEPLOYMENT = "oss" ]; then
       cmd="$cmd --oss"
   fi
-  runDockerCommand "cd ./kubernetes-conjur-deploy-$UNIQUE_TEST_ID && DEBUG=true $cmd"
+  runDockerCommand "cd ./kubernetes-conjur-deploy-$UNIQUE_TEST_ID && LOG_LEVEL=debug $cmd"
 }
 
 deployTest() {

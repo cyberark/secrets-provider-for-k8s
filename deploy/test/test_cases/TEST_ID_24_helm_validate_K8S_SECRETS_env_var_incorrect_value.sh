@@ -8,7 +8,7 @@ pushd ../../
   # Install HELM with a K8s Secret that does not exist
   export K8S_SECRETS="K8S_SECRET-non-existent-secret"
   export LABELS="app: test-helm"
-  export DEBUG="true"
+  export LOG_LEVEL="debug"
 
   fill_helm_chart
   helm install -f "../helm/secrets-provider/ci/test-values-$UNIQUE_TEST_ID.yaml" \

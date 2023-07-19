@@ -22,7 +22,7 @@ labels: { {{ LABELS }} }
 annotations: {}
 
 environment:
-  debug: {{ DEBUG }}
+  logLevel: {{ LOG_LEVEL }}
   # Array of Kubernetes Secret names that applications consume, and whose value is sourced in DAP/Conjur.
   # For example, [k8s-secret1,k8s-secret2]
   k8sSecrets: [{{ K8S_SECRETS }}]

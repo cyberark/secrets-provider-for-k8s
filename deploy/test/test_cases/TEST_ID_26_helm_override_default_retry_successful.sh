@@ -6,7 +6,7 @@ setup_helm_environment
 
 pushd ../../
   export LABELS="app: test-helm"
-  export DEBUG="true"
+  export LOG_LEVEL="debug"
   # A parameter that will force a failure
   export CONJUR_AUTHN_URL="https://conjur-follower.${CONJUR_NAMESPACE_NAME}.svc.cluster.local/api/authn-k8s/${AUTHENTICATOR_ID}xyz"  # Configure retry mechanism with overriding defaults
   export RETRY_COUNT_LIMIT="2"
