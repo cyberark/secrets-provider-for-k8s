@@ -97,8 +97,8 @@ spec:
                 name: conjur-master-ca-env
                 key: ssl-certificate
 
-          - name: DEBUG
-            value: "true"
+          - name: LOG_LEVEL
+            value: "debug"
 
           - name: CONJUR_AUTHN_LOGIN
             value: ${CONJUR_AUTHN_LOGIN}

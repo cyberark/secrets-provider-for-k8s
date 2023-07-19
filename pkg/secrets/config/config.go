@@ -71,6 +71,7 @@ const (
 	// RemoveDeletedSecretsKey is the annotaion key for enabling removing deleted secrets
 	RemoveDeletedSecretsKey = "conjur.org/remove-deleted-secrets-enabled"
 	debugLoggingKey         = "conjur.org/debug-logging"
+	logLevelKey             = "conjur.org/log-level"
 	logTracesKey            = "conjur.org/log-traces"
 	jaegerCollectorUrl      = "conjur.org/jaeger-collector-url"
 )
@@ -88,6 +89,7 @@ var secretsProviderAnnotations = map[string]annotationRestraints{
 	SecretsRefreshEnabledKey:  {TYPEBOOL, []string{}},
 	RemoveDeletedSecretsKey:   {TYPEBOOL, []string{}},
 	debugLoggingKey:           {TYPEBOOL, []string{}},
+	logLevelKey:               {TYPESTRING, []string{"debug", "info", "warn", "error"}},
 	logTracesKey:              {TYPEBOOL, []string{}},
 	jaegerCollectorUrl:        {TYPESTRING, []string{}},
 }

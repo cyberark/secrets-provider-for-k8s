@@ -6,13 +6,18 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [1.6.0] - 2023-07-19
+
+### Added
+- Log level is now configurable using the `LOG_LEVEL` environment variable or `conjur.org/log-level` annotation.
+  The existing `DEBUG` environment variable and `conjur.org/debug-logging` annotation is deprecated and will be removed in a future update.
+  [cyberark/secrets-provider-for-k8s#534](https://github.com/cyberark/secrets-provider-for-k8s/pull/534)
+
 ### Security
 - Upgrade google/cloud-sdk to v437.0.0-slim
   [cyberark/secrets-provider-for-k8s#533](https://github.com/cyberark/secrets-provider-for-k8s/pull/533)
 - Upgrade google/cloud-sdk to v435.0.1 and google.golang.org/protobuf to v1.29.1
   [cyberark/secrets-provider-for-k8s#531](https://github.com/cyberark/secrets-provider-for-k8s/pull/531)
-
-## [1.5.2] - 2023-06-07
 
 ## [1.5.1] - 2023-05-26
 
@@ -304,7 +309,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ### Changed
   - Escape secrets with backslashes before patching in k8s
 
-[Unreleased]: https://github.com/cyberark/secrets-provider-for-k8s/compare/v1.5.1...HEAD
+[Unreleased]: https://github.com/cyberark/secrets-provider-for-k8s/compare/v1.6.0...HEAD
+[1.6.0]: https://github.com/cyberark/secrets-provider-for-k8s/compare/v1.5.1...v1.6.0
 [1.5.1]: https://github.com/cyberark/secrets-provider-for-k8s/compare/v1.5.0...v1.5.1
 [1.5.0]: https://github.com/cyberark/secrets-provider-for-k8s/compare/v1.4.6...v1.5.0
 [1.4.6]: https://github.com/cyberark/secrets-provider-for-k8s/compare/v1.4.5...v1.4.6

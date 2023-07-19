@@ -173,8 +173,9 @@
             }
           }
         },
-        "debug": {
-          "type": "boolean"
+        "logLevel": {
+          "type": "string",
+          "enum": ["debug", "info", "warn", "error"]
         }
       }
     }
