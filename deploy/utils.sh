@@ -286,6 +286,7 @@ fill_helm_chart() {
       -e "s#{{ TAG }}# ${TAG:-"latest"}#g" \
       -e "s#{{ LABELS }}# ${LABELS:-"app: test-helm"}#g" \
       -e "s#{{ DEBUG }}# ${DEBUG:-"false"}#g" \
+      -e "s#{{ LOG_LEVEL }}# ${LOG_LEVEL:-"info"}#g" \
       -e "s#{{ RETRY_COUNT_LIMIT }}# ${RETRY_COUNT_LIMIT:-"5"}#g" \
       -e "s#{{ RETRY_INTERVAL_SEC }}# ${RETRY_INTERVAL_SEC:-"5"}#g" \
       -e "s#{{ IMAGE_PULL_SECRET }}# ${IMAGE_PULL_SECRET:-""}#g" \
