@@ -6,7 +6,7 @@ set -euxo pipefail
 setup_helm_environment
 
 pushd ../../
-  export DEBUG="false"
+  export LOG_LEVEL="debug"
   export LABELS="app: test-helm"
   export K8S_SECRETS="test-k8s-secret"
   export CONJUR_ACCOUNT="cucumber"

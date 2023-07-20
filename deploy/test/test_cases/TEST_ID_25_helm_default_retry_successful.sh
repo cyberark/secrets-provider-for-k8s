@@ -10,7 +10,7 @@ pushd ../../
   export IMAGE_PULL_POLICY="IfNotPresent"
   export TAG="latest"
   export LABELS="app: test-helm"
-  export DEBUG="true"
+  export LOG_LEVEL="debug"
   export K8S_SECRETS="test-k8s-secret"
   export CONJUR_ACCOUNT="cucumber"
   export CONJUR_APPLIANCE_URL="https://conjur-follower.${CONJUR_NAMESPACE_NAME}.svc.cluster.local"
