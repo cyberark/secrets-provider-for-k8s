@@ -591,6 +591,7 @@ wait_for_job() {
 
 deploy_env() {
   export SECRETS_MODE=${SECRETS_MODE:-"k8s"}
+  export TEMPLATE_OVERRIDE=${TEMPLATE_OVERRIDE:-""}
   local yaml_template_name="test-env"
 
   case $SECRETS_MODE in
@@ -627,6 +628,11 @@ deploy_env() {
       echo "Deploying with default config (k8s)."
       ;;
   esac
+
+  if [ ! -z "$TEMPLATE_OVERRIDE" ]
+  then
+    yaml_template_name="$TEMPLATE_OVERRIDE"
+  fi
 
   generate_manifest_and_deploy $yaml_template_name
 }

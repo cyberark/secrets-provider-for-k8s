@@ -49,6 +49,7 @@ while true ; do
     --dev ) DEV=true ; shift ;;
     --test-prefix=* ) TEST_NAME_PREFIX="${1#*=}" ; export TEST_NAME_PREFIX; shift ;;
     --reload ) RELOAD_ENV=true ; shift ;;
+    --template=* ) TEMPLATE_OVERRIDE="${1#*=}" ; export TEMPLATE_OVERRIDE; shift ;;
     --oss ) CONJUR_DEPLOYMENT=oss ; shift ;;
     --dap ) CONJUR_DEPLOYMENT=dap ; shift ;;
     --gke ) SUMMON_ENV=gke ; shift ;;
