@@ -33,7 +33,7 @@ done
 conjur variable set -i secrets/test_secret -v "some-secret"
 conjur variable set -i "secrets/var with spaces" -v "some-secret"
 conjur variable set -i "secrets/var+with+pluses" -v "some-secret"
-conjur variable set -i "secrets/umlaut" -v "some-secret"
+conjur variable set -i "secrets/umlaut" -v "ÄäÖöÜü"
 conjur variable set -i "secrets/encoded" -v "$(echo "secret-value" | tr -d '\n' | base64)" # == "c2VjcmV0LXZhbHVl"
 conjur variable set -i secrets/url -v "postgresql://test-app-backend.app-test.svc.cluster.local:5432"
 conjur variable set -i secrets/username -v "some-user"

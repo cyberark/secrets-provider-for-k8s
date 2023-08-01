@@ -98,6 +98,12 @@ You can also view Conjur Enterprise / Conjur Open Source pod logs by running `ku
 
 1. If a cluster is already locally deployed run `./bin/start --dev --reload` to build your local changes and redeploy them to the local Secrets Provider K8s cluster
 
+#### Run integration tests against local development environment
+
+Assuming you have a running local cluster per the previous section and a valid kubeconfig, you can run the Golang-based integration tests by simply running `./bin/test_e2e` from the project root folder. This will build a test container with the kubeconfig mounted, and execute the tests against the local cluster.
+
+NOTE: This assumes that the cluster is running with the default values in `bootstrap.env` for local DEV clusters.
+
 #### Clean-up
 
 To remove K8s resources from your local environment perform the following:
@@ -111,8 +117,6 @@ Note that for Deployments, you must first delete the Deployment and then the Pod
 #### Limitations
 
 - Currently, deploying a local dev environment only works against a local K8s cluster and not an Openshift one
-
-- At current, we cannot run our integration tests locally, only against a remote cluster
 
 ## Contributing
 

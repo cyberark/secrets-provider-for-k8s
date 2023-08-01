@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+
+echo "This script requires that there is a running cluster with a valid kubeconfig!"
+echo "To run tests locally, run './bin/start --dev' before this script with the default values in 'bootstrap.env'."
+
+set -eox pipefail
+
+function main() {
+  build_docker_e2e_image
+  run_e2e_tests $@
+}
+
+function build_docker_e2e_image() {
+  echo "Building e2e test image..."
+  docker build -f Dockerfile.e2e -t secrets-provider-for-k8s-e2e-test-runner:latest .
+}
+
+function run_e2e_tests() {
+  echo "Running e2e tests..."
+
+  docker run --rm -t \
+             --volume $HOME/.kube/config:/root/.kube/config \
+             secrets-provider-for-k8s-e2e-test-runner:latest \
+             "$@"
+
+  echo "E2E test exit status: $?"
+}
+
+main $@
