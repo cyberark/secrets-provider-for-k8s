@@ -22,7 +22,7 @@ spec:
         app: test-env
       annotations:
         conjur.org/authn-identity: '$CONJUR_AUTHN_LOGIN'
-        conjur.org/container-mode: init
+        conjur.org/container-mode: application
         conjur.org/secrets-destination: file
         conjur.org/log-level: "debug"
         conjur.org/retry-count-limit: "6"

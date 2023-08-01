@@ -52,7 +52,7 @@ pipeline {
 
     booleanParam(name: 'TEST_OCP_OLDEST', defaultValue: false, description: 'Run DAP tests against our running "oldest version" of Openshift')
 
-    booleanParam(name: 'TEST_E2E', defaultValue: false, description: 'Run E2E tests on a branch')
+    booleanParam(name: 'TEST_E2E', defaultValue: true, description: 'Run E2E tests on a branch')
   }
 
   stages {
