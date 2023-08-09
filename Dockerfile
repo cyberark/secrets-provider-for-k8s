@@ -1,6 +1,6 @@
 # =================== BASE BUILD LAYER ===================
 # this layer is used to prepare a common layer for both debug and release builds
-FROM golang:1.19 as secrets-provider-builder-base
+FROM golang:1.20 as secrets-provider-builder-base
 MAINTAINER CyberArk Software Ltd.
 
 ENV GOOS=linux \
@@ -62,7 +62,7 @@ RUN go build -a -installsuffix cgo -gcflags="all=-N -l" -o secrets-provider ./cm
 
 # =================== BASE MAIN CONTAINER ===================
 # this layer is used to prepare a common layer for both debug and release containers
-FROM alpine:3.14 as secrets-provider-base
+FROM alpine:latest as secrets-provider-base
 MAINTAINER CyberArk Software Ltd.
 
 # Ensure openssl development libraries are always up to date
@@ -120,7 +120,7 @@ CMD ["/usr/local/bin/dlv",  \
      "/usr/local/bin/secrets-provider"]
 
 # =================== MAIN CONTAINER (REDHAT) ===================
-FROM registry.access.redhat.com/ubi8/ubi as secrets-provider-for-k8s-redhat
+FROM registry.access.redhat.com/ubi9/ubi as secrets-provider-for-k8s-redhat
 MAINTAINER CyberArk Software Ltd.
 
 ARG VERSION
