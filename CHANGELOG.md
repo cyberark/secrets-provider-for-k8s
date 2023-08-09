@@ -8,8 +8,11 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [1.6.1] - 2023-07-27
 
-## [1.6.0] - 2023-07-19
+### Security
+- Updated go to 1.20, alpine to latest, and redhat UBI to ubi9 in main Dockerfile
+  [cyberark/secrets-provider-for-k8s#541](https://github.com/cyberark/secrets-provider-for-k8s/pull/541)
 
+## [1.6.0] - 2023-07-19
 ### Added
 - Log level is now configurable using the `LOG_LEVEL` environment variable or `conjur.org/log-level` annotation.
   The existing `DEBUG` environment variable and `conjur.org/debug-logging` annotation is deprecated and will be removed in a future update.
