@@ -36,8 +36,9 @@ deployConjur() {
   # This is done outside of the container to avoid authentication errors when pulling from the internal registry
   # from inside the container
   docker pull $CONJUR_APPLIANCE_IMAGE
+  docker pull registry.tld/cyberark/dap-seedfetcher:0.6.4-7
 
-  git clone --single-branch --branch master \
+  git clone --single-branch --branch openssl-3-base-images \
       git@github.com:cyberark/kubernetes-conjur-deploy \
       kubernetes-conjur-deploy-$UNIQUE_TEST_ID
 
