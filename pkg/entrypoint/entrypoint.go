@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"time"
 
@@ -171,7 +170,7 @@ func secretRetriever(
 	_, span := tracer.Start(ctx, "Gather authenticator config")
 	defer span.End()
 
-	authnConfig, err := authnConfigProvider.NewConfigFromCustomEnv(ioutil.ReadFile, customEnv)
+	authnConfig, err := authnConfigProvider.NewConfigFromCustomEnv(os.ReadFile, customEnv)
 	if err != nil {
 		span.RecordErrorAndSetStatus(err)
 		log.Error(messages.CSPFK008E)

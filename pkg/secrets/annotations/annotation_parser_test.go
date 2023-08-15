@@ -3,7 +3,6 @@ package annotations
 import (
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"strings"
 	"testing"
@@ -15,7 +14,7 @@ import (
 // that does a no-op for file closing, and returns specified content
 // for read operations.
 func mockReadCloser(contents string) io.ReadCloser {
-	return ioutil.NopCloser(strings.NewReader(contents))
+	return io.NopCloser(strings.NewReader(contents))
 }
 
 func mockFileOpenerGenerator(store map[string]io.ReadCloser) fileOpener {

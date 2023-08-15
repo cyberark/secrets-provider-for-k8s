@@ -3,7 +3,6 @@ package pushtofile
 import (
 	"bytes"
 	"io"
-	"io/ioutil"
 	"os"
 )
 
@@ -14,7 +13,7 @@ type ClosableBuffer struct {
 
 func (c ClosableBuffer) Close() error { return c.CloseErr }
 
-//// pushToWriterFunc
+// pushToWriterFunc
 type pushToWriterArgs struct {
 	writer        io.Writer
 	groupName     string
@@ -51,7 +50,7 @@ func (spy *pushToWriterSpy) Call(
 	return spy.targetsUpdated, spy.err
 }
 
-//// openWriteCloserFunc
+// openWriteCloserFunc
 type openWriteCloserArgs struct {
 	path        string
 	permissions os.FileMode
@@ -79,7 +78,7 @@ func (spy *openWriteCloserSpy) Call(path string, permissions os.FileMode) (io.Wr
 	return spy.writeCloser, spy.err
 }
 
-//// pullFromReaderFunc
+// pullFromReaderFunc
 type pullFromReaderArgs struct {
 	reader io.Reader
 }
@@ -103,7 +102,7 @@ func (spy *pullFromReaderSpy) Call(
 		reader: reader,
 	}
 
-	content, err := ioutil.ReadAll(reader)
+	content, err := io.ReadAll(reader)
 	if err != nil {
 		return string(content), err
 	}
@@ -111,7 +110,7 @@ func (spy *pullFromReaderSpy) Call(
 	return string(content), spy.err
 }
 
-//// openReadCloserFunc
+// openReadCloserFunc
 type openReadCloserArgs struct {
 	path string
 }

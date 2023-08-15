@@ -2,7 +2,6 @@ package atomicwriter
 
 import (
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 
@@ -29,7 +28,7 @@ var stdOSFuncs = osFuncs{
 	sync: func(file *os.File) error {
 		return file.Sync()
 	},
-	tempFile: ioutil.TempFile,
+	tempFile: os.CreateTemp,
 	truncate: os.Truncate,
 	write: func(file *os.File, content []byte) (int, error) {
 		return file.Write(content)

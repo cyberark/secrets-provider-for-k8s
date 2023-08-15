@@ -2,7 +2,6 @@ package pushtofile
 
 import (
 	"io"
-	"io/ioutil"
 	"os"
 )
 
@@ -19,13 +18,13 @@ func openFileAsReadCloser(path string) (io.ReadCloser, error) {
 	if err != nil {
 		return nil, err
 	}
-	return ioutil.NopCloser(reader), nil
+	return io.NopCloser(reader), nil
 }
 
 func pullFromReader(
 	reader io.Reader,
 ) (string, error) {
-	content, err := ioutil.ReadAll(reader)
+	content, err := io.ReadAll(reader)
 	if err != nil {
 		return "", err
 	}
