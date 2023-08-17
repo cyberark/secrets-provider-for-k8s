@@ -6,10 +6,10 @@ package e2e
 import (
 	"bytes"
 	"context"
-	"testing"
-	"strings"
 	"crypto/rand"
 	"encoding/base64"
+	"fmt"
+	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"sigs.k8s.io/e2e-framework/pkg/envconf"
@@ -26,10 +26,10 @@ func TestSSHKeysProvidedK8s(t *testing.T) {
 			RunCommandInSecretsProviderPod(cfg.Client(), command, &stdout, &stderr)
 
 			assert.Contains(t, stdout.String(), "\"ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEA879BJGYlPTLIuc9/R5MYiN4yc/YiCLcdBpSdzgK9Dt0Bkfe3rSz5cPm4wmehdE7GkVFXrBJ2YHqPLuM1yx1AUxIebpwlIl9f/aUHOts9eVnVh4NztPy0iSU/Sv0b2ODQQvcy2vYcujlorscl8JjAgfWsO3W4iGEe6QwBpVomcME8IU35v5VbylM9ORQa6wvZMVrPECBvwItTY8cPWH3MGZiK/74eHbSLKA4PY3gM4GHI450Nie16yggEg2aTQfWA1rry9JYWEoHS9pJ1dnLqZU3k/8OWgqJrilwSoC5rGjgp93iu0H8T6+mEHGRQe84Nk1y5lESSWIbn6P636Bl3uQ== your@email.com\"")
-		
+
 			return ctx
 		})
-	
+
 	testenv.Test(t, f.Feature())
 }
 
@@ -43,13 +43,12 @@ func TestJsonObjectSecretProvidedK8s(t *testing.T) {
 			RunCommandInSecretsProviderPod(cfg.Client(), command, &stdout, &stderr)
 
 			assert.Contains(t, stdout.String(), "\"{\"auths\":{\"someurl\":{\"auth\":\"sometoken=\"}}}\"")
-		
+
 			return ctx
 		})
-	
+
 	testenv.Test(t, f.Feature())
 }
-
 
 func TestVariablesWithSpacesSecretProvidedK8s(t *testing.T) {
 	f := features.New("variables with spaces secret provided").
@@ -64,7 +63,7 @@ func TestVariablesWithSpacesSecretProvidedK8s(t *testing.T) {
 
 			return ctx
 		})
-	
+
 	testenv.Test(t, f.Feature())
 }
 
@@ -78,10 +77,10 @@ func TestVariablesWithPlusesSecretProvidedK8s(t *testing.T) {
 			RunCommandInSecretsProviderPod(cfg.Client(), command, &stdout, &stderr)
 
 			assert.Contains(t, stdout.String(), "some-secret")
-		
+
 			return ctx
 		})
-	
+
 	testenv.Test(t, f.Feature())
 }
 
@@ -128,20 +127,20 @@ func TestLargeDecodedVariablesSecretProvidedK8s(t *testing.T) {
 
 			_, err := rand.Read(str)
 			if err != nil {
-				return err
+				fmt.Errorf("error generating random string: %s", err)
 			}
 
 			encodedStr := base64.StdEncoding.EncodeToString(str)
 
 			// set encoded value in conjur and reload template
-			_, err := SetConjurSecret(cfg.Client(), "secrets/encoded", encodedStr)
+			err = SetConjurSecret(cfg.Client(), "secrets/encoded", encodedStr)
 			if err != nil {
-				return err
+				fmt.Errorf("error setting conjur secret: %s", err)
 			}
 
-			_, err := ReloadWithTemplate(cfg.Client(), K8sTemplate)
+			err = ReloadWithTemplate(cfg.Client(), K8sTemplate)
 			if err != nil {
-				return err
+				fmt.Errorf("error reloading secrets provider: %s", err)
 			}
 
 			// check environment variable for expected value (the secret before encoding)
