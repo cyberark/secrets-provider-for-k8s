@@ -41,6 +41,16 @@ spec:
               secretKeyRef:
                 name: test-k8s-secret
                 key: secret
+          - name: SSH_KEY
+            valueFrom:
+              secretKeyRef:
+                name: test-k8s-secret
+                key: ssh_key
+          - name: JSON_OBJECT_SECRET
+            valueFrom:
+              secretKeyRef:
+                name: test-k8s-secret
+                key: json_object_secret
           - name: VARIABLE_WITH_SPACES_SECRET
             valueFrom:
               secretKeyRef:
