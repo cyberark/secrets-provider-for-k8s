@@ -4,12 +4,16 @@
 package e2e
 
 import (
-	"bytes"
-	"context"
-	"encoding/base64"
+	"os"
 	"fmt"
+	"bytes"
+	"strings"
+	"context"
 	"math/rand"
 	"testing"
+	"os/exec"
+	"crypto/rand"
+	"encoding/base64"
 
 	"github.com/stretchr/testify/assert"
 	"sigs.k8s.io/e2e-framework/pkg/envconf"
@@ -127,6 +131,167 @@ func TestLargeDecodedVariableSecretProvidedK8s(t *testing.T) {
 				fmt.Errorf("error setting conjur secret: %s", err)
 				return ctx
 			}
+			return ctx
+		})
+
+	testenv.Test(t, f.Feature())
+}
+
+func TestMultiplePodsChangingPwdInbetweenSecretProvidedK8s(t *testing.T) {
+	f := features.New("multiple pods changing pwd inbetween").
+		// Replaces TEST_ID_2_multiple_pods_changing_pwd_inbetween
+		Assess("multiple pods changing pwd inbetween secret set correctly in pod", func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
+			
+			/* TO-DO */
+
+			return ctx
+		})
+
+	testenv.Test(t, f.Feature())
+}
+
+func TestNoPermissionSecretProvidedK8s(t *testing.T) {
+	f := features.New("no permission to view conjur secrets").
+		// Replaces TEST_ID_12_no_conjur_secrets_permission
+		Assess("no permission to view conjur secrets in pod", func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
+			// set login configuration in local environment
+			authenticatorID := os.Getenv("AUTHENTICATOR_ID")
+			appNamespaceName := os.Getenv("APP_NAMESPACE_NAME")
+
+			loginURI := fmt.Sprintf("host/conjur/authn-k8s/%s/apps/%s/service_account/%s-sa", authenticatorID, appNamespaceName, appNamespaceName)
+
+			os.Setenv("CONJUR_AUTHN_LOGIN", loginURI)
+
+			// reload template with new login configuration
+			err := ReloadWithTemplate(cfg.Client(), K8sTemplate)
+			if err != nil {
+				fmt.Errorf("error reloading secrets provider: %s", err)
+			}
+
+			// get pod name and fetch logs from pod (we cannot run kubectl commands inside a container)
+			getPodNameCommand := exec.Command("kubectl", "get", "pods", "--namespace", "local-secrets-provider", "-o", "jsonpath=\"{.items[0].metadata.name}\"")
+			podName, err := getPodNameCommand.CombinedOutput()
+			if err != nil {
+				fmt.Errorf("error getting pod name output: %s", err)
+			}
+
+			getPodLogsCommand := exec.Command("kubectl", "logs", string(podName), "-c", "cyberark-secrets-provider-for-k8s")
+			podLogs, err := getPodLogsCommand.CombinedOutput()
+			if err != nil {
+				fmt.Errorf("error getting pod logs output: %s", err)
+			}
+			
+			// expect error CSPFK034E 'Failed to retrieve Conjur secrets' from logs
+			assert.Contains(t, string(podLogs), "CSPFK034E") // for reference, a successful conjur secrets update: CSPFK009I
+
+			return ctx
+		})
+
+	testenv.Test(t, f.Feature())
+}
+
+func TestHostNotInAppsSecretProvidedK8s(t *testing.T) {
+	f := features.New("host not in apps secret provided").
+		// Replaces TEST_ID_13_host_not_in_apps
+		Assess("host not in apps secret set correctly in pod", func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
+			// set login configuration in local environment
+			appNamespaceName := os.Getenv("APP_NAMESPACE_NAME")
+
+			loginURI := fmt.Sprintf("host/some-apps/%s/*/*", appNamespaceName)
+
+			os.Setenv("CONJUR_AUTHN_LOGIN", loginURI)
+
+			// reload template with new login configuration
+			err := ReloadWithTemplate(cfg.Client(), K8sTemplate)
+			if err != nil {
+				fmt.Errorf("error reloading secrets provider: %s", err)
+			}
+			
+			// expect pod has conjur secret
+			var stdout, stderr bytes.Buffer
+			command := []string{"printenv", "TEST_SECRET"}
+
+			RunCommandInSecretsProviderPod(cfg.Client(), command, &stdout, &stderr)
+
+			assert.Contains(t, stdout.String(), "supersecret")
+
+			return ctx
+		})
+
+	testenv.Test(t, f.Feature())
+}
+
+func TestHostInRootPolicySecretProvidedK8s(t *testing.T) {
+	f := features.New("host in root policy secret provided").
+		// Replaces TEST_ID_14_host_in_root_policy
+		Assess("host in root policy secret set correctly in pod", func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
+			// set login configuration in local environment
+			appNamespaceName := os.Getenv("APP_NAMESPACE_NAME")
+
+			loginURI := fmt.Sprintf("host/${APP_NAMESPACE_NAME}/*/*", appNamespaceName)
+
+			os.Setenv("CONJUR_AUTHN_LOGIN", loginURI)
+
+			// reload template with new login configuration
+			err := ReloadWithTemplate(cfg.Client(), K8sTemplate)
+			if err != nil {
+				fmt.Errorf("error reloading secrets provider: %s", err)
+			}
+			
+			// expect pod has conjur secret
+			var stdout, stderr bytes.Buffer
+			command := []string{"printenv", "TEST_SECRET"}
+
+			RunCommandInSecretsProviderPod(cfg.Client(), command, &stdout, &stderr)
+
+			assert.Contains(t, stdout.String(), "supersecret")
+
+			return ctx
+		})
+
+	testenv.Test(t, f.Feature())
+}
+
+func TestHostWithApplicationIdentityInAnnotationsSecretProvidedK8s(t *testing.T) {
+	f := features.New("host with application identity in annotations secret provided").
+		// Replaces TEST_ID_15_host_with_application_identity_in_annotations
+		Assess("host with application identity in annotations secret set correctly in pod", func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
+			// set login configuration in local environment
+			loginURI := "host/some-apps/annotations-app"
+
+			os.Setenv("CONJUR_AUTHN_LOGIN", loginURI)
+
+			// reload template with new login configuration
+			err := ReloadWithTemplate(cfg.Client(), K8sTemplate)
+			if err != nil {
+				fmt.Errorf("error reloading secrets provider: %s", err)
+			}
+			
+			// expect pod has conjur secret
+			var stdout, stderr bytes.Buffer
+			command := []string{"printenv", "TEST_SECRET"}
+
+			RunCommandInSecretsProviderPod(cfg.Client(), command, &stdout, &stderr)
+
+			assert.Contains(t, stdout.String(), "supersecret")
+
+			return ctx
+		})
+
+	testenv.Test(t, f.Feature())
+}
+
+func TestNonConjurKeysStayIntactSecretProvidedK8s(t *testing.T) {
+	f := features.New("non conjur keys stay intact").
+		// Replaces TEST_ID_16_non_conjur_keys_stay_intact_in_k8s_secret
+		Assess("non conjur keys stay intact secret set correctly in pod", func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
+			var stdout, stderr bytes.Buffer
+			command := []string{"printenv", "NON_CONJUR_SECRET"}
+
+			RunCommandInSecretsProviderPod(cfg.Client(), command, &stdout, &stderr)
+
+			assert.Contains(t, stdout.String(), "some-value")
+
 			return ctx
 		})
 
