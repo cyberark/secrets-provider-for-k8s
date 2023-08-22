@@ -4,11 +4,9 @@
 package e2e
 
 const (
-	// Namespaces and container names
-	SecretsProviderNamespace = "local-secrets-provider"
-	ConjurNamespace          = "local-conjur"
-	TestAppContainer         = "test-app"
-	CLIContainer             = "conjur-cli"
+	// Container names
+	TestAppContainer = "test-app"
+	CLIContainer     = "conjur-cli"
 
 	// Available templates:
 	K8sTemplate         = "secrets-provider-init-container"

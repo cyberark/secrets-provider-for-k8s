@@ -24,11 +24,13 @@ main() {
 }
 
 buildTestRunnerImage() {
+  pushd ..
   docker build --tag $TEST_RUNNER_IMAGE:$CONJUR_NAMESPACE_NAME \
-    --file test/Dockerfile \
+    --file Dockerfile.e2e \
     --build-arg OPENSHIFT_CLI_URL=$OPENSHIFT_CLI_URL \
     --build-arg KUBECTL_CLI_URL=$KUBECTL_CLI_URL \
     .
+  popd
 }
 
 deployConjur() {

@@ -128,8 +128,8 @@ runDockerCommand() {
       -v /var/run/docker.sock:/var/run/docker.sock \
       -v ~/.config:/root/.config \
       -v "$PWD/../helm":/helm \
-      -v "$PWD":/src \
-      -w /src \
+      -v "$PWD/..":/src \
+      -w /src/deploy \
       $TEST_RUNNER_IMAGE:$CONJUR_NAMESPACE_NAME \
       bash -c "
         ./platform_login.sh
@@ -168,10 +168,9 @@ runDockerCommand() {
       -e SUMMON_ENV \
       -e IMAGE_PULL_SECRET \
       -v /var/run/docker.sock:/var/run/docker.sock \
-      -v ~/.config:/root/.config \
       -v "$PWD/../helm":/helm \
-      -v "$PWD":/src \
-      -w /src \
+      -v "$PWD/..":/src \
+      -w /src/deploy \
       $TEST_RUNNER_IMAGE:$CONJUR_NAMESPACE_NAME \
       bash -c "
         ./platform_login.sh

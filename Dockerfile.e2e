@@ -1,19 +1,59 @@
-FROM golang:1.20-alpine
-MAINTAINER CyberArk Software Ltd.
-LABEL id="secrets-provider-for-k8s-e2e-test-runner"
+FROM google/cloud-sdk:437.0.0-slim
 
+RUN mkdir -p /src
+WORKDIR /src
+
+# Install Docker client
+RUN apt-get update -y && \
+    apt-get install -y apt-transport-https ca-certificates curl gnupg2 software-properties-common wget google-cloud-sdk-gke-gcloud-auth-plugin && \
+    curl -fsSL https://download.docker.com/linux/$(. /etc/os-release; echo "$ID")/gpg | apt-key add - && \
+    add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/$(. /etc/os-release; echo "$ID") $(lsb_release -cs) stable" && \
+    apt-get update && \
+    apt-get install -y docker-ce && \
+    rm -rf /var/lib/apt/lists/*
+
+# Install kubectl CLI
+ARG KUBECTL_CLI_URL
+RUN wget -O /usr/local/bin/kubectl ${KUBECTL_CLI_URL:-https://storage.googleapis.com/kubernetes-release/release/v1.7.6/bin/linux/amd64/kubectl} && \
+    chmod +x /usr/local/bin/kubectl
+
+# Install OpenShift oc CLI
+ARG OPENSHIFT_CLI_URL
+RUN mkdir -p ocbin && \
+    wget -O oc.tar.gz ${OPENSHIFT_CLI_URL:-https://mirror.openshift.com/pub/openshift-v4/x86_64/clients/ocp/stable/openshift-client-linux.tar.gz} && \
+    tar xvf oc.tar.gz -C ocbin && \
+    cp "$(find ./ocbin -name 'oc' -type f | tail -1)"  /usr/local/bin/oc  && \
+    rm -rf ocbin oc.tar.gz
+
+# Install Helm
+RUN curl -fsSL -o get_helm.sh https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 && \
+    chmod 700 get_helm.sh && \
+    ./get_helm.sh
+
+# Adds ability to perform mathematical operations with floats for testing
+RUN apt-get update -y && \
+    apt-get install -y bc
+
+# Add Golang-based E2E tests
+# Install necessary packages to download and install Golang
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    ca-certificates \
+    curl \
+    git
+
+# Download and install Golang
+ENV GOLANG_VERSION 1.20
+RUN curl -L https://golang.org/dl/go${GOLANG_VERSION}.linux-amd64.tar.gz | tar -C /usr/local -xz
+ENV PATH=$PATH:/usr/local/go/bin
+
+RUN mkdir -p /secrets-provider-for-k8s
 WORKDIR /secrets-provider-for-k8s
 
-RUN apk add -u curl \
-               gcc \
-               git \
-               mercurial \
-               musl-dev
-
-COPY ./go.mod ./go.sum /secrets-provider-for-k8s/
+COPY go.mod go.sum /secrets-provider-for-k8s/
 
 RUN go mod download
 
 COPY . .
 
-ENTRYPOINT [ "go", "test", "-v", "-timeout", "3m", "-tags", "e2e", "./e2e/..." ]
+WORKDIR /src

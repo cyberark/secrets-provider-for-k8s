@@ -100,7 +100,7 @@ You can also view Conjur Enterprise / Conjur Open Source pod logs by running `ku
 
 #### Run integration tests against local development environment
 
-Assuming you have a running local cluster per the previous section and a valid kubeconfig, you can run the Golang-based integration tests by simply running `./bin/test_e2e` from the project root folder. This will build a test container with the kubeconfig mounted, and execute the tests against the local cluster.
+Assuming you have a running local cluster per the previous section and a valid kubeconfig, you can run the Golang-based integration tests by simply running `go test -timeout 0 -v ./e2e --tags=e2e` from the project root folder. This will execute the tests against the local cluster.
 
 NOTE: This assumes that the cluster is running with the default values in `bootstrap.env` for local DEV clusters.
 
