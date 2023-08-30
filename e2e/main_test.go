@@ -22,7 +22,6 @@ import (
 var (
 	testenv   env.Environment
 	k8sClient klient.Client
-	spPodName string
 )
 
 func TestMain(m *testing.M) {
@@ -35,13 +34,12 @@ func TestMain(m *testing.M) {
 	testenv.Setup(
 		func(ctx context.Context, cfg *envconf.Config) (context.Context, error) {
 			fmt.Println("Fetching the secrets provider pod in namespace " + SecretsProviderNamespace())
-			spPod, err := FetchSecretsProviderPod(k8sClient)
+			spPod, err := FetchPodWithLabelSelector(k8sClient, SecretsProviderNamespace(), SecretsProviderLabelSelector)
 			if err != nil {
 				return ctx, err
 			}
-			spPodName = spPod.Name
 
-			fmt.Printf("Verifying the secrets provider pod (%s) is ready before running tests\n", spPodName)
+			fmt.Printf("Verifying the secrets provider pod (%s) is ready before running tests\n", spPod.Name)
 			err = wait.For(conditions.New(k8sClient.Resources(SecretsProviderNamespace())).PodReady(k8s.Object(&spPod)), wait.WithTimeout(time.Minute*1))
 			if err != nil {
 				fmt.Println("Setup error: " + err.Error())

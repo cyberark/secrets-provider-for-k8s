@@ -5,8 +5,10 @@ package e2e
 
 const (
 	// Container names
-	TestAppContainer = "test-app"
-	CLIContainer     = "conjur-cli"
+	TestAppContainer             = "test-app"
+	CLIContainer                 = "conjur-cli"
+	SecretsProviderLabelSelector = "app=test-env"
+	CLILabelSelector             = "app=conjur-cli"
 
 	// Available templates:
 	K8sTemplate         = "secrets-provider-init-container"

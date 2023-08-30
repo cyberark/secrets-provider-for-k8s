@@ -13,56 +13,49 @@ import (
 	"time"
 
 	v1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/e2e-framework/klient"
 	"sigs.k8s.io/e2e-framework/klient/k8s"
+	"sigs.k8s.io/e2e-framework/klient/k8s/resources"
 	"sigs.k8s.io/e2e-framework/klient/wait"
 	"sigs.k8s.io/e2e-framework/klient/wait/conditions"
 )
 
-func ReloadWithTemplate(client klient.Client, template string) (v1.Pod, error) {
+func ReloadWithTemplate(client klient.Client, template string) error {
 	fmt.Println("Reloading test environment with template " + template)
 	os.Setenv("TEMPLATE", template)
 	cmd := exec.Command("../deploy/redeploy.sh")
-
 	cmd.Env = os.Environ()
-
 	out, err := cmd.CombinedOutput()
-
-	fmt.Println(string(out))
 	if err != nil {
-		fmt.Println("Error: " + string(out))
-		return v1.Pod{}, fmt.Errorf("failed to execute command. %v, %s", err, out)
+		fmt.Println("Error running redeploy.sh. Stdout:\n" + string(out))
+		return err
 	}
 
 	fmt.Println("Waiting for secrets provider pod to be ready...")
-
-	// Get the Secrets Provider Pod
-	var pods v1.PodList
-	FetchPodsFromNamespace(client, SecretsProviderNamespace(), &pods)
-
-	// Wait for the Secrets Provider Pod to be ready
-	pod := v1.Pod{ObjectMeta: metav1.ObjectMeta{Name: pods.Items[0].Name, Namespace: SecretsProviderNamespace()}}
-	err = wait.For(conditions.New(client.Resources()).PodReady(k8s.Object(&pod)), wait.WithTimeout(time.Minute*1))
-
+	pod, err := FetchPodWithLabelSelector(client, SecretsProviderNamespace(), SecretsProviderLabelSelector)
 	if err != nil {
-		fmt.Println("Stdout:\n" + string(out))
-		return v1.Pod{}, fmt.Errorf("error waiting for PodReady: %v", err)
+		fmt.Println("Error locating Secrets Provider pod after redeploy. Stdout:\n" + string(out))
+		return err
 	}
 
-	return FetchSecretsProviderPod(client)
+	err = wait.For(conditions.New(client.Resources()).PodReady(k8s.Object(&pod)), wait.WithTimeout(time.Minute*1))
+	if err != nil {
+		fmt.Println("Error waiting for Secrets Provider pod to be 'Ready' after redeploy. Stdout:\n" + string(out))
+		return err
+	}
+
+	return nil
 }
 
 func SetConjurSecret(client klient.Client, varId string, value string) error {
-	// Get the CLI Pod
-	var pods v1.PodList
-	FetchPodsFromNamespace(client, ConjurNamespace(), &pods)
-
-	podName := pods.Items[0].Name
+	pod, err := FetchPodWithLabelSelector(client, ConjurNamespace(), CLILabelSelector)
+	if err != nil {
+		return fmt.Errorf("failed to fetch cli pod. %v", err)
+	}
 
 	var stdout, stderr bytes.Buffer
 	command := []string{"conjur", "variable", "set", "-i", varId, "-v", value}
-	if err := client.Resources(ConjurNamespace()).ExecInPod(context.TODO(), ConjurNamespace(), podName, CLIContainer, command, &stdout, &stderr); err != nil {
+	if err := client.Resources(ConjurNamespace()).ExecInPod(context.TODO(), ConjurNamespace(), pod.Name, CLIContainer, command, &stdout, &stderr); err != nil {
 		return fmt.Errorf("failed to execute command. %v, %s", err, stderr.String())
 	}
 
@@ -72,52 +65,33 @@ func SetConjurSecret(client klient.Client, varId string, value string) error {
 	return nil
 }
 
-func RunCommandInSecretsProviderPod(client klient.Client, spPodName string, command []string, stdout *bytes.Buffer, stderr *bytes.Buffer) error {
-	// Get the Secrets Provider Pod
-	var pods v1.PodList
-	FetchPodsFromNamespace(client, SecretsProviderNamespace(), &pods)
+func RunCommandInSecretsProviderPod(client klient.Client, command []string, stdout *bytes.Buffer, stderr *bytes.Buffer) error {
+	spPod, err := FetchPodWithLabelSelector(client, SecretsProviderNamespace(), SecretsProviderLabelSelector)
+	if err != nil {
+		return fmt.Errorf("failed to fetch secrets provider pod. %v", err)
+	}
 
-	if err := client.Resources(SecretsProviderNamespace()).ExecInPod(context.TODO(), SecretsProviderNamespace(), spPodName, TestAppContainer, command, stdout, stderr); err != nil {
+	if err = client.Resources(SecretsProviderNamespace()).ExecInPod(context.TODO(), SecretsProviderNamespace(), spPod.Name, TestAppContainer, command, stdout, stderr); err != nil {
 		return fmt.Errorf("failed to execute command. %v, %s", err, stderr.String())
 	}
 
 	return nil
 }
 
-func FetchPodsFromNamespace(client klient.Client, namespace string, pods *v1.PodList) error {
-	err := client.Resources(namespace).List(context.TODO(), pods)
-	if err != nil {
-		return err
-	}
-	if len(pods.Items) == 0 {
-		return fmt.Errorf("no pods found in namespace %s", namespace)
-	}
-	fmt.Printf("Found %d pod(s) in namespace %s\n", len(pods.Items), namespace)
-	return nil
-}
-
-func FetchSecretsProviderPod(client klient.Client) (v1.Pod, error) {
+func FetchPodWithLabelSelector(client klient.Client, namespace string, labelSelector string) (v1.Pod, error) {
 	var pods v1.PodList
-	var spPod v1.Pod
-	for {
-		FetchPodsFromNamespace(client, SecretsProviderNamespace(), &pods)
-		// In openshift, there is a deployment pod in the namespace we need to ignore
-		if len(pods.Items) == 2 {
-			for _, pod := range pods.Items {
-				if pod.Name != "test-env-1-deploy" {
-					return pod, nil
-				}
-			}
-			return spPod, fmt.Errorf("Unable to locate secrets provider pod in the podlist: %v", pods.Items)
-		}
+	var pod v1.Pod
 
-		if len(pods.Items) == 1 {
-			return pods.Items[0], nil
-		}
-
-		fmt.Println("No pods found, sleeping for 5 seconds...")
-		time.Sleep(5 * time.Second)
+	err := client.Resources(namespace).List(context.TODO(), &pods, resources.WithLabelSelector(labelSelector))
+	if err != nil {
+		return pod, fmt.Errorf("failed to fetch pods. %v", err)
 	}
+
+	if len(pods.Items) == 1 {
+		return pods.Items[0], nil
+	}
+
+	return pod, fmt.Errorf("Expected exactly 1 pod to match label selector %s in namespace %s. Matching pod list: %v", labelSelector, namespace, pods.Items)
 }
 
 func SecretsProviderNamespace() string {

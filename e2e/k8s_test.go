@@ -22,7 +22,7 @@ func TestSecretsProvidedK8s(t *testing.T) {
 			var stdout, stderr bytes.Buffer
 			command := []string{"printenv", "|", "grep", "SSH_KEY"}
 
-			RunCommandInSecretsProviderPod(cfg.Client(), spPodName, command, &stdout, &stderr)
+			RunCommandInSecretsProviderPod(cfg.Client(), command, &stdout, &stderr)
 
 			assert.Contains(t, stdout.String(), "\"ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEA879BJGYlPTLIuc9/R5MYiN4yc/YiCLcdBpSdzgK9Dt0Bkfe3rSz5cPm4wmehdE7GkVFXrBJ2YHqPLuM1yx1AUxIebpwlIl9f/aUHOts9eVnVh4NztPy0iSU/Sv0b2ODQQvcy2vYcujlorscl8JjAgfWsO3W4iGEe6QwBpVomcME8IU35v5VbylM9ORQa6wvZMVrPECBvwItTY8cPWH3MGZiK/74eHbSLKA4PY3gM4GHI450Nie16yggEg2aTQfWA1rry9JYWEoHS9pJ1dnLqZU3k/8OWgqJrilwSoC5rGjgp93iu0H8T6+mEHGRQe84Nk1y5lESSWIbn6P636Bl3uQ== your@email.com\"")
 
@@ -32,7 +32,7 @@ func TestSecretsProvidedK8s(t *testing.T) {
 			var stdout, stderr bytes.Buffer
 			command := []string{"printenv", "|", "grep", "JSON_OBJECT_SECRET"}
 
-			RunCommandInSecretsProviderPod(cfg.Client(), spPodName, command, &stdout, &stderr)
+			RunCommandInSecretsProviderPod(cfg.Client(), command, &stdout, &stderr)
 
 			assert.Contains(t, stdout.String(), "\"{\"auths\":{\"someurl\":{\"auth\":\"sometoken=\"}}}\"")
 
@@ -42,7 +42,7 @@ func TestSecretsProvidedK8s(t *testing.T) {
 			var stdout, stderr bytes.Buffer
 			command := []string{"printenv", "|", "grep", "VARIABLE_WITH_SPACES_SECRET"}
 
-			RunCommandInSecretsProviderPod(cfg.Client(), spPodName, command, &stdout, &stderr)
+			RunCommandInSecretsProviderPod(cfg.Client(), command, &stdout, &stderr)
 
 			assert.Contains(t, stdout.String(), "some-secret")
 
@@ -52,7 +52,7 @@ func TestSecretsProvidedK8s(t *testing.T) {
 			var stdout, stderr bytes.Buffer
 			command := []string{"printenv", "|", "grep", "VARIABLE_WITH_PLUSES_SECRET"}
 
-			RunCommandInSecretsProviderPod(cfg.Client(), spPodName, command, &stdout, &stderr)
+			RunCommandInSecretsProviderPod(cfg.Client(), command, &stdout, &stderr)
 
 			assert.Contains(t, stdout.String(), "some-secret")
 
@@ -63,7 +63,7 @@ func TestSecretsProvidedK8s(t *testing.T) {
 
 			command := []string{"printenv", "|", "grep", "VARIABLE_WITH_UMLAUT_SECRET"}
 
-			RunCommandInSecretsProviderPod(cfg.Client(), spPodName, command, &stdout, &stderr)
+			RunCommandInSecretsProviderPod(cfg.Client(), command, &stdout, &stderr)
 
 			assert.Contains(t, stdout.String(), "ÄäÖöÜü")
 
@@ -73,7 +73,7 @@ func TestSecretsProvidedK8s(t *testing.T) {
 			var stdout, stderr bytes.Buffer
 			command := []string{"printenv", "|", "grep", "VARIABLE_WITH_BASE64_SECRET"}
 
-			RunCommandInSecretsProviderPod(cfg.Client(), spPodName, command, &stdout, &stderr)
+			RunCommandInSecretsProviderPod(cfg.Client(), command, &stdout, &stderr)
 
 			assert.Contains(t, stdout.String(), "secret-value")
 
@@ -101,12 +101,10 @@ func TestLargeDecodedVariableSecretProvidedK8s(t *testing.T) {
 				fmt.Errorf("error setting conjur secret: %s", err)
 			}
 
-			spPod, err := ReloadWithTemplate(cfg.Client(), K8sTemplate)
+			err = ReloadWithTemplate(cfg.Client(), K8sTemplate)
 			if err != nil {
 				fmt.Errorf("error reloading secrets provider pod: %s", err)
 			}
-			// Refresh the pod name after reload
-			spPodName = spPod.Name
 
 			return context.WithValue(ctx, "expected", string(str))
 		}).
@@ -115,7 +113,7 @@ func TestLargeDecodedVariableSecretProvidedK8s(t *testing.T) {
 			var stdout, stderr bytes.Buffer
 			command := []string{"printenv", "|", "grep", "VARIABLE_WITH_BASE64_SECRET"}
 
-			RunCommandInSecretsProviderPod(cfg.Client(), spPodName, command, &stdout, &stderr)
+			RunCommandInSecretsProviderPod(cfg.Client(), command, &stdout, &stderr)
 
 			assert.Contains(t, stdout.String(), ctx.Value("expected").(string))
 
