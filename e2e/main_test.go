@@ -10,8 +10,6 @@ import (
 	"testing"
 	"time"
 
-	v1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/e2e-framework/klient"
 	"sigs.k8s.io/e2e-framework/klient/conf"
 	"sigs.k8s.io/e2e-framework/klient/k8s"
@@ -35,14 +33,19 @@ func TestMain(m *testing.M) {
 
 	testenv.Setup(
 		func(ctx context.Context, cfg *envconf.Config) (context.Context, error) {
-			fmt.Println("Verifying the secrets provider pod is ready")
-			var pods v1.PodList
-			FetchPodsFromNamespace(k8sClient, SecretsProviderNamespace, &pods)
-			pod := v1.Pod{ObjectMeta: metav1.ObjectMeta{Name: pods.Items[0].Name}}
-			err := wait.For(conditions.New(k8sClient.Resources(SecretsProviderNamespace)).PodReady(k8s.Object(&pod)), wait.WithTimeout(time.Minute*1))
+			fmt.Println("Fetching the secrets provider pod in namespace " + SecretsProviderNamespace())
+			spPod, err := FetchPodWithLabelSelector(k8sClient, SecretsProviderNamespace(), SecretsProviderLabelSelector)
 			if err != nil {
-				fmt.Print(err)
+				return ctx, err
 			}
+
+			fmt.Printf("Verifying the secrets provider pod (%s) is ready before running tests\n", spPod.Name)
+			err = wait.For(conditions.New(k8sClient.Resources(SecretsProviderNamespace())).PodReady(k8s.Object(&spPod)), wait.WithTimeout(time.Minute*1))
+			if err != nil {
+				fmt.Println("Setup error: " + err.Error())
+				return ctx, err
+			}
+
 			return ctx, nil
 		},
 	)
@@ -50,14 +53,14 @@ func TestMain(m *testing.M) {
 	// TODO - Delete the namespaces after all tests run
 	// For dev purposes it is helpful to leave the configured cluster up
 
-	// envfuncs.DeleteNamespace(SecretsProviderNamespace),
-	// envfuncs.DeleteNamespace(ConjurNamespace),
+	// envfuncs.DeleteNamespace(SecretsProviderNamespace()),
+	// envfuncs.DeleteNamespace(ConjurNamespace()),
 	)
 	testenv.AfterEachTest(
 		func(ctx context.Context, _ *envconf.Config, t *testing.T) (context.Context, error) {
 			// TODO - Delete the secrets provider namespace after each test so we can reconfigure as needed
 
-			// envfuncs.DeleteNamespace(SecretsProviderNamespace),
+			// envfuncs.DeleteNamespace(SecretsProviderNamespace()),
 			return ctx, nil
 		},
 	)

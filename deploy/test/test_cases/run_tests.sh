@@ -22,6 +22,20 @@ set +a
 
 times=1
 
+announce "Preparing to run E2E tests"
+
+# Uncomment for Golang-based tests
+./test_case_setup.sh
+create_secret_access_role
+create_secret_access_role_binding
+deploy_env
+pushd /secrets-provider-for-k8s
+go test -v -tags e2e -timeout 0 ./e2e/...
+popd
+
+../../teardown_resources.sh
+
+# Uncomment for Bash tests
 for c in {1..$times}
 do
   for filename in ./$TEST_NAME_PREFIX*.sh; do
