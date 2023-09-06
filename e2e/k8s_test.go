@@ -169,7 +169,9 @@ func TestNoPermissionSecretProvidedK8s(t *testing.T) {
 
 			os.Setenv("CONJUR_AUTHN_LOGIN", loginURI)
 
-			// reload template with new login configuration
+			// In this case the pod will fail to start due to the expected error in Secrets Provider.
+			// Currently ReloadWithTemplate has a built-in 1 minute timeout for the pod to be 'Ready'
+			// We may be able to shorten or omit this timeout to speed up the test.
 			err := ReloadWithTemplate(cfg.Client(), K8sTemplate)
 			if err != nil {
 				fmt.Errorf("error reloading secrets provider: %s", err)
