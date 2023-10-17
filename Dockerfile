@@ -26,9 +26,6 @@ EXPOSE 8080
 
 COPY go.mod go.sum ./
 
-# Add a layer of prefetched modules so the modules are already cached in case we rebuild
-RUN go mod download
-
 # =================== RELEASE BUILD LAYER ===================
 # this layer is used to build the release binaries
 FROM secrets-provider-builder-base as secrets-provider-builder

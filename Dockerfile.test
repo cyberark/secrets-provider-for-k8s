@@ -23,8 +23,6 @@ RUN apk add -u curl \
 
 COPY go.mod go.sum /secrets-provider-for-k8s/
 
-RUN go mod download
-
 COPY . .
 
 ENTRYPOINT [ "go", "test", "-v", "-timeout", "3m" ]
