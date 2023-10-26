@@ -52,8 +52,6 @@ WORKDIR /secrets-provider-for-k8s
 
 COPY go.mod go.sum /secrets-provider-for-k8s/
 
-RUN go mod download
-
 COPY . .
 
 WORKDIR /src
