@@ -15,14 +15,14 @@ properties([
 
 // Performs release promotion.  No other stages will be run
 if (params.MODE == "PROMOTE") {
-  release.promote(params.VERSION_TO_PROMOTE) { sourceVersion, targetVersion, assetDirectory ->
+  release.promote(params.VERSION_TO_PROMOTE) { infrapool, sourceVersion, targetVersion, assetDirectory ->
     // Any assets from sourceVersion Github release are available in assetDirectory
     // Any version number updates from sourceVersion to targetVersion occur here
     // Any publishing of targetVersion artifacts occur here
     // Anything added to assetDirectory will be attached to the Github Release
 
     // Pull existing images from internal registry in order to promote
-    infrapool.agentSh """ 
+    infrapool.agentSh """
       docker pull registry.tld/secrets-provider-for-k8s:${sourceVersion}
       docker pull registry.tld/secrets-provider-for-k8s-redhat:${sourceVersion}
       // Promote source version to target version.
@@ -302,6 +302,7 @@ pipeline {
                     // Publish release artifacts to all the appropriate locations
                     // Copy any artifacts to assetDirectory to attach them to the Github release
 
+                    INFRAPOOL_EXECUTORV2_AGENT_0.agentSh 'go mod tidy'
                     //    // Create Go application SBOM using the go.mod version for the golang container image
                     INFRAPOOL_EXECUTORV2_AGENT_0.agentSh """export PATH="${toolsDirectory}/bin:${PATH}" && go-bom --tools "${toolsDirectory}" --go-mod ./go.mod --image "golang" --main "cmd/secrets-provider/" --output "${billOfMaterialsDirectory}/go-app-bom.json" """
                     //    // Create Go module SBOM
