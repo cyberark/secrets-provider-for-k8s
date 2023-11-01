@@ -116,6 +116,7 @@ pipeline {
           // Copy the vendor directory onto infrapool
           INFRAPOOL_EXECUTORV2_AGENT_0.agentPut from: "vendor", to: "${WORKSPACE}"
           INFRAPOOL_EXECUTORV2_AGENT_0.agentPut from: "go.*", to: "${WORKSPACE}"
+          INFRAPOOL_EXECUTORV2_AGENT_0.agentPut from: "/root/go", to: "/var/lib/jenkins/"
         }
       }
     }
@@ -302,10 +303,9 @@ pipeline {
                     // Publish release artifacts to all the appropriate locations
                     // Copy any artifacts to assetDirectory to attach them to the Github release
 
-                    INFRAPOOL_EXECUTORV2_AGENT_0.agentSh 'go mod tidy'
-                    //    // Create Go application SBOM using the go.mod version for the golang container image
+                    // Create Go application SBOM using the go.mod version for the golang container image
                     INFRAPOOL_EXECUTORV2_AGENT_0.agentSh """export PATH="${toolsDirectory}/bin:${PATH}" && go-bom --tools "${toolsDirectory}" --go-mod ./go.mod --image "golang" --main "cmd/secrets-provider/" --output "${billOfMaterialsDirectory}/go-app-bom.json" """
-                    //    // Create Go module SBOM
+                    // Create Go module SBOM
                     INFRAPOOL_EXECUTORV2_AGENT_0.agentSh """export PATH="${toolsDirectory}/bin:${PATH}" && go-bom --tools "${toolsDirectory}" --go-mod ./go.mod --image "golang" --output "${billOfMaterialsDirectory}/go-mod-bom.json" """
                     INFRAPOOL_EXECUTORV2_AGENT_0.agentSh 'summon ./bin/publish --edge'
                   }
