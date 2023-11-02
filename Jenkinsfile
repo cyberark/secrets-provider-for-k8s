@@ -23,9 +23,10 @@ if (params.MODE == "PROMOTE") {
 
     // Pull existing images from internal registry in order to promote
     infrapool.agentSh """
+      export PATH="release-tools/bin:${PATH}"
       docker pull registry.tld/secrets-provider-for-k8s:${sourceVersion}
       docker pull registry.tld/secrets-provider-for-k8s-redhat:${sourceVersion}
-      // Promote source version to target version.
+      # Promote source version to target version.
       summon ./bin/publish --promote --source ${sourceVersion} --target ${targetVersion}
     """
   }
