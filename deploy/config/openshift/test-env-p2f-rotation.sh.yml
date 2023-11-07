@@ -5,8 +5,8 @@ CONJUR_AUTHN_LOGIN=${CONJUR_AUTHN_LOGIN:-"host/conjur/authn-k8s/${AUTHENTICATOR_
 
 cat << EOL
 ---
-apiVersion: apps.openshift.io/v1
-kind: DeploymentConfig
+apiVersion: apps/v1
+kind: Deployment
 metadata:
   labels:
     app: test-env
@@ -14,7 +14,8 @@ metadata:
 spec:
   replicas: 1
   selector:
-    app: test-env
+    matchLabels:
+      app: test-env
   template:
     metadata:
       labels:
