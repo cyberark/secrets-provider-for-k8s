@@ -654,11 +654,7 @@ generate_manifest_and_deploy() {
     expected_num_replicas=`$CONFIG_DIR/$yaml_template_name.sh.yml |  awk '/replicas:/ {print $2}' `
     
     # Deployment (Deployment for k8s and DeploymentConfig for Openshift) might fail on error flows, even before creating the pods. If so, re-deploy.
-    if [[ "$PLATFORM" = "kubernetes" ]]; then
-        $cli_with_timeout "get deployment $deployment_name -o jsonpath={.status.replicas} | grep '^${expected_num_replicas}$'|| $cli_without_timeout rollout latest deployment $deployment_name"
-    elif [[ "$PLATFORM" = "openshift" ]]; then
-        $cli_with_timeout "get dc/$deployment_name -o jsonpath={.status.replicas} | grep '^${expected_num_replicas}$'|| $cli_without_timeout rollout latest dc/$deployment_name"
-    fi
+    $cli_with_timeout "get deployment $deployment_name -o jsonpath={.status.replicas} | grep '^${expected_num_replicas}$'|| $cli_without_timeout rollout latest deployment $deployment_name"
 
     echo "Expecting $expected_num_replicas deployed pods"
     $cli_with_timeout "get pods --namespace=$APP_NAMESPACE_NAME --selector app=$deployment_name --no-headers | wc -l | grep $expected_num_replicas"
