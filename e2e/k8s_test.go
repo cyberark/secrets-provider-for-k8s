@@ -19,12 +19,18 @@ import (
 
 func TestSecretsProvidedK8s(t *testing.T) {
 	f := features.New("secrets provided (K8s secrets mode)").
+		Setup(func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
+			err := ReloadWithTemplate(cfg.Client(), K8sTemplate)
+			assert.Nil(t, err)
+
+			return ctx
+		}).
 		// Replaces TEST_ID_1.1_providing_ssh_keys_successfully
 		Assess("ssh key set correctly in pod", func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
 			var stdout, stderr bytes.Buffer
 			command := []string{"printenv", "|", "grep", "SSH_KEY"}
 
-			RunCommandInSecretsProviderPod(cfg.Client(), command, &stdout, &stderr)
+			RunCommandInSecretsProviderPod(cfg.Client(), SPLabelSelector, TestAppContainer, command, &stdout, &stderr)
 
 			assert.Contains(t, stdout.String(), "\"ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEA879BJGYlPTLIuc9/R5MYiN4yc/YiCLcdBpSdzgK9Dt0Bkfe3rSz5cPm4wmehdE7GkVFXrBJ2YHqPLuM1yx1AUxIebpwlIl9f/aUHOts9eVnVh4NztPy0iSU/Sv0b2ODQQvcy2vYcujlorscl8JjAgfWsO3W4iGEe6QwBpVomcME8IU35v5VbylM9ORQa6wvZMVrPECBvwItTY8cPWH3MGZiK/74eHbSLKA4PY3gM4GHI450Nie16yggEg2aTQfWA1rry9JYWEoHS9pJ1dnLqZU3k/8OWgqJrilwSoC5rGjgp93iu0H8T6+mEHGRQe84Nk1y5lESSWIbn6P636Bl3uQ== your@email.com\"")
 
@@ -35,7 +41,7 @@ func TestSecretsProvidedK8s(t *testing.T) {
 			var stdout, stderr bytes.Buffer
 			command := []string{"printenv", "|", "grep", "JSON_OBJECT_SECRET"}
 
-			RunCommandInSecretsProviderPod(cfg.Client(), command, &stdout, &stderr)
+			RunCommandInSecretsProviderPod(cfg.Client(), SPLabelSelector, TestAppContainer, command, &stdout, &stderr)
 
 			assert.Contains(t, stdout.String(), "\"{\"auths\":{\"someurl\":{\"auth\":\"sometoken=\"}}}\"")
 
@@ -46,7 +52,7 @@ func TestSecretsProvidedK8s(t *testing.T) {
 			var stdout, stderr bytes.Buffer
 			command := []string{"printenv", "|", "grep", "VARIABLE_WITH_SPACES_SECRET"}
 
-			RunCommandInSecretsProviderPod(cfg.Client(), command, &stdout, &stderr)
+			RunCommandInSecretsProviderPod(cfg.Client(), SPLabelSelector, TestAppContainer, command, &stdout, &stderr)
 
 			assert.Contains(t, stdout.String(), "some-secret")
 
@@ -57,7 +63,7 @@ func TestSecretsProvidedK8s(t *testing.T) {
 			var stdout, stderr bytes.Buffer
 			command := []string{"printenv", "|", "grep", "VARIABLE_WITH_PLUSES_SECRET"}
 
-			RunCommandInSecretsProviderPod(cfg.Client(), command, &stdout, &stderr)
+			RunCommandInSecretsProviderPod(cfg.Client(), SPLabelSelector, TestAppContainer, command, &stdout, &stderr)
 
 			assert.Contains(t, stdout.String(), "some-secret")
 
@@ -69,7 +75,7 @@ func TestSecretsProvidedK8s(t *testing.T) {
 
 			command := []string{"printenv", "|", "grep", "VARIABLE_WITH_UMLAUT_SECRET"}
 
-			RunCommandInSecretsProviderPod(cfg.Client(), command, &stdout, &stderr)
+			RunCommandInSecretsProviderPod(cfg.Client(), SPLabelSelector, TestAppContainer, command, &stdout, &stderr)
 
 			assert.Contains(t, stdout.String(), "ÄäÖöÜü")
 
@@ -80,7 +86,7 @@ func TestSecretsProvidedK8s(t *testing.T) {
 			var stdout, stderr bytes.Buffer
 			command := []string{"printenv", "|", "grep", "VARIABLE_WITH_BASE64_SECRET"}
 
-			RunCommandInSecretsProviderPod(cfg.Client(), command, &stdout, &stderr)
+			RunCommandInSecretsProviderPod(cfg.Client(), SPLabelSelector, TestAppContainer, command, &stdout, &stderr)
 
 			assert.Contains(t, stdout.String(), "secret-value")
 
@@ -91,7 +97,7 @@ func TestSecretsProvidedK8s(t *testing.T) {
 			var stdout, stderr bytes.Buffer
 			command := []string{"printenv", "|", "grep", "NON_CONJUR_SECRET"}
 
-			RunCommandInSecretsProviderPod(cfg.Client(), command, &stdout, &stderr)
+			RunCommandInSecretsProviderPod(cfg.Client(), SPLabelSelector, TestAppContainer, command, &stdout, &stderr)
 
 			assert.Contains(t, stdout.String(), "some-value")
 
@@ -115,14 +121,10 @@ func TestLargeDecodedVariableSecretProvidedK8s(t *testing.T) {
 
 			// set encoded value in conjur and reload template
 			err := SetConjurSecret(cfg.Client(), "secrets/encoded", encodedStr)
-			if err != nil {
-				fmt.Errorf("error setting conjur secret: %s", err)
-			}
+			assert.Nil(t, err)
 
 			err = ReloadWithTemplate(cfg.Client(), K8sTemplate)
-			if err != nil {
-				fmt.Errorf("error reloading secrets provider pod: %s", err)
-			}
+			assert.Nil(t, err)
 
 			return context.WithValue(ctx, "expected", string(str))
 		}).
@@ -132,7 +134,7 @@ func TestLargeDecodedVariableSecretProvidedK8s(t *testing.T) {
 			var stdout, stderr bytes.Buffer
 			command := []string{"printenv", "|", "grep", "VARIABLE_WITH_BASE64_SECRET"}
 
-			RunCommandInSecretsProviderPod(cfg.Client(), command, &stdout, &stderr)
+			RunCommandInSecretsProviderPod(cfg.Client(), SPLabelSelector, TestAppContainer, command, &stdout, &stderr)
 
 			assert.Contains(t, stdout.String(), ctx.Value("expected").(string))
 
@@ -142,10 +144,8 @@ func TestLargeDecodedVariableSecretProvidedK8s(t *testing.T) {
 			// reset the secret value in Conjur
 			encodedStr := base64.StdEncoding.EncodeToString([]byte("secret-value"))
 			err := SetConjurSecret(cfg.Client(), "secrets/encoded", encodedStr)
-			if err != nil {
-				fmt.Errorf("error setting conjur secret: %s", err)
-				return ctx
-			}
+			assert.Nil(t, err)
+
 			return ctx
 		})
 
@@ -160,44 +160,42 @@ func TestMultiplePodsChangingPwdInbetweenSecretProvidedK8s(t *testing.T) {
 			command := []string{"printenv", "|", "grep", "TEST_SECRET"}
 
 			// verify initial secret
-			RunCommandInSecretsProviderPod(cfg.Client(), command, &stdout, &stderr)
+			RunCommandInSecretsProviderPod(cfg.Client(), SPLabelSelector, TestAppContainer, command, &stdout, &stderr)
 			assert.Contains(t, stdout.String(), "supersecret")
 
 			// scale and set secret to secret2
 			err := SetConjurSecret(cfg.Client(), "secrets/test_secret", "secret2")
 			assert.Nil(t, err)
 
-			err = ScaleDeployment(cfg.Client(), "test-env", SecretsProviderNamespace(), 0)
+			err = ScaleDeployment(cfg.Client(), "test-env", SecretsProviderNamespace(), SPLabelSelector, 0)
 			assert.Nil(t, err)
 
-			err = ScaleDeployment(cfg.Client(), "test-env", SecretsProviderNamespace(), 1)
+			err = ScaleDeployment(cfg.Client(), "test-env", SecretsProviderNamespace(), SPLabelSelector, 1)
 			assert.Nil(t, err)
 
-			stdout.Reset()
-			stderr.Reset()
+			ClearBuffer(&stdout, &stderr)
 
 			// verify new secret value in new pod
-			RunCommandInSecretsProviderPod(cfg.Client(), command, &stdout, &stderr)
+			RunCommandInSecretsProviderPod(cfg.Client(), SPLabelSelector, TestAppContainer, command, &stdout, &stderr)
 			assert.Contains(t, stdout.String(), "secret2")
 
 			// scale and set secret to secret3
 			err = SetConjurSecret(cfg.Client(), "secrets/test_secret", "secret3")
 			assert.Nil(t, err)
 
-			err = ScaleDeployment(cfg.Client(), "test-env", SecretsProviderNamespace(), 0)
+			err = ScaleDeployment(cfg.Client(), "test-env", SecretsProviderNamespace(), SPLabelSelector, 0)
 			assert.Nil(t, err)
 
-			err = ScaleDeployment(cfg.Client(), "test-env", SecretsProviderNamespace(), 3)
+			err = ScaleDeployment(cfg.Client(), "test-env", SecretsProviderNamespace(), SPLabelSelector, 3)
 			assert.Nil(t, err)
 
-			pods, err := GetPods(cfg.Client(), SecretsProviderNamespace(), SecretsProviderLabelSelector)
+			pods, err := GetPods(cfg.Client(), SecretsProviderNamespace(), SPLabelSelector)
 			assert.Nil(t, err)
 			for _, pod := range pods.Items {
-				stdout.Reset()
-				stderr.Reset()
+				ClearBuffer(&stdout, &stderr)
 
 				// verify new secret value in new pods
-				RunCommandInPod(cfg.Client(), command, pod.Name, &stdout, &stderr)
+				cfg.Client().Resources(SecretsProviderNamespace()).ExecInPod(context.TODO(), SecretsProviderNamespace(), pod.Name, TestAppContainer, command, &stdout, &stderr)
 				assert.Contains(t, stdout.String(), "secret3")
 			}
 
@@ -207,10 +205,10 @@ func TestMultiplePodsChangingPwdInbetweenSecretProvidedK8s(t *testing.T) {
 			err := SetConjurSecret(cfg.Client(), "secrets/test_secret", "supersecret")
 			assert.Nil(t, err)
 
-			err = ScaleDeployment(cfg.Client(), "test-env", SecretsProviderNamespace(), 0)
+			err = ScaleDeployment(cfg.Client(), "test-env", SecretsProviderNamespace(), SPLabelSelector, 0)
 			assert.Nil(t, err)
 
-			err = ScaleDeployment(cfg.Client(), "test-env", SecretsProviderNamespace(), 1)
+			err = ScaleDeployment(cfg.Client(), "test-env", SecretsProviderNamespace(), SPLabelSelector, 1)
 			assert.Nil(t, err)
 
 			return ctx
@@ -231,9 +229,8 @@ func TestHostNotInAppsSecretProvidedK8s(t *testing.T) {
 
 			// reload template with new login configuration
 			err := ReloadWithTemplate(cfg.Client(), K8sTemplate)
-			if err != nil {
-				fmt.Errorf("error reloading secrets provider: %s", err)
-			}
+			assert.Nil(t, err)
+
 			return ctx
 		}).
 		// Replaces TEST_ID_13_host_not_in_apps
@@ -242,7 +239,7 @@ func TestHostNotInAppsSecretProvidedK8s(t *testing.T) {
 			var stdout, stderr bytes.Buffer
 			command := []string{"printenv", "|", "grep", "TEST_SECRET"}
 
-			RunCommandInSecretsProviderPod(cfg.Client(), command, &stdout, &stderr)
+			RunCommandInSecretsProviderPod(cfg.Client(), SPLabelSelector, TestAppContainer, command, &stdout, &stderr)
 
 			assert.Contains(t, stdout.String(), "supersecret")
 
@@ -266,9 +263,8 @@ func TestHostInRootPolicySecretProvidedK8s(t *testing.T) {
 
 			// reload template with new login configuration
 			err := ReloadWithTemplate(cfg.Client(), K8sTemplate)
-			if err != nil {
-				fmt.Errorf("error reloading secrets provider: %s", err)
-			}
+			assert.Nil(t, err)
+
 			return ctx
 		}).
 		// Replaces TEST_ID_14_host_in_root_policy
@@ -277,7 +273,7 @@ func TestHostInRootPolicySecretProvidedK8s(t *testing.T) {
 			var stdout, stderr bytes.Buffer
 			command := []string{"printenv", "|", "grep", "TEST_SECRET"}
 
-			RunCommandInSecretsProviderPod(cfg.Client(), command, &stdout, &stderr)
+			RunCommandInSecretsProviderPod(cfg.Client(), SPLabelSelector, TestAppContainer, command, &stdout, &stderr)
 
 			assert.Contains(t, stdout.String(), "supersecret")
 
@@ -301,9 +297,8 @@ func TestHostWithApplicationIdentityInAnnotationsSecretProvidedK8s(t *testing.T)
 
 			// reload template with new login configuration
 			err := ReloadWithTemplate(cfg.Client(), K8sTemplate)
-			if err != nil {
-				fmt.Errorf("error reloading secrets provider: %s", err)
-			}
+			assert.Nil(t, err)
+
 			return ctx
 		}).
 		// Replaces TEST_ID_15_host_with_application_identity_in_annotations
@@ -312,7 +307,7 @@ func TestHostWithApplicationIdentityInAnnotationsSecretProvidedK8s(t *testing.T)
 			var stdout, stderr bytes.Buffer
 			command := []string{"printenv", "|", "grep", "TEST_SECRET"}
 
-			RunCommandInSecretsProviderPod(cfg.Client(), command, &stdout, &stderr)
+			RunCommandInSecretsProviderPod(cfg.Client(), SPLabelSelector, TestAppContainer, command, &stdout, &stderr)
 
 			assert.Contains(t, stdout.String(), "supersecret")
 
