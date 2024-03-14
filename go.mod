@@ -60,13 +60,13 @@ require (
 	go.opentelemetry.io/otel/sdk v1.7.0 // indirect
 	go.opentelemetry.io/otel/trace v1.16.0 // indirect
 	golang.org/x/net v0.17.0 // indirect
-	golang.org/x/oauth2 v0.0.0-20220223155221-ee480838109b // indirect
-	golang.org/x/sys v0.8.0 // indirect
-	golang.org/x/term v0.6.0 // indirect
-	golang.org/x/text v0.8.0 // indirect
+	golang.org/x/oauth2 v0.10.0 // indirect
+	golang.org/x/sys v0.13.0 // indirect
+	golang.org/x/term v0.13.0 // indirect
+	golang.org/x/text v0.13.0 // indirect
 	golang.org/x/time v0.3.0 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
-	google.golang.org/protobuf v1.29.1 // indirect
+	google.golang.org/protobuf v1.31.0 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	k8s.io/klog/v2 v2.90.1 // indirect
 	k8s.io/kube-openapi v0.0.0-20230501164219-8b0f38b5fd1f // indirect
@@ -234,29 +234,29 @@ replace gopkg.in/yaml.v3 v3.0.0-20200615113413-eeeca48fe776 => gopkg.in/yaml.v3 
 
 replace gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b => gopkg.in/yaml.v3 v3.0.1
 
-replace google.golang.org/protobuf v0.0.0-20200109180630-ec00e32a8dfd => google.golang.org/protobuf v1.29.1
+replace google.golang.org/protobuf v0.0.0-20200109180630-ec00e32a8dfd => google.golang.org/protobuf v1.32.0
 
-replace google.golang.org/protobuf v0.0.0-20200221191635-4d8936d0db64 => google.golang.org/protobuf v1.29.1
+replace google.golang.org/protobuf v0.0.0-20200221191635-4d8936d0db64 => google.golang.org/protobuf v1.32.0
 
-replace google.golang.org/protobuf v0.0.0-20200228230310-ab0ca4ff8a60 => google.golang.org/protobuf v1.29.1
+replace google.golang.org/protobuf v0.0.0-20200228230310-ab0ca4ff8a60 => google.golang.org/protobuf v1.32.0
 
-replace google.golang.org/protobuf v1.20.1-0.20200309200217-e05f789c0967 => google.golang.org/protobuf v1.29.1
+replace google.golang.org/protobuf v1.20.1-0.20200309200217-e05f789c0967 => google.golang.org/protobuf v1.32.0
 
-replace google.golang.org/protobuf v1.21.0 => google.golang.org/protobuf v1.29.1
+replace google.golang.org/protobuf v1.21.0 => google.golang.org/protobuf v1.32.0
 
-replace google.golang.org/protobuf v1.22.0 => google.golang.org/protobuf v1.29.1
+replace google.golang.org/protobuf v1.22.0 => google.golang.org/protobuf v1.32.0
 
-replace google.golang.org/protobuf v1.23.0 => google.golang.org/protobuf v1.29.1
+replace google.golang.org/protobuf v1.23.0 => google.golang.org/protobuf v1.32.0
 
-replace google.golang.org/protobuf v1.23.1-0.20200526195155-81db48ad09cc => google.golang.org/protobuf v1.29.1
+replace google.golang.org/protobuf v1.23.1-0.20200526195155-81db48ad09cc => google.golang.org/protobuf v1.32.0
 
-replace google.golang.org/protobuf v1.24.0 => google.golang.org/protobuf v1.29.1
+replace google.golang.org/protobuf v1.24.0 => google.golang.org/protobuf v1.32.0
 
-replace google.golang.org/protobuf v1.25.0 => google.golang.org/protobuf v1.29.1
+replace google.golang.org/protobuf v1.25.0 => google.golang.org/protobuf v1.32.0
 
-replace google.golang.org/protobuf v1.26.0-rc.1 => google.golang.org/protobuf v1.29.1
+replace google.golang.org/protobuf v1.26.0-rc.1 => google.golang.org/protobuf v1.32.0
 
-replace google.golang.org/protobuf v1.26.0 => google.golang.org/protobuf v1.29.1
+replace google.golang.org/protobuf v1.26.0 => google.golang.org/protobuf v1.32.0
 
 // Resolves CVE-2022-1996 until k8s.io/client-go v0.25.0+ is released
 replace k8s.io/kube-openapi v0.0.0-20220328201542-3ee0da9b0b42 => k8s.io/kube-openapi v0.0.0-20220627174259-011e075b9cb8
