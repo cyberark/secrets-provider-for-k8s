@@ -6,7 +6,11 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
-## [1.6.2] - 2023-12-22
+## [1.6.2] - 2023-03-18
+
+### Security
+- Replace google.golang.org/grpc@v1.27.0, golang.org/x/crypto@v0.14.0, and
+  google.golang.org/protobuf@v1.31.0 to eliminate vulnerabilities (CNJR-3914)
 
 ## [1.6.1] - 2023-07-27
 
@@ -30,7 +34,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ### Security
 - Forced github.com/emicklei/go-restful/v3 to use v3.10.2 to remove PRISMA-2022-0227 (found in Twistlock scan)
-  and updated versions of gotelemetry.io/otel (to 1.16.0), github.com/stretchr/testify (to 1.8.3), and 
+  and updated versions of gotelemetry.io/otel (to 1.16.0), github.com/stretchr/testify (to 1.8.3), and
   the k8s.io libraries (to 0.27.2)
   [cyberark/secrets-provider-for-k8s#526](https://github.com/cyberark/secrets-provider-for-k8s/pull/526)
 
@@ -64,14 +68,14 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ### Changed
 - Updated Go to 1.19
   [cyberark/secrets-provider-for-k8s#484](https://github.com/cyberark/secrets-provider-for-k8s/pull/484)
-- Updated go.opentelmetry.io/otel to 1.10.0 and k8s.io/api, k8s.io/apimachinery, 
-  and k8s.io/client-go to latest versions 
+- Updated go.opentelmetry.io/otel to 1.10.0 and k8s.io/api, k8s.io/apimachinery,
+  and k8s.io/client-go to latest versions
   [cyberark/secrets-provider-for-k8s#484](https://github.com/cyberark/secrets-provider-for-k8s/pull/484)
 
 ### Security
 - More replace statements for golang.org/x/crypto, gopkg.in/yaml.v2, and golang.org/x/net
   [cyberark/secrets-provider-for-k8s#486](https://github.com/cyberark/secrets-provider-for-k8s/pull/486)
-- Updated replace statements in go.mod to remove vulnerable versions of golang.org/x/net 
+- Updated replace statements in go.mod to remove vulnerable versions of golang.org/x/net
   [cyberark/secrets-provider-for-k8s#484](https://github.com/cyberark/secrets-provider-for-k8s/pull/484)
   [cyberark/secrets-provider-for-k8s#485](https://github.com/cyberark/secrets-provider-for-k8s/pull/485)
 - Updated replace statements in go.mod to remove vulnerable versions of golang.org/x/text
@@ -79,7 +83,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [1.4.4] - 2022-07-12
 ### Changed
-- Updated multiple go dependencies 
+- Updated multiple go dependencies
   [cyberark/secrets-provider-for-k8s#477](https://github.com/cyberark/secrets-provider-for-k8s/pull/477)
 
 ### Security
