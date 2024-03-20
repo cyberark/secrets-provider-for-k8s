@@ -6,11 +6,12 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
-## [1.6.2] - 2023-03-18
+## [1.6.2] - 2023-03-20
 
 ### Security
-- Replace google.golang.org/grpc@v1.27.0, golang.org/x/crypto@v0.14.0, and
-  google.golang.org/protobuf@v1.31.0 to eliminate vulnerabilities (CNJR-3914)
+- Replace google.golang.org/grpc@v1.27.0, golang.org/x/crypto@v0.14.0,
+  google.golang.org/protobuf@v1.31.0, and github.com/mattn/go-sqlite3@v1.14.15
+  to eliminate vulnerabilities (CNJR-3914)
 
 ## [1.6.1] - 2023-07-27
 
