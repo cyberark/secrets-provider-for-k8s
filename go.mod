@@ -240,5 +240,11 @@ replace google.golang.org/protobuf v1.31.0 => google.golang.org/protobuf v1.32.0
 
 replace google.golang.org/grpc v1.27.0 => google.golang.org/grpc v1.58.3
 
+replace google.golang.org/grpc v1.56.2 => google.golang.org/grpc v1.58.3
+
+replace github.com/mattn/go-sqlite3 v1.14.14 => github.com/mattn/go-sqlite3 v1.14.18
+
+replace github.com/mattn/go-sqlite3 v1.14.15 => github.com/mattn/go-sqlite3 v1.14.18
+
 // Resolves CVE-2022-1996 until k8s.io/client-go v0.25.0+ is released
 replace k8s.io/kube-openapi v0.0.0-20220328201542-3ee0da9b0b42 => k8s.io/kube-openapi v0.0.0-20220627174259-011e075b9cb8
