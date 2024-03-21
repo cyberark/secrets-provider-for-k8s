@@ -6,6 +6,11 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [1.6.3] - 2023-03-21
+
+### Changed
+- Use updated RedHat preflight scan tool v1.9.1 (CNJR-3914)
+
 ## [1.6.2] - 2023-03-20
 
 ### Security
@@ -321,7 +326,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ### Changed
   - Escape secrets with backslashes before patching in k8s
 
-[Unreleased]: https://github.com/cyberark/secrets-provider-for-k8s/compare/v1.6.1...HEAD
+[Unreleased]: https://github.com/cyberark/secrets-provider-for-k8s/compare/v1.6.3...HEAD
+[1.6.3]: https://github.com/cyberark/secrets-provider-for-k8s/compare/v1.6.2...v1.6.3
+[1.6.2]: https://github.com/cyberark/secrets-provider-for-k8s/compare/v1.6.1...v1.6.2
 [1.6.1]: https://github.com/cyberark/secrets-provider-for-k8s/compare/v1.6.0...v1.6.1
 [1.6.0]: https://github.com/cyberark/secrets-provider-for-k8s/compare/v1.5.1...v1.6.0
 [1.5.1]: https://github.com/cyberark/secrets-provider-for-k8s/compare/v1.5.0...v1.5.1
