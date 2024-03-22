@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ### Changed
 - Use updated RedHat preflight scan tool v1.9.1 (CNJR-3914)
+- Updated Go to 1.22 (CONJSE-1842)
 
 ## [1.6.2] - 2023-03-20
 
