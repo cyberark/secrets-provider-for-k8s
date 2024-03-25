@@ -22,8 +22,8 @@
 
 | Link | Private |
 |------|:-------:|
-| [PRD: Conjur Developer Experience for K8s](https://cyberark365.sharepoint.com/:w:/r/sites/Conjur/_layouts/15/Doc.aspx?sourcedoc=%7B956DB935-7E3D-4D88-B964-188BCB6F7729%7D&file=Conjur%20Developer%20Experience%20for%20K8s%20PRD.docx&action=default&mobileredirect=true) | Yes |
-| [Feature Document: Secrets Provider Secret Rotation](https://cyberark365.sharepoint.com.mcas.ms/:w:/r/sites/Conjur/_layouts/15/Doc.aspx?sourcedoc=%7B4839C3F2-46DC-49F4-8B91-1290520A0946%7D&file=Feature%20Doc%20-%20Secrets%20Provider%20Rotation.docx&action=default&mobileredirect=true) | Yes |
+| PRD: Conjur Developer Experience for K8s (Sharepoint) | Yes |
+| Feature Document: Secrets Provider Secret Rotation (Sharepoint) | Yes |
 | [Kubernetes Documentation: Shared Process Namespace](https://kubernetes.io/docs/tasks/configure-pod-container/share-process-namespace/) | No |
 | [Kubernetes Documentation: Annotations](https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/) | No |
 | [Secrets Provider Documentation](https://docs.cyberark.com/Product-Doc/OnlineHelp/AAM-DAP/11.2/en/Content/Integrations/Kubernetes_deployApplicationsConjur-k8s-Secrets.htm?tocpath=Integrations%7COpenShift%252C%20Kubernetes%252C%20and%20GKE%7CDeploy%20Applications%7C_____3) | No |
@@ -926,7 +926,7 @@ E2E tests require
 #### Unit Tests
 
 In the following table, the entries in the "User Stories" column refer to user stories as defined in the
-[Secret Rotation Feature Document](https://cyberark365.sharepoint.com.mcas.ms/:w:/r/sites/Conjur/_layouts/15/Doc.aspx?sourcedoc=%7B4839C3F2-46DC-49F4-8B91-1290520A0946%7D&file=Feature%20Doc%20-%20Secrets%20Provider%20Rotation.docx&action=default&mobileredirect=true).
+Secret Rotation Feature Document.
 
 | Description | Release | Destination Mode | User Stories |
 |-------------|:-------:|:----------------:|:------------:|
