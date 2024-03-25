@@ -32,16 +32,16 @@
 <tbody>
 <tr class="odd">
 <td>PRD: Conjur Developer Experience for K8s</td>
-<td><p><a href="https://cyberark365.sharepoint.com/:w:/r/sites/Conjur/_layouts/15/Doc.aspx?sourcedoc=%7B956DB935-7E3D-4D88-B964-188BCB6F7729%7D&file=Conjur%20Developer%20Experience%20for%20K8s%20PRD.docx&action=default&mobileredirect=true">link</a> (private)</p></td>
+<td><p>Sharepoint (private)</p></td>
 </tr>
 <tr class="even">
 <td>Aha Card</td>
-<td><p><a href="https://cyberark.aha.io/epics/SCR-E-76">link</a> (private)</p>
+<td><p>SCR-E-76 (private)</p>
 <p><em>Note: This design document covers work for "Milestone 1: Push to File" as defined in this Aha Card.</em></p></td>
 </tr>
 <tr class="odd">
 <td>Feature Doc</td>
-<td><a href="https://cyberark365.sharepoint.com/:w:/r/sites/Conjur/_layouts/15/Doc.aspx?sourcedoc=%7BB782E509-693F-4086-85A6-5D477A0F4ABD%7D&file=Feature%20Doc%20-%20Kubernetes%20Developer%20Experience%20M1.docx&action=default&mobileredirect=true&cid=048c1606-6533-443c-ba09-f91590c68095">link</a> (private)</td>
+<td>Sharepoint (private)</td>
 </tr>
 <tr class="even">
 <td>Sample Manifests and Policies From Feature Spec</td>
@@ -572,8 +572,7 @@ over environment variable settings.)
 
 #### Helm Named Templates to Eliminate Manifest Boilerplate
 
-As described in the
-[M1 Feature Doc](https://cyberark365.sharepoint.com/:w:/r/sites/Conjur/_layouts/15/Doc.aspx?sourcedoc=%7BB782E509-693F-4086-85A6-5D477A0F4ABD%7D&file=Feature%20Doc%20-%20Kubernetes%20Developer%20Experience%20M1.docx&action=default&mobileredirect=true&cid=048c1606-6533-443c-ba09-f91590c68095),
+As described in the M1 Feature Doc,
 our current guidance for taking an existing application Kubernetes manifest
 and modifying it to add a Conjur authentication client (e.g. Conjur authn-k8s,
 Secretless Broker, or Secrets Provider) init/sidecar container requires the
@@ -1028,7 +1027,7 @@ E2E tests require
 #### Unit Tests: Basic "Happy Path" Functionality
 
 In the following table, the entries in the "User Stories" column refer to user stories as defined in the
-[M1 Feature Document](https://cyberark365.sharepoint.com/:w:/r/sites/Conjur/_layouts/15/Doc.aspx?sourcedoc=%7BB782E509-693F-4086-85A6-5D477A0F4ABD%7D&file=Feature%20Doc%20-%20Kubernetes%20Developer%20Experience%20M1.docx&action=default&mobileredirect=true&cid=048c1606-6533-443c-ba09-f91590c68095).
+M1 Feature Document.
 
 | | Section | Given | When | Then | User Stories |
 | --- | --- | --- | --- | --- | --- |
