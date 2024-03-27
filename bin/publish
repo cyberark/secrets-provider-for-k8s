@@ -124,27 +124,27 @@ if [[ ${PROMOTE} = true ]]; then
 
 
   # Publish only latest to Redhat Registries
-  echo "Tagging and pushing ${REDHAT_REMOTE_IMAGE} with tag ${REMOTE_TAG}"
-  docker tag "${LOCAL_REGISTRY}/${REDHAT_LOCAL_IMAGE}:${SOURCE_TAG}" "${REDHAT_REMOTE_IMAGE}:${REMOTE_TAG}"
+#  echo "Tagging and pushing ${REDHAT_REMOTE_IMAGE} with tag ${REMOTE_TAG}"
+#  docker tag "${LOCAL_REGISTRY}/${REDHAT_LOCAL_IMAGE}:${SOURCE_TAG}" "${REDHAT_REMOTE_IMAGE}:${REMOTE_TAG}"
 
   # Publish RedHat image to RedHat Registry
-  if docker login "${REDHAT_REGISTRY}" -u "${REDHAT_USER}" -p "${REDHAT_API_KEY}"; then
+#  if docker login "${REDHAT_REGISTRY}" -u "${REDHAT_USER}" -p "${REDHAT_API_KEY}"; then
     # you can't push the same tag twice to redhat registry, so ignore errors
-    if ! docker push "${REDHAT_REMOTE_IMAGE}:${REMOTE_TAG}"; then
-      echo 'Red Hat push FAILED! (maybe the image was pushed already?)'
-      exit 0
-    fi
+#    if ! docker push "${REDHAT_REMOTE_IMAGE}:${REMOTE_TAG}"; then
+#      echo 'Red Hat push FAILED! (maybe the image was pushed already?)'
+#      exit 0
+#    fi
 
     # scan image with preflight tool
-    scan_redhat_image "${REDHAT_REMOTE_IMAGE}:${REMOTE_TAG}" "${REDHAT_CERT_PID}"
+#    scan_redhat_image "${REDHAT_REMOTE_IMAGE}:${REMOTE_TAG}" "${REDHAT_CERT_PID}"
 
     # Publish latest tag to Redhat Registry
-    echo "Tagging and pushing ${REDHAT_REMOTE_IMAGE} with tag latest"
-    docker tag "${LOCAL_REGISTRY}/${REDHAT_LOCAL_IMAGE}:${SOURCE_TAG}" "${REDHAT_REMOTE_IMAGE}:latest"
-    docker push "${REDHAT_REMOTE_IMAGE}:latest"
-  else
-    echo 'Failed to log in to quay.io'
-    exit 1
-  fi
+#    echo "Tagging and pushing ${REDHAT_REMOTE_IMAGE} with tag latest"
+#    docker tag "${LOCAL_REGISTRY}/${REDHAT_LOCAL_IMAGE}:${SOURCE_TAG}" "${REDHAT_REMOTE_IMAGE}:latest"
+#    docker push "${REDHAT_REMOTE_IMAGE}:latest"
+#  else
+#    echo 'Failed to log in to quay.io'
+#    exit 1
+#  fi
 
 fi
