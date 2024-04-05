@@ -20,8 +20,8 @@ import (
 )
 
 var (
-	testenv   env.Environment
-	k8sClient klient.Client
+	testenv       env.Environment
+	k8sClient     klient.Client
 )
 
 func TestMain(m *testing.M) {
@@ -34,7 +34,7 @@ func TestMain(m *testing.M) {
 	testenv.Setup(
 		func(ctx context.Context, cfg *envconf.Config) (context.Context, error) {
 			fmt.Println("Fetching the secrets provider pod in namespace " + SecretsProviderNamespace())
-			spPod, err := FetchPodWithLabelSelector(k8sClient, SecretsProviderNamespace(), SecretsProviderLabelSelector)
+			spPod, err := FetchPodWithLabelSelector(k8sClient, SecretsProviderNamespace(), SPLabelSelector)
 			if err != nil {
 				return ctx, err
 			}
