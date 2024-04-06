@@ -8,6 +8,7 @@ import (
 	"context"
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"sigs.k8s.io/e2e-framework/pkg/envconf"
@@ -33,6 +34,9 @@ func TestHelmJobDeploysSuccessfully(t *testing.T) {
 
 			err = DeployTestAppWithHelm(cfg.Client(), "")
 			assert.Nil(t, err)
+
+			// wait for value to refresh in conjur
+			time.Sleep(15 * time.Second)
 
 			return ctx
 		}).
