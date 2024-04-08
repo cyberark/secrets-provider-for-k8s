@@ -6,13 +6,18 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
-## [1.6.3] - 2023-03-21
+## [1.6.4] - 2024-04-08
+
+### Changed
+- Testing and CI improvements (CNJR-4550)
+
+## [1.6.3] - 2024-03-21
 
 ### Changed
 - Use updated RedHat preflight scan tool v1.9.1 (CNJR-3914)
 - Updated Go to 1.22 (CONJSE-1842)
 
-## [1.6.2] - 2023-03-20
+## [1.6.2] - 2024-03-20
 
 ### Security
 - Replace google.golang.org/grpc@v1.27.0, golang.org/x/crypto@v0.14.0,
@@ -327,7 +332,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ### Changed
   - Escape secrets with backslashes before patching in k8s
 
-[Unreleased]: https://github.com/cyberark/secrets-provider-for-k8s/compare/v1.6.3...HEAD
+[Unreleased]: https://github.com/cyberark/secrets-provider-for-k8s/compare/v1.6.4...HEAD
+[1.6.4]: https://github.com/cyberark/secrets-provider-for-k8s/compare/v1.6.3...v1.6.4
 [1.6.3]: https://github.com/cyberark/secrets-provider-for-k8s/compare/v1.6.2...v1.6.3
 [1.6.2]: https://github.com/cyberark/secrets-provider-for-k8s/compare/v1.6.1...v1.6.2
 [1.6.1]: https://github.com/cyberark/secrets-provider-for-k8s/compare/v1.6.0...v1.6.1
