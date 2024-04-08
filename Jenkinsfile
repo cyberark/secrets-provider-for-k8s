@@ -184,17 +184,17 @@ pipeline {
                 scanAndReport(INFRAPOOL_EXECUTORV2_AGENT_0, "secrets-provider-for-k8s:latest", "NONE", true)
               }
             }
-//            stage('Scan RedHat image for fixable issues') {
-//              steps {
-//                scanAndReport(INFRAPOOL_EXECUTORV2_AGENT_0, "secrets-provider-for-k8s-redhat:latest", "HIGH", false)
-//              }
-//            }
+           stage('Scan RedHat image for fixable issues') {
+             steps {
+               scanAndReport(INFRAPOOL_EXECUTORV2_AGENT_0, "secrets-provider-for-k8s-redhat:latest", "HIGH", false)
+             }
+           }
     
-//            stage('Scan RedHat image for all issues') {
-//              steps {
-//                scanAndReport(INFRAPOOL_EXECUTORV2_AGENT_0, "secrets-provider-for-k8s-redhat:latest", "NONE", true)
-//              }
-//            }
+           stage('Scan RedHat image for all issues') {
+             steps {
+               scanAndReport(INFRAPOOL_EXECUTORV2_AGENT_0, "secrets-provider-for-k8s-redhat:latest", "NONE", true)
+             }
+           }
           }
         }
 
