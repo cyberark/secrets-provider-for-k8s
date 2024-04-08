@@ -323,7 +323,7 @@ func TestHelmRbacDefaultsSuccessful(t *testing.T) {
 			job, err := GetJob(cfg.Client(), "secrets-provider")
 			assert.Nil(t, err)
 
-			assert.Contains(t, job.Spec.Template.Spec.Containers[0].Image, "cyberark/secrets-provider-for-k8s:1.6.3")
+			assert.Contains(t, job.Spec.Template.Spec.Containers[0].Image, "cyberark/secrets-provider-for-k8s:1.6.4")
 			assert.Equal(t, int32(1), job.Status.Succeeded)
 
 			return ctx
