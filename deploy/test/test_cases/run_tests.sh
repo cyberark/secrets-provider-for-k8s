@@ -34,20 +34,3 @@ go test -v -tags e2e -timeout 0 ./e2e/...
 popd
 
 ../../teardown_resources.sh
-
-# Uncomment for Bash tests
-for c in {1..$times}
-do
-  for filename in ./$TEST_NAME_PREFIX*.sh; do
-    announce "Running '$filename'."
-    ./test_case_setup.sh
-    $filename
-    ../../teardown_resources.sh
-    announce "Test '$filename' ended successfully"
-  done
-done
-
-ENV_FILE=printenv.debug
-if [[ -f "$ENV_FILE" ]]; then
-    rm $ENV_FILE
-fi
