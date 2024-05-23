@@ -49,6 +49,10 @@ pipeline {
     timeout(time: 3, unit: 'HOURS')
   }
 
+  triggers {
+    cron(getDailyCronString())
+  }
+
   environment {
     // Sets the MODE to the specified or autocalculated value as appropriate
     MODE = release.canonicalizeMode()
