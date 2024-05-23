@@ -9,7 +9,8 @@ properties([
   dependencies([
     'conjur-enterprise/conjur-opentelemetry-tracer',
     'conjur-enterprise/conjur-authn-k8s-client',
-    'conjur-enterprise/conjur-api-go'
+    'conjur-enterprise/conjur-api-go',
+    'conjur-enterprise/conjur'
   ])
 ])
 
