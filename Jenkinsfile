@@ -9,7 +9,8 @@ properties([
   dependencies([
     'conjur-enterprise/conjur-opentelemetry-tracer',
     'conjur-enterprise/conjur-authn-k8s-client',
-    'conjur-enterprise/conjur-api-go'
+    'conjur-enterprise/conjur-api-go',
+    'conjur-enterprise/conjur'
   ])
 ])
 
@@ -47,6 +48,10 @@ pipeline {
     disableConcurrentBuilds()
     buildDiscarder(logRotator(numToKeepStr: '30'))
     timeout(time: 3, unit: 'HOURS')
+  }
+
+  triggers {
+    cron(getDailyCronString())
   }
 
   environment {
