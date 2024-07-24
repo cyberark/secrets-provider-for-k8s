@@ -194,7 +194,7 @@ pipeline {
                scanAndReport(INFRAPOOL_EXECUTORV2_AGENT_0, "secrets-provider-for-k8s-redhat:latest", "HIGH", false)
              }
            }
-    
+
            stage('Scan RedHat image for all issues') {
              steps {
                scanAndReport(INFRAPOOL_EXECUTORV2_AGENT_0, "secrets-provider-for-k8s-redhat:latest", "NONE", true)
@@ -222,7 +222,7 @@ pipeline {
             }
           }
         }
-        
+
         stage ("DAP Integration Tests on GKE") {
           when { anyOf {
             branch 'main'
@@ -327,9 +327,8 @@ pipeline {
               steps {
                 script {
                   INFRAPOOL_EXECUTORV2_AGENT_0.agentSh 'ci/jenkins_build'
+                  INFRAPOOL_EXECUTORV2_AGENT_0.agentArchiveArtifacts artifacts: "helm-artifacts/"
                 }
-
-                archiveArtifacts artifacts: "helm-artifacts/", fingerprint: false, allowEmptyArchive: true
               }
             }
           }
