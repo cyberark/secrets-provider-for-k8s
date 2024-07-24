@@ -6,7 +6,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
-## [1.6.5] - 2024-04-25
+## [1.6.5] - 2024-07-24
 
 ### Security
 - Upgrade golang.org/x/net to v0.24.0 (CONJSE-1863)
@@ -337,7 +337,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ### Changed
   - Escape secrets with backslashes before patching in k8s
 
-[Unreleased]: https://github.com/cyberark/secrets-provider-for-k8s/compare/v1.6.4...HEAD
+[Unreleased]: https://github.com/cyberark/secrets-provider-for-k8s/compare/v1.6.5...HEAD
+[1.6.5]: https://github.com/cyberark/secrets-provider-for-k8s/compare/v1.6.4...v1.6.5
 [1.6.4]: https://github.com/cyberark/secrets-provider-for-k8s/compare/v1.6.3...v1.6.4
 [1.6.3]: https://github.com/cyberark/secrets-provider-for-k8s/compare/v1.6.2...v1.6.3
 [1.6.2]: https://github.com/cyberark/secrets-provider-for-k8s/compare/v1.6.1...v1.6.2
