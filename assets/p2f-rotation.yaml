@@ -14,6 +14,7 @@ spec:
     metadata:
       labels:
         app: test-app
+      # kics-scan ignore-block - Kics incorrectly identifies the Conjur secret paths as hardcoded values
       annotations:
         conjur.org/authn-identity: host/conjur/authn-k8s/my-authenticator-id/apps/test-app
         conjur.org/container-mode: sidecar

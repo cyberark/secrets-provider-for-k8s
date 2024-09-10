@@ -1,7 +1,7 @@
 # =================== BASE BUILD LAYER ===================
 # this layer is used to prepare a common layer for both debug and release builds
 FROM golang:1.22 as secrets-provider-builder-base
-MAINTAINER CyberArk Software Ltd.
+LABEL maintainer="CyberArk Software Ltd."
 
 ENV GOOS=linux \
     GOARCH=amd64 \
@@ -15,7 +15,7 @@ ENV GOOS=linux \
 # certificate is not available, we copy the (potentially empty) directory
 # and update container certificates based on that, rather than rely on the
 # CA file itself.
-ADD build_ca_certificate /usr/local/share/ca-certificates/
+COPY build_ca_certificate /usr/local/share/ca-certificates/
 RUN update-ca-certificates
 
 RUN go install github.com/jstemmer/go-junit-report/v2@latest
@@ -60,14 +60,14 @@ RUN go build -a -installsuffix cgo -gcflags="all=-N -l" -o secrets-provider ./cm
 # =================== BASE MAIN CONTAINER ===================
 # this layer is used to prepare a common layer for both debug and release containers
 FROM alpine:latest as secrets-provider-base
-MAINTAINER CyberArk Software Ltd.
+LABEL maintainer="CyberArk Software Ltd."
 
 # Ensure openssl development libraries are always up to date
 RUN apk add --no-cache openssl-dev
 
 COPY bin/run-time-scripts /usr/local/bin/
 
-RUN apk add -u shadow libc6-compat && \
+RUN apk add -u --no-cache shadow libc6-compat && \
     # Add limited user
     groupadd -r secrets-provider \
              -g 777 && \
@@ -118,7 +118,7 @@ CMD ["/usr/local/bin/dlv",  \
 
 # =================== MAIN CONTAINER (REDHAT) ===================
 FROM registry.access.redhat.com/ubi9/ubi as secrets-provider-for-k8s-redhat
-MAINTAINER CyberArk Software Ltd.
+LABEL maintainer="CyberArk Software Ltd."
 
 ARG VERSION
 
