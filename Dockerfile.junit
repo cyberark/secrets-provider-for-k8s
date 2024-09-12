@@ -1,15 +1,15 @@
 FROM golang:1.22-alpine
-MAINTAINER CyberArk Software Ltd.
+LABEL maintainer="CyberArk Software Ltd."
 LABEL id="secrets-provider-for-k8s-junit-processor"
 
 WORKDIR /test
 
-RUN apk add -u curl \
-               gcc \
-               git \
-               mercurial \
-               musl-dev \
-               bash
+RUN apk add -u --no-cache curl \
+                          gcc \
+                          git \
+                          mercurial \
+                          musl-dev \
+                          bash
 
 # gocov converts native coverage output to gocov's JSON interchange format
 # gocov-xml converts gocov format to XML for use with Jenkins/Cobertura
