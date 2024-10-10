@@ -59,7 +59,9 @@ func assertGoodResults(expectedGroupValues map[string][]*Secret) func(*testing.T
 		for groupLabel, expValues := range expectedGroupValues {
 			actualValues := findGroupValues(result, groupLabel)
 			assert.NotNil(t, actualValues)
-			assert.True(t, assert.EqualValues(t, actualValues, expValues))
+			// We use EqualValues instead of ElementsMatch because we want to
+			// test the ordering, particularly for the Fetch All case.
+			assert.EqualValues(t, expValues, actualValues)
 		}
 	}
 }
@@ -68,24 +70,24 @@ var retrieveSecretsTestCases = []retrieveSecretsTestCase{
 	{
 		description: "Happy Case",
 		secretSpecs: map[string][]SecretSpec{
-			"cache": []SecretSpec{
+			"cache": {
 				{Alias: "api-url", Path: "dev/openshift/api-url"},
 				{Alias: "username", Path: "dev/openshift/username"},
 				{Alias: "password", Path: "dev/openshift/password"},
 			},
-			"db": []SecretSpec{
+			"db": {
 				{Alias: "api-url", Path: "ci/openshift/api-url"},
 				{Alias: "username", Path: "ci/openshift/username"},
 				{Alias: "password", Path: "ci/openshift/password"},
 			},
 		},
 		assert: assertGoodResults(map[string][]*Secret{
-			"cache": []*Secret{
+			"cache": {
 				{Alias: "api-url", Value: "https://postgres.example.com"},
 				{Alias: "username", Value: "admin"},
 				{Alias: "password", Value: "open-$e$ame"},
 			},
-			"db": []*Secret{
+			"db": {
 				{Alias: "api-url", Value: "https://ci.postgres.example.com"},
 				{Alias: "username", Value: "administrator"},
 				{Alias: "password", Value: "open-$e$ame"},
@@ -95,13 +97,13 @@ var retrieveSecretsTestCases = []retrieveSecretsTestCase{
 	{
 		description: "Happy Base64 Case",
 		secretSpecs: map[string][]SecretSpec{
-			"cache": []SecretSpec{
+			"cache": {
 				{Alias: "api-url", Path: "dev/openshift/api-url"},
 				{Alias: "username", Path: "dev/openshift/username"},
 				{Alias: "password", Path: "dev/openshift/password",
 					ContentType: "text"},
 			},
-			"db": []SecretSpec{
+			"db": {
 				{Alias: "api-url", Path: "ci/openshift/api-url"},
 				{Alias: "username", Path: "ci/openshift/username"},
 				{Alias: "encoded-password", Path: "ci/openshift/encoded-password",
@@ -109,12 +111,12 @@ var retrieveSecretsTestCases = []retrieveSecretsTestCase{
 			},
 		},
 		assert: assertGoodResults(map[string][]*Secret{
-			"cache": []*Secret{
+			"cache": {
 				{Alias: "api-url", Value: "https://postgres.example.com"},
 				{Alias: "username", Value: "admin"},
 				{Alias: "password", Value: "open-$e$ame"},
 			},
-			"db": []*Secret{
+			"db": {
 				{Alias: "api-url", Value: "https://ci.postgres.example.com"},
 				{Alias: "username", Value: "administrator"},
 				{Alias: "encoded-password", Value: "open-$e$ame"},
@@ -124,7 +126,7 @@ var retrieveSecretsTestCases = []retrieveSecretsTestCase{
 	{
 		description: "Cannot decode Base64 Case",
 		secretSpecs: map[string][]SecretSpec{
-			"db": []SecretSpec{
+			"db": {
 				{Alias: "api-url", Path: "ci/openshift/api-url"},
 				{Alias: "username", Path: "ci/openshift/username"},
 				{Alias: "encoded-password", Path: "ci/openshift/password",
@@ -132,7 +134,7 @@ var retrieveSecretsTestCases = []retrieveSecretsTestCase{
 			},
 		},
 		assert: assertGoodResults(map[string][]*Secret{
-			"db": []*Secret{
+			"db": {
 				{Alias: "api-url", Value: "https://ci.postgres.example.com"},
 				{Alias: "username", Value: "administrator"},
 				{Alias: "encoded-password", Value: "open-$e$ame"},
@@ -142,12 +144,12 @@ var retrieveSecretsTestCases = []retrieveSecretsTestCase{
 	{
 		description: "Bad ID",
 		secretSpecs: map[string][]SecretSpec{
-			"cache": []SecretSpec{
+			"cache": {
 				{Alias: "api-url", Path: "foo/openshift/bar"},
 				{Alias: "username", Path: "dev/openshift/username"},
 				{Alias: "password", Path: "dev/openshift/password"},
 			},
-			"db": []SecretSpec{
+			"db": {
 				{Alias: "api-url", Path: "ci/openshift/api-url"},
 				{Alias: "username", Path: "ci/openshift/username"},
 				{Alias: "password", Path: "ci/openshift/password"},
@@ -157,10 +159,89 @@ var retrieveSecretsTestCases = []retrieveSecretsTestCase{
 			assert.Contains(t, err.Error(), "no_conjur_secret_error")
 		},
 	},
+	{
+		description: "Fetch All Happy Case",
+		secretSpecs: map[string][]SecretSpec{
+			"unified": {
+				{Path: "*"},
+			},
+		},
+		assert: assertGoodResults(map[string][]*Secret{
+			// Expect all secrets to be fetched, with full paths as aliases
+			"unified": {
+				{Alias: "ci/openshift/api-url", Value: "https://ci.postgres.example.com"},
+				{Alias: "ci/openshift/encoded-password", Value: "b3Blbi0kZSRhbWU="},
+				{Alias: "ci/openshift/password", Value: "open-$e$ame"},
+				{Alias: "ci/openshift/username", Value: "administrator"},
+				{Alias: "conjur_variable1", Value: "conjur_secret1"},
+				{Alias: "conjur_variable2", Value: "conjur_secret2"},
+				{Alias: "conjur_variable_empty_secret", Value: ""},
+				{Alias: "dev/openshift/api-url", Value: "https://postgres.example.com"},
+				{Alias: "dev/openshift/password", Value: "open-$e$ame"},
+				{Alias: "dev/openshift/username", Value: "admin"},
+			},
+		}),
+	},
+	{
+		description: "Fetch All Base64",
+		secretSpecs: map[string][]SecretSpec{
+			"unified": {
+				{Path: "*", ContentType: "base64"},
+			},
+		},
+		assert: assertGoodResults(map[string][]*Secret{
+			// Expect all secrets to be fetched, with full paths as aliases
+			"unified": {
+				{Alias: "ci/openshift/api-url", Value: "https://ci.postgres.example.com"},
+				{Alias: "ci/openshift/encoded-password", Value: "open-$e$ame"},
+				{Alias: "ci/openshift/password", Value: "open-$e$ame"},
+				{Alias: "ci/openshift/username", Value: "administrator"},
+				{Alias: "conjur_variable1", Value: "conjur_secret1"},
+				{Alias: "conjur_variable2", Value: "conjur_secret2"},
+				{Alias: "conjur_variable_empty_secret", Value: ""},
+				{Alias: "dev/openshift/api-url", Value: "https://postgres.example.com"},
+				{Alias: "dev/openshift/password", Value: "open-$e$ame"},
+				{Alias: "dev/openshift/username", Value: "admin"},
+			},
+		}),
+	},
+	{
+		description: "Fetch All with Other Paths",
+		secretSpecs: map[string][]SecretSpec{
+			"all": {
+				{Path: "*"},
+			},
+			"db": {
+				{Alias: "api-url", Path: "ci/openshift/api-url"},
+				{Alias: "username", Path: "ci/openshift/username"},
+				{Alias: "password", Path: "ci/openshift/password"},
+			},
+		},
+		assert: assertGoodResults(map[string][]*Secret{
+			// Expect all secrets to be fetched, with full paths as aliases
+			"all": {
+				{Alias: "ci/openshift/api-url", Value: "https://ci.postgres.example.com"},
+				{Alias: "ci/openshift/encoded-password", Value: "b3Blbi0kZSRhbWU="},
+				{Alias: "ci/openshift/password", Value: "open-$e$ame"},
+				{Alias: "ci/openshift/username", Value: "administrator"},
+				{Alias: "conjur_variable1", Value: "conjur_secret1"},
+				{Alias: "conjur_variable2", Value: "conjur_secret2"},
+				{Alias: "conjur_variable_empty_secret", Value: ""},
+				{Alias: "dev/openshift/api-url", Value: "https://postgres.example.com"},
+				{Alias: "dev/openshift/password", Value: "open-$e$ame"},
+				{Alias: "dev/openshift/username", Value: "admin"},
+			},
+			"db": {
+				{Alias: "api-url", Value: "https://ci.postgres.example.com"},
+				{Alias: "username", Value: "administrator"},
+				{Alias: "password", Value: "open-$e$ame"},
+			},
+		}),
+	},
 }
 
 type mockSecretFetcher struct {
-	conjurMockClient *conjurMocks.ConjurClient
+	conjurMockClient *conjurMocks.ConjurMockClient
 }
 
 func (s mockSecretFetcher) Fetch(secretPaths []string, ctx context.Context) (map[string][]byte, error) {
@@ -169,7 +250,7 @@ func (s mockSecretFetcher) Fetch(secretPaths []string, ctx context.Context) (map
 
 func newMockSecretFetcher() mockSecretFetcher {
 	m := mockSecretFetcher{
-		conjurMockClient: conjurMocks.NewConjurClient(),
+		conjurMockClient: conjurMocks.NewConjurMockClient(),
 	}
 
 	m.conjurMockClient.AddSecrets(
@@ -249,6 +330,30 @@ func TestGetAllPaths(t *testing.T) {
 				},
 			},
 			expectedPaths: []string{"path/var1", "path/var2", "path/var4"},
+		},
+		{
+			description: "Fetch all secrets",
+			secretPathsByGroup: map[string][]SecretSpec{
+				"group-1": {
+					{Path: "*"},
+				},
+			},
+			expectedPaths: []string{"*"},
+		},
+		{
+			description: "Fetch all secrets with other paths",
+			secretPathsByGroup: map[string][]SecretSpec{
+				"group-1": {
+					{Alias: "var1", Path: "path/var1"},
+					{Alias: "var2", Path: "path/var2"},
+					{Path: "*"},
+				},
+				"group-2": {
+					{Alias: "var3", Path: "path/var3"},
+					{Alias: "var4", Path: "path/var4"},
+				},
+			},
+			expectedPaths: []string{"*"},
 		},
 	}
 

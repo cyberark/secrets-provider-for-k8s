@@ -27,14 +27,14 @@ var testConjurSecrets = map[string]string{
 }
 
 type testMocks struct {
-	conjurClient *conjurMocks.ConjurClient
+	conjurClient *conjurMocks.ConjurMockClient
 	kubeClient   *k8sStorageMocks.KubeSecretsClient
 	logger       *k8sStorageMocks.Logger
 }
 
 func newTestMocks() testMocks {
 	mocks := testMocks{
-		conjurClient: conjurMocks.NewConjurClient(),
+		conjurClient: conjurMocks.NewConjurMockClient(),
 		kubeClient:   k8sStorageMocks.NewKubeSecretsClient(),
 		logger:       k8sStorageMocks.NewLogger(),
 	}
@@ -120,12 +120,14 @@ func assertSecretsUpdated(expK8sSecrets expectedK8sSecrets,
 			}
 		}
 		// Check for secret values leaking into the wrong K8s Secrets
-		for k8sSecretName, expMissingValue := range expMissingValues {
+		for k8sSecretName, expMissingValuesForSecret := range expMissingValues {
 			actualSecretData := mocks.kubeClient.InspectSecret(k8sSecretName)
 			for _, value := range actualSecretData {
 				actualValue := string(value)
 				newDesc := desc + ", Leaked secret value: " + actualValue
-				assert.NotEqual(t, expMissingValue, actualValue, newDesc)
+				for _, expMissingValue := range expMissingValuesForSecret {
+					assert.NotContains(t, actualValue, expMissingValue, newDesc)
+				}
 			}
 		}
 	}
@@ -166,13 +168,14 @@ func assertLogged(expected bool, logLevel string, msg string, args ...interface{
 
 func TestProvide(t *testing.T) {
 	testCases := []struct {
-		desc               string
-		k8sSecrets         k8sStorageMocks.K8sSecrets
-		requiredSecrets    []string
-		denyConjurRetrieve bool
-		denyK8sRetrieve    bool
-		denyK8sUpdate      bool
-		asserts            []assertFunc
+		desc                   string
+		k8sSecrets             k8sStorageMocks.K8sSecrets
+		requiredSecrets        []string
+		denyConjurRetrieve     bool
+		denyK8sRetrieve        bool
+		denyK8sUpdate          bool
+		alternateConjurSecrets map[string]string
+		asserts                []assertFunc
 	}{
 		{
 			desc: "Happy path, existing k8s Secret with existing Conjur secret",
@@ -588,12 +591,240 @@ func TestProvide(t *testing.T) {
 				assertErrorContains(messages.CSPFK021E, false),
 			},
 		},
+		{
+			desc: "K8s secret fetch all happy path",
+			k8sSecrets: k8sStorageMocks.K8sSecrets{
+				"k8s-secret1": {
+					"conjur-map": {"*": "*"},
+				},
+			},
+			requiredSecrets: []string{"k8s-secret1"},
+			asserts: []assertFunc{
+				assertSecretsUpdated(
+					expectedK8sSecrets{
+						// Should have all secrets
+						"k8s-secret1": {
+							"conjur.var.path1":        "secret-value1",
+							"conjur.var.path2":        "secret-value2",
+							"conjur.var.path3":        "secret-value3",
+							"conjur.var.path4":        "secret-value4",
+							"conjur.var.umlaut":       "ÄäÖöÜü",
+							"conjur.var.binary":       "\xf0\xff\x4a\xc3",
+							"conjur.var.empty-secret": "",
+							"conjur.var.encoded1":     "ZGVjb2RlZC12YWx1ZS0x",
+							"conjur.var.encoded2":     "ZGVjb2RlZC12YWx1ZS0y",
+							"conjur.var.encoded3":     "ZGVjb2RlZC12YWx1ZS0z",
+						},
+					},
+					expectedMissingValues{},
+					false,
+				),
+			},
+		},
+		{
+			desc: "K8s secret fetch all with base64 decoding",
+			k8sSecrets: k8sStorageMocks.K8sSecrets{
+				"k8s-secret1": {
+					"conjur-map": {
+						"*": map[string]interface{}{
+							"id":           "*",
+							"content-type": "base64",
+						},
+					},
+				},
+			},
+			requiredSecrets: []string{"k8s-secret1"},
+			asserts: []assertFunc{
+				assertSecretsUpdated(
+					expectedK8sSecrets{
+						// Should have all secrets
+						"k8s-secret1": {
+							"conjur.var.path1":        "secret-value1",
+							"conjur.var.path2":        "secret-value2",
+							"conjur.var.path3":        "secret-value3",
+							"conjur.var.path4":        "secret-value4",
+							"conjur.var.umlaut":       "ÄäÖöÜü",
+							"conjur.var.binary":       "\xf0\xff\x4a\xc3",
+							"conjur.var.empty-secret": "",
+							// These secrets should be decoded from base64
+							"conjur.var.encoded1": "decoded-value-1",
+							"conjur.var.encoded2": "decoded-value-2",
+							"conjur.var.encoded3": "decoded-value-3",
+						},
+					},
+					expectedMissingValues{},
+					false,
+				),
+			},
+		},
+		{
+			desc: "K8s secret fetch all with base64 and additional explicit secrets",
+			k8sSecrets: k8sStorageMocks.K8sSecrets{
+				"k8s-secret1": {
+					"conjur-map": {"*": "*"},
+				},
+				"k8s-secret2": {
+					"conjur-map": {
+						"*": map[string]interface{}{
+							"id":           "*",
+							"content-type": "base64",
+						},
+					},
+				},
+				"k8s-secret3": {
+					"conjur-map": {"secret1": "conjur/var/path1"},
+				},
+			},
+			requiredSecrets: []string{"k8s-secret1", "k8s-secret2", "k8s-secret3"},
+			asserts: []assertFunc{
+				assertSecretsUpdated(
+					expectedK8sSecrets{
+						// Should have all secrets
+						"k8s-secret1": {
+							"conjur.var.path1":        "secret-value1",
+							"conjur.var.path2":        "secret-value2",
+							"conjur.var.path3":        "secret-value3",
+							"conjur.var.path4":        "secret-value4",
+							"conjur.var.umlaut":       "ÄäÖöÜü",
+							"conjur.var.binary":       "\xf0\xff\x4a\xc3",
+							"conjur.var.empty-secret": "",
+							"conjur.var.encoded1":     "ZGVjb2RlZC12YWx1ZS0x",
+							"conjur.var.encoded2":     "ZGVjb2RlZC12YWx1ZS0y",
+							"conjur.var.encoded3":     "ZGVjb2RlZC12YWx1ZS0z",
+						},
+						"k8s-secret2": {
+							"conjur.var.path1":        "secret-value1",
+							"conjur.var.path2":        "secret-value2",
+							"conjur.var.path3":        "secret-value3",
+							"conjur.var.path4":        "secret-value4",
+							"conjur.var.umlaut":       "ÄäÖöÜü",
+							"conjur.var.binary":       "\xf0\xff\x4a\xc3",
+							"conjur.var.empty-secret": "",
+							// These secrets should be decoded from base64
+							"conjur.var.encoded1": "decoded-value-1",
+							"conjur.var.encoded2": "decoded-value-2",
+							"conjur.var.encoded3": "decoded-value-3",
+						},
+						// Should have the explicit secret
+						"k8s-secret3": {"secret1": "secret-value1"},
+					},
+					expectedMissingValues{},
+					false,
+				),
+			},
+		},
+		{
+			desc: "K8s secret fetch all and explicit secret that doesn't exist",
+			k8sSecrets: k8sStorageMocks.K8sSecrets{
+				"k8s-secret1": {
+					"conjur-map": {"*": "*"},
+				},
+				"k8s-secret2": {
+					"conjur-map": {
+						"secret1": "conjur/var/path1",
+						"secret2": "does/not/exist",
+					},
+				},
+			},
+			requiredSecrets: []string{"k8s-secret1", "k8s-secret2"},
+			asserts: []assertFunc{
+				assertSecretsUpdated(
+					expectedK8sSecrets{
+						// Should have all secrets
+						"k8s-secret1": {
+							"conjur.var.path1":        "secret-value1",
+							"conjur.var.path2":        "secret-value2",
+							"conjur.var.path3":        "secret-value3",
+							"conjur.var.path4":        "secret-value4",
+							"conjur.var.umlaut":       "ÄäÖöÜü",
+							"conjur.var.binary":       "\xf0\xff\x4a\xc3",
+							"conjur.var.empty-secret": "",
+							"conjur.var.encoded1":     "ZGVjb2RlZC12YWx1ZS0x",
+							"conjur.var.encoded2":     "ZGVjb2RlZC12YWx1ZS0y",
+							"conjur.var.encoded3":     "ZGVjb2RlZC12YWx1ZS0z",
+						},
+						// Should have just the explicit secret that does exist
+						"k8s-secret2": {
+							"secret1": "secret-value1",
+							"secret2": "",
+						},
+					},
+					expectedMissingValues{},
+					false,
+				),
+			},
+		},
+		{
+			desc: "K8s secret fetch all with special characters in secret names",
+			k8sSecrets: k8sStorageMocks.K8sSecrets{
+				"k8s-secret1": {
+					"conjur-map": {"*": "*"},
+				},
+			},
+			requiredSecrets: []string{"k8s-secret1"},
+			alternateConjurSecrets: map[string]string{
+				"conjur/var with spaces":       "secret",
+				"conjur/var.with.dots":         "secret",
+				"conjur/var+with&some*symbols": "secret",
+			},
+			asserts: []assertFunc{
+				assertSecretsUpdated(
+					expectedK8sSecrets{
+						"k8s-secret1": {
+							"conjur.var.with.spaces":       "secret",
+							"conjur.var.with.dots":         "secret",
+							"conjur.var.with.some.symbols": "secret",
+						},
+					},
+					expectedMissingValues{},
+					false,
+				),
+			},
+		},
+		{
+			desc: "K8s secret fetch all with duplicate normalized secret names",
+			k8sSecrets: k8sStorageMocks.K8sSecrets{
+				"k8s-secret1": {
+					"conjur-map": {"*": "*"},
+				},
+			},
+			requiredSecrets: []string{"k8s-secret1"},
+			alternateConjurSecrets: map[string]string{
+				"conjur/var 1": "secret1", // normalized to conjur.var.1
+				"conjur/var+1": "secret2", // also normalized to conjur.var.1
+			},
+			asserts: []assertFunc{
+				assertLogged(true, "warn", messages.CSPFK067E, "conjur.var.1"),
+				// We can't predict which secret will be written to the K8s secret
+				// since the order of the secrets is not guaranteed
+			},
+		},
+		{
+			desc: "K8s secret fetch all with no secrets in Conjur",
+			k8sSecrets: k8sStorageMocks.K8sSecrets{
+				"k8s-secret1": {
+					"conjur-map": {"*": "*"},
+				},
+			},
+			requiredSecrets:        []string{"k8s-secret1"},
+			alternateConjurSecrets: map[string]string{},
+			asserts: []assertFunc{
+				assertErrorLogged(messages.CSPFK034E, "no variables to retrieve"),
+				assertErrorContains(fmt.Sprintf(messages.CSPFK034E, "no variables to retrieve"), false),
+			},
+		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
 			// Set up test case
 			mocks := newTestMocks()
+
+			if tc.alternateConjurSecrets != nil {
+				mocks.conjurClient.ClearSecrets()
+				mocks.conjurClient.AddSecrets(tc.alternateConjurSecrets)
+			}
+
 			mocks.setPermissions(tc.denyConjurRetrieve, tc.denyK8sRetrieve,
 				tc.denyK8sUpdate)
 
@@ -711,6 +942,7 @@ func TestProvideSanitization(t *testing.T) {
 		requiredSecrets  []string
 		sanitizeEnabled  bool
 		retrieveErrorMsg string
+		deleteSecrets    []string
 		asserts          []assertFunc
 	}{
 		{
@@ -801,6 +1033,106 @@ func TestProvideSanitization(t *testing.T) {
 				),
 			},
 		},
+		// This test is for a unique edge case: when secrets provider is configured with
+		// both a Fetch All group and also a specific secret, and the specific secret is
+		// removed from Conjur. The Fetch All group should still be updated, but the
+		// specific secret should be removed from the K8s secret IF sanitize is enabled.
+		{
+			desc:            "secret removed with sanitize enabled and Fetch All group",
+			sanitizeEnabled: true,
+			k8sSecrets: k8sStorageMocks.K8sSecrets{
+				"k8s-secret1": {
+					"conjur-map": {"*": "*"},
+				},
+				"k8s-secret2": {
+					"conjur-map": {
+						"secret1": "conjur/var/path1",
+						"secret2": "conjur/var/path2",
+					},
+				},
+			},
+			requiredSecrets:  []string{"k8s-secret1", "k8s-secret2"},
+			retrieveErrorMsg: "",                           // No error, since we're using fetch all
+			deleteSecrets:    []string{"conjur/var/path2"}, // Remove a secret
+			asserts: []assertFunc{
+				assertSecretsUpdated(
+					expectedK8sSecrets{
+						// Should have all secrets except the deleted one
+						"k8s-secret1": {
+							"conjur.var.path1":        "secret-value1",
+							"conjur.var.path3":        "secret-value3",
+							"conjur.var.path4":        "secret-value4",
+							"conjur.var.umlaut":       "ÄäÖöÜü",
+							"conjur.var.binary":       "\xf0\xff\x4a\xc3",
+							"conjur.var.empty-secret": "",
+							"conjur.var.encoded1":     "ZGVjb2RlZC12YWx1ZS0x",
+							"conjur.var.encoded2":     "ZGVjb2RlZC12YWx1ZS0y",
+							"conjur.var.encoded3":     "ZGVjb2RlZC12YWx1ZS0z",
+						},
+						// Should have just the explicit secret that still exists
+						"k8s-secret2": {
+							"secret1": "secret-value1",
+							"secret2": "",
+						},
+					},
+					expectedMissingValues{
+						"k8s-secret1": {"secret-value2"},
+						"k8s-secret2": {"secret-value2"},
+					},
+					false,
+				),
+				// Should not get duplicate secret name warning. This would happen
+				// if the update destinations are not cleared after each run.
+				assertLogged(false, "warn", messages.CSPFK067E, "conjur.var.path1"),
+			},
+		},
+		{
+			desc:            "secret removed with sanitize disabled and Fetch All group",
+			sanitizeEnabled: false,
+			k8sSecrets: k8sStorageMocks.K8sSecrets{
+				"k8s-secret1": {
+					"conjur-map": {"*": "*"},
+				},
+				"k8s-secret2": {
+					"conjur-map": {
+						"secret1": "conjur/var/path1",
+						"secret2": "conjur/var/path2",
+					},
+				},
+			},
+			requiredSecrets:  []string{"k8s-secret1", "k8s-secret2"},
+			retrieveErrorMsg: "",                           // No error, since we're using fetch all
+			deleteSecrets:    []string{"conjur/var/path2"}, // Remove a secret
+			asserts: []assertFunc{
+				assertSecretsUpdated(
+					expectedK8sSecrets{
+						// Should have all secrets, even the deleted one
+						"k8s-secret1": {
+							"conjur.var.path1":        "secret-value1",
+							"conjur.var.path2":        "secret-value2",
+							"conjur.var.path3":        "secret-value3",
+							"conjur.var.path4":        "secret-value4",
+							"conjur.var.umlaut":       "ÄäÖöÜü",
+							"conjur.var.binary":       "\xf0\xff\x4a\xc3",
+							"conjur.var.empty-secret": "",
+							"conjur.var.encoded1":     "ZGVjb2RlZC12YWx1ZS0x",
+							"conjur.var.encoded2":     "ZGVjb2RlZC12YWx1ZS0y",
+							"conjur.var.encoded3":     "ZGVjb2RlZC12YWx1ZS0z",
+						},
+						// Should still have the deleted secret
+						"k8s-secret2": {
+							"secret1": "secret-value1",
+							"secret2": "secret-value2",
+						},
+					},
+					expectedMissingValues{},
+					false,
+				),
+				// Should not get duplicate secret name warning. This would happen
+				// if the update destinations are not cleared after each run.
+				assertLogged(false, "warn", messages.CSPFK067E, "conjur.var.path1"),
+			},
+		},
 	}
 
 	for _, tc := range testCases {
@@ -818,7 +1150,15 @@ func TestProvideSanitization(t *testing.T) {
 		assert.True(t, updated)
 
 		// Now run test case, injecting an error into the retrieve function
-		mocks.conjurClient.ErrOnExecute = errors.New(tc.retrieveErrorMsg)
+		// and removing any secrets that need to be deleted (for the fetch all)
+		if tc.retrieveErrorMsg != "" {
+			mocks.conjurClient.ErrOnExecute = errors.New(tc.retrieveErrorMsg)
+		}
+		if len(tc.deleteSecrets) > 0 {
+			for _, secretName := range tc.deleteSecrets {
+				delete(mocks.conjurClient.Database, secretName)
+			}
+		}
 		updated, err = provider.Provide()
 
 		// Confirm results

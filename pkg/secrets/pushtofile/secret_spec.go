@@ -2,10 +2,11 @@ package pushtofile
 
 import (
 	"fmt"
+	"strings"
+
 	"github.com/cyberark/conjur-authn-k8s-client/pkg/log"
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/log/messages"
 	"gopkg.in/yaml.v3"
-	"strings"
 )
 
 const (
@@ -53,6 +54,7 @@ func (t *SecretSpec) unmarshalFromLiteralString(node *yaml.Node) error {
 	}
 
 	t.Path = literalValue
+	// When no alias is provided, use the last part of the variable path as the alias
 	t.Alias = literalValue[strings.LastIndex(literalValue, "/")+1:]
 	t.ContentType = "text"
 	return nil
@@ -90,6 +92,18 @@ func (t *SecretSpec) unmarshalFromMap(node *yaml.Node) error {
 // a YAML representation of secret specifications.
 func NewSecretSpecs(raw []byte) ([]SecretSpec, error) {
 	var secretSpecs []SecretSpec
+
+	// Support just the string "*" instead of a list
+	if string(raw) == "*" {
+		return []SecretSpec{
+			{
+				Path:        "*",
+				Alias:       "*",
+				ContentType: "text",
+			},
+		}, nil
+	}
+
 	err := yaml.Unmarshal(raw, &secretSpecs)
 	if err != nil {
 		return nil, fmt.Errorf("yaml: cannot unmarshall to list of secret specs: %v", err)
@@ -100,9 +114,9 @@ func NewSecretSpecs(raw []byte) ([]SecretSpec, error) {
 
 func validateSecretPathsAndContents(secretSpecs []SecretSpec, groupName string) []error {
 
-	errors := validateSecretPaths(secretSpecs,groupName)
+	errors := validateSecretPaths(secretSpecs, groupName)
 
-	errs := validateSecretContents(secretSpecs,groupName)
+	errs := validateSecretContents(secretSpecs, groupName)
 	if errs != nil {
 		for _, err := range errs {
 			// Log the errors as warnings but allow it to proceed

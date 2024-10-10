@@ -778,6 +778,41 @@ var pushToFileWithDepsTestCases = []pushToFileWithDepsTestCase{
 		},
 	},
 	{
+		description: "fetch all",
+		group: modifyGoodGroup(func(group SecretGroup) SecretGroup {
+			group.SecretSpecs = []SecretSpec{
+				{
+					Path: "*",
+				},
+			}
+			return group
+		}),
+		overrideSecrets: []*Secret{
+			{
+				Alias: "alias1",
+				Value: "value-path1",
+			},
+			{
+				Alias: "alias2",
+				Value: "value-path2",
+			},
+		},
+		assert: func(
+			t *testing.T,
+			spyOpenWriteCloser openWriteCloserSpy,
+			closableBuf *ClosableBuffer,
+			spyPushToWriter pushToWriterSpy,
+			updated bool,
+			err error,
+		) {
+			// Assertions
+			if !assert.NoError(t, err) {
+				return
+			}
+			assert.Equal(t, 2, len(spyPushToWriter.args.groupSecrets))
+		},
+	},
+	{
 		description: "file template precedence",
 		group: modifyGoodGroup(func(group SecretGroup) SecretGroup {
 			group.FileTemplate = "setfiletemplate"

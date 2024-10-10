@@ -28,7 +28,10 @@ spec:
         conjur.org/secrets-destination: k8s_secrets
         conjur.org/k8s-secrets: |
           - test-k8s-secret
+          - test-k8s-secret-fetch-all
+          - test-k8s-secret-fetch-all-base64
         conjur.org/log-level: "debug"
+        conjur.org/remove-deleted-secrets-enabled: "true"
     spec:
       serviceAccountName: ${APP_NAMESPACE_NAME}-sa
       containers:
@@ -89,6 +92,16 @@ spec:
               secretKeyRef:
                 name: test-k8s-secret
                 key: non-conjur-key
+          - name: FETCH_ALL_TEST_SECRET
+            valueFrom:
+              secretKeyRef:
+                name: test-k8s-secret-fetch-all
+                key: secrets.test_secret
+          - name: FETCH_ALL_BASE64
+            valueFrom:
+              secretKeyRef:
+                name: test-k8s-secret-fetch-all-base64
+                key: secrets.encoded
       - image: '${PULL_DOCKER_REGISTRY_PATH}/${APP_NAMESPACE_NAME}/secrets-provider:latest'
         imagePullPolicy: Always
         name: cyberark-secrets-provider-for-k8s

@@ -157,6 +157,10 @@ func TestMultipleHelmJobsMultipleSecret(t *testing.T) {
 			err = DeleteDeployment(cfg.Client(), SecretsProviderNamespace(), dep2)
 			assert.Nil(t, err)
 
+			// reset secret value
+			err = SetConjurSecret(cfg.Client(), "secrets/another_test_secret", "some-secret")
+			assert.Nil(t, err)
+
 			return ctx
 		})
 

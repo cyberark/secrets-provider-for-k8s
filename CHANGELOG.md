@@ -6,10 +6,13 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
-## [1.7.0] - 2024-10-16
+## [1.7.0] - 2024-10-21
 
 ### Added
-- Added `properties` file template
+- Added `properties` file template (CNJR-6964,
+  [cyberark/secrets-provider-for-k8s#548](https://github.com/cyberark/secrets-provider-for-k8s/pull/548))
+- Support fetching all secrets available to host (CNJR-6716)
+- Updated Go to 1.23
 
 ## [1.6.5] - 2024-07-24
 
