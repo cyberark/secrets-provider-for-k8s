@@ -161,13 +161,13 @@ format, for which there will be one secrets file per Conjur secret.
 
 ##### Supported Annotations
 
-| Annotation                                     | Description |
-|------------------------------------------------|-------------|
-| conjur.org/conjur-secrets.{secret-group}       | List of secrets to be retrieved from Conjur. Each entry can be either:<ul><li>A Conjur variable path</li><li> A key/value pairs of the form `<alias>:<Conjur variable path>` where the `alias` represents the name of the secret to be written to the secrets file |
-| conjur.org/conjur-secrets-policy-path.{secret-group}  | Prefix to use for all Conjur variable paths for a secret group. An example is `prod/backend/`. The path is assumed to be relative to root policy path. A leading `/` is ignored. A trailing `/` is optional. Defaults to the root policy path. |
+| Annotation                                     | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+|------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| conjur.org/conjur-secrets.{secret-group}       | List of secrets to be retrieved from Conjur. Each entry can be either:<ul><li>A Conjur variable path</li><li> A key/value pairs of the form `<alias>:<Conjur variable path>` where the `alias` represents the name of the secret to be written to the secrets file                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| conjur.org/conjur-secrets-policy-path.{secret-group}  | Prefix to use for all Conjur variable paths for a secret group. An example is `prod/backend/`. The path is assumed to be relative to root policy path. A leading `/` is ignored. A trailing `/` is optional. Defaults to the root policy path.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | conjur.org/secret-file-path.{secret-group}     | Relative path for secrets file or directory to be written. This path is assumed to be relative to the respective mount path for the shared secrets volume for each container (for the Secrets Provider container, the mount path is `/conjur/secrets/`). (Refer to [Example Kubernetes Manifests and Helm Named Templates](#example-kubernetes-manifests-and-helm-named-templates) for example Volumes and VolumeMounts.)<br><br>If the `conjur.org/secret-file-template.{secret-group}` annotation is set, then this secret file path must also be set, and it must include a file name (i.e. must not end in `/`).<br><br>If the `conjur.org/secret-file-template.{secret-group}` annotation is not set, then this secret file path defaults to `{secret-group}.{secret-group-file-format}`. For example, if the secret group name is `my-app`, and the secret file format is set for `yaml`, then the secret file path defaults to `my-app.yaml`. |
-| conjur.org/secret-file-format.{secret-group}     | Allowed values:<ul><li>yaml (default)</li><li>json</li><li>dotenv</li><li>bash</li><li>(future support) plaintext</li></ul>See the [Output File Formats](#output-file-formats) section below for example file formats.<br><br>This setting is ignored when `conjur.org/secret-file-template.{secret-group}` is configured. |
-| conjur.org/secret-file-template.{secret-group} | Custom template for secret file contents in [Golang text template](https://golang.org/pkg/text/template/) format. Templates can include any of the [pre-defined Golang template functions](https://golang.org/pkg/text/template/#hdr-Functions). See [Custom Templates for Secret Files](#custom-templates-for-secret-files) section below. |
+| conjur.org/secret-file-format.{secret-group}     | Allowed values:<ul><li>yaml (default)</li><li>json</li><li>dotenv</li><li>bash</li><li>properties</li><li>(future support) plaintext</li></ul>See the [Output File Formats](#output-file-formats) section below for example file formats.<br><br>This setting is ignored when `conjur.org/secret-file-template.{secret-group}` is configured.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| conjur.org/secret-file-template.{secret-group} | Custom template for secret file contents in [Golang text template](https://golang.org/pkg/text/template/) format. Templates can include any of the [pre-defined Golang template functions](https://golang.org/pkg/text/template/#hdr-Functions). See [Custom Templates for Secret Files](#custom-templates-for-secret-files) section below.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 
 ##### Example `conjur-secrets` Lists
 
@@ -396,7 +396,7 @@ error is detected.
 
 ##### Allowable Characters for Conjur Variable Paths
 
-For the `yaml`, `json`, `bash`, and `dotenv` secrets file formats, the
+For the `yaml`, `json`, `bash`, `properties`, and `dotenv` secrets file formats, the
 `conjur.org/conjur-secrets.{secret-group}` annotation is expected to
 contain a list of elements that can be a mix of:
 
@@ -410,7 +410,7 @@ than 126 characters.
 
 ##### Allowable Characters and Maximum Lengths for Secret Aliases
 
-For the `yaml`, `json`, `bash`, or `dotenv` secrets file format, the
+For the `yaml`, `json`, `bash`, `properties`, or `dotenv` secrets file format, the
 `conjur.org/conjur-secrets.{secret-group}` annotation can include key/value
 pairs of the form `{alias}: {Conjur secret variable path}`. The secret
 alias in this case will be used as a key when writing a rendered secret
@@ -486,6 +486,18 @@ represented as the following regex:
 [a-zA-Z_][a-zA-Z0-9_]*
 ```
 
+###### Allowable Characters for `properties` Aliases
+
+The Secrets Provider will validate that aliases that are included in
+`conjur.org/conjur-secrets.{secret-group]` mappings for the `properties` output file formats conform to the 
+Java properties file format, that is, aliases must consist solely of alphanumerics (a-z, A-Z, or 0-9) and underscores or dots, 
+and the first character cannot be a digit. 
+The format can be represented as the following regex:
+
+```
+[a-zA-Z_][a-zA-Z0-9_.]*
+```
+
 #### Avoiding Leaking of Sensitive Secrets Data in Container Logs
 
 When secrets files are rendered using secrets values that have been
@@ -513,7 +525,7 @@ multiple secret groups to append to a shared target secrets file.
 
 #### Detecting Duplicate Secrets Aliases Within a Group
 
-For secret groups that use `yaml`, `json`, `bash`, or `dotenv` formatting
+For secret groups that use `yaml`, `json`, `bash`, `properties`, or `dotenv` formatting
 for secrets files, the Secrets Provider will detect when a secret alias is
 being reused in annotation(s) for a given secret group. Reuse of a secret
 alias is considered a fatal misconfiguration, and will cause the Secrets
@@ -693,6 +705,14 @@ admin-username: zappa
    URL="https://database.example.com"
    ADMIN_PASSWORD="p@$$w0rd"
    ADMIN_USERNAME="zappa"
+```
+
+##### Example `properties` (.properties) Secrets File
+
+```
+   URL="https://database.example.com"
+   ADMIN.PASSWORD="p@$$w0rd"
+   ADMIN.USERNAME="zappa"
 ```
 
 ##### (Future Support) Example `plaintext` Secrets Files
@@ -946,7 +966,7 @@ var SecretGroups map[string]SecretGroup{}
 
     - If a secrets file Golang template has not been provided explicitly,
       Secrets Provider will use a "canned" Golang template based on the
-      secrets file format (YAML, JSON, dotenv, or bash).
+      secrets file format (YAML, JSON, properties, dotenv, or bash).
     - Secrets Provider connects/authenticates with Conjur and retrieves all
       secrets for that secret group.
     - Secrets Provider then renders and writes a secrets file at the configured
@@ -1029,63 +1049,63 @@ E2E tests require
 In the following table, the entries in the "User Stories" column refer to user stories as defined in the
 M1 Feature Document.
 
-| | Section | Given | When | Then | User Stories |
-| --- | --- | --- | --- | --- | --- |
-| 1 | Secrets Provider container can be configured using annotations | You provide SP config as annotations | Parsing is carried out | The internal SP config is set base on annotations | US-03 |
-| 2 | Annotation configuration takes precedence over environment variables | You provide the annotations and environment variables | Parsing is carried out | The internal representation of the parsed configuration prioritised values from the annotations | US-03 |
-| 3 | Parsing of Conjur secrets list | Valid "conjur-secrets" list annotation with aliases | Parsing is carried out | The internal representation matches expectations  | US-05 |
-| 4 | Parsing of Conjur secrets list | Valid "conjur-secrets" list annotation without aliases | Parsing is carried out | The internal representation matches expectations  | US-05 |
-| 5 | Parsing of Conjur secrets list | Valid "conjur-secrets" list annotation with mix of entries with/without aliases | Parsing is carried out | The internal representation matches expectations  | US-05 |
-| 6 | Parsing of Conjur secrets list | Empty list defined for "conjur-secrets" list annotation (allowed for custom template without secrets) | Parsing is carried out | No errors encountered | |
-| 7 | Parsing of Conjur secrets path | Valid "conjur-secrets" list and "conjur-secrets-policy-path" annotations | Parsing is carried out | The internal representation matches expectations  | US-06 |
-| 8 | Parsing multiple secret group annotations | Annotations for multiple secret groups with different (including default) file formats | Parsing is carried out | The annotation are divided according to their groups in the internal representation  | US-04 |
-| 9 | Default value for relative secrets file path | "secret-file-path" annotation not configured | Parsing is carried out | The secret file is written to `/conjur/secrets/{secret-group}.{secret-file-format}` | US-07 |
-| 10 | Parsing of relative secrets file path | "secret-file-path" annotation set to subdirectory (no filename) | Parsing is carried out | The secret file is written to `/conjur/secrets/{secret-file-path}/{secret-group}.{secret-file-format}` | US-07 |
-| 11 | Parsing of relative secrets file path | "secret-file-path" annotation set to subdirectory + filename | Parsing is carried out | The secret file is written to `/conjur/secrets/{secret-file-path}` | US-07 |
-| 12 | Parsing of relative secrets file path | "secret-file-path" annotation set to subdirectory + filename with extension not matching file format | Parsing is carried out | The secret file is written to `/conjur/secrets/{secret-file-path}` | US-07 |
-| 13 | Default value for secrets file format | "secret-file-format" annotation is not set | Parsing is carried out | The default secrets file format set to `yaml` | US-08 |
-| 14 | Parsing of secrets file format | Valid "secret-file-format" annotation (`yaml`, `json`, `dotenv`, `bash`, or [for future support] `plaintext`) | Parsing is carried out | The internal representation matches expectations  | US-08 |
-| 15 | Parsing of custom secret file template | "secret-file-template" annotation referencing secrets by name (alias) | Parsing is carried out | The internal representation matches expectations  | US-09 |
-| 16 | Parsing of custom secret file template | "secret-file-template" annotation iterating over all secrets | Parsing is carried out | The internal representation matches expectations  | US-09 |
-| 17 | Parsing of custom secret file template | "secret-file-template" annotation using built-in template functions (e.g. `printf` or `html`) | Parsing is carried out | The internal representation matches expectations  | US-09 |
-| 18 | Parsing of custom secret file template | "secret-file-template" annotation using custom functions with nested templates | Parsing is carried out | The internal representation matches expectations  | US-09 |
-| 19 | Batch retrieval of secrets | A mock for Conjur server batch retrieval exists | Fetch secret logic is run | Returns expected payload | |
-| 20 | Table test for generation of file formats | Some mock secret file data | File generation code is executed for various file formats | The generated files match the format | US-08 |
-| 21 | File creation with custom secret file template | "secret-file-template" annotation referencing secrets by name (alias) | File created | The file contents match expectations  | US-09 |
-| 22 | File creation using custom secret file template | "secret-file-template" annotation iterating over all secrets | File created | The file contents match expectations  | US-09 |
-| 23 | File creation using custom secret file template | "secret-file-template" annotation using built-in template functions (e.g. `printf` or `html`) | File created | The file contents match expectations  | US-09 |
-| 24 | Helm test using Named Templates as Chart Dependency | SP init container and Volume named templates are published | 'helm template' is run on a sample deployment Helm chart that uses named templates as a Helm dependency | The generated deployment manifests is as expected | US-01 |
-| 25 | Prometheus metrics endpoint testing | The SP is configured to create a sampling of secrets files | The metrics endpoint is queried for latency measurements | The latency metrics in the response are as expected | |
-| 26 | (Future support) File generation for `plaintext` format using default destination directory | Some mock secret file data | File generation code is executed for `plaintext` format without explicit dest directory | The generated files are as expected | |
-| 27 | (Future support) File generation for `plaintext` format using explicit destination directory | Some mock secret file data | File generation code is executed for `plaintext` format with explicit dest directory | The generated files are as expected | |
+| | Section | Given                                                                                                                      | When | Then | User Stories |
+| --- | --- |----------------------------------------------------------------------------------------------------------------------------| --- | --- | --- |
+| 1 | Secrets Provider container can be configured using annotations | You provide SP config as annotations                                                                                       | Parsing is carried out | The internal SP config is set base on annotations | US-03 |
+| 2 | Annotation configuration takes precedence over environment variables | You provide the annotations and environment variables                                                                      | Parsing is carried out | The internal representation of the parsed configuration prioritised values from the annotations | US-03 |
+| 3 | Parsing of Conjur secrets list | Valid "conjur-secrets" list annotation with aliases                                                                        | Parsing is carried out | The internal representation matches expectations  | US-05 |
+| 4 | Parsing of Conjur secrets list | Valid "conjur-secrets" list annotation without aliases                                                                     | Parsing is carried out | The internal representation matches expectations  | US-05 |
+| 5 | Parsing of Conjur secrets list | Valid "conjur-secrets" list annotation with mix of entries with/without aliases                                            | Parsing is carried out | The internal representation matches expectations  | US-05 |
+| 6 | Parsing of Conjur secrets list | Empty list defined for "conjur-secrets" list annotation (allowed for custom template without secrets)                      | Parsing is carried out | No errors encountered | |
+| 7 | Parsing of Conjur secrets path | Valid "conjur-secrets" list and "conjur-secrets-policy-path" annotations                                                   | Parsing is carried out | The internal representation matches expectations  | US-06 |
+| 8 | Parsing multiple secret group annotations | Annotations for multiple secret groups with different (including default) file formats                                     | Parsing is carried out | The annotation are divided according to their groups in the internal representation  | US-04 |
+| 9 | Default value for relative secrets file path | "secret-file-path" annotation not configured                                                                               | Parsing is carried out | The secret file is written to `/conjur/secrets/{secret-group}.{secret-file-format}` | US-07 |
+| 10 | Parsing of relative secrets file path | "secret-file-path" annotation set to subdirectory (no filename)                                                            | Parsing is carried out | The secret file is written to `/conjur/secrets/{secret-file-path}/{secret-group}.{secret-file-format}` | US-07 |
+| 11 | Parsing of relative secrets file path | "secret-file-path" annotation set to subdirectory + filename                                                               | Parsing is carried out | The secret file is written to `/conjur/secrets/{secret-file-path}` | US-07 |
+| 12 | Parsing of relative secrets file path | "secret-file-path" annotation set to subdirectory + filename with extension not matching file format                       | Parsing is carried out | The secret file is written to `/conjur/secrets/{secret-file-path}` | US-07 |
+| 13 | Default value for secrets file format | "secret-file-format" annotation is not set                                                                                 | Parsing is carried out | The default secrets file format set to `yaml` | US-08 |
+| 14 | Parsing of secrets file format | Valid "secret-file-format" annotation (`yaml`, `json`, `properties`, `dotenv`, `bash`, or [for future support] `plaintext`) | Parsing is carried out | The internal representation matches expectations  | US-08 |
+| 15 | Parsing of custom secret file template | "secret-file-template" annotation referencing secrets by name (alias)                                                      | Parsing is carried out | The internal representation matches expectations  | US-09 |
+| 16 | Parsing of custom secret file template | "secret-file-template" annotation iterating over all secrets                                                               | Parsing is carried out | The internal representation matches expectations  | US-09 |
+| 17 | Parsing of custom secret file template | "secret-file-template" annotation using built-in template functions (e.g. `printf` or `html`)                              | Parsing is carried out | The internal representation matches expectations  | US-09 |
+| 18 | Parsing of custom secret file template | "secret-file-template" annotation using custom functions with nested templates                                             | Parsing is carried out | The internal representation matches expectations  | US-09 |
+| 19 | Batch retrieval of secrets | A mock for Conjur server batch retrieval exists                                                                            | Fetch secret logic is run | Returns expected payload | |
+| 20 | Table test for generation of file formats | Some mock secret file data                                                                                                 | File generation code is executed for various file formats | The generated files match the format | US-08 |
+| 21 | File creation with custom secret file template | "secret-file-template" annotation referencing secrets by name (alias)                                                      | File created | The file contents match expectations  | US-09 |
+| 22 | File creation using custom secret file template | "secret-file-template" annotation iterating over all secrets                                                               | File created | The file contents match expectations  | US-09 |
+| 23 | File creation using custom secret file template | "secret-file-template" annotation using built-in template functions (e.g. `printf` or `html`)                              | File created | The file contents match expectations  | US-09 |
+| 24 | Helm test using Named Templates as Chart Dependency | SP init container and Volume named templates are published                                                                 | 'helm template' is run on a sample deployment Helm chart that uses named templates as a Helm dependency | The generated deployment manifests is as expected | US-01 |
+| 25 | Prometheus metrics endpoint testing | The SP is configured to create a sampling of secrets files                                                                 | The metrics endpoint is queried for latency measurements | The latency metrics in the response are as expected | |
+| 26 | (Future support) File generation for `plaintext` format using default destination directory | Some mock secret file data                                                                                                 | File generation code is executed for `plaintext` format without explicit dest directory | The generated files are as expected | |
+| 27 | (Future support) File generation for `plaintext` format using explicit destination directory | Some mock secret file data                                                                                                 | File generation code is executed for `plaintext` format with explicit dest directory | The generated files are as expected | |
 
 #### Error Handling / Recovery / Supportability Tests
 
-| | Section | Given | When | Then | Error Code | Test Type (Unit, Integration, E2E) | User Story |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| 1 | Missing secrets destination | You are using SP | You do not provide the secrets destination in an annotation or environment variable | Error: Missing secrets destination. Acceptable values are "k8s" and "file".<br><br>SP fails to start | | Unit | |
-| 2 | Invalid input file format | You are using SP in "file" mode | You have provided an unknown or unsupported type in the secret-file-format annotation | Error: Invalid output file format: "{value}" for secret group "{value}". Acceptable values are "json", "yaml", "bash", "dotenv", and "plaintext".<br><br>SP fails to start | | Unit | |
-| 3 | Conjur variable names collision | You are using SP in "file" mode | Two or more secrets in the same Secret Group share the same name or alias. | Error: Multiple variables in the "{value}" secret group are called "{value}". Provide a unique alias for each variable in the "{value}" secret group.<br><br>SP fails to start | | Unit | |
-| 4 | Unparseable Conjur secrets list | You are using SP in "file" mode | The "conjur-secrets" annotation is not parseable for one or more secret groups. | Error: The list of secrets for the "{value}" secret group is not formatted correctly. Error: "{value}". Verify that the annotation value is a YAML list with optional keys for each list item.<br><br>SP fails to start | | Unit | |
-| 5 | Invalid Conjur secrets path | You are using SP in "file" mode | The "conjur-secrets-policy-path" annotation is not parseable as a full secret path prefix. | Error: The Conjur secrets path "{value}" provided for the "{value}" secret group is invalid. | | Unit | US-06 |
-| 6 | Conjur variable path too long | You are using SP in "file" mode | The "conjur-secrets" annotation contains variable path(s) that are too long for one or more secret groups. | Error is displayed which includes all improper variable paths.<br><br>SP fails to start | | Unit | |
-| 7 | Secret alias for YAML secrets file too long | You are using SP in "file" mode for YAML format | The "conjur-secrets" annotation contains a variable alias that is longer than 1024 characters. | Error is displayed which includes improper variable alias.<br><br>SP fails to start | | Unit | |
-| 8 | Rendered file content for JSON secret file too long | You are using SP in "file" mode for JSON format | The rendered file content is longer than the max allowed for a JSON document (2097152 chars, equivalent to 4 MB Unicode string). | Error is displayed which includes secret group and rendered content length.<br><br>SP fails to start | | Unit | |
-| 9 | Secret alias for `bash` or `dotenv` format with invalid characters | You are using SP in "file" mode for `bash` or `dotenv` format | The "conjur-secrets" annotation contains a variable alias that includes invalid characters for an environment variable name. | Error is displayed which includes improper variable alias.<br><br>SP fails to start | | Unit | |
-| 10 | Invalid file template definition – not parseable by Go | You are using SP in "file" mode | File template for one or more secret groups cannot be used as written. | Error: The file template for the "{value}" secret group cannot be used as written. Error: "{value}". Update your template definition to address this and try again.<br><br>SP fails to start | | Unit | US-09 |
-| 11 | Invalid file template definition – references undefined secret keys | You are using SP in "file" mode and have provided a value for the `conjur.org/secret-file-template` annotation | File template for one or more secret groups references secrets that do not exist in the secret group. | Error: The file template for the "{value}" secret group references the "{value}" secret, but no such secret is defined in the secret group. Add an alias to set the correct secret name to "{value}", and try again.<br><br>SP fails | | Unit | US-09 |
-| 12 | Unable to retrieve Conjur variables | You are using SP in "file" mode | | Error: Failed to provide DAP/Conjur secrets<br><br>SP fails | CSPFK016E | Unit | |
-| 13 | Missing volume mounts | You are using SP in "file" mode | One or more volumes cannot be found by Secrets Provider. | Error: Unable to access volume "{value}". Error: "{value}". Ensure that the correct volumes are defined in the deployment manifest and attached to the Secrets Provider container.<br><br>SP fails to start | | Unit | US-07 |
-| 14 | Missing Conjur variable value while rendering custom template file content | You are using SP with a custom secrets file template | One or more variables used in a custom template are not included in secrets list. | Error displays missing variable name, and must not include sensitive secrets values.<br><br>SP fails | | Unit | |
-| 15 | Sanitize errors while rendering file content | You are using SP in "file" mode | An error is encountered while rendering secrets file content. | Errors must not include sensitive secrets values.<br><br>SP fails | | Unit | US-07 |
-| 16 | File permissions error | You are using SP in "file" mode | Secrets Provider does not have permission to write a secrets file to the specified volume and mount path. | Error: Secrets Provider does not have permission to write the secrets file "{value}". Please check the volume mount permissions on the Secrets Provider container and try again.<br><br>SP fails | | Unit | US-07 |
-| 17 | Out of disk space error | You are using SP in "file" mode | Secrets Provider does not have sufficient disk space to write a secrets file. | SP displays error as reported by operating system.<br><br>SP fails | | Unit | US-07 |
-| 18 | Invalid file path provided | You are using SP in "file" mode and have provided a value for the `conjur.org/secret-file-path` annotation | The provided file path is not a valid file path. | Error: You have provided an invalid file path "{value}" for the "{value}" secret group.<br><br>SP fails to start | | Unit | US-07 |
-| 19 | File conflict between two secret groups | You are using SP in "file" mode and have defined multiple secret groups | One or more secret groups have the same ouput file. | Error: You have provided conflicting file paths; secret groups "{value}", "{value}", ... all have output file "{value}".<br><br>SP fails to start | | Unit | US-07 |
-| 20 | Template provided but no output file defined | You are using SP in "file" mode and have provided a file template definition | You have not also provided an output file path. | Error: The output file path is missing for the "{value}" secret group. File path is required when using a custom template.<br><br>SP fails to start | | Unit | |
-| 21 | Invalid retry annotation settings | You are using SP in "file" mode and have provided retry configuration as annotations | Retry settings re invalid. | Error is generated indicating incorrect setting(s).<br><br>SP fails to start | | Unit | |
-| 22 | Conjur retrieval fails and retry is required | You are using SP in "file" mode and have provided retry configuration as annotations | Conjur retrievals fail file path. | Secrets Provider retries up the the retry count limit.<br><br>SP fails to start | | Integration | |
-| 23 | (Future support) Invalid file path for `plaintext` format | You are using SP in "file" mode, you are using `plaintext` secrets path format, and have provided a value for the `conjur.org/secret-file-path` annotation | The provided file path is not a directory. | Error: The provided secret file path for the {value} secret group is not a directory. You must provide a directory for the "plaintext" secret file format.<br><br>SP fails to start | | Unit | |
+| | Section                                                                         | Given                                                                                                                                                      | When | Then | Error Code | Test Type (Unit, Integration, E2E) | User Story |
+| --- |---------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------| --- | --- | --- | --- | --- |
+| 1 | Missing secrets destination                                                     | You are using SP                                                                                                                                           | You do not provide the secrets destination in an annotation or environment variable | Error: Missing secrets destination. Acceptable values are "k8s" and "file".<br><br>SP fails to start | | Unit | |
+| 2 | Invalid input file format                                                       | You are using SP in "file" mode                                                                                                                            | You have provided an unknown or unsupported type in the secret-file-format annotation | Error: Invalid output file format: "{value}" for secret group "{value}". Acceptable values are "json", "yaml", "bash", "dotenv", and "plaintext".<br><br>SP fails to start | | Unit | |
+| 3 | Conjur variable names collision                                                 | You are using SP in "file" mode                                                                                                                            | Two or more secrets in the same Secret Group share the same name or alias. | Error: Multiple variables in the "{value}" secret group are called "{value}". Provide a unique alias for each variable in the "{value}" secret group.<br><br>SP fails to start | | Unit | |
+| 4 | Unparseable Conjur secrets list                                                 | You are using SP in "file" mode                                                                                                                            | The "conjur-secrets" annotation is not parseable for one or more secret groups. | Error: The list of secrets for the "{value}" secret group is not formatted correctly. Error: "{value}". Verify that the annotation value is a YAML list with optional keys for each list item.<br><br>SP fails to start | | Unit | |
+| 5 | Invalid Conjur secrets path                                                     | You are using SP in "file" mode                                                                                                                            | The "conjur-secrets-policy-path" annotation is not parseable as a full secret path prefix. | Error: The Conjur secrets path "{value}" provided for the "{value}" secret group is invalid. | | Unit | US-06 |
+| 6 | Conjur variable path too long                                                   | You are using SP in "file" mode                                                                                                                            | The "conjur-secrets" annotation contains variable path(s) that are too long for one or more secret groups. | Error is displayed which includes all improper variable paths.<br><br>SP fails to start | | Unit | |
+| 7 | Secret alias for YAML secrets file too long                                     | You are using SP in "file" mode for YAML format                                                                                                            | The "conjur-secrets" annotation contains a variable alias that is longer than 1024 characters. | Error is displayed which includes improper variable alias.<br><br>SP fails to start | | Unit | |
+| 8 | Rendered file content for JSON secret file too long                             | You are using SP in "file" mode for JSON format                                                                                                            | The rendered file content is longer than the max allowed for a JSON document (2097152 chars, equivalent to 4 MB Unicode string). | Error is displayed which includes secret group and rendered content length.<br><br>SP fails to start | | Unit | |
+| 9 | Secret alias for `bash`, `properties` or `dotenv` format with invalid characters | You are using SP in "file" mode for `bash`, `properties` or `dotenv` format                                                                                 | The "conjur-secrets" annotation contains a variable alias that includes invalid characters for an environment variable name. | Error is displayed which includes improper variable alias.<br><br>SP fails to start | | Unit | |
+| 10 | Invalid file template definition – not parseable by Go                          | You are using SP in "file" mode                                                                                                                            | File template for one or more secret groups cannot be used as written. | Error: The file template for the "{value}" secret group cannot be used as written. Error: "{value}". Update your template definition to address this and try again.<br><br>SP fails to start | | Unit | US-09 |
+| 11 | Invalid file template definition – references undefined secret keys             | You are using SP in "file" mode and have provided a value for the `conjur.org/secret-file-template` annotation                                             | File template for one or more secret groups references secrets that do not exist in the secret group. | Error: The file template for the "{value}" secret group references the "{value}" secret, but no such secret is defined in the secret group. Add an alias to set the correct secret name to "{value}", and try again.<br><br>SP fails | | Unit | US-09 |
+| 12 | Unable to retrieve Conjur variables                                             | You are using SP in "file" mode                                                                                                                            | | Error: Failed to provide DAP/Conjur secrets<br><br>SP fails | CSPFK016E | Unit | |
+| 13 | Missing volume mounts                                                           | You are using SP in "file" mode                                                                                                                            | One or more volumes cannot be found by Secrets Provider. | Error: Unable to access volume "{value}". Error: "{value}". Ensure that the correct volumes are defined in the deployment manifest and attached to the Secrets Provider container.<br><br>SP fails to start | | Unit | US-07 |
+| 14 | Missing Conjur variable value while rendering custom template file content      | You are using SP with a custom secrets file template                                                                                                       | One or more variables used in a custom template are not included in secrets list. | Error displays missing variable name, and must not include sensitive secrets values.<br><br>SP fails | | Unit | |
+| 15 | Sanitize errors while rendering file content                                    | You are using SP in "file" mode                                                                                                                            | An error is encountered while rendering secrets file content. | Errors must not include sensitive secrets values.<br><br>SP fails | | Unit | US-07 |
+| 16 | File permissions error                                                          | You are using SP in "file" mode                                                                                                                            | Secrets Provider does not have permission to write a secrets file to the specified volume and mount path. | Error: Secrets Provider does not have permission to write the secrets file "{value}". Please check the volume mount permissions on the Secrets Provider container and try again.<br><br>SP fails | | Unit | US-07 |
+| 17 | Out of disk space error                                                         | You are using SP in "file" mode                                                                                                                            | Secrets Provider does not have sufficient disk space to write a secrets file. | SP displays error as reported by operating system.<br><br>SP fails | | Unit | US-07 |
+| 18 | Invalid file path provided                                                      | You are using SP in "file" mode and have provided a value for the `conjur.org/secret-file-path` annotation                                                 | The provided file path is not a valid file path. | Error: You have provided an invalid file path "{value}" for the "{value}" secret group.<br><br>SP fails to start | | Unit | US-07 |
+| 19 | File conflict between two secret groups                                         | You are using SP in "file" mode and have defined multiple secret groups                                                                                    | One or more secret groups have the same ouput file. | Error: You have provided conflicting file paths; secret groups "{value}", "{value}", ... all have output file "{value}".<br><br>SP fails to start | | Unit | US-07 |
+| 20 | Template provided but no output file defined                                    | You are using SP in "file" mode and have provided a file template definition                                                                               | You have not also provided an output file path. | Error: The output file path is missing for the "{value}" secret group. File path is required when using a custom template.<br><br>SP fails to start | | Unit | |
+| 21 | Invalid retry annotation settings                                               | You are using SP in "file" mode and have provided retry configuration as annotations                                                                       | Retry settings re invalid. | Error is generated indicating incorrect setting(s).<br><br>SP fails to start | | Unit | |
+| 22 | Conjur retrieval fails and retry is required                                    | You are using SP in "file" mode and have provided retry configuration as annotations                                                                       | Conjur retrievals fail file path. | Secrets Provider retries up the the retry count limit.<br><br>SP fails to start | | Integration | |
+| 23 | (Future support) Invalid file path for `plaintext` format                       | You are using SP in "file" mode, you are using `plaintext` secrets path format, and have provided a value for the `conjur.org/secret-file-path` annotation | The provided file path is not a directory. | Error: The provided secret file path for the {value} secret group is not a directory. You must provide a directory for the "plaintext" secret file format.<br><br>SP fails to start | | Unit | |
 
 #### E2E tests
 
@@ -1275,9 +1295,9 @@ retrieved from Conjur, we need to be careful that those sensitive secrets
 values are not exposed in container logs as part of error messages
 when rendering errors occur.
 
-#### Sanitizing Errors for `yaml`, `json`, `bash`, and `dotenv` Secrets File Formats
+#### Sanitizing Errors for `yaml`, `json`, `bash`, `properties`, and `dotenv` Secrets File Formats
 
-When secrets files are being created using the `yaml`, `json`, `bash`, or
+When secrets files are being created using the `yaml`, `json`, `bash`, `properties`, or
 `dotenv` file formats, leaking of sensitive secrets values will be prevented
 by using the following workflow for rendering each secrets file:
 
@@ -1438,6 +1458,7 @@ three phases of development:
 - [ ] Add support for specifying (non-default) output file path/name
 - [ ] Add support for Bash export output
 - [ ] Add support for dotenv export output
+- [ ] Add support for properties export output
 - [ ] Add support for templated file output
 - [ ] Provide named Helm template for SP init container def
 - [ ] Provide named Helm template for SP volumes
@@ -1508,6 +1529,8 @@ corresponding to three phases of development:
   writing of Bash formatted file
 - [ ] There is a happy path e2e test in the Secrets Provider test cases to validate
   writing of dotenv formatted file
+- [ ] There is a happy path e2e test in the Secrets Provider test cases to validate
+  writing of properties formatted file
 - [ ] There is a happy path e2e test to validate Helm named templates for init
   container def, volume mounts, and volumes
 - [ ] There is a blog post describing how to transition from an existing application to using the new Secrets Provider "push to file" flow

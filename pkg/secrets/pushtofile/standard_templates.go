@@ -17,10 +17,11 @@ func (s standardTemplate) ValidateAlias(alias string) error {
 }
 
 var standardTemplates = map[string]standardTemplate{
-	"yaml":   {template: yamlTemplate, validateAlias: validateYAMLKey},
-	"json":   {template: jsonTemplate, validateAlias: validateJSONKey},
-	"dotenv": {template: dotenvTemplate, validateAlias: validateBashVarName},
-	"bash":   {template: bashTemplate, validateAlias: validateBashVarName},
+	"yaml":       {template: yamlTemplate, validateAlias: validateYAMLKey},
+	"json":       {template: jsonTemplate, validateAlias: validateJSONKey},
+	"dotenv":     {template: dotenvTemplate, validateAlias: validateBashVarName},
+	"properties": {template: dotenvTemplate, validateAlias: validatePropertyVarName},
+	"bash":       {template: bashTemplate, validateAlias: validateBashVarName},
 }
 
 // FileTemplateForFormat returns the template for a file format, after ensuring the
