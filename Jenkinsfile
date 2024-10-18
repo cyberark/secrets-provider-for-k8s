@@ -341,6 +341,7 @@ pipeline {
     always {
       archiveArtifacts artifacts: "deploy/output/*.txt", fingerprint: false, allowEmptyArchive: true
       releaseInfraPoolAgent(".infrapool/release_agents")
+      infraPostHook()
     }
   }
 }
