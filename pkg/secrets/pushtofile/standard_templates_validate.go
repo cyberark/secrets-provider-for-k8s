@@ -80,6 +80,15 @@ func isValidJSONChar(c rune) bool {
 	}
 }
 
+func validatePropertyVarName(name string) error {
+	r := regexp.MustCompile("^[a-zA-Z_][a-zA-Z0-9_.]*$")
+	if !r.MatchString(name) {
+		explanation := "property names can only include alphanumerics, dots and underscores, with first char being a non-digit/non-dot"
+		return fmt.Errorf("invalid alias %q: %s", name, explanation)
+	}
+	return nil
+}
+
 func validateBashVarName(name string) error {
 	r := regexp.MustCompile("^[a-zA-Z_][a-zA-Z0-9_]*$")
 	if !r.MatchString(name) {

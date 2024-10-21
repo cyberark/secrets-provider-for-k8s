@@ -9,12 +9,13 @@ import (
 )
 
 const (
-	invalidYAMLChar    = "invalid YAML character"
-	invalidJSONChar    = "invalid JSON character"
-	yamlAliasTooLong   = "too long for YAML"
-	jsonAliasTooLong   = "too long for JSON"
-	invalidBashVarName = "can only include alphanumerics and underscores"
-	validConjurPath    = "valid/conjur/variable/path"
+	invalidYAMLChar        = "invalid YAML character"
+	invalidJSONChar        = "invalid JSON character"
+	yamlAliasTooLong       = "too long for YAML"
+	jsonAliasTooLong       = "too long for JSON"
+	invalidPropertyVarName = "can only include alphanumerics, dots and underscores"
+	invalidBashVarName     = "can only include alphanumerics and underscores"
+	validConjurPath        = "valid/conjur/variable/path"
 )
 
 type assertErrorFunc func(*testing.T, error, string)
@@ -60,6 +61,16 @@ var standardTemplateTestCases = []pushToWriterTestCase{
 			{"alias2", "secret value 2"},
 		},
 		assert: assertGoodOutput(`alias1="secret value 1"
+alias2="secret value 2"`),
+	},
+	{
+		description: "properties",
+		template:    standardTemplates["properties"].template,
+		secrets: []*Secret{
+			{Alias: "alias.1", Value: "secret value 1"},
+			{"alias2", "secret value 2"},
+		},
+		assert: assertGoodOutput(`alias.1="secret value 1"
 alias2="secret value 2"`),
 	},
 	{
@@ -218,6 +229,43 @@ func testValidateAliasLenForJSON(t *testing.T) {
 
 	for _, tc := range testCases {
 		tc.Run(t, "json")
+	}
+}
+
+func TestValidateAliasForProperties(t *testing.T) {
+	testCases := []struct {
+		description string
+		alias       string
+		assert      assertErrorFunc
+	}{
+		// property file format, valid aliases
+		{"all lower case chars", "foobar", assertNoError()},
+		{"dot", "foo.bar", assertNoError()},
+		{"all upper case chars", "FOOBAR", assertNoError()},
+		{"upper case, lower case, and underscores", "_Foo_Bar_", assertNoError()},
+		{"leading underscore with digits", "_12345", assertNoError()},
+		{"upper case, lower case, underscores, digits", "_Foo_Bar_1234", assertNoError()},
+
+		// property file format, invalid aliases
+		{"leading dot", ".th7_Heaven", assertErrorContains(invalidPropertyVarName)},
+		{"leading digit", "7th_Heaven", assertErrorContains(invalidPropertyVarName)},
+		{"spaces", "FOO BAR", assertErrorContains(invalidPropertyVarName)},
+		{"dashes", "FOO-BAR", assertErrorContains(invalidPropertyVarName)},
+		{"single quotes", "FOO_'BAR'", assertErrorContains(invalidPropertyVarName)},
+		{"dog emoji", "FOO_'🐶'_BAR", assertErrorContains(invalidPropertyVarName)},
+		{"trailing space", "FOO_BAR ", assertErrorContains(invalidPropertyVarName)},
+	}
+
+	for _, tc := range testCases {
+		// Set up test case
+		desc := fmt.Sprintf("%s file format, alias with %s", "properties", tc.description)
+		secretSpecs := []SecretSpec{{Alias: tc.alias, Path: validConjurPath}}
+
+		// Run test case
+		_, err := FileTemplateForFormat("properties", secretSpecs)
+
+		// Check result
+		tc.assert(t, err, desc)
 	}
 }
 
