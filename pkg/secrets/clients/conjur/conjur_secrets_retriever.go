@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/cyberark/conjur-api-go/conjurapi"
 	"github.com/cyberark/conjur-authn-k8s-client/pkg/access_token/memory"
 	"github.com/cyberark/conjur-authn-k8s-client/pkg/authenticator"
 	"github.com/cyberark/conjur-authn-k8s-client/pkg/authenticator/config"
@@ -15,6 +16,8 @@ import (
 	"github.com/cyberark/conjur-opentelemetry-tracer/pkg/trace"
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/log/messages"
 )
+
+var fetchAllMaxSecrets = 500
 
 // SecretRetriever implements a Retrieve function that is capable of
 // authenticating with Conjur and retrieving multiple Conjur variables
@@ -51,7 +54,6 @@ func NewSecretRetriever(authnConfig config.Configuration) (RetrieveSecretsFunc, 
 // Retrieve implements a RetrieveSecretsFunc for a given SecretRetriever.
 // Authenticates the client, and retrieves a given batch of variables from Conjur.
 func (retriever secretRetriever) Retrieve(variableIDs []string, traceContext context.Context) (map[string][]byte, error) {
-
 	authn := retriever.authn
 
 	err := authn.AuthenticateWithContext(traceContext)
@@ -66,28 +68,93 @@ func (retriever secretRetriever) Retrieve(variableIDs []string, traceContext con
 	// Always delete the access token. The deletion is idempotent and never fails
 	defer authn.GetAccessToken().Delete()
 
+	// Determine whether to fetch all secrets or a specific list
+	fetchAll := len(variableIDs) == 1 && variableIDs[0] == "*"
+
 	tr := trace.NewOtelTracer(otel.Tracer("secrets-provider"))
 	_, span := tr.Start(traceContext, "Retrieve secrets")
-	span.SetAttributes(attribute.Int("variable_count", len(variableIDs)))
+	span.SetAttributes(attribute.Bool("fetch_all", fetchAll))
+	if !fetchAll {
+		span.SetAttributes(attribute.Int("variable_count", len(variableIDs)))
+	}
 	defer span.End()
 
-	return retrieveConjurSecrets(accessTokenData, variableIDs)
-}
-
-func retrieveConjurSecrets(accessToken []byte, variableIDs []string) (map[string][]byte, error) {
-	log.Info(messages.CSPFK003I, variableIDs)
-
-	if len(variableIDs) == 0 {
-		log.Info(messages.CSPFK016I)
-		return nil, nil
-	}
-
-	conjurClient, err := NewConjurClient(accessToken)
+	conjurClient, err := NewConjurClient(accessTokenData)
 	if err != nil {
 		return nil, log.RecordedError(messages.CSPFK033E)
 	}
 
+	if fetchAll {
+		return retrieveConjurSecretsAll(conjurClient)
+	}
+
+	return retrieveConjurSecrets(conjurClient, variableIDs)
+}
+
+func retrieveConjurSecrets(conjurClient ConjurClient, variableIDs []string) (map[string][]byte, error) {
+	log.Info(messages.CSPFK003I, variableIDs)
+
+	if len(variableIDs) == 0 {
+		return nil, log.RecordedError(messages.CSPFK034E, "no variables to retrieve")
+	}
+
 	retrievedSecretsByFullIDs, err := conjurClient.RetrieveBatchSecretsSafe(variableIDs)
+	if err != nil {
+		return nil, err
+	}
+
+	// Normalise secret IDs from batch secrets back to <variable_id>
+	var retrievedSecrets = map[string][]byte{}
+	for id, secret := range retrievedSecretsByFullIDs {
+		retrievedSecrets[normaliseVariableId(id)] = secret
+		delete(retrievedSecretsByFullIDs, id)
+	}
+
+	return retrievedSecrets, nil
+}
+
+func retrieveConjurSecretsAll(conjurClient ConjurClient) (map[string][]byte, error) {
+	log.Info(messages.CSPFK023I)
+
+	// Page through all secrets available to the host
+	allResourcePaths := []string{}
+	for offset := 0; ; offset += 100 {
+		resFilter := &conjurapi.ResourceFilter{
+			Kind:   "variable",
+			Limit:  100,
+			Offset: offset,
+		}
+		resources, err := conjurClient.Resources(resFilter)
+		if err != nil {
+			return nil, err
+		}
+
+		log.Debug(messages.CSPFK010D, len(resources))
+
+		for _, candidate := range resources {
+			allResourcePaths = append(allResourcePaths, candidate["id"].(string))
+		}
+
+		// If we have less than 100 resources, we reached the last page
+		if len(resources) < 100 {
+			break
+		}
+
+		// Limit the maximum number of secrets we can fetch to prevent DoS
+		if len(allResourcePaths) >= fetchAllMaxSecrets {
+			log.Warn(messages.CSPFK066E, fetchAllMaxSecrets)
+			break
+		}
+	}
+
+	if len(allResourcePaths) == 0 {
+		return nil, log.RecordedError(messages.CSPFK034E, "no variables to retrieve")
+	}
+
+	log.Info(messages.CSPFK003I, allResourcePaths)
+
+	// Retrieve all secrets in a single batch
+	retrievedSecretsByFullIDs, err := conjurClient.RetrieveBatchSecretsSafe(allResourcePaths)
 	if err != nil {
 		return nil, err
 	}

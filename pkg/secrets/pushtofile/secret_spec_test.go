@@ -141,6 +141,35 @@ another-password: dev/openshift/password
 			},
 		),
 	},
+	{
+		description: "fetch all",
+		contents:    "*",
+		assert: assertGoodSecretSpecs(
+			[]SecretSpec{
+				{
+					Path:        "*",
+					Alias:       "*",
+					ContentType: "text",
+				},
+			},
+		),
+	},
+	{
+		description: "fetch all base64",
+		contents: `
+- "*": "*"
+  content-type: base64
+`,
+		assert: assertGoodSecretSpecs(
+			[]SecretSpec{
+				{
+					Path:        "*",
+					Alias:       "*",
+					ContentType: "base64",
+				},
+			},
+		),
+	},
 }
 
 func TestNewSecretSpecs(t *testing.T) {

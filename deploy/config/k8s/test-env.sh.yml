@@ -8,7 +8,7 @@ set -euo pipefail
 # related key-value from yaml file
 SECRETS_DESTINATION_KEY_VALUE=${SECRETS_DESTINATION_KEY_VALUE:-"SECRETS_DESTINATION k8s_secrets"}
 CONTAINER_MODE_KEY_VALUE=${CONTAINER_MODE_KEY_VALUE:-"CONTAINER_MODE init"}
-K8S_SECRETS_KEY_VALUE=${K8S_SECRETS_KEY_VALUE:-"K8S_SECRETS test-k8s-secret"}
+K8S_SECRETS_KEY_VALUE=${K8S_SECRETS_KEY_VALUE:-"K8S_SECRETS test-k8s-secret,test-k8s-secret-fetch-all,test-k8s-secret-fetch-all-base64"}
 CONJUR_AUTHN_LOGIN=${CONJUR_AUTHN_LOGIN:-"host/conjur/authn-k8s/${AUTHENTICATOR_ID}/apps/${APP_NAMESPACE_NAME}/*/*"}
 
 cat << EOL
@@ -76,6 +76,16 @@ spec:
               secretKeyRef:
                 name: test-k8s-secret
                 key: non-conjur-key
+          - name: FETCH_ALL_TEST_SECRET
+            valueFrom:
+              secretKeyRef:
+                name: test-k8s-secret-fetch-all
+                key: secrets.test_secret
+          - name: FETCH_ALL_BASE64
+            valueFrom:
+              secretKeyRef:
+                name: test-k8s-secret-fetch-all-base64
+                key: secrets.encoded
       initContainers:
       - image: '${PULL_DOCKER_REGISTRY_PATH}/${APP_NAMESPACE_NAME}/secrets-provider:latest'
         imagePullPolicy: Always

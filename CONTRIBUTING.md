@@ -179,20 +179,6 @@ For example:
 - Deploy Conjur Open Source on GKE, run  `./bin/start --oss --gke`
 - Deploy Conjur Enterprise on Openshift, run  `./bin/start --dap --current`
 
-It is also possible to run a single test instead of the full suite. This can be done by running `./bin/start` with the
-flag `--test-prefix=<prefix>`. For example, running with the flag `--test-prefix=TEST_ID_18` will run only the test
-`TEST_ID_18_helm_multiple_provider_multiple_secrets.sh`, or run with the flag `--test-prefix=*1[789]` to run tests 17,18,19.
-
-When contributing new integration tests, perform the following:
-
-1. Navigate to the `test/test_case` folder
-
-1. Create a new test file with filename prefix `TEST_ID_<HIGHEST_NUMBER>_<TEST_NAME>`
-
-If your tests follow the above instructions, our scripts should grab your test additions and run it as our test suite.
-
-That's it!
-
 #### Tracing
 
 To view tracing output from Secrets Provider, you can enable Jaeger tracing.
@@ -203,33 +189,27 @@ To view tracing output from Secrets Provider, you can enable Jaeger tracing.
     kubectl create namespace jaeger
     kubectl config set-context --current --namespace=jaeger
     helm repo add jaegertracing https://jaegertracing.github.io/helm-charts
-    helm install jaeger jaegertracing/jaeger \
-      --set provisionDataStore.cassandra=false \
-      --set provisionDataStore.elasticsearch=true \
-      --set storage.type=elasticsearch \
-      --set elasticsearch.replicas=1 \
-      --set elasticsearch.minimumMasterNodes=1
+    helm install jaeger jaegertracing/jaeger
     ```
 
-    Wait a few minutes for the Jaeger instance to be ready. Then run the following commands to expose the
-    Jaeger UI on localhost:8080.
+    Wait about 5 minutes for the Jaeger instance to be ready (you can check the status with `kubectl get pods -n jaeger`).
+    Then run the following commands to expose the Jaeger UI on [localhost:8080](http://localhost:8080):
 
     ```bash
     pod_name=$(kubectl get pods --namespace jaeger -l "app.kubernetes.io/instance=jaeger,app.kubernetes.io/component=query" -o jsonpath="{.items[0].metadata.name}")
     kubectl port-forward --namespace jaeger $pod_name 8080:16686
     ```
 
-2. Clone the [cyberark/conjur-authn-k8s-client](https://github.com/cyberark/conjur-authn-k8s-client) repository which
-contains the E2E tests. Edit the template file for the tests. For example, you can add the following to the `annotations`
-section of `helm/conjur-app-deploy/charts/app-secrets-provider-p2f/templates/test_app_secrets_provider_p2f.yaml` for the
-push to file E2E test:
+2. Uncomment the following line in the template for the environment you are using in `bootstrap.env`,
+    for example, if using `SECRETS_MODE="p2f-rotation"` then you'll need to update
+    [deploy/dev/config/k8s/secrets-provider-p2f-rotation.sh.yml](deploy/dev/config/k8s/secrets-provider-p2f-rotation.sh.yml):
 
     ```yaml
     conjur.org/jaeger-collector-url: http://jaeger-collector.jaeger.svc.cluster.local:14268/api/traces
     ```
 
-    Now run the tests as usual with `cd bin/test-workflow && ./start -a secrets-provider-p2f`.
-
+    Now reload the dev environment with `./bin/start --dev --reload` and optionally run
+    the e2e tests with `go test -timeout 0 -v ./e2e --tags=e2e`.
 
 ## Releases
 

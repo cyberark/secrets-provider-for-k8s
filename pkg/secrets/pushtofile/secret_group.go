@@ -221,6 +221,12 @@ func validateSecretsAgainstSpecs(
 	secrets []*Secret,
 	specs []SecretSpec,
 ) error {
+	// If in "Fetch All" mode, then the number of specs will always be 1
+	// while the number of secrets will be variable. Skip this validation.
+	if len(specs) == 1 && specs[0].Path == "*" {
+		return nil
+	}
+
 	if len(secrets) != len(specs) {
 		return fmt.Errorf(
 			"number of secrets (%d) does not match number of secret specs (%d)",

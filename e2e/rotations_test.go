@@ -10,10 +10,12 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"sigs.k8s.io/e2e-framework/pkg/envconf"
 	"sigs.k8s.io/e2e-framework/pkg/features"
 )
@@ -33,7 +35,7 @@ func TestPushToFile(t *testing.T) {
 		// Replaces TEST_ID_27_push_to_file
 		Assess("p2f", func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
 			// files to test against
-			files := []string{"group1.yaml", "group2.json", "some-dotenv.env", "group4.bash", "group5.template"}
+			files := []string{"group1.yaml", "group2.json", "some-dotenv.env", "group4.bash", "group5.template", "group6.json", "group7.template", "group8.yaml"}
 
 			// expected content in files
 			expectedContent := map[string]string{
@@ -50,6 +52,9 @@ func TestPushToFile(t *testing.T) {
 					"export password=\"7H1SiSmYp@5Sw0rd\"",
 				"group5.template": "username | some-user\n" +
 					"password | 7H1SiSmYp@5Sw0rd\n",
+				"group6.json":     FetchAllJSONContent,
+				"group7.template": FetchAllBase64TemplateContent,
+				"group8.yaml":     FetchAllBase64YamlContent,
 			}
 
 			// check file contents match container output
@@ -120,7 +125,7 @@ func TestPushToFileSecretsRotation(t *testing.T) {
 			time.Sleep(15 * time.Second)
 
 			// files to test against
-			files := []string{"group1.yaml", "group2.json", "some-dotenv.env", "group4.bash", "group5.template"}
+			files := []string{"group1.yaml", "group2.json", "some-dotenv.env", "group4.bash", "group5.template", "group6.yaml"}
 
 			// expected content in files
 			expectedContent := map[string]string{
@@ -141,6 +146,17 @@ func TestPushToFileSecretsRotation(t *testing.T) {
 				"group5.template": "username | some-user\n" +
 					"password | 7H1SiSmYp@5Sw0rd\n" +
 					"test | secret2\n",
+				"group6.yaml": `"secrets/another_test_secret": "some-secret"
+"secrets/encoded": "` + encodedStr + `"
+"secrets/json_object_secret": "\"{\"auths\":{\"someurl\":{\"auth\":\"sometoken=\"}}}\""
+"secrets/password": "7H1SiSmYp@5Sw0rd"
+"secrets/ssh_key": "\"ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEA879BJGYlPTLIuc9/R5MYiN4yc/YiCLcdBpSdzgK9Dt0Bkfe3rSz5cPm4wmehdE7GkVFXrBJ2YHqPLuM1yx1AUxIebpwlIl9f/aUHOts9eVnVh4NztPy0iSU/Sv0b2ODQQvcy2vYcujlorscl8JjAgfWsO3W4iGEe6QwBpVomcME8IU35v5VbylM9ORQa6wvZMVrPECBvwItTY8cPWH3MGZiK/74eHbSLKA4PY3gM4GHI450Nie16yggEg2aTQfWA1rry9JYWEoHS9pJ1dnLqZU3k/8OWgqJrilwSoC5rGjgp93iu0H8T6+mEHGRQe84Nk1y5lESSWIbn6P636Bl3uQ== your@email.com\""
+"secrets/test_secret": "secret2"
+"secrets/umlaut": "ÄäÖöÜü"
+"secrets/url": "postgresql://test-app-backend.app-test.svc.cluster.local:5432"
+"secrets/username": "some-user"
+"secrets/var with spaces": "some-secret"
+"secrets/var+with+pluses": "some-secret"`,
 			}
 
 			// check file contents match container output
@@ -157,12 +173,11 @@ func TestPushToFileSecretsRotation(t *testing.T) {
 
 			// delete a secret from conjur
 			err = DeleteTestSecret(cfg.Client())
-			assert.Nil(t, err)
+			require.Nil(t, err)
 
 			// wait for values to be deleted in conjur
 			time.Sleep(15 * time.Second)
 
-			// check that files don't exist
 			for _, f := range files {
 				fmt.Printf("Checking if file %s exists\n", f)
 
@@ -173,18 +188,14 @@ func TestPushToFileSecretsRotation(t *testing.T) {
 				assert.Equal(t, "", stdout.String())
 			}
 
-			// restore the test secret to reset the environment
-			err = RestoreTestSecret(cfg.Client())
-			assert.Nil(t, err)
-
 			return ctx
 		}).
 		Teardown(func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
 			// reset environment variable to default k8s
 			os.Setenv("SECRETS_MODE", "k8s")
 
-			// reset conjur secets
-			err := SetConjurSecret(cfg.Client(), "secrets/test_secret", "supersecret")
+			// reset conjur secrets
+			err := RestoreTestSecret(cfg.Client())
 			assert.Nil(t, err)
 
 			encodedStr := base64.StdEncoding.EncodeToString([]byte("secret-value"))
@@ -211,6 +222,14 @@ func TestK8sSecretsRotation(t *testing.T) {
 			err := ReloadWithTemplate(cfg.Client(), K8sRotationTemplate)
 			assert.Nil(t, err)
 
+			// delete any initial 'generated' and 'policy' directories
+			err = DeleteTestingDirectories(cfg.Client())
+			assert.Nil(t, err)
+
+			// create temporary 'generated' and 'policy' directories for testing
+			err = CreateTestingDirectories(cfg.Client())
+			assert.Nil(t, err)
+
 			return ctx
 		}).
 		// Replaces TEST_ID_29_k8s_secrets_rotation
@@ -223,6 +242,16 @@ func TestK8sSecretsRotation(t *testing.T) {
 			ClearBuffer(&stdout, &stderr)
 
 			command = []string{"printenv", "|", "grep", "VARIABLE_WITH_BASE64_SECRET"}
+			RunCommandInSecretsProviderPod(cfg.Client(), SPLabelSelector, TestAppContainer, command, &stdout, &stderr)
+			assert.Contains(t, stdout.String(), "secret-value")
+			ClearBuffer(&stdout, &stderr)
+
+			command = []string{"printenv", "|", "grep", "FETCH_ALL_TEST_SECRET"}
+			RunCommandInSecretsProviderPod(cfg.Client(), SPLabelSelector, TestAppContainer, command, &stdout, &stderr)
+			assert.Contains(t, stdout.String(), "supersecret")
+			ClearBuffer(&stdout, &stderr)
+
+			command = []string{"printenv", "|", "grep", "FETCH_ALL_BASE64"}
 			RunCommandInSecretsProviderPod(cfg.Client(), SPLabelSelector, TestAppContainer, command, &stdout, &stderr)
 			assert.Contains(t, stdout.String(), "secret-value")
 			ClearBuffer(&stdout, &stderr)
@@ -247,6 +276,39 @@ func TestK8sSecretsRotation(t *testing.T) {
 			command = []string{"printenv", "|", "grep", "VARIABLE_WITH_BASE64_SECRET"}
 			RunCommandInSecretsProviderPod(cfg.Client(), SPLabelSelector, TestAppContainer, command, &stdout, &stderr)
 			assert.Contains(t, stdout.String(), "secret-value2")
+			ClearBuffer(&stdout, &stderr)
+
+			// verify new secret values
+			command = []string{"printenv", "|", "grep", "FETCH_ALL_TEST_SECRET"}
+			RunCommandInSecretsProviderPod(cfg.Client(), SPLabelSelector, TestAppContainer, command, &stdout, &stderr)
+			assert.Contains(t, stdout.String(), "secret2")
+			ClearBuffer(&stdout, &stderr)
+
+			command = []string{"printenv", "|", "grep", "FETCH_ALL_BASE64"}
+			RunCommandInSecretsProviderPod(cfg.Client(), SPLabelSelector, TestAppContainer, command, &stdout, &stderr)
+			assert.Contains(t, stdout.String(), "secret-value2")
+			ClearBuffer(&stdout, &stderr)
+
+			// delete a secret from conjur
+			err = DeleteTestSecret(cfg.Client())
+			require.Nil(t, err)
+
+			// wait for values to be deleted in conjur
+			time.Sleep(45 * time.Second)
+
+			command = []string{"printenv", "|", "grep", "TEST_SECRET"}
+			RunCommandInSecretsProviderPod(cfg.Client(), SPLabelSelector, TestAppContainer, command, &stdout, &stderr)
+			assert.Empty(t, strings.TrimSpace(stdout.String()))
+			ClearBuffer(&stdout, &stderr)
+
+			command = []string{"printenv", "|", "grep", "FETCH_ALL_TEST_SECRET"}
+			RunCommandInSecretsProviderPod(cfg.Client(), SPLabelSelector, TestAppContainer, command, &stdout, &stderr)
+			assert.Empty(t, strings.TrimSpace(stdout.String()))
+			ClearBuffer(&stdout, &stderr)
+
+			command = []string{"printenv", "|", "grep", "FETCH_ALL_BASE64"}
+			RunCommandInSecretsProviderPod(cfg.Client(), SPLabelSelector, TestAppContainer, command, &stdout, &stderr)
+			assert.Contains(t, stdout.String(), "secret-value2") // This one should still be there
 
 			return ctx
 		}).
@@ -255,7 +317,7 @@ func TestK8sSecretsRotation(t *testing.T) {
 			os.Setenv("SECRETS_MODE", "k8s")
 
 			// reset conjur secrets
-			err := SetConjurSecret(cfg.Client(), "secrets/test_secret", "supersecret")
+			err := RestoreTestSecret(cfg.Client())
 			assert.Nil(t, err)
 
 			encodedStr := base64.StdEncoding.EncodeToString([]byte("secret-value"))

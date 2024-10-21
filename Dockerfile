@@ -1,6 +1,6 @@
 # =================== BASE BUILD LAYER ===================
 # this layer is used to prepare a common layer for both debug and release builds
-FROM golang:1.22 as secrets-provider-builder-base
+FROM golang:1.23 AS secrets-provider-builder-base
 LABEL maintainer="CyberArk Software Ltd."
 
 ENV GOOS=linux \
@@ -28,7 +28,7 @@ COPY go.mod go.sum ./
 
 # =================== RELEASE BUILD LAYER ===================
 # this layer is used to build the release binaries
-FROM secrets-provider-builder-base as secrets-provider-builder
+FROM secrets-provider-builder-base AS secrets-provider-builder
 
 COPY . .
 
@@ -44,7 +44,7 @@ RUN go build \
 
 # =================== DEBUG BUILD LAYER ===================
 # this layer is used to build the debug binaries
-FROM secrets-provider-builder-base as secrets-provider-builder-debug
+FROM secrets-provider-builder-base AS secrets-provider-builder-debug
 
 # Build Delve - debugging tool for Go
 RUN go get github.com/go-delve/delve/cmd/dlv
@@ -59,13 +59,11 @@ RUN go build -a -installsuffix cgo -gcflags="all=-N -l" -o secrets-provider ./cm
 
 # =================== BASE MAIN CONTAINER ===================
 # this layer is used to prepare a common layer for both debug and release containers
-FROM alpine:latest as secrets-provider-base
+FROM alpine:latest AS secrets-provider-base
 LABEL maintainer="CyberArk Software Ltd."
 
 # Ensure openssl development libraries are always up to date
 RUN apk add --no-cache openssl-dev
-
-COPY bin/run-time-scripts /usr/local/bin/
 
 RUN apk add -u --no-cache shadow libc6-compat && \
     # Add limited user
@@ -90,17 +88,19 @@ RUN apk add -u --no-cache shadow libc6-compat && \
               /run/conjur && \
     chmod 777 /conjur/status
 
+COPY --chown=secrets-provider:0 bin/run-time-scripts /usr/local/bin/
+
 USER secrets-provider
 
 # =================== RELEASE MAIN CONTAINER ===================
-FROM secrets-provider-base as secrets-provider
+FROM secrets-provider-base AS secrets-provider
 
 COPY --from=secrets-provider-builder /opt/secrets-provider-for-k8s/secrets-provider /usr/local/bin/
 
 CMD [ "/usr/local/bin/secrets-provider"]
 
 # =================== DEBUG MAIN CONTAINER ===================
-FROM secrets-provider-base as secrets-provider-debug
+FROM secrets-provider-base AS secrets-provider-debug
 
 COPY --from=secrets-provider-builder-debug /go/bin/dlv /usr/local/bin/
 
@@ -117,7 +117,7 @@ CMD ["/usr/local/bin/dlv",  \
      "/usr/local/bin/secrets-provider"]
 
 # =================== MAIN CONTAINER (REDHAT) ===================
-FROM registry.access.redhat.com/ubi9/ubi as secrets-provider-for-k8s-redhat
+FROM registry.access.redhat.com/ubi9/ubi AS secrets-provider-for-k8s-redhat
 LABEL maintainer="CyberArk Software Ltd."
 
 ARG VERSION
@@ -155,7 +155,7 @@ RUN groupadd -r secrets-provider \
     chmod 777 /conjur/status
 
 COPY --from=secrets-provider-builder /opt/secrets-provider-for-k8s/secrets-provider /usr/local/bin/
-COPY bin/run-time-scripts /usr/local/bin/
+COPY --chown=secrets-provider:0 bin/run-time-scripts /usr/local/bin/
 
 COPY LICENSE.md /licenses
 

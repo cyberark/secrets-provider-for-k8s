@@ -1,0 +1,6 @@
+# This is for the DevOps Git Leaks scanner. Keep this in sync with the .gitleaks.toml file
+# which is used for the local Git Leaks scanner run with git hooks.
+
+config:
+  exclusions:
+    - "e2e/consts.go"
