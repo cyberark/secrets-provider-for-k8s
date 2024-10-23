@@ -67,6 +67,12 @@ func (retriever secretRetriever) Retrieve(variableIDs []string, traceContext con
 	}
 	// Always delete the access token. The deletion is idempotent and never fails
 	defer authn.GetAccessToken().Delete()
+	defer func() {
+		// Clear the access token from memory after we use it to authenticate
+		for b := range accessTokenData {
+			accessTokenData[b] = 0
+		}
+	}()
 
 	// Determine whether to fetch all secrets or a specific list
 	fetchAll := len(variableIDs) == 1 && variableIDs[0] == "*"

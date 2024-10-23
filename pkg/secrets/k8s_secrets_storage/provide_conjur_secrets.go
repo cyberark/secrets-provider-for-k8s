@@ -448,15 +448,10 @@ func (p *K8sProvider) createSecretData(conjurSecrets map[string][]byte) map[stri
 				} else {
 					secretData[k8sSecretName][secretName] = decodedSecretValue
 				}
-				// Null out the secret values
-				decodedSecretValue = []byte{}
 			} else {
 				secretData[k8sSecretName][secretName] = secretValue
 			}
 		}
-		// Null out the secret values
-		conjurSecrets[variableID] = []byte{}
-		secretValue = []byte{}
 	}
 
 	// Check for any variables that were requested explicitly but were not returned by Conjur.
