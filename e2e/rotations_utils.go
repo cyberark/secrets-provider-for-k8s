@@ -28,7 +28,13 @@ func DeleteTestSecret(client klient.Client) error {
 }
 
 func RestoreTestSecret(client klient.Client) error {
+	// Restore the actual secret object by reloading the policy
 	err := LoadPolicy(client, "conjur-secrets")
+	if err != nil {
+		return err
+	}
+	// Restore the default value
+	err = SetConjurSecret(client, "secrets/test_secret", "supersecret")
 	if err != nil {
 		return err
 	}

@@ -37,6 +37,10 @@ $cli_with_timeout "delete role another-secrets-provider-role --ignore-not-found=
 
 $cli_with_timeout "delete secret test-k8s-secret --ignore-not-found=true"
 
+$cli_with_timeout "delete secret test-k8s-secret-fetch-all --ignore-not-found=true"
+
+$cli_with_timeout "delete secret test-k8s-secret-fetch-all-base64 --ignore-not-found=true"
+
 $cli_with_timeout "delete secret another-test-k8s-secret --ignore-not-found=true"
 
 $cli_with_timeout "delete serviceaccount ${APP_NAMESPACE_NAME}-sa --ignore-not-found=true"

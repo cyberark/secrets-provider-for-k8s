@@ -86,7 +86,7 @@ func provideWithDeps(
 		// Delete secret files for variables that no longer exist or the user no longer has permissions to.
 		// In the future we'll delete only the secrets that are revoked, but for now we delete all secrets in
 		// the group because we don't have a way to determine which secrets are revoked.
-		if (strings.Contains(err.Error(), "403") || strings.Contains(err.Error(), "404")) && sanitizeEnabled {
+		if (strings.Contains(err.Error(), "403") || strings.Contains(err.Error(), "404") || strings.Contains(err.Error(), "CSPFK068E")) && sanitizeEnabled {
 			updated = true
 			for _, group := range groups {
 				log.Info(messages.CSPFK019I)

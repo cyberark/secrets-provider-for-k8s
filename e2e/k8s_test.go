@@ -102,6 +102,26 @@ func TestSecretsProvidedK8s(t *testing.T) {
 			assert.Contains(t, stdout.String(), "some-value")
 
 			return ctx
+		}).
+		Assess("fetch all secrets provided", func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
+			var stdout, stderr bytes.Buffer
+			command := []string{"printenv", "|", "grep", "FETCH_ALL_TEST_SECRET"}
+
+			RunCommandInSecretsProviderPod(cfg.Client(), SPLabelSelector, TestAppContainer, command, &stdout, &stderr)
+
+			assert.Contains(t, stdout.String(), "supersecret")
+
+			return ctx
+		}).
+		Assess("fetch all base64 secrets provided", func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
+			var stdout, stderr bytes.Buffer
+			command := []string{"printenv", "|", "grep", "FETCH_ALL_BASE64"}
+
+			RunCommandInSecretsProviderPod(cfg.Client(), SPLabelSelector, TestAppContainer, command, &stdout, &stderr)
+
+			assert.Contains(t, stdout.String(), "secret-value")
+
+			return ctx
 		})
 
 	testenv.Test(t, f.Feature())

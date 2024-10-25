@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
+	"regexp"
 	"strings"
 
 	"github.com/cyberark/conjur-authn-k8s-client/pkg/log"
@@ -150,7 +151,7 @@ func newProvider(
 }
 
 // Provide implements a ProviderFunc to retrieve and push secrets to K8s secrets.
-func (p K8sProvider) Provide() (bool, error) {
+func (p *K8sProvider) Provide() (bool, error) {
 	// Use the global TracerProvider
 	tr := trace.NewOtelTracer(otel.Tracer("secrets-provider"))
 	// Retrieve required K8s Secrets and parse their Data fields.
@@ -183,11 +184,19 @@ func (p K8sProvider) Provide() (bool, error) {
 		return updated, p.log.recordedError(messages.CSPFK023E)
 	}
 
+	// Clear the secrets' state from memory. This prevents leakage of the secret values
+	// in `originalK8sSecrets` and prevents `updateDestinations` from growing each time
+	// the provider is run (e.g. during rotation).
+	p.secretsState = k8sSecretsState{
+		originalK8sSecrets: map[string]*v1.Secret{},
+		updateDestinations: map[string][]updateDestination{},
+	}
+
 	p.log.info(messages.CSPFK009I)
 	return updated, nil
 }
 
-func (p K8sProvider) removeDeletedSecrets(tr trace.Tracer) error {
+func (p *K8sProvider) removeDeletedSecrets(tr trace.Tracer) error {
 	log.Info(messages.CSPFK021I)
 	emptySecrets := make(map[string][]byte)
 	variablesToDelete, err := p.listConjurSecretsToFetch()
@@ -206,7 +215,7 @@ func (p K8sProvider) removeDeletedSecrets(tr trace.Tracer) error {
 
 // retrieveRequiredK8sSecrets retrieves all K8s Secrets that need to be
 // managed/updated by the Secrets Provider.
-func (p K8sProvider) retrieveRequiredK8sSecrets(tracer trace.Tracer) error {
+func (p *K8sProvider) retrieveRequiredK8sSecrets(tracer trace.Tracer) error {
 	spanCtx, span := tracer.Start(p.traceContext, "Gather required K8s Secrets")
 	defer span.End()
 
@@ -224,7 +233,7 @@ func (p K8sProvider) retrieveRequiredK8sSecrets(tracer trace.Tracer) error {
 
 // retrieveRequiredK8sSecret retrieves an individual K8s Secrets that needs
 // to be managed/updated by the Secrets Provider.
-func (p K8sProvider) retrieveRequiredK8sSecret(k8sSecretName string) error {
+func (p *K8sProvider) retrieveRequiredK8sSecret(k8sSecretName string) error {
 
 	// Retrieve the K8s Secret
 	k8sSecret, err := p.k8s.retrieveSecret(p.podNamespace, k8sSecretName)
@@ -259,7 +268,7 @@ func (p K8sProvider) retrieveRequiredK8sSecret(k8sSecretName string) error {
 
 // parseConjurSecretsYAML parses the YAML-formatted Conjur secrets mapping
 // that has been retrieved from a K8s Secret.
-func (p K8sProvider) parseConjurSecretsYAML(secretsYAML []byte, k8sSecretName string) error {
+func (p *K8sProvider) parseConjurSecretsYAML(secretsYAML []byte, k8sSecretName string) error {
 	conjurMap := map[string]interface{}{}
 	if err := yaml.Unmarshal(secretsYAML, &conjurMap); err != nil {
 		p.log.debug(messages.CSPFK007D, k8sSecretName, config.ConjurMapKey, err.Error())
@@ -277,7 +286,7 @@ func (p K8sProvider) parseConjurSecretsYAML(secretsYAML []byte, k8sSecretName st
 // content-type as specified in the Conjur secrets mapping.
 // The key is an application secret name, the value can be either a
 // string (varID) or a map {id: varID (required), content-type: base64 (optional)}.
-func (p K8sProvider) refreshUpdateDestinations(conjurMap map[string]interface{}, k8sSecretName string) error {
+func (p *K8sProvider) refreshUpdateDestinations(conjurMap map[string]interface{}, k8sSecretName string) error {
 	for secretName, contents := range conjurMap {
 		switch value := contents.(type) {
 		case string:
@@ -305,7 +314,7 @@ func (p K8sProvider) refreshUpdateDestinations(conjurMap map[string]interface{},
 	return nil
 }
 
-func (p K8sProvider) listConjurSecretsToFetch() ([]string, error) {
+func (p *K8sProvider) listConjurSecretsToFetch() ([]string, error) {
 	updateDests := p.secretsState.updateDestinations
 	if len(updateDests) == 0 {
 		return nil, p.log.recordedError(messages.CSPFK025E)
@@ -315,12 +324,17 @@ func (p K8sProvider) listConjurSecretsToFetch() ([]string, error) {
 	// retrieved from Conjur.
 	var variableIDs []string
 	for key := range updateDests {
+		// If the variable is "*", then we should fetch all secrets
+		if key == "*" {
+			return []string{"*"}, nil
+		}
+
 		variableIDs = append(variableIDs, key)
 	}
 	return variableIDs, nil
 }
 
-func (p K8sProvider) retrieveConjurSecrets(tracer trace.Tracer) (map[string][]byte, error) {
+func (p *K8sProvider) retrieveConjurSecrets(tracer trace.Tracer) (map[string][]byte, error) {
 	spanCtx, span := tracer.Start(p.traceContext, "Fetch Conjur Secrets")
 	defer span.End()
 
@@ -337,7 +351,7 @@ func (p K8sProvider) retrieveConjurSecrets(tracer trace.Tracer) (map[string][]by
 	return retrievedConjurSecrets, nil
 }
 
-func (p K8sProvider) updateRequiredK8sSecrets(
+func (p *K8sProvider) updateRequiredK8sSecrets(
 	conjurSecrets map[string][]byte, tracer trace.Tracer) (bool, error) {
 
 	var updated bool
@@ -389,17 +403,37 @@ func (p K8sProvider) updateRequiredK8sSecrets(
 // of each K8s Secret. Each entry will map an application secret name to a
 // value retrieved from Conjur. If a secret has a 'base64' content type, the
 // resulting secret value will be decoded.
-func (p K8sProvider) createSecretData(conjurSecrets map[string][]byte) map[string]map[string][]byte {
+func (p *K8sProvider) createSecretData(conjurSecrets map[string][]byte) map[string]map[string][]byte {
+	_, isFetchAll := p.secretsState.updateDestinations["*"]
+
 	secretData := map[string]map[string][]byte{}
 	for variableID, secretValue := range conjurSecrets {
 		dests := p.secretsState.updateDestinations[variableID]
+		if isFetchAll {
+			// In fetch all mode, add the fetch all destination details
+			dests = append(dests, p.secretsState.updateDestinations["*"]...)
+		}
 		for _, dest := range dests {
 			k8sSecretName := dest.k8sSecretName
-			secretName := dest.secretName
+
 			// If there are no data entries for this K8s Secret yet, initialize
 			// its map of data entries.
 			if secretData[k8sSecretName] == nil {
 				secretData[k8sSecretName] = map[string][]byte{}
+			}
+
+			secretName := dest.secretName
+			if secretName == "*" {
+				// In fetch all mode, use the Conjur variable ID as the key.
+				// However, we need to normalize the key to be a valid K8s secret name.
+				secretName = normalizeK8sSecretName(variableID)
+				if secretData[k8sSecretName][secretName] != nil {
+					// The key already exists. Since the order of the secrets is not guaranteed,
+					// this will cause non-deterministic behavior. Log a warning and leave the
+					// first value in place.
+					p.log.warn(messages.CSPFK067E, secretName)
+					continue
+				}
 			}
 
 			// Check if the secret value should be decoded in this K8s Secret
@@ -425,5 +459,45 @@ func (p K8sProvider) createSecretData(conjurSecrets map[string][]byte) map[strin
 		secretValue = []byte{}
 	}
 
+	// Check for any variables that were requested explicitly but were not returned by Conjur.
+	// This means that the variable does not exist or the user does not have permission to access it.
+	// We should set the value of the secret to an empty string.
+	if p.sanitizeEnabled {
+		// Find updateDestinations that are not in conjurSecrets
+		for varID, dests := range p.secretsState.updateDestinations {
+			for _, dest := range dests {
+				if dest.secretName == "*" {
+					// This is a fetch all destination. We need to check all keys in the secret
+					// in order to remove any keys that are no longer in Conjur.
+					existingKeys := p.secretsState.originalK8sSecrets[dest.k8sSecretName].Data
+					for key := range existingKeys {
+						if key != config.ConjurMapKey && secretData[dest.k8sSecretName][key] == nil {
+							// If the key is not 'conjur-map' and the key is not in the newly
+							// fetched secrets, set the value to an empty string. This wipes
+							// any old values that are no longer in Conjur. It also has the
+							// side effect of wiping any non-conjur secrets. Therefore, we
+							// cannot allow non-Conjur secrets in fetch all mode with sanitize enabled.
+							secretData[dest.k8sSecretName][key] = []byte("")
+						}
+					}
+					continue
+				}
+
+				if conjurSecrets[varID] == nil {
+					// The secret does not exist in conjurSecrets, set the value to an empty string
+					secretData[dest.k8sSecretName][dest.secretName] = []byte("")
+				}
+			}
+		}
+	}
+
 	return secretData
+}
+
+func normalizeK8sSecretName(name string) string {
+	// Replace any special characters (except ".", "_", and "-") with "."
+	regex := regexp.MustCompile(`[^\w\d-_.]`)
+	name = regex.ReplaceAllString(name, ".")
+
+	return name
 }

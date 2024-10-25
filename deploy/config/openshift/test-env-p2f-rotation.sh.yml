@@ -69,6 +69,9 @@ spec:
           password | {{ secret "password" }}
           test | {{ secret "test" }}
         conjur.org/secret-file-format.group5: template
+        conjur.org/conjur-secrets.group6: "*"
+        conjur.org/secret-file-format.group6: yaml
+        conjur.org/remove-deleted-secrets-enabled: "true"
     spec:
       containers:
       - image: '${PULL_DOCKER_REGISTRY_PATH}/${APP_NAMESPACE_NAME}/debian:latest'

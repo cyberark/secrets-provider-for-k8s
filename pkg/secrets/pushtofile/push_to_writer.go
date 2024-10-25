@@ -3,11 +3,12 @@ package pushtofile
 import (
 	"bytes"
 	"fmt"
-	"github.com/cyberark/secrets-provider-for-k8s/pkg/utils"
 	"io"
 	"os"
 	"path/filepath"
 	"text/template"
+
+	"github.com/cyberark/secrets-provider-for-k8s/pkg/utils"
 
 	"github.com/cyberark/conjur-authn-k8s-client/pkg/log"
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/atomicwriter"
@@ -138,4 +139,3 @@ func writeContent(writer io.Writer, fileContent *bytes.Buffer, groupName string)
 
 	return true, nil
 }
-
