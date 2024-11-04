@@ -30,6 +30,15 @@ if (params.MODE == "PROMOTE") {
       # Promote source version to target version.
       summon ./bin/publish --promote --source ${sourceVersion} --target ${targetVersion}
     """
+
+    dockerImages = "docker-image*.tar"
+    // Place the Docker image(s) onto the Jenkins agent and sign them
+    infrapool.agentStash name: 'docker-images', includes: "${assetDirectory}/${dockerImages}"
+    unstash 'docker-images'
+    signArtifacts patterns: ["${dockerImages}"]
+    // Copy the signed artifacts back to infrapool and into the assetDirectory for release
+    dockerImageLocation = pwd() + "/docker-image*.tar"
+    infrapool.agentPut from: "${dockerImageLocation}", to: "${assetDirectory}"
   }
 
   // Copy Github Enterprise release to Github
@@ -318,7 +327,11 @@ pipeline {
                     INFRAPOOL_EXECUTORV2_AGENT_0.agentSh """export PATH="${toolsDirectory}/bin:${PATH}" && go-bom --tools "${toolsDirectory}" --go-mod ./go.mod --image "golang" --main "cmd/secrets-provider/" --output "${billOfMaterialsDirectory}/go-app-bom.json" """
                     // Create Go module SBOM
                     INFRAPOOL_EXECUTORV2_AGENT_0.agentSh """export PATH="${toolsDirectory}/bin:${PATH}" && go-bom --tools "${toolsDirectory}" --go-mod ./go.mod --image "golang" --output "${billOfMaterialsDirectory}/go-mod-bom.json" """
+                    // Publish will save docker images to the executing directory
                     INFRAPOOL_EXECUTORV2_AGENT_0.agentSh 'summon ./bin/publish --edge'
+                    // Copy the docker images into the assetDirector for signing in the promote step
+                    INFRAPOOL_EXECUTORV2_AGENT_0.agentSh "cp -a docker-image*.tar ${assetDirectory}"
+
                   }
                 }
               }
