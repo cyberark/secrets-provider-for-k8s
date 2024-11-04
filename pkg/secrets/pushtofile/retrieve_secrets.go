@@ -34,6 +34,14 @@ func FetchSecretsForGroups(
 	if err != nil {
 		return nil, err
 	}
+	defer func() {
+		// Clear Conjur secret values from memory
+		for i := range secretValueById {
+			for b := range secretValueById[i] {
+				secretValueById[i][b] = 0
+			}
+		}
+	}()
 
 	for _, group := range secretGroups {
 		for _, spec := range group.SecretSpecs {
@@ -92,7 +100,6 @@ func getSecretValueByID(secretValuesByID map[string][]byte, spec SecretSpec, pat
 		Alias: alias,
 		Value: string(sValue),
 	}
-	sValue = []byte{}
 	return secret, nil
 }
 
@@ -110,9 +117,9 @@ func decodeIfNeeded(spec SecretSpec, alias string, sValue []byte) []byte {
 		// Log the error as a warning but still provide the original secret value
 		log.Warn(messages.CSPFK064E, alias, spec.ContentType, err.Error())
 	} else {
-		sValue = decodedSecretValue
+		return decodedSecretValue
 	}
-	decodedSecretValue = []byte{}
+
 	return sValue
 }
 
