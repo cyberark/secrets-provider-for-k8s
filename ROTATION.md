@@ -1,30 +1,19 @@
 # Secrets Provider - Secrets Rotation
 
-# Table of Contents
+## Table of Contents
 
 - [Table of Contents](#table-of-contents)
 - [Overview](#overview)
-- [Certification Level](#certification-level)
 - [How Secrets Rotation Works](#how-secrets-rotation-works)
 - [Set up Secrets Provider for secrets rotation](#set-up-secrets-provider-for-secrets-rotation)
 - [Additional Configuration Annotations](#reference-table-of-configuration-annotations)
 - [Using Sentinel files](#using-sentinel-files-for-checking-provider-status)
 - [Troubleshooting](#troubleshooting)
-- [Limitations](#limitations)
 
 ## Overview
 
 The secrets rotation feature detailed below allows Kubernetes applications to
 refresh Conjur secrets if there are any changes to the secrets.
-
-
-## Certification Level
-![](https://img.shields.io/badge/Certification%20Level-Community-28A745?link=https://github.com/cyberark/community/blob/master/Conjur/conventions/certification-levels.md)
-
-The Secrets Provider secrets rotation feature is a **Community** level project.
-Community projects **are not reviewed or supported by CyberArk**. For more
-detailed information on our certification levels, see
-[our community guidelines](https://github.com/cyberark/community/blob/master/Conjur/conventions/certification-levels.md#community).
 
 ## How Secrets Rotation Works
 
@@ -32,7 +21,6 @@ detailed information on our certification levels, see
 
 Note: see [how-push-to-file-works](PUSH_TO_FILE.md#how-push-to-file-works) for more detail on
 how Push to File works.
-
 
 1. The Secrets Provider authenticates to the Conjur server using the
    Kubernetes Authenticator (`conjur-authn-k8s-client`).
@@ -62,7 +50,6 @@ how Push to File works.
 6. The application can optionally delete the secret files after consuming.
    If the secret files are deleted, they will only be recreated when the secret values have changed.
 
-
 ## Set up Secrets Provider for secrets rotation
 
 There are two new annotations introduced and one annotation is updated.
@@ -83,14 +70,14 @@ Follow the procedure to set up [Kubernetes Secrets](https://docs.cyberark.com/Pr
 Modify the Kubernetes manifest
 1. Change the Secrets provider container to be a sidecar. If it was configured
    as an init container remove the `initContainers` so the image is in the containers section as below:
-   ```
+   ```yaml
     spec:
       containers:
       - image: secrets-provider-for-k8s:latest
     ```
    
 2. Update the `conjur.org/container-mode` annotation:
-   ```
+   ```yaml
    conjur.org/container-mode: sidecar
    ```
 
@@ -108,7 +95,7 @@ Modify the Kubernetes manifest
    (for seconds, minutes, and hours, respectively). Some examples of valid duration 
    strings:<ul><li>`5m`</li><li>`2h30m`</li><li>`48h`</li></ul>The minimum refresh interval is 1 second.
    A refresh interval of 0 seconds is treated as a fatal configuration error.
-   ```
+   ```yaml
    conjur.org/secrets-refresh-enabled: "true"
    conjur.org/secrets-refresh-interval: 10m
    ```
@@ -141,7 +128,8 @@ has updated secret files / Kubernetes Secrets. If desirable, application contain
 shared volume.
 
 The Pod would need a Volume defined:
-```
+
+```yaml
     volumes:
     - name: conjur-status
       emptyDir:
@@ -149,7 +137,8 @@ The Pod would need a Volume defined:
 ```
 
 The application container and SP container would need to include volumeMounts similar to this:
-```
+
+```yaml
     volumeMounts:
     - mountPath: /conjur/status
       name: conjur-status
@@ -163,7 +152,7 @@ until the `postStart` lifecycle hook is complete.
 See [conjur-secrets-provided](https://github.com/cyberark/secrets-provider-for-k8s/blob/main/bin/run-time-scripts/conjur-secrets-provided.sh)
 for an example of the Secrets Provider script.
 
-```
+```yaml
         lifecycle:
           postStart:
             exec:
@@ -172,12 +161,11 @@ for an example of the Secrets Provider script.
 
 ```
 
-
 A `livenessProbe` for an application container that would serve as a "file watcher" can potentially look 
 something like this (assuming the livenessProbe is not already being used by the container as a health probe).
 This will cause the application to be restarted after there secrets have been updated.
 
-```
+```yaml
  livenessProbe:
           exec:
             command:
@@ -194,7 +182,7 @@ user ID `777`, and group ID `777`. For the application to delete the sentinel fi
 the Secrets provider should run as the same UID. For example the below securityContext 
 can be added to both the Secrets Provider and the Application, replacing 9999 with your desired value.
 
-```
+```yaml
         securityContext:
           runAsUser: 9999
 ```
@@ -222,12 +210,3 @@ To enable the debug logs, See [enable-logs](PUSH_TO_FILE.md#enable-logs)
 | No change in secret files, no secret files written |CSPFK018I| This is an info message and not an error. It indicates that the Secrets Provider did not detect a change in secrets for a secrets group. The secret file for this group will not be written. Note: there may be changes in other secret groups and those files will be written. |
 | Invalid secrets refresh interval annotation |CSPFK050E| There is an error with the interval annotation, check the log message for the exact failure reason. See the [annotation reference](#reference-table-of-configuration-annotations) for more information on setting the annotations.|
 | Invalid secrets refresh configuration |CSPFK051E| Secrets refresh is enabled either by setting `conjur.org/secrets-refresh-enabled` to true or setting a duration for `conjur.org/secrets-refresh-interval` and the mode is not `sidecar`. The mode must be `sidecar`. |
-
-## Limitations
-
-This feature is a **Community** level project that is still under development.
-There could be changes to the documentation so please check back often for updates and additions.
-Future enhancements to this feature will include:
-
-- atomic writes for multiple Conjur secret values
-- reporting of multiple errored secret variables for bulk Conjur secret retrieval and selective deletion of secret values from files
