@@ -6,7 +6,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
-## [1.7.0] - 2024-10-21
+## [1.7.0] - 2024-11-07
 
 ### Added
 - Added `properties` file template (CNJR-6964,
@@ -345,7 +345,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ### Changed
   - Escape secrets with backslashes before patching in k8s
 
-[Unreleased]: https://github.com/cyberark/secrets-provider-for-k8s/compare/v1.6.5...HEAD
+[Unreleased]: https://github.com/cyberark/secrets-provider-for-k8s/compare/v1.7.0...HEAD
+[1.7.0]: https://github.com/cyberark/secrets-provider-for-k8s/compare/v1.6.5...v1.7.0
 [1.6.5]: https://github.com/cyberark/secrets-provider-for-k8s/compare/v1.6.4...v1.6.5
 [1.6.4]: https://github.com/cyberark/secrets-provider-for-k8s/compare/v1.6.3...v1.6.4
 [1.6.3]: https://github.com/cyberark/secrets-provider-for-k8s/compare/v1.6.2...v1.6.3
