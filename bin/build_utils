@@ -37,6 +37,8 @@ function tag_and_push() {
   shift
 
   docker tag "${source}" "${target}"
+  # Save the docker image for artifact signing
+  docker save -o "docker-image-${source}".tar "${source}"
   docker push "${target}"
 }
 
