@@ -36,8 +36,9 @@ if (params.MODE == "PROMOTE") {
     infrapool.agentStash name: 'docker-images', includes: "${assetDirectory}/${dockerImages}"
     unstash 'docker-images'
     signArtifacts patterns: ["${dockerImages}"]
-    // Copy the signed artifacts back to infrapool and into the assetDirectory for release
-    dockerImageLocation = pwd() + "/docker-image*.tar"
+    // Copy the docker images and signed artifacts (.sig) back to
+    // infrapool and into the assetDirectory for release promotion
+    dockerImageLocation = pwd() + "/docker-image*.tar*"
     infrapool.agentPut from: "${dockerImageLocation}", to: "${assetDirectory}"
   }
 
@@ -329,7 +330,7 @@ pipeline {
                     INFRAPOOL_EXECUTORV2_AGENT_0.agentSh """export PATH="${toolsDirectory}/bin:${PATH}" && go-bom --tools "${toolsDirectory}" --go-mod ./go.mod --image "golang" --output "${billOfMaterialsDirectory}/go-mod-bom.json" """
                     // Publish will save docker images to the executing directory
                     INFRAPOOL_EXECUTORV2_AGENT_0.agentSh 'summon ./bin/publish --edge'
-                    // Copy the docker images into the assetDirector for signing in the promote step
+                    // Copy the docker images into the assetDirectory for signing in the promote step
                     INFRAPOOL_EXECUTORV2_AGENT_0.agentSh "cp -a docker-image*.tar ${assetDirectory}"
 
                   }
