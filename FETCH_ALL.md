@@ -129,7 +129,7 @@ conjur.org/secret-file-format.test-app: json # or "yaml", or "template"
 # For plaintext secrets
 conjur.org/conjur-secrets.test-app: "*"
 # For secrets that should be decoded from Base64
-conjur.org/conjur-secrets.group8: |
+conjur.org/conjur-secrets.test-app: |
   - "*": "*"
     content-type: base64
 ```
