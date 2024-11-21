@@ -4,7 +4,7 @@ go 1.23.2
 
 require (
 	github.com/cenkalti/backoff v2.2.1+incompatible
-	github.com/stretchr/testify v1.8.4
+	github.com/stretchr/testify v1.9.0
 	go.opentelemetry.io/otel v1.19.0
 	gopkg.in/yaml.v2 v2.4.0
 	gopkg.in/yaml.v3 v3.0.1
@@ -15,8 +15,8 @@ require (
 )
 
 require (
-	github.com/alessio/shellescape v1.4.1 // indirect
-	github.com/danieljoos/wincred v1.1.2 // indirect
+	al.essio.dev/pkg/shellescape v1.5.1 // indirect
+	github.com/danieljoos/wincred v1.2.2 // indirect
 	github.com/emicklei/go-restful/v3 v3.11.0 // indirect
 	github.com/evanphx/json-patch/v5 v5.6.0 // indirect
 	github.com/go-openapi/jsonpointer v0.19.6 // indirect
@@ -38,7 +38,7 @@ require (
 	github.com/prometheus/common v0.44.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/vladimirvivien/gexe v0.2.0 // indirect
-	github.com/zalando/go-keyring v0.2.3-0.20230503081219-17db2e5354bd // indirect
+	github.com/zalando/go-keyring v0.2.6 // indirect
 	go.opentelemetry.io/otel/metric v1.19.0 // indirect
 	go.uber.org/atomic v1.10.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
