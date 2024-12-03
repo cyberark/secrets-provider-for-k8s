@@ -6,6 +6,12 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [1.7.1] - 2024-12-04
+
+### Fixed
+- The sentinel file is updated correctly when multiple K8s secrets are defined so the
+  liveness probe container restart behaves as expected in K8s secrets mode (CNJR-7253)
+
 ## [1.7.0] - 2024-11-07
 
 ### Added
