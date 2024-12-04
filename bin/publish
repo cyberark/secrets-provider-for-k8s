@@ -118,8 +118,8 @@ if [[ ${PROMOTE} = true ]]; then
   # Publish images to docker hub
   for tag in "${TAGS[@]}" $(gen_versions "$REMOTE_TAG"); do
     echo "Tagging and pushing $REGISTRY/$IMAGE_NAME:$tag"
-    tag_and_push "${LOCAL_REGISTRY}/$IMAGE_NAME:$SOURCE_TAG" "$REGISTRY/$IMAGE_NAME:$tag"
-    tag_and_push "${LOCAL_REGISTRY}/${REDHAT_LOCAL_IMAGE}:${SOURCE_TAG}" "$REGISTRY/${REDHAT_LOCAL_IMAGE}:$tag"
+    tag_and_push "${LOCAL_REGISTRY}/$IMAGE_NAME:$SOURCE_TAG" "$REGISTRY/$IMAGE_NAME:$tag" "${PROMOTE}"
+    tag_and_push "${LOCAL_REGISTRY}/${REDHAT_LOCAL_IMAGE}:${SOURCE_TAG}" "$REGISTRY/${REDHAT_LOCAL_IMAGE}:$tag" "${PROMOTE}"
   done
 
 
