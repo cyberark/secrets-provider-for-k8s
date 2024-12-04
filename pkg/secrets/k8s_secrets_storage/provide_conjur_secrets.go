@@ -392,7 +392,6 @@ func (p *K8sProvider) updateRequiredK8sSecrets(
 			updated = true
 		} else {
 			p.log.info(messages.CSPFK020I)
-			updated = false
 		}
 	}
 
