@@ -35,12 +35,12 @@ function tag_and_push() {
   shift
   local target="$1"
   shift
-  local promote="${1:-false}"
+  local save_image="${1:-false}"
 
   docker tag "${source}" "${target}"
-  # Save the docker image for artifact signing unless this is a promote
-  if [ "$promote" = false ]; then
-    echo "saving docker image: docker-image-${source}.tar in $(pwd)"
+  # Save the docker image for artifact signing
+  if [ "$save_image" = true ]; then
+    echo "saving docker image: docker-image-${source}.tar"
     docker save -o "docker-image-${source}.tar" "${source}"
   fi
   docker push "${target}"
