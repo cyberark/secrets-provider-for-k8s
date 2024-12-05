@@ -33,8 +33,7 @@ if (params.MODE == "PROMOTE") {
 
     dockerImages = "docker-image*.tar"
     // Place the Docker image(s) onto the Jenkins agent and sign them
-    infrapool.agentStash name: 'docker-images', includes: "${assetDirectory}/${dockerImages}"
-    unstash 'docker-images'
+    infrapool.agentGet from: "${assetDirectory}/${dockerImages}", to: "./"
     signArtifacts patterns: ["${dockerImages}"]
     // Copy the docker images and signed artifacts (.sig) back to
     // infrapool and into the assetDirectory for release promotion
