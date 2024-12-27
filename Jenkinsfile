@@ -232,7 +232,7 @@ pipeline {
           }
         }
 
-        stage ("DAP Integration Tests on GKE") {
+        stage ("DAP Integration Tests on GKE/Openshift") {
           when { anyOf {
             branch 'main'
             expression { params.TEST_E2E == true }
@@ -243,12 +243,15 @@ pipeline {
               tasks["Kubernetes GKE, DAP"] = {
                 INFRAPOOL_EXECUTORV2_AGENT_0.agentSh "./bin/start --docker --dap --gke"
               }
+              tasks["Openshift (Current), DAP"] = {
+                INFRAPOOL_EXECUTORV2_AGENT_0.agentSh "./bin/start --docker --dap --current"
+              }
               parallel tasks
             }
           }
         }
 
-        stage ("DAP Integration Tests on OpenShift") {
+        stage ("DAP Integration Tests on OpenShift oldest/next") {
           when {
             // Run integration tests against OpenShift only on the main branch
             //
@@ -267,9 +270,6 @@ pipeline {
                 tasks["Openshift (Oldest), DAP"] = {
                   INFRAPOOL_EXECUTORV2_AGENT_0.agentSh "./bin/start --docker --dap --oldest"
                 }
-              }
-              tasks["Openshift (Current), DAP"] = {
-                INFRAPOOL_EXECUTORV2_AGENT_0.agentSh "./bin/start --docker --dap --current"
               }
               if ( params.TEST_OCP_NEXT ) {
                 tasks["Openshift (Next), DAP"] = {

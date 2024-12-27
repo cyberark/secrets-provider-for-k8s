@@ -414,13 +414,13 @@ load_policy() {
   popd
   
   conjur_cli_pod=$(get_conjur_cli_pod_name)
-  $cli_with_timeout "exec $conjur_cli_pod -- rm -rf /policy"
-  $cli_with_timeout "cp ../../policy $conjur_cli_pod:/policy"
+  $cli_with_timeout "exec $conjur_cli_pod -- rm -rf /tmp/policy"
+  $cli_with_timeout "cp ../../policy $conjur_cli_pod:/tmp/policy"
 
   $cli_with_timeout "exec $(get_conjur_cli_pod_name) -- \
-    conjur policy update -b root -f \"/policy/generated/$APP_NAMESPACE_NAME.$filename.yml\""
+    conjur policy update -b root -f \"/tmp/policy/generated/$APP_NAMESPACE_NAME.$filename.yml\""
 
-  $cli_with_timeout "exec $conjur_cli_pod -- rm -rf ./policy"
+  $cli_with_timeout "exec $conjur_cli_pod -- rm -rf /tmp/policy"
 
   set_namespace $APP_NAMESPACE_NAME
 }
