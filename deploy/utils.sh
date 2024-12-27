@@ -215,7 +215,7 @@ fetch_ssl_from_conjur() {
   cert_location="/opt/conjur/etc/ssl/conjur.pem"
   if [ "$CONJUR_DEPLOYMENT" = "oss" ]; then
     selector="app=conjur-cli"
-    export cert_location="/root/conjur-server.pem"
+    export cert_location="/home/cli/conjur-server.pem"
   fi
 
   export conjur_pod_name="$(get_pod_name "$CONJUR_NAMESPACE_NAME" "$selector")"
