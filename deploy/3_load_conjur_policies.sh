@@ -1,5 +1,5 @@
 #!/bin/bash
-set -euo pipefail
+set -euxo pipefail
 
 . utils.sh
 
@@ -29,17 +29,17 @@ if [[ "${DEPLOY_MASTER_CLUSTER}" == "true" ]]; then
 
   set_namespace "$CONJUR_NAMESPACE_NAME"
   conjur_cli_pod=$(get_conjur_cli_pod_name)
-  $cli_with_timeout "exec $conjur_cli_pod -- rm -rf /policy"
-  $cli_with_timeout "cp ./policy $conjur_cli_pod:/policy"
-
+  $cli_with_timeout "exec $conjur_cli_pod -- rm -rf /tmp/policy"
+  $cli_with_timeout "cp ./policy $conjur_cli_pod:/tmp/policy"
+  
   $cli_with_timeout "exec $conjur_cli_pod -- \
     sh -c \"
       CONJUR_ADMIN_PASSWORD=${CONJUR_ADMIN_PASSWORD} \
       APP_NAMESPACE_NAME=${APP_NAMESPACE_NAME} \
-      /policy/load_policies.sh
+      /tmp/policy/load_policies.sh
     \""
 
-  $cli_with_timeout "exec $conjur_cli_pod -- rm -rf ./policy"
+  $cli_with_timeout "exec $conjur_cli_pod -- rm -rf ./tmp/policy"
 
   echo "Conjur policy loaded."
 fi

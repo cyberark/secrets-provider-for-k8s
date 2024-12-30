@@ -93,7 +93,7 @@ func ScaleDeployment(client klient.Client, deploymentName string, namespace stri
 func WaitResourceScaled(client klient.Client, deployment *appsv1.Deployment, replicas int32) error {
 	err := wait.For(conditions.New(client.Resources()).ResourceScaled(deployment, func(object k8s.Object) int32 {
 		return object.(*appsv1.Deployment).Status.ReadyReplicas
-	}, replicas), wait.WithTimeout(time.Minute*1))
+	}, replicas), wait.WithTimeout(time.Minute*3))
 	if err != nil {
 		return fmt.Errorf("failed to wait for scaling: %v", err)
 	}
@@ -106,7 +106,7 @@ func WaitResourceDeleted(client klient.Client, namespace string, labelSelector s
 		return err
 	}
 	for _, pod := range pods.Items {
-		err = wait.For(conditions.New(client.Resources()).ResourceDeleted(&pod), wait.WithTimeout(time.Minute*1))
+		err = wait.For(conditions.New(client.Resources()).ResourceDeleted(&pod), wait.WithTimeout(time.Minute*3))
 		if err != nil {
 			return fmt.Errorf("failed to wait for deletion: %v", err)
 		}
@@ -136,7 +136,7 @@ func DeleteDeployment(client klient.Client, namespace string, deployment *appsv1
 	if err != nil {
 		return fmt.Errorf("failed to delete deployment: %v", err)
 	}
-	err = wait.For(conditions.New(client.Resources()).ResourceDeleted(deployment), wait.WithTimeout(time.Minute*1))
+	err = wait.For(conditions.New(client.Resources()).ResourceDeleted(deployment), wait.WithTimeout(time.Minute*3))
 	if err != nil {
 		return fmt.Errorf("failed to wait for deletion: %v", err)
 	}

@@ -381,7 +381,7 @@ func FetchConjurServerCert(client klient.Client) (string, error) {
 	container := ConjurClusterContainer
 	if os.Getenv("CONJUR_DEPLOYMENT") == "oss" {
 		label = ConjurCLILabelSelector
-		certLocation = "/root/conjur-server.pem"
+		certLocation = "/home/cli/conjur-server.pem"
 		container = ConjurCLIContainer
 	}
 

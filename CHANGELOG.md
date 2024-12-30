@@ -6,7 +6,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
-## [1.7.2] - 2024-12-20
+## [1.7.2] - 2024-12-30
 
 ### Security
 - Upgrade golang.org/x/net to 0.33.0 to address CVE-2024-45338

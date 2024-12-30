@@ -56,9 +56,9 @@ func CreateTestingDirectories(client klient.Client) error {
 	}
 
 	var stdout, stderr bytes.Buffer
-	command := []string{"mkdir", "policy"}
+	command := []string{"mkdir", "tmp/policy"}
 	if err := client.Resources(ConjurNamespace()).ExecInPod(context.TODO(), ConjurNamespace(), pod.Name, ConjurCLIContainer, command, &stdout, &stderr); err != nil {
-		return fmt.Errorf("failed to create 'policy' directory in conjur. %v, %s", err, stderr.String())
+		return fmt.Errorf("failed to create 'policy' directory in CLI container. %v, %s", err, stderr.String())
 	}
 
 	return nil
@@ -79,9 +79,9 @@ func DeleteTestingDirectories(client klient.Client) error {
 	}
 
 	var stdout, stderr bytes.Buffer
-	command := []string{"rm", "-rf", "policy"}
+	command := []string{"rm", "-rf", "tmp/policy"}
 	if err := client.Resources(ConjurNamespace()).ExecInPod(context.TODO(), ConjurNamespace(), pod.Name, ConjurCLIContainer, command, &stdout, &stderr); err != nil {
-		return fmt.Errorf("failed to remove 'policy' directory in conjur. %v, %s", err, stderr.String())
+		return fmt.Errorf("failed to remove 'tmp/policy' directory in CLI container. %v, %s", err, stderr.String())
 	}
 
 	return nil
@@ -199,7 +199,7 @@ func LoadPolicy(client klient.Client, filename string) error {
 		return fmt.Errorf("failed to fetch cli pod. %v", err)
 	}
 
-	var dst string = "policy/" + fileName
+	var dst string = "tmp/policy/" + fileName
 	err = CopyFileIntoPod(client, pod.Name, ConjurNamespace(), ConjurCLIContainer, src, dst)
 	if err != nil {
 		return err

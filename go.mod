@@ -16,6 +16,7 @@ require (
 
 require (
 	al.essio.dev/pkg/shellescape v1.5.1 // indirect
+	github.com/Masterminds/semver/v3 v3.3.1 // indirect
 	github.com/danieljoos/wincred v1.2.2 // indirect
 	github.com/emicklei/go-restful/v3 v3.11.0 // indirect
 	github.com/evanphx/json-patch/v5 v5.6.0 // indirect
