@@ -65,6 +65,7 @@ func (m testMocks) newProvider(requiredSecrets []string) K8sProvider {
 			k8s: k8sAccessDeps{
 				m.kubeClient.RetrieveSecret,
 				m.kubeClient.UpdateSecret,
+				m.kubeClient.RetrieveSecretList,
 			},
 			conjur: conjurAccessDeps{
 				m.conjurClient.RetrieveSecrets,
@@ -235,6 +236,42 @@ func TestProvide(t *testing.T) {
 					expectedMissingValues{
 						"k8s-secret1": {"secret-value3", "secret-value4"},
 						"k8s-secret2": {"secret-value1", "secret-value2"},
+					},
+					false,
+				),
+			},
+		},
+		{
+			desc: "Happy path without requiredSecrets configured, 2 existing k8s Secrets with 2 existing Conjur secrets",
+			k8sSecrets: k8sStorageMocks.K8sSecrets{
+				"k8s-labeled-secret1": {
+					"conjur-map": {
+						"secret1": "conjur/var/path1",
+						"secret2": "conjur/var/path2",
+					},
+				},
+				"k8s-labeled-secret2": {
+					"conjur-map": {
+						"secret3": "conjur/var/path3",
+						"secret4": "conjur/var/path4",
+					},
+				},
+			},
+			asserts: []assertFunc{
+				assertSecretsUpdated(
+					expectedK8sSecrets{
+						"k8s-labeled-secret1": {
+							"secret1": "secret-value1",
+							"secret2": "secret-value2",
+						},
+						"k8s-labeled-secret2": {
+							"secret3": "secret-value3",
+							"secret4": "secret-value4",
+						},
+					},
+					expectedMissingValues{
+						"k8s-labeled-secret1": {"secret-value3", "secret-value4"},
+						"k8s-labeled-secret2": {"secret-value1", "secret-value2"},
 					},
 					false,
 				),

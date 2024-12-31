@@ -74,6 +74,7 @@ const (
 	logLevelKey             = "conjur.org/log-level"
 	logTracesKey            = "conjur.org/log-traces"
 	jaegerCollectorUrl      = "conjur.org/jaeger-collector-url"
+	ManagedByProviderKey    = "conjur.org/managed-by-provider"
 )
 
 // Define supported annotation keys for Secrets Provider config, as well as value restraints for each
