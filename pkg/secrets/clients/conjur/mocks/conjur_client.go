@@ -52,6 +52,9 @@ func (mc *ConjurMockClient) RetrieveBatchSecretsSafe(variableIDs []string) (map[
 				return secrets, nil
 			}
 
+			if secretID == "notFound" {
+				return nil, errors.New(fmt.Sprintf("CONJ00076E Variable %s is empty or not found", fmt.Sprintf("conjur:variable:%s", secretID)))
+			}
 			// Check if the secret exists in the mock Conjur DB
 			variableData, ok := mc.Database[secretID]
 			if !ok {
