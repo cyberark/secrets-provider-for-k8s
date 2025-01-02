@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+	"sync"
 
 	"github.com/cyberark/conjur-authn-k8s-client/pkg/log"
 	"go.opentelemetry.io/otel"
@@ -101,6 +102,13 @@ type K8sProviderConfig struct {
 	IsRepeatableMode   bool
 }
 
+// retrieveSecretLock prevents race condition between ad-hoc secret mutation providing
+// and periodic secrets providing
+var retrieveSecretLock sync.Mutex
+
+// mutateK8SSecretLock prevents race condition between mutation webhook calls
+var mutateK8SSecretLock sync.Mutex
+
 // NewProvider creates a new secret provider for K8s Secrets mode.
 func NewProvider(
 	traceContext context.Context,
@@ -157,11 +165,12 @@ func newProvider(
 }
 
 // Provide implements a ProviderFunc to retrieve and push secrets to K8s secrets.
-func (p *K8sProvider) Provide() (bool, error) {
+// If secrets names is passed as parameter, it override configured secrets to provide
+func (p *K8sProvider) Provide(secrets ...string) (bool, error) {
 	// Use the global TracerProvider
 	tr := trace.NewOtelTracer(otel.Tracer("secrets-provider"))
 	// Retrieve required K8s Secrets and parse their Data fields.
-	if err := p.retrieveRequiredK8sSecrets(tr); err != nil {
+	if err := p.retrieveRequiredK8sSecrets(tr, secrets...); err != nil {
 		return false, p.log.recordedError(messages.CSPFK021E)
 	}
 
@@ -215,6 +224,64 @@ func (p *K8sProvider) Provide() (bool, error) {
 	return updated, nil
 }
 
+// Mutate implements a MutateFunc to mutate K8S Secret object catch by webhook.
+func (p *K8sProvider) Mutate(secret v1.Secret) (map[string][]byte, error) {
+	mutateK8SSecretLock.Lock()
+	defer mutateK8SSecretLock.Unlock()
+
+	tr := trace.NewOtelTracer(otel.Tracer("secrets-provider"))
+	spanCtx, span := tr.Start(p.traceContext, "Fetch Conjur Secrets")
+	defer span.End()
+
+	//prepare clean  data
+	p.requiredK8sSecrets = []string{}
+	p.secretsState = k8sSecretsState{
+		updateDestinations: map[string][]updateDestination{},
+	}
+
+	err := p.retrieveRequiredSecrets(secret)
+
+	if err != nil {
+		return nil, err
+	}
+
+	var variableIDs []string
+	updateDests := p.secretsState.updateDestinations
+	if updateDests != nil {
+		for key := range updateDests {
+			variableIDs = append(variableIDs, key)
+		}
+	}
+
+	if len(variableIDs) == 0 {
+		return nil, nil
+	}
+
+	retrievedConjurSecrets, err := p.conjur.retrieveSecrets(variableIDs, spanCtx)
+	if err != nil {
+		p.log.logError(messages.CSPFK070E, secret.Name, err.Error())
+		return nil, err
+	}
+
+	newSecretsData := p.createSecretData(retrievedConjurSecrets)
+
+	if secret.Data == nil {
+		secret.Data = map[string][]byte{}
+	}
+	for itemName, secretValue := range newSecretsData[secret.Name] {
+		secret.Data[itemName] = secretValue
+	}
+
+	b := new(bytes.Buffer)
+	_, _ = fmt.Fprintf(b, "%v", secret.Data)
+	checksum, _ := utils.FileChecksum(b)
+	p.prevSecretsChecksums[secret.Name] = checksum
+
+	p.log.info(messages.CSPFK026I, secret.Name)
+
+	return newSecretsData[secret.Name], nil
+}
+
 func (p *K8sProvider) removeDeletedSecrets(tr trace.Tracer) error {
 	log.Info(messages.CSPFK021I)
 	emptySecrets := make(map[string][]byte)
@@ -231,14 +298,28 @@ func (p *K8sProvider) removeDeletedSecrets(tr trace.Tracer) error {
 	}
 	return nil
 }
+func (p K8sProvider) Delete(secrets []string) {
+	emptySecrets := make(map[string][]byte)
+	for _, secret := range secrets {
+		delete(p.prevSecretsChecksums, secret)
+		emptySecrets[secret] = []byte("")
+	}
+	for _, secret := range secrets {
+		p.deleteK8sSecret(secret)
+	}
+}
 
 // retrieveRequiredK8sSecrets retrieves all K8s Secrets that need to be
 // managed/updated by the Secrets Provider.
-func (p *K8sProvider) retrieveRequiredK8sSecrets(tracer trace.Tracer) error {
+func (p *K8sProvider) retrieveRequiredK8sSecrets(tracer trace.Tracer, k8sSecretNames ...string) error {
 	spanCtx, span := tracer.Start(p.traceContext, "Gather required K8s Secrets")
 	defer span.End()
 
-	for _, k8sSecretName := range p.requiredK8sSecrets {
+	if k8sSecretNames == nil || len(k8sSecretNames) == 0 {
+		k8sSecretNames = p.requiredK8sSecrets
+	}
+
+	for _, k8sSecretName := range k8sSecretNames {
 		_, childSpan := tracer.Start(spanCtx, "Retrieve K8s Secret")
 		defer childSpan.End()
 		if err := p.retrieveRequiredK8sSecret(k8sSecretName); err != nil {
@@ -266,9 +347,22 @@ func (p *K8sProvider) retrieveRequiredK8sSecret(k8sSecretName string) error {
 		p.log.debug(messages.CSPFK004D, err.Error())
 		return p.log.recordedError(messages.CSPFK020E)
 	}
+	if k8sSecret == nil {
+		p.log.debug(messages.CSPFK004D, "retrieved object is nil")
+		return p.log.recordedError(messages.CSPFK020E)
+	}
+
+	return p.retrieveRequiredSecrets(*k8sSecret)
+}
+
+// retrieveRequiredSecrets process end parse secrets from K8S secret
+func (p *K8sProvider) retrieveRequiredSecrets(k8sSecret v1.Secret) error {
 
 	// Record the K8s Secret API object
-	p.secretsState.originalK8sSecrets[k8sSecretName] = k8sSecret
+	if p.secretsState.originalK8sSecrets == nil {
+		p.secretsState.originalK8sSecrets = map[string]*v1.Secret{}
+	}
+	p.secretsState.originalK8sSecrets[k8sSecret.Name] = &k8sSecret
 
 	// Read the value of the "conjur-map" entry in the K8s Secret's Data
 	// field, if it exists. If the entry does not exist or has a null
@@ -276,18 +370,18 @@ func (p *K8sProvider) retrieveRequiredK8sSecret(k8sSecretName string) error {
 	conjurMapKey := config.ConjurMapKey
 	conjurSecretsYAML, entryExists := k8sSecret.Data[conjurMapKey]
 	if !entryExists {
-		p.log.debug(messages.CSPFK008D, k8sSecretName, conjurMapKey)
-		return p.log.recordedError(messages.CSPFK028E, k8sSecretName)
+		p.log.debug(messages.CSPFK008D, k8sSecret.Name, conjurMapKey)
+		return p.log.recordedError(messages.CSPFK028E, k8sSecret.Name)
 	}
 	if len(conjurSecretsYAML) == 0 {
-		p.log.debug(messages.CSPFK006D, k8sSecretName, conjurMapKey)
-		return p.log.recordedError(messages.CSPFK028E, k8sSecretName)
+		p.log.debug(messages.CSPFK006D, k8sSecret.Name, conjurMapKey)
+		return p.log.recordedError(messages.CSPFK028E, k8sSecret.Name)
 	}
 
 	// Parse the YAML-formatted Conjur secrets mapping that has been
 	// retrieved from this K8s Secret.
-	p.log.debug(messages.CSPFK009D, conjurMapKey, k8sSecretName)
-	return p.parseConjurSecretsYAML(conjurSecretsYAML, k8sSecretName)
+	p.log.debug(messages.CSPFK009D, conjurMapKey, k8sSecret.Name)
+	return p.parseConjurSecretsYAML(conjurSecretsYAML, k8sSecret.Name)
 }
 
 // parseConjurSecretsYAML parses the YAML-formatted Conjur secrets mapping
@@ -359,6 +453,8 @@ func (p *K8sProvider) listConjurSecretsToFetch() ([]string, error) {
 }
 
 func (p *K8sProvider) retrieveConjurSecrets(tracer trace.Tracer) (map[string][]byte, error) {
+	retrieveSecretLock.Lock()
+	defer retrieveSecretLock.Unlock()
 
 	spanCtx, span := tracer.Start(p.traceContext, "Fetch Conjur Secrets")
 	defer span.End()
@@ -383,7 +479,7 @@ func (p *K8sProvider) retrieveConjurSecrets(tracer trace.Tracer) (map[string][]b
 func (p *K8sProvider) updateRequiredK8sSecrets(
 	conjurSecrets map[string][]byte, tracer trace.Tracer) (bool, error) {
 
-	var updated bool
+	var updated = false
 
 	spanCtx, span := tracer.Start(p.traceContext, "Update K8s Secrets")
 	defer span.End()
@@ -525,4 +621,49 @@ func normalizeK8sSecretName(name string) string {
 	name = regex.ReplaceAllString(name, ".")
 
 	return name
+}
+
+// removed all 'k8sSecretName' secret references
+func (p K8sProvider) deleteK8sSecret(k8sSecretName string) {
+
+	p.log.debug("Deleting all %s secret references from cache", k8sSecretName)
+
+	if p.secretsState.updateDestinations != nil {
+		for key, dests := range p.secretsState.updateDestinations {
+			if dests != nil {
+				//array of non-delete destination
+				remaining := make([]updateDestination, 0)
+				for _, dest := range dests {
+					if dest.k8sSecretName != k8sSecretName {
+						remaining = appendDestination(remaining, dest)
+					} else {
+						p.log.debug("Deleting %s updateDestinations", dest)
+					}
+				}
+				if len(remaining) > 0 {
+					//update destinations array
+					p.secretsState.updateDestinations[key] = remaining
+				} else {
+					//if non-delete is empty, delete whole record from map
+					delete(p.secretsState.updateDestinations, key)
+				}
+			}
+		}
+	}
+
+	delete(p.prevSecretsChecksums, k8sSecretName)
+}
+
+func (p K8sProvider) CHeckContentHasChanged(groupName string, newChecksum utils.Checksum) bool {
+	return utils.ContentHasChanged(groupName, newChecksum, p.prevSecretsChecksums)
+}
+
+// If not already exists, append new destination to list
+func appendDestination(dests []updateDestination, dest updateDestination) []updateDestination {
+	for _, destt := range dests {
+		if destt.k8sSecretName == dest.k8sSecretName && destt.secretName == dest.secretName {
+			return dests
+		}
+	}
+	return append(dests, dest)
 }

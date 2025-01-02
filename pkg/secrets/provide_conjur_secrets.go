@@ -3,6 +3,7 @@ package secrets
 import (
 	"context"
 	"fmt"
+	k8swebhooks "github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/k8s_webhooks"
 	"time"
 
 	"github.com/cenkalti/backoff"
@@ -11,6 +12,7 @@ import (
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/log/messages"
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/clients/conjur"
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/config"
+	secretsConfigProvider "github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/config"
 	k8sSecretsStorage "github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/k8s_secrets_storage"
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/pushtofile"
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/utils"
@@ -37,7 +39,7 @@ type ProviderConfig struct {
 // ProviderFunc describes a function type responsible for providing secrets to
 // an unspecified target. It returns either an error, or a flag that indicates
 // whether any target secret files or Kubernetes Secrets have been updated.
-type ProviderFunc func() (updated bool, err error)
+type ProviderFunc func(secrets ...string) (updated bool, err error)
 
 // RepeatableProviderFunc describes a function type that is capable of looping
 // indefinitely while providing secrets to unspecified targets.
@@ -61,6 +63,11 @@ func NewProviderForType(
 			providerConfig.CommonProviderConfig.SanitizeEnabled,
 			providerConfig.K8sProviderConfig,
 		)
+
+		if providerConfig.K8sProviderConfig.IsRepeatableMode {
+			k8swebhooks.StartWebhookServer(provider, providerConfig.RequiredK8sSecrets)
+		}
+
 		return provider.Provide, nil
 	case config.File:
 		provider, err := pushtofile.NewProvider(
@@ -93,7 +100,7 @@ func RetryableSecretProvider(
 		retryCountLimit,
 	)
 
-	return func() (bool, error) {
+	return func(secrets ...string) (bool, error) {
 		var updated bool
 		var retErr error
 
@@ -101,7 +108,7 @@ func RetryableSecretProvider(
 			if limitedBackOff.RetryCount() > 0 {
 				log.Info(fmt.Sprintf(messages.CSPFK010I, limitedBackOff.RetryCount(), limitedBackOff.RetryLimit))
 			}
-			updated, retErr = provideSecrets()
+			updated, retErr = provideSecrets(secrets...)
 			return retErr
 		}, limitedBackOff)
 
@@ -128,6 +135,7 @@ func RunSecretsProvider(
 	config ProviderRefreshConfig,
 	provideSecrets ProviderFunc,
 	status StatusUpdater,
+	providerConfig *secretsConfigProvider.Config,
 ) error {
 
 	var periodicQuit = make(chan struct{})
@@ -138,7 +146,7 @@ func RunSecretsProvider(
 	if err = status.CopyScripts(); err != nil {
 		return err
 	}
-	if _, err = provideSecrets(); err != nil && (config.Mode != "sidecar" && config.Mode != "standalone") {
+	if _, err = provideSecrets(providerConfig.RequiredK8sSecrets...); err != nil && (config.Mode != "sidecar" && config.Mode != "standalone") {
 		// Return immediately upon error, regardless of operating mode
 		return err
 	}
@@ -162,7 +170,7 @@ func RunSecretsProvider(
 			periodicQuit:  periodicQuit,
 			periodicError: periodicError,
 		}
-		go periodicSecretProvider(provideSecrets, config, status)
+		go periodicSecretProvider(provideSecrets, config, status, providerConfig.RequiredK8sSecrets...)
 	default:
 		// Run once and sleep forever if in sidecar mode without
 		// periodic refresh (fall through)
@@ -202,6 +210,7 @@ func periodicSecretProvider(
 	provideSecrets ProviderFunc,
 	config periodicConfig,
 	status StatusUpdater,
+	requiredK8sSecrets ...string,
 ) {
 	for {
 		select {
@@ -209,7 +218,7 @@ func periodicSecretProvider(
 			return
 		case <-config.ticker.C:
 			log.Info(messages.CSPFK024I)
-			updated, err := provideSecrets()
+			updated, err := provideSecrets(requiredK8sSecrets...)
 			if err == nil && updated {
 				log.Debug("Periodic provider run finished")
 				err = status.SetSecretsUpdated()

@@ -33,3 +33,4 @@ const CSPFK022I string = "CSPFK022I Storing secret with base64 content-type '%s'
 const CSPFK023I string = "CSPFK023I Retrieving all available secrets from Conjur"
 const CSPFK024I string = "CSPFK024I Trigger periodic provider"
 const CSPFK025I string = "CSPFK025I Refresh interval set to %s"
+const CSPFK026I string = "CSPFK026I Secret %s mutated successfully"

@@ -131,6 +131,7 @@ func startSecretsProviderWithDeps(
 		},
 		provideSecrets,
 		statusUpdaterFactory(),
+		secretsConfig,
 	); err != nil {
 		logError(err.Error())
 	}

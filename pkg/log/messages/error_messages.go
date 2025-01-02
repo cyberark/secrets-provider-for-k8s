@@ -45,6 +45,8 @@ const CSPFK028E string = "CSPFK028E Unable to update Kubernetes Secret '%s'"
 const CSPFK063E string = "CSPFK063E Unable to delete Kubernetes Secret"
 const CSPFK067E string = "CSPFK067E Normalized secret names produced a duplicate secret key '%s'. Leaving first value in place."
 const CSPFK069E string = "CSPFK069E Failed to retrieve Kubernetes Secret %s. Reason: %s"
+const CSPFK070E string = "CSPFK070E Failed to mutate Kubernetes Secret %s. Reason: %s"
+const CSPFK071E string = "CSPFK071E Failed to process %s secret mutation. Reason: %s"
 
 // DAP/Conjur
 const CSPFK031E string = "CSPFK031E Failed to load DAP/Conjur config. Reason: %s"
@@ -94,3 +96,6 @@ const CSPFK065E string = "CSPFK065E Secret group %s: the content-type of %s is i
 // Fetch All
 const CSPFK066E string = "CSPFK066E Stopped fetching additional secrets after %d secrets were fetched"
 const CSPFK068E string = "CSPFK068E Retrieved secrets did not include secret '%s' requested by secret group '%s'"
+
+// Webhook server
+const CSPFK072E string = "CSPFK072E admission http server: %s"
