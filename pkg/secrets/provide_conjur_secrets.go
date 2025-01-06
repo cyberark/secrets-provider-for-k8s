@@ -159,17 +159,20 @@ func RunSecretsProvider(
 	if err = status.CopyScripts(); err != nil {
 		return err
 	}
-	if _, err = provideSecrets(); err != nil {
+	if _, err = provideSecrets(); err != nil && (config.Mode != "sidecar" && config.Mode != "standalone") {
 		// Return immediately upon error, regardless of operating mode
 		return err
 	}
-	err = status.SetSecretsProvided()
-	if err != nil {
-		return err
+	if err == nil {
+		err = status.SetSecretsProvided()
+		// In sidecar or standalone mode provider should keep running
+		if err != nil && (config.Mode != "sidecar" && config.Mode != "standalone") {
+			return err
+		}
 	}
 	switch {
-	case config.Mode != "sidecar":
-		// Run once and return if not in sidecar mode
+	case config.Mode != "sidecar" && config.Mode != "standalone":
+		// Run once and return if not in sidecar/standalone mode
 		return nil
 	default:
 		// In sidecar mode, we can run both informer and periodic refresh simultaneously
@@ -204,7 +207,11 @@ func RunSecretsProvider(
 		case <-config.ProviderQuit:
 			break
 		case err = <-periodicError:
-			break
+			//periodic provider in standalone mode should keep working event there is provision errors.
+			//errors should be appropriately logged so user can see what went wrong.
+			if config.Mode != "standalone" {
+				break
+			}
 		}
 
 		// Allow the background goroutines to gracefully shut down
@@ -252,6 +259,7 @@ func periodicSecretProvider(
 		case <-config.ticker.C:
 			updated, err := provideSecrets()
 			if err == nil && updated {
+				log.Debug("Periodic provider run finished")
 				err = status.SetSecretsUpdated()
 			}
 			if err != nil {
