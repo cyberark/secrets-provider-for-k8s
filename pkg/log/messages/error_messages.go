@@ -44,6 +44,7 @@ const CSPFK027E string = "CSPFK027E Failed to update Kubernetes Secrets map with
 const CSPFK028E string = "CSPFK028E Unable to update Kubernetes Secret '%s'"
 const CSPFK063E string = "CSPFK063E Unable to delete Kubernetes Secret"
 const CSPFK067E string = "CSPFK067E Normalized secret names produced a duplicate secret key '%s'. Leaving first value in place."
+const CSPFK069E string = "CSPFK069E Failed to retrieve Kubernetes Secret %s. Reason: %s"
 
 // DAP/Conjur
 const CSPFK031E string = "CSPFK031E Failed to load DAP/Conjur config. Reason: %s"

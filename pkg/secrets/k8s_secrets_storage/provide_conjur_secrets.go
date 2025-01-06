@@ -88,12 +88,17 @@ type K8sProvider struct {
 	// corresponding secret content. This is used to detect changes in
 	// secret content.
 	prevSecretsChecksums map[string]utils.Checksum
+	//whether provider runs in repeatable mode or not.
+	//In some cases no hard errors are returned but logs to make provider
+	//running endlessly
+	isRepeatable bool
 }
 
 // K8sProviderConfig provides config specific to Kubernetes Secrets provider
 type K8sProviderConfig struct {
 	PodNamespace       string
 	RequiredK8sSecrets []string
+	IsRepeatableMode   bool
 }
 
 // NewProvider creates a new secret provider for K8s Secrets mode.
@@ -147,6 +152,7 @@ func newProvider(
 		},
 		traceContext:         traceContext,
 		prevSecretsChecksums: map[string]utils.Checksum{},
+		isRepeatable:         config.IsRepeatableMode,
 	}
 }
 
@@ -175,13 +181,24 @@ func (p *K8sProvider) Provide() (bool, error) {
 			}
 		}
 
-		return updated, p.log.recordedError(messages.CSPFK034E, err.Error())
+		if p.isRepeatable {
+			p.log.logError(messages.CSPFK034E, err.Error())
+			// continue processing
+		} else {
+			return updated, p.log.recordedError(messages.CSPFK034E, err.Error())
+		}
 	}
 
 	// Update all K8s Secrets with the retrieved Conjur secrets.
 	updated, err = p.updateRequiredK8sSecrets(retrievedConjurSecrets, tr)
 	if err != nil {
-		return updated, p.log.recordedError(messages.CSPFK023E)
+
+		if p.isRepeatable {
+			p.log.logError(messages.CSPFK023E, err.Error())
+			// continue processing
+		} else {
+			return updated, p.log.recordedError(messages.CSPFK023E)
+		}
 	}
 
 	// Clear the secrets' state from memory. This prevents leakage of the secret values
@@ -192,7 +209,9 @@ func (p *K8sProvider) Provide() (bool, error) {
 		updateDestinations: map[string][]updateDestination{},
 	}
 
-	p.log.info(messages.CSPFK009I)
+	if updated {
+		p.log.info(messages.CSPFK009I)
+	}
 	return updated, nil
 }
 
@@ -225,7 +244,12 @@ func (p *K8sProvider) retrieveRequiredK8sSecrets(tracer trace.Tracer) error {
 		if err := p.retrieveRequiredK8sSecret(k8sSecretName); err != nil {
 			childSpan.RecordErrorAndSetStatus(err)
 			span.RecordErrorAndSetStatus(err)
-			return err
+			if p.isRepeatable {
+				//continue processing
+				p.log.logError(messages.CSPFK069E, err.Error())
+			} else {
+				return err
+			}
 		}
 	}
 	return nil
@@ -335,6 +359,7 @@ func (p *K8sProvider) listConjurSecretsToFetch() ([]string, error) {
 }
 
 func (p *K8sProvider) retrieveConjurSecrets(tracer trace.Tracer) (map[string][]byte, error) {
+
 	spanCtx, span := tracer.Start(p.traceContext, "Fetch Conjur Secrets")
 	defer span.End()
 
@@ -346,7 +371,11 @@ func (p *K8sProvider) retrieveConjurSecrets(tracer trace.Tracer) (map[string][]b
 	retrievedConjurSecrets, err := p.conjur.retrieveSecrets(variableIDs, spanCtx)
 	if err != nil {
 		span.RecordErrorAndSetStatus(err)
-		return nil, p.log.recordedError(messages.CSPFK034E, err.Error())
+		if p.isRepeatable {
+			p.log.logError(messages.CSPFK034E, err.Error())
+		} else {
+			return retrievedConjurSecrets, p.log.recordedError(messages.CSPFK034E, err.Error())
+		}
 	}
 	return retrievedConjurSecrets, nil
 }
@@ -390,8 +419,10 @@ func (p *K8sProvider) updateRequiredK8sSecrets(
 			}
 			p.prevSecretsChecksums[k8sSecretName] = checksum
 			updated = true
+			p.log.info("%s (%s)", messages.CSPFK009I, k8sSecretName)
 		} else {
-			p.log.info(messages.CSPFK020I)
+			p.log.info("%s (%s)", messages.CSPFK020I, k8sSecretName)
+			updated = false
 		}
 	}
 

@@ -37,6 +37,7 @@ type Config struct {
 	StoreType              string
 	SecretsRefreshInterval time.Duration
 	SanitizeEnabled        bool
+	ContainerMode          string
 }
 
 type annotationType int
@@ -80,7 +81,7 @@ const (
 var secretsProviderAnnotations = map[string]annotationRestraints{
 	AuthnIdentityKey:          {TYPESTRING, []string{}},
 	JwtTokenPath:              {TYPESTRING, []string{}},
-	ContainerModeKey:          {TYPESTRING, []string{"init", "application", "sidecar"}},
+	ContainerModeKey:          {TYPESTRING, []string{"init", "application", "sidecar", "standalone"}},
 	SecretsDestinationKey:     {TYPESTRING, []string{"file", "k8s_secrets"}},
 	k8sSecretsKey:             {TYPESTRING, []string{}},
 	retryCountLimitKey:        {TYPEINT, []string{}},
@@ -276,6 +277,12 @@ func NewConfig(settings map[string]string) *Config {
 	}
 	sanitizeEnable := parseBoolFromStringOrDefault(sanitizeEnableStr, DefaultSanitizeEnabled)
 
+	containerMode := settings[ContainerModeKey]
+	envContainerMode := settings["CONTAINER_MODE"]
+	if containerMode == "" {
+		containerMode = envContainerMode
+	}
+
 	return &Config{
 		PodNamespace:           podNamespace,
 		RequiredK8sSecrets:     k8sSecretsArr,
@@ -284,6 +291,7 @@ func NewConfig(settings map[string]string) *Config {
 		StoreType:              storeType,
 		SecretsRefreshInterval: refreshInterval,
 		SanitizeEnabled:        sanitizeEnable,
+		ContainerMode:          containerMode,
 	}
 }
 
@@ -396,7 +404,7 @@ func validRefreshInterval(intervalStr string, enableStr string, envAndAnnots map
 	}
 
 	if intervalStr != "" || enableStr != "" {
-		if containerMode != "sidecar" {
+		if containerMode != "sidecar" && containerMode != "standalone" {
 			return fmt.Errorf(messages.CSPFK051E, "Secrets refresh is enabled while container mode is set to", containerMode)
 		}
 		enabled, _ := strconv.ParseBool(enableStr)
