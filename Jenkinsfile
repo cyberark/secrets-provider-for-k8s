@@ -1,6 +1,9 @@
 #!/usr/bin/env groovy
 @Library("product-pipelines-shared-library") _
 
+def productName = 'Secrets Provider for Kubernetes'
+def productTypeName = 'Conjur Enterprise'
+
 // Automated release, promotion and dependencies
 properties([
   // Include the automated release parameters for the build
@@ -21,6 +24,27 @@ if (params.MODE == "PROMOTE") {
     // Any version number updates from sourceVersion to targetVersion occur here
     // Any publishing of targetVersion artifacts occur here
     // Anything added to assetDirectory will be attached to the Github Release
+
+    env.INFRAPOOL_PRODUCT_NAME = "${productName}"
+    env.INFRAPOOL_DD_PRODUCT_TYPE_NAME = "${productTypeName}"
+
+    def scans = [:]
+
+    scans["Scan main Docker image"] = {
+      runSecurityScans(infrapool,
+        image: "registry.tld/secrets-provider-for-k8s:${sourceVersion}",
+        buildMode: params.MODE,
+        branch: env.BRANCH_NAME)
+    }
+
+    scans["Scan redhat Docker image"] = {
+      runSecurityScans(infrapool,
+      image: "registry.tld/secrets-provider-for-k8s-redhat:${sourceVersion}",
+      buildMode: params.MODE,
+      branch: env.BRANCH_NAME)
+    }
+
+    parallel(scans)
 
     // Pull existing images from internal registry in order to promote
     infrapool.agentSh """
@@ -66,6 +90,10 @@ pipeline {
   environment {
     // Sets the MODE to the specified or autocalculated value as appropriate
     MODE = release.canonicalizeMode()
+
+    // Values to direct scan results to the right place in DefectDojo
+    INFRAPOOL_PRODUCT_NAME = "${productName}"
+    INFRAPOOL_PRODUCT_TYPE_NAME = "${productTypeName}"
   }
 
   parameters {
@@ -178,36 +206,39 @@ pipeline {
           }
         }
 
+        // Allows for the promotion of images. Need to push before we do security scans
+        // since the Snyk scans pull from artifactory on a seprate executor node
+        stage('Push images to internal registry') {
+          steps {
+            script {
+              INFRAPOOL_EXECUTORV2_AGENT_0.agentSh './bin/publish --internal'
+            }
+          }
+        }
+
         stage('Scan Docker Image') {
           parallel {
-            stage("Scan Docker Image for fixable issues") {
+            stage("Scan main image") {
               steps {
-                // Adding the false parameter to scanAndReport causes trivy to
-                // ignore vulnerabilities for which no fix is available. We'll
-                // only fail the build if we can actually fix the vulnerability
-                // right now.
-                scanAndReport(INFRAPOOL_EXECUTORV2_AGENT_0, 'secrets-provider-for-k8s:latest', "HIGH", false)
+                script {
+                  VERSION = INFRAPOOL_EXECUTORV2_AGENT_0.agentSh(returnStdout: true, script: 'cat VERSION')
+                }
+                runSecurityScans(INFRAPOOL_EXECUTORV2_AGENT_0,
+                  image: "registry.tld/secrets-provider-for-k8s:${VERSION}",
+                  buildMode: params.MODE,
+                  branch: env.BRANCH_NAME)
               }
             }
-            stage("Scan Docker image for total issues") {
+           stage('Scan RedHat image') {
               steps {
-                // By default, trivy includes vulnerabilities with no fix. We
-                // want to know about that ASAP, but they shouldn't cause a
-                // build failure until we can do something about it. This call
-                // to scanAndReport should always be left as "NONE"
-                scanAndReport(INFRAPOOL_EXECUTORV2_AGENT_0, "secrets-provider-for-k8s:latest", "NONE", true)
+                script {
+                  VERSION = INFRAPOOL_EXECUTORV2_AGENT_0.agentSh(returnStdout: true, script: 'cat VERSION')
+                }
+                runSecurityScans(INFRAPOOL_EXECUTORV2_AGENT_0,
+                  image: "registry.tld/secrets-provider-for-k8s-redhat:${VERSION}",
+                  buildMode: params.MODE,
+                  branch: env.BRANCH_NAME)
               }
-            }
-           stage('Scan RedHat image for fixable issues') {
-             steps {
-               scanAndReport(INFRAPOOL_EXECUTORV2_AGENT_0, "secrets-provider-for-k8s-redhat:latest", "HIGH", false)
-             }
-           }
-
-           stage('Scan RedHat image for all issues') {
-             steps {
-               scanAndReport(INFRAPOOL_EXECUTORV2_AGENT_0, "secrets-provider-for-k8s-redhat:latest", "NONE", true)
-             }
            }
           }
         }
@@ -285,15 +316,6 @@ pipeline {
                   INFRAPOOL_EXECUTORV2_AGENT_0.agentSh "./bin/start --docker --oss --gke"
                 }
               parallel tasks
-            }
-          }
-        }
-
-        // Allows for the promotion of images.
-        stage('Push images to internal registry') {
-          steps {
-            script {
-              INFRAPOOL_EXECUTORV2_AGENT_0.agentSh './bin/publish --internal'
             }
           }
         }
