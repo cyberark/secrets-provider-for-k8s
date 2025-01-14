@@ -19,6 +19,9 @@ properties([
 
 // Performs release promotion.  No other stages will be run
 if (params.MODE == "PROMOTE") {
+  // Resolve ownership issue before promotion
+  sh 'git config --global --add safe.directory ${PWD}'
+
   release.promote(params.VERSION_TO_PROMOTE) { infrapool, sourceVersion, targetVersion, assetDirectory ->
     // Any assets from sourceVersion Github release are available in assetDirectory
     // Any version number updates from sourceVersion to targetVersion occur here
@@ -365,7 +368,7 @@ pipeline {
     always {
       archiveArtifacts artifacts: "deploy/output/*.txt", fingerprint: false, allowEmptyArchive: true
       releaseInfraPoolAgent(".infrapool/release_agents")
-      
+
       // Resolve ownership issue before running infra post hook
       sh 'git config --global --add safe.directory ${PWD}'
       infraPostHook()
