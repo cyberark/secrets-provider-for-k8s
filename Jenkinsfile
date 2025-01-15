@@ -19,10 +19,10 @@ properties([
 
 // Performs release promotion.  No other stages will be run
 if (params.MODE == "PROMOTE") {
-  // Resolve ownership issue before promotion
-  sh 'git config --global --add safe.directory ${PWD}'
-
   release.promote(params.VERSION_TO_PROMOTE) { infrapool, sourceVersion, targetVersion, assetDirectory ->
+    // Resolve ownership issue before promotion
+    infrapool.agentSh 'git config --global --add safe.directory ${PWD}'
+
     // Any assets from sourceVersion Github release are available in assetDirectory
     // Any version number updates from sourceVersion to targetVersion occur here
     // Any publishing of targetVersion artifacts occur here
