@@ -20,9 +20,6 @@ properties([
 // Performs release promotion.  No other stages will be run
 if (params.MODE == "PROMOTE") {
   release.promote(params.VERSION_TO_PROMOTE) { infrapool, sourceVersion, targetVersion, assetDirectory ->
-    // Resolve ownership issue before promotion
-    infrapool.agentSh 'git config --global --add safe.directory ${PWD}'
-
     // Any assets from sourceVersion Github release are available in assetDirectory
     // Any version number updates from sourceVersion to targetVersion occur here
     // Any publishing of targetVersion artifacts occur here
@@ -66,6 +63,8 @@ if (params.MODE == "PROMOTE") {
     // infrapool and into the assetDirectory for release promotion
     dockerImageLocation = pwd() + "/docker-image*.tar*"
     infrapool.agentPut from: "${dockerImageLocation}", to: "${assetDirectory}"
+    // Resolve ownership issue before promotion
+    infrapool.agentSh 'git config --global --add safe.directory ${PWD}'
   }
 
   // Copy Github Enterprise release to Github
