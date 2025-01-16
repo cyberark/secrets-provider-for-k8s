@@ -64,7 +64,7 @@ if (params.MODE == "PROMOTE") {
     dockerImageLocation = pwd() + "/docker-image*.tar*"
     infrapool.agentPut from: "${dockerImageLocation}", to: "${assetDirectory}"
     // Resolve ownership issue before promotion
-    infrapool.agentSh 'git config --global --add safe.directory ${PWD}'
+    sh 'git config --global --add safe.directory ${PWD}'
   }
 
   // Copy Github Enterprise release to Github
