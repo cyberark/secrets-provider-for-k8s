@@ -96,3 +96,9 @@ environment:
       projectedFilename: jwt
       audience: conjur
       expiration: 86400 # This is one day in seconds
+
+webhook:
+  # TODO might be generated statically -> provide manual steps. Or by init-container -> create init container and add into helm chart
+  cert: ""
+  key: ""
+  ca: ""
