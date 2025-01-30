@@ -16,12 +16,17 @@ secretsProvider:
   imagePullPolicy: IfNotPresent
   # Container name
   name: cyberark-secrets-provider-for-k8s
-  # Optional: Kubernetes Job name. Defaults to Helm Release.
+  # Mode in which provider is working.
+  # Supported values: "application" or "standalone"
+  mode: "application"
+  # Optional: Kubernetes Job name. Only if mode == application. Defaults to Helm Release.
   jobName:
+  # Time betwwen period provisioing runs. Only if mode == standalone.
+  refreshInterval: "10m"
   # Optional: Name of image pull secret, if Secrets Provider image is in private repository
   imagePullSecret:
 
-# OPTIONAL: Additional labels to apply to Job resource.
+# OPTIONAL: Additional labels to apply to Job od Deployment resource.
 labels: {}
 annotations: {}
 
