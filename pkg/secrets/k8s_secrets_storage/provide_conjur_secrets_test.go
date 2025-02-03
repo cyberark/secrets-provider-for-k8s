@@ -185,6 +185,7 @@ func TestProvide(t *testing.T) {
 	testCases := []struct {
 		desc                   string
 		k8sSecrets             k8sStorageMocks.K8sSecrets
+		annotations            map[string]map[string]string
 		requiredSecrets        []string
 		denyConjurRetrieve     bool
 		denyK8sRetrieve        bool
@@ -204,6 +205,30 @@ func TestProvide(t *testing.T) {
 				assertSecretsUpdated(
 					expectedK8sSecrets{
 						"k8s-secret1": {"secret1": "secret-value1"},
+					},
+					expectedMissingValues{},
+					false,
+				),
+			},
+		},
+		{
+			desc: "Happy path group template, existing k8s Secret with existing Conjur secret",
+			k8sSecrets: k8sStorageMocks.K8sSecrets{
+				"k8s-secret1": {
+					"conjur-map": {"secret1": "conjur/var/path1"},
+				},
+			},
+			annotations: map[string]map[string]string{
+				"k8s-secret1": {
+					"conjur.org/conjur-secrets.secret2":       "- var: conjur/var/path2",
+					"conjur.org/secret-file-template.secret2": "{{ secret \"var\" }}",
+				},
+			},
+			requiredSecrets: []string{"k8s-secret1"},
+			asserts: []assertFunc{
+				assertSecretsUpdated(
+					expectedK8sSecrets{
+						"k8s-secret1": {"secret1": "secret-value1", "secret2": "secret-value2"},
 					},
 					expectedMissingValues{},
 					false,
@@ -278,6 +303,54 @@ func TestProvide(t *testing.T) {
 					expectedMissingValues{
 						"k8s-labeled-secret1": {"secret-value3", "secret-value4"},
 						"k8s-labeled-secret2": {"secret-value1", "secret-value2"},
+					},
+					false,
+				),
+			},
+		},
+		{
+			desc: "Happy path with group template, 2 existing k8s Secrets with 2 existing Conjur secrets",
+			k8sSecrets: k8sStorageMocks.K8sSecrets{
+				"k8s-secret1": {
+					"conjur-map": {
+						"secret1": "conjur/var/path1",
+					},
+				},
+				"k8s-secret2": {
+					"conjur-map": {
+						"secret3": "conjur/var/path3",
+						"secret4": "conjur/var/path4",
+					},
+				},
+			},
+			annotations: map[string]map[string]string{
+				"k8s-secret1": {
+					"conjur.org/conjur-secrets.secret2":       "- var: conjur/var/path2",
+					"conjur.org/secret-file-template.secret2": "template-secret2: {{ secret \"var\" }}",
+				},
+				"k8s-secret2": {
+					"conjur.org/conjur-secrets.secret3":       "- var: conjur/var/path3",
+					"conjur.org/secret-file-template.secret3": "template-secret3: \n{{ secret \"var\" }}",
+				},
+			},
+			requiredSecrets: []string{"k8s-secret1", "k8s-secret2"},
+			asserts: []assertFunc{
+				assertSecretsUpdated(
+					expectedK8sSecrets{
+						"k8s-secret1": {
+							"secret1": "secret-value1",
+							"secret2": "template-secret2: " +
+								"secret-value2",
+						},
+						"k8s-secret2": {
+							"secret3": "template-secret3: " +
+								"\nsecret-value3",
+							"secret4": "secret-value4",
+						},
+					},
+					expectedMissingValues{
+						"k8s-secret1": {"secret-value3", "secret-value4"},
+						"k8s-secret2": {"secret-value1", "secret-value2"},
 					},
 					false,
 				),
@@ -390,6 +463,28 @@ func TestProvide(t *testing.T) {
 			},
 		},
 		{
+			desc: "Happy path with group template, secret with umlaut characters",
+			k8sSecrets: k8sStorageMocks.K8sSecrets{
+				"k8s-secret1": {},
+			},
+			annotations: map[string]map[string]string{
+				"k8s-secret1": {
+					"conjur.org/conjur-secrets.secret1":       "- var: conjur/var/umlaut",
+					"conjur.org/secret-file-template.secret1": "this is \n{{ secret \"var\" }} \n data",
+				},
+			},
+			requiredSecrets: []string{"k8s-secret1"},
+			asserts: []assertFunc{
+				assertSecretsUpdated(
+					expectedK8sSecrets{
+						"k8s-secret1": {"secret1": "this is \nÄäÖöÜü \n data"},
+					},
+					expectedMissingValues{},
+					false,
+				),
+			},
+		},
+		{
 			desc: "Happy path, binary secret",
 			k8sSecrets: k8sStorageMocks.K8sSecrets{
 				"k8s-secret1": {
@@ -401,6 +496,28 @@ func TestProvide(t *testing.T) {
 				assertSecretsUpdated(
 					expectedK8sSecrets{
 						"k8s-secret1": {"secret1": "\xf0\xff\x4a\xc3"},
+					},
+					expectedMissingValues{},
+					false,
+				),
+			},
+		},
+		{
+			desc: "Happy path with template group, binary secret",
+			k8sSecrets: k8sStorageMocks.K8sSecrets{
+				"k8s-secret1": {},
+			},
+			annotations: map[string]map[string]string{
+				"k8s-secret1": {
+					"conjur.org/conjur-secrets.secret1":       "- var: conjur/var/binary",
+					"conjur.org/secret-file-template.secret1": "this is binary: {{ secret \"var\" }}",
+				},
+			},
+			requiredSecrets: []string{"k8s-secret1"},
+			asserts: []assertFunc{
+				assertSecretsUpdated(
+					expectedK8sSecrets{
+						"k8s-secret1": {"secret1": "this is binary: \xf0\xff\x4a\xc3"},
 					},
 					expectedMissingValues{},
 					false,
@@ -450,6 +567,54 @@ func TestProvide(t *testing.T) {
 				),
 				assertLogged(true, "info", messages.CSPFK022I, "test-decoding", "k8s-secret1"),
 				assertLogged(true, "info", messages.CSPFK022I, "test-decoding2", "k8s-secret1"),
+				assertLogged(false, "info", messages.CSPFK022I, "test-still-encoded", "k8s-secret2"),
+				assertLogged(false, "info", messages.CSPFK022I, "test-still-encoded2", "k8s-secret2"),
+			},
+		},
+		{
+			desc: "Happy path with template group, encoded secrets with valid content-type",
+			k8sSecrets: k8sStorageMocks.K8sSecrets{
+				"k8s-secret1": {
+					"conjur-map": {
+						"test-decoding": map[string]interface{}{
+							"id":           "conjur/var/encoded1",
+							"content-type": "base64",
+						},
+					},
+				},
+				"k8s-secret2": {
+					"conjur-map": {
+						"test-still-encoded": "conjur/var/encoded1",
+					},
+				},
+			},
+			annotations: map[string]map[string]string{
+				"k8s-secret1": {
+					"conjur.org/conjur-secrets.test-decoding2":       "- var: conjur/var/encoded2",
+					"conjur.org/secret-file-template.test-decoding2": "this is decoded base64: {{ secret \"var\" | b64dec }}",
+				},
+				"k8s-secret2": {
+					"conjur.org/conjur-secrets.test-still-encoded2":       "- var: conjur/var/encoded2",
+					"conjur.org/secret-file-template.test-still-encoded2": "this is encoded base64: {{ secret \"var\" }}",
+				},
+			},
+			requiredSecrets: []string{"k8s-secret1", "k8s-secret2"},
+			asserts: []assertFunc{
+				assertSecretsUpdated(
+					expectedK8sSecrets{
+						"k8s-secret1": {
+							"test-decoding":  "decoded-value-1",
+							"test-decoding2": "this is decoded base64: decoded-value-2",
+						},
+						"k8s-secret2": {
+							"test-still-encoded":  "ZGVjb2RlZC12YWx1ZS0x",
+							"test-still-encoded2": "this is encoded base64: ZGVjb2RlZC12YWx1ZS0y",
+						},
+					},
+					expectedMissingValues{},
+					false,
+				),
+				assertLogged(true, "info", messages.CSPFK022I, "test-decoding", "k8s-secret1"),
 				assertLogged(false, "info", messages.CSPFK022I, "test-still-encoded", "k8s-secret2"),
 				assertLogged(false, "info", messages.CSPFK022I, "test-still-encoded2", "k8s-secret2"),
 			},
@@ -524,6 +689,29 @@ func TestProvide(t *testing.T) {
 							"content-type": "text",
 						},
 					},
+				},
+			},
+			requiredSecrets: []string{"k8s-secret1"},
+			asserts: []assertFunc{
+				assertErrorLogged(messages.CSPFK037E, "test-decoding", "k8s-secret1"),
+			},
+		},
+		{
+			desc: "Empty var ID in template group throws error",
+			k8sSecrets: k8sStorageMocks.K8sSecrets{
+				"k8s-secret1": {
+					"conjur-map": {
+						"test-decoding": map[string]interface{}{
+							"id":           "",
+							"content-type": "text",
+						},
+					},
+				},
+			},
+			annotations: map[string]map[string]string{
+				"k8s-secret1": {
+					"conjur.org/conjur-secrets.test-decoding":       "- var: \"\"",
+					"conjur.org/secret-file-template.test-decoding": "{{ secret \"var\" }}",
 				},
 			},
 			requiredSecrets: []string{"k8s-secret1"},
@@ -667,6 +855,21 @@ func TestProvide(t *testing.T) {
 			asserts: []assertFunc{
 				assertErrorLogged(messages.CSPFK028E, "k8s-secret1"),
 				assertErrorContains(messages.CSPFK021E, false),
+			},
+		},
+		{
+			desc: "K8s secret has no 'conjur-map' entry or group template",
+			k8sSecrets: k8sStorageMocks.K8sSecrets{
+				"k8s-secret1": {
+					"foobar": {"foo": "bar"},
+				},
+			},
+			requiredSecrets: []string{"k8s-secret1"},
+			asserts: []assertFunc{
+				assertErrorLogged(messages.CSPFK028E, "k8s-secret1"),
+				assertErrorContains(messages.CSPFK021E, false),
+				// TODO: uncomment this
+				// assertErrorLogged("At least one of %s data entry or %s annotations must defined", "conjur-map", "conjur.org/conjur-secrets.* & conjur.org/secret-file-template.*"),
 			},
 		},
 		{
@@ -932,7 +1135,7 @@ func TestProvide(t *testing.T) {
 				tc.denyK8sUpdate)
 
 			for secretName, secretData := range tc.k8sSecrets {
-				mocks.kubeClient.AddSecret(secretName, secretData)
+				mocks.kubeClient.AddSecret(secretName, tc.annotations[secretName], secretData)
 			}
 			provider := mocks.newProvider(tc.requiredSecrets)
 
@@ -967,7 +1170,7 @@ func TestSecretsContentChanges(t *testing.T) {
 	mocks := newTestMocks()
 	mocks.setPermissions(denyConjurRetrieve, denyK8sRetrieve, denyK8sUpdate)
 	for secretName, secretData := range k8sSecrets {
-		mocks.kubeClient.AddSecret(secretName, secretData)
+		mocks.kubeClient.AddSecret(secretName, map[string]string{}, secretData)
 	}
 	provider := mocks.newProvider(requiredSecrets)
 	update, err := provider.Provide()
@@ -1246,7 +1449,7 @@ func TestProvideSanitization(t *testing.T) {
 		provider := mocks.newProvider(tc.requiredSecrets)
 		provider.sanitizeEnabled = tc.sanitizeEnabled
 		for secretName, secretData := range tc.k8sSecrets {
-			mocks.kubeClient.AddSecret(secretName, secretData)
+			mocks.kubeClient.AddSecret(secretName, map[string]string{}, secretData)
 		}
 		updated, err := provider.Provide()
 		assert.NoError(t, err, tc.desc)

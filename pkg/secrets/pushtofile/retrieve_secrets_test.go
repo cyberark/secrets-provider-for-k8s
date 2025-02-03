@@ -7,13 +7,14 @@ import (
 
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/clients/conjur"
 	conjurMocks "github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/clients/conjur/mocks"
+	"github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/file_templates"
 	"github.com/stretchr/testify/assert"
 )
 
 type retrieveSecretsTestCase struct {
 	description string
-	secretSpecs map[string][]SecretSpec
-	assert      func(t *testing.T, result map[string][]*Secret, err error)
+	secretSpecs map[string][]filetemplates.SecretSpec
+	assert      func(t *testing.T, result map[string][]*filetemplates.Secret, err error)
 }
 
 func (tc retrieveSecretsTestCase) Run(
@@ -28,7 +29,7 @@ func (tc retrieveSecretsTestCase) Run(
 	})
 }
 
-func createSecretGroups(groupSpecs map[string][]SecretSpec) []*SecretGroup {
+func createSecretGroups(groupSpecs map[string][]filetemplates.SecretSpec) []*SecretGroup {
 	var secretGroups []*SecretGroup
 	for name, secretSpecs := range groupSpecs {
 		secretGroup := &SecretGroup{
@@ -41,7 +42,7 @@ func createSecretGroups(groupSpecs map[string][]SecretSpec) []*SecretGroup {
 	return secretGroups
 }
 
-func findGroupValues(group map[string][]*Secret, label string) []*Secret {
+func findGroupValues(group map[string][]*filetemplates.Secret, label string) []*filetemplates.Secret {
 	for key, secretGroup := range group {
 		if key == label {
 			return secretGroup
@@ -51,8 +52,8 @@ func findGroupValues(group map[string][]*Secret, label string) []*Secret {
 	return nil
 }
 
-func assertGoodResults(expectedGroupValues map[string][]*Secret) func(*testing.T, map[string][]*Secret, error) {
-	return func(t *testing.T, result map[string][]*Secret, err error) {
+func assertGoodResults(expectedGroupValues map[string][]*filetemplates.Secret) func(*testing.T, map[string][]*filetemplates.Secret, error) {
+	return func(t *testing.T, result map[string][]*filetemplates.Secret, err error) {
 		if !assert.NoError(t, err) {
 			return
 		}
@@ -70,7 +71,7 @@ func assertGoodResults(expectedGroupValues map[string][]*Secret) func(*testing.T
 var retrieveSecretsTestCases = []retrieveSecretsTestCase{
 	{
 		description: "Happy Case",
-		secretSpecs: map[string][]SecretSpec{
+		secretSpecs: map[string][]filetemplates.SecretSpec{
 			"cache": {
 				{Alias: "api-url", Path: "dev/openshift/api-url"},
 				{Alias: "username", Path: "dev/openshift/username"},
@@ -82,7 +83,7 @@ var retrieveSecretsTestCases = []retrieveSecretsTestCase{
 				{Alias: "password", Path: "ci/openshift/password"},
 			},
 		},
-		assert: assertGoodResults(map[string][]*Secret{
+		assert: assertGoodResults(map[string][]*filetemplates.Secret{
 			"cache": {
 				{Alias: "api-url", Value: "https://postgres.example.com"},
 				{Alias: "username", Value: "admin"},
@@ -97,7 +98,7 @@ var retrieveSecretsTestCases = []retrieveSecretsTestCase{
 	},
 	{
 		description: "Happy Base64 Case",
-		secretSpecs: map[string][]SecretSpec{
+		secretSpecs: map[string][]filetemplates.SecretSpec{
 			"cache": {
 				{Alias: "api-url", Path: "dev/openshift/api-url"},
 				{Alias: "username", Path: "dev/openshift/username"},
@@ -111,7 +112,7 @@ var retrieveSecretsTestCases = []retrieveSecretsTestCase{
 					ContentType: "base64"},
 			},
 		},
-		assert: assertGoodResults(map[string][]*Secret{
+		assert: assertGoodResults(map[string][]*filetemplates.Secret{
 			"cache": {
 				{Alias: "api-url", Value: "https://postgres.example.com"},
 				{Alias: "username", Value: "admin"},
@@ -126,7 +127,7 @@ var retrieveSecretsTestCases = []retrieveSecretsTestCase{
 	},
 	{
 		description: "Cannot decode Base64 Case",
-		secretSpecs: map[string][]SecretSpec{
+		secretSpecs: map[string][]filetemplates.SecretSpec{
 			"db": {
 				{Alias: "api-url", Path: "ci/openshift/api-url"},
 				{Alias: "username", Path: "ci/openshift/username"},
@@ -134,7 +135,7 @@ var retrieveSecretsTestCases = []retrieveSecretsTestCase{
 					ContentType: "base64"},
 			},
 		},
-		assert: assertGoodResults(map[string][]*Secret{
+		assert: assertGoodResults(map[string][]*filetemplates.Secret{
 			"db": {
 				{Alias: "api-url", Value: "https://ci.postgres.example.com"},
 				{Alias: "username", Value: "administrator"},
@@ -144,7 +145,7 @@ var retrieveSecretsTestCases = []retrieveSecretsTestCase{
 	},
 	{
 		description: "Bad ID",
-		secretSpecs: map[string][]SecretSpec{
+		secretSpecs: map[string][]filetemplates.SecretSpec{
 			"cache": {
 				{Alias: "api-url", Path: "foo/openshift/bar"},
 				{Alias: "username", Path: "dev/openshift/username"},
@@ -156,18 +157,18 @@ var retrieveSecretsTestCases = []retrieveSecretsTestCase{
 				{Alias: "password", Path: "ci/openshift/password"},
 			},
 		},
-		assert: func(t *testing.T, result map[string][]*Secret, err error) {
+		assert: func(t *testing.T, result map[string][]*filetemplates.Secret, err error) {
 			assert.Contains(t, err.Error(), "no_conjur_secret_error")
 		},
 	},
 	{
 		description: "Fetch All Happy Case",
-		secretSpecs: map[string][]SecretSpec{
+		secretSpecs: map[string][]filetemplates.SecretSpec{
 			"unified": {
 				{Path: "*"},
 			},
 		},
-		assert: assertGoodResults(map[string][]*Secret{
+		assert: assertGoodResults(map[string][]*filetemplates.Secret{
 			// Expect all secrets to be fetched, with full paths as aliases
 			"unified": {
 				{Alias: "ci/openshift/api-url", Value: "https://ci.postgres.example.com"},
@@ -185,12 +186,12 @@ var retrieveSecretsTestCases = []retrieveSecretsTestCase{
 	},
 	{
 		description: "Fetch All Base64",
-		secretSpecs: map[string][]SecretSpec{
+		secretSpecs: map[string][]filetemplates.SecretSpec{
 			"unified": {
 				{Path: "*", ContentType: "base64"},
 			},
 		},
-		assert: assertGoodResults(map[string][]*Secret{
+		assert: assertGoodResults(map[string][]*filetemplates.Secret{
 			// Expect all secrets to be fetched, with full paths as aliases
 			"unified": {
 				{Alias: "ci/openshift/api-url", Value: "https://ci.postgres.example.com"},
@@ -208,7 +209,7 @@ var retrieveSecretsTestCases = []retrieveSecretsTestCase{
 	},
 	{
 		description: "Fetch All with Other Paths",
-		secretSpecs: map[string][]SecretSpec{
+		secretSpecs: map[string][]filetemplates.SecretSpec{
 			"all": {
 				{Path: "*"},
 			},
@@ -218,7 +219,7 @@ var retrieveSecretsTestCases = []retrieveSecretsTestCase{
 				{Alias: "password", Path: "ci/openshift/password"},
 			},
 		},
-		assert: assertGoodResults(map[string][]*Secret{
+		assert: assertGoodResults(map[string][]*filetemplates.Secret{
 			// Expect all secrets to be fetched, with full paths as aliases
 			"all": {
 				{Alias: "ci/openshift/api-url", Value: "https://ci.postgres.example.com"},
@@ -281,12 +282,12 @@ func TestGetAllPaths(t *testing.T) {
 	// Define test cases
 	testCases := []struct {
 		description        string
-		secretPathsByGroup map[string][]SecretSpec
+		secretPathsByGroup map[string][]filetemplates.SecretSpec
 		expectedPaths      []string
 	}{
 		{
 			description: "Single secret group, no duplicated paths",
-			secretPathsByGroup: map[string][]SecretSpec{
+			secretPathsByGroup: map[string][]filetemplates.SecretSpec{
 				"group-1": {
 					{Alias: "var1", Path: "path/var1"},
 					{Alias: "var2", Path: "path/var2"},
@@ -296,7 +297,7 @@ func TestGetAllPaths(t *testing.T) {
 		},
 		{
 			description: "Single secret group, duplicated path",
-			secretPathsByGroup: map[string][]SecretSpec{
+			secretPathsByGroup: map[string][]filetemplates.SecretSpec{
 				"group-1": {
 					{Alias: "var1", Path: "path/var1"},
 					{Alias: "var2", Path: "path/var1"},
@@ -306,7 +307,7 @@ func TestGetAllPaths(t *testing.T) {
 		},
 		{
 			description: "Multiple secret groups, no duplicated path",
-			secretPathsByGroup: map[string][]SecretSpec{
+			secretPathsByGroup: map[string][]filetemplates.SecretSpec{
 				"group-1": {
 					{Alias: "var1", Path: "path/var1"},
 					{Alias: "var2", Path: "path/var2"},
@@ -320,7 +321,7 @@ func TestGetAllPaths(t *testing.T) {
 		},
 		{
 			description: "Multiple secret groups, duplicated path",
-			secretPathsByGroup: map[string][]SecretSpec{
+			secretPathsByGroup: map[string][]filetemplates.SecretSpec{
 				"group-1": {
 					{Alias: "var1", Path: "path/var1"},
 					{Alias: "var2", Path: "path/var2"},
@@ -334,7 +335,7 @@ func TestGetAllPaths(t *testing.T) {
 		},
 		{
 			description: "Fetch all secrets",
-			secretPathsByGroup: map[string][]SecretSpec{
+			secretPathsByGroup: map[string][]filetemplates.SecretSpec{
 				"group-1": {
 					{Path: "*"},
 				},
@@ -343,7 +344,7 @@ func TestGetAllPaths(t *testing.T) {
 		},
 		{
 			description: "Fetch all secrets with other paths",
-			secretPathsByGroup: map[string][]SecretSpec{
+			secretPathsByGroup: map[string][]filetemplates.SecretSpec{
 				"group-1": {
 					{Alias: "var1", Path: "path/var1"},
 					{Alias: "var2", Path: "path/var2"},
@@ -363,7 +364,7 @@ func TestGetAllPaths(t *testing.T) {
 		secretGroups := []*SecretGroup{}
 		for _, specs := range tc.secretPathsByGroup {
 			secretGroup := SecretGroup{}
-			secretGroup.SecretSpecs = append([]SecretSpec{}, specs...)
+			secretGroup.SecretSpecs = append([]filetemplates.SecretSpec{}, specs...)
 			secretGroups = append(secretGroups, &secretGroup)
 		}
 

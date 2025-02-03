@@ -2,6 +2,7 @@ package pushtofile
 
 import (
 	"fmt"
+	"github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/file_templates"
 	"io"
 	"os"
 	"path"
@@ -13,9 +14,7 @@ import (
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/log/messages"
 )
 
-const secretGroupPrefix = "conjur.org/conjur-secrets."
 const secretGroupPolicyPathPrefix = "conjur.org/conjur-secrets-policy-path."
-const secretGroupFileTemplatePrefix = "conjur.org/secret-file-template."
 const secretGroupFilePathPrefix = "conjur.org/secret-file-path."
 const secretGroupFileFormatPrefix = "conjur.org/secret-file-format."
 const secretGroupFilePermissionsPrefix = "conjur.org/secret-file-permissions."
@@ -42,13 +41,13 @@ type SecretGroup struct {
 	FileFormat       string
 	PolicyPathPrefix string
 	FilePermissions  os.FileMode
-	SecretSpecs      []SecretSpec
+	SecretSpecs      []filetemplates.SecretSpec
 }
 
 // ResolvedSecretSpecs resolves all of the secret paths for a secret
 // group by prepending each path with that group's policy path prefix.
 // Updates the Path of each SecretSpec in the field SecretSpecs.
-func resolvedSecretSpecs(policyPathPrefix string, secretSpecs []SecretSpec) []SecretSpec {
+func resolvedSecretSpecs(policyPathPrefix string, secretSpecs []filetemplates.SecretSpec) []filetemplates.SecretSpec {
 	if len(policyPathPrefix) != 0 {
 		for i := range secretSpecs {
 			secretSpecs[i].Path = strings.TrimSuffix(policyPathPrefix, "/") +
@@ -61,14 +60,14 @@ func resolvedSecretSpecs(policyPathPrefix string, secretSpecs []SecretSpec) []Se
 
 // PushToFile uses the configuration on a secret group to inject secrets into a template
 // and write the result to a file.
-func (sg *SecretGroup) PushToFile(secrets []*Secret) (bool, error) {
+func (sg *SecretGroup) PushToFile(secrets []*filetemplates.Secret) (bool, error) {
 	return sg.pushToFileWithDeps(openFileAsWriteCloser, pushToWriter, secrets)
 }
 
 func (sg *SecretGroup) pushToFileWithDeps(
 	depOpenWriteCloser openWriteCloserFunc,
 	depPushToWriter pushToWriterFunc,
-	secrets []*Secret,
+	secrets []*filetemplates.Secret,
 ) (updated bool, err error) {
 	// Make sure all the secret specs are accounted for
 	if err = validateSecretsAgainstSpecs(secrets, sg.SecretSpecs); err != nil {
@@ -177,7 +176,7 @@ func (sg *SecretGroup) validate() []error {
 	fileTemplate := sg.FileTemplate
 	secretSpecs := sg.SecretSpecs
 
-	if errors := validateSecretPathsAndContents(secretSpecs, groupName); len(errors) > 0 {
+	if errors := filetemplates.ValidateSecretPathsAndContents(secretSpecs, groupName); len(errors) > 0 {
 		return errors
 	}
 
@@ -199,9 +198,9 @@ func (sg *SecretGroup) validate() []error {
 	// This first-pass is limited for templates that branch conditionally on secret values
 	// Relying logically on specific secret values should be avoided
 	if len(fileTemplate) > 0 {
-		dummySecrets := []*Secret{}
+		dummySecrets := []*filetemplates.Secret{}
 		for _, secretSpec := range secretSpecs {
-			dummySecrets = append(dummySecrets, &Secret{Alias: secretSpec.Alias, Value: "REDACTED"})
+			dummySecrets = append(dummySecrets, &filetemplates.Secret{Alias: secretSpec.Alias, Value: "REDACTED"})
 		}
 
 		_, err := pushToWriter(io.Discard, groupName, fileTemplate, dummySecrets)
@@ -218,8 +217,8 @@ func (sg *SecretGroup) validate() []error {
 }
 
 func validateSecretsAgainstSpecs(
-	secrets []*Secret,
-	specs []SecretSpec,
+	secrets []*filetemplates.Secret,
+	specs []filetemplates.SecretSpec,
 ) error {
 	// If in "Fetch All" mode, then the number of specs will always be 1
 	// while the number of secrets will be variable. Skip this validation.
@@ -261,7 +260,7 @@ func validateSecretsAgainstSpecs(
 func maybeFileTemplateFromFormat(
 	fileTemplate string,
 	fileFormat string,
-	secretSpecs []SecretSpec,
+	secretSpecs []filetemplates.SecretSpec,
 ) (string, error) {
 	// Default to "yaml" file format
 	if len(fileTemplate)+len(fileFormat) == 0 {
@@ -306,8 +305,8 @@ func newSecretGroupsWithDeps(annotations map[string]string, c Config) ([]*Secret
 
 	var errors []error
 	for key := range annotations {
-		if strings.HasPrefix(key, secretGroupPrefix) {
-			groupName := strings.TrimPrefix(key, secretGroupPrefix)
+		if strings.HasPrefix(key, filetemplates.SecretGroupPrefix) {
+			groupName := strings.TrimPrefix(key, filetemplates.SecretGroupPrefix)
 			sg, errs := newSecretGroup(groupName, annotations, c)
 			if errs != nil {
 				errors = append(errors, errs...)
@@ -332,7 +331,7 @@ func newSecretGroupsWithDeps(annotations map[string]string, c Config) ([]*Secret
 }
 
 func newSecretGroup(groupName string, annotations map[string]string, c Config) (*SecretGroup, []error) {
-	groupSecrets := annotations[secretGroupPrefix+groupName]
+	groupSecrets := annotations[filetemplates.SecretGroupPrefix+groupName]
 	filePath := annotations[secretGroupFilePathPrefix+groupName]
 	fileFormat := annotations[secretGroupFileFormatPrefix+groupName]
 
@@ -360,9 +359,9 @@ func newSecretGroup(groupName string, annotations map[string]string, c Config) (
 		return nil, []error{err}
 	}
 
-	secretSpecs, err := NewSecretSpecs([]byte(groupSecrets))
+	secretSpecs, err := filetemplates.NewSecretSpecs([]byte(groupSecrets))
 	if err != nil {
-		err = fmt.Errorf(`unable to create secret specs from annotation "%s": %s`, secretGroupPrefix+groupName, err)
+		err = fmt.Errorf(`unable to create secret specs from annotation "%s": %s`, filetemplates.SecretGroupPrefix+groupName, err)
 		return nil, []error{err}
 	}
 	secretSpecs = resolvedSecretSpecs(policyPathPrefix, secretSpecs)
@@ -392,7 +391,7 @@ func newSecretGroup(groupName string, annotations map[string]string, c Config) (
 }
 
 func collectTemplate(groupName string, annotations map[string]string, c Config) (string, error) {
-	annotationTemplate := annotations[secretGroupFileTemplatePrefix+groupName]
+	annotationTemplate := annotations[filetemplates.SecretGroupFileTemplatePrefix+groupName]
 
 	configmapTemplate, err := readTemplateFromFile(groupName, annotations, c)
 	if os.IsNotExist(err) {

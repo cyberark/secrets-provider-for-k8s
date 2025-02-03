@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/file_templates"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -37,7 +38,7 @@ var standardTemplateTestCases = []pushToWriterTestCase{
 	{
 		description: "json",
 		template:    standardTemplates["json"].template,
-		secrets: []*Secret{
+		secrets: []*filetemplates.Secret{
 			{Alias: "alias 1", Value: "secret value 1"},
 			{"alias 2", "secret value 2"},
 		},
@@ -46,7 +47,7 @@ var standardTemplateTestCases = []pushToWriterTestCase{
 	{
 		description: "yaml",
 		template:    standardTemplates["yaml"].template,
-		secrets: []*Secret{
+		secrets: []*filetemplates.Secret{
 			{Alias: "alias 1", Value: "secret value 1"},
 			{"alias 2", "secret value 2"},
 		},
@@ -56,7 +57,7 @@ var standardTemplateTestCases = []pushToWriterTestCase{
 	{
 		description: "dotenv",
 		template:    standardTemplates["dotenv"].template,
-		secrets: []*Secret{
+		secrets: []*filetemplates.Secret{
 			{Alias: "alias1", Value: "secret value 1"},
 			{"alias2", "secret value 2"},
 		},
@@ -66,7 +67,7 @@ alias2="secret value 2"`),
 	{
 		description: "properties",
 		template:    standardTemplates["properties"].template,
-		secrets: []*Secret{
+		secrets: []*filetemplates.Secret{
 			{Alias: "alias.1", Value: "secret value 1"},
 			{"alias2", "secret value 2"},
 		},
@@ -76,7 +77,7 @@ alias2="secret value 2"`),
 	{
 		description: "bash",
 		template:    standardTemplates["bash"].template,
-		secrets: []*Secret{
+		secrets: []*filetemplates.Secret{
 			{Alias: "alias1", Value: "secret value 1"},
 			{"alias2", "secret value 2"},
 		},
@@ -103,7 +104,7 @@ func (tc *aliasCharTestCase) Run(t *testing.T, fileFormat string) {
 		desc := fmt.Sprintf("%s file format, key containing %s character",
 			fileFormat, tc.description)
 		alias := "key_containing_" + string(tc.testChar) + "_character"
-		secretSpecs := []SecretSpec{{Alias: alias, Path: validConjurPath}}
+		secretSpecs := []filetemplates.SecretSpec{{Alias: alias, Path: validConjurPath}}
 
 		// Run test case
 		_, err := FileTemplateForFormat(fileFormat, secretSpecs)
@@ -123,7 +124,7 @@ func (tc *aliasLenTestCase) Run(t *testing.T, fileFormat string) {
 	t.Run(tc.description, func(t *testing.T) {
 		// Set up test case
 		desc := fmt.Sprintf("%s file format, %s", fileFormat, tc.description)
-		secretSpecs := []SecretSpec{{Alias: tc.alias, Path: validConjurPath}}
+		secretSpecs := []filetemplates.SecretSpec{{Alias: tc.alias, Path: validConjurPath}}
 
 		// Run test case
 		_, err := FileTemplateForFormat(fileFormat, secretSpecs)
@@ -259,7 +260,7 @@ func TestValidateAliasForProperties(t *testing.T) {
 	for _, tc := range testCases {
 		// Set up test case
 		desc := fmt.Sprintf("%s file format, alias with %s", "properties", tc.description)
-		secretSpecs := []SecretSpec{{Alias: tc.alias, Path: validConjurPath}}
+		secretSpecs := []filetemplates.SecretSpec{{Alias: tc.alias, Path: validConjurPath}}
 
 		// Run test case
 		_, err := FileTemplateForFormat("properties", secretSpecs)
@@ -303,7 +304,7 @@ func testValidateAliasForBashOrDotenv(t *testing.T, fileFormat string) {
 		// Set up test case
 		desc := fmt.Sprintf("%s file format, alias with %s",
 			fileFormat, tc.description)
-		secretSpecs := []SecretSpec{{Alias: tc.alias, Path: validConjurPath}}
+		secretSpecs := []filetemplates.SecretSpec{{Alias: tc.alias, Path: validConjurPath}}
 
 		// Run test case
 		_, err := FileTemplateForFormat(fileFormat, secretSpecs)
