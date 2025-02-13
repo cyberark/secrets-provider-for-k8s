@@ -74,6 +74,7 @@ const (
 	logLevelKey             = "conjur.org/log-level"
 	logTracesKey            = "conjur.org/log-traces"
 	jaegerCollectorUrl      = "conjur.org/jaeger-collector-url"
+	ManagedByProviderKey    = "conjur.org/managed-by-provider"
 )
 
 // Define supported annotation keys for Secrets Provider config, as well as value restraints for each
@@ -198,7 +199,7 @@ func ValidateSecretsProviderSettings(envAndAnnots map[string]string) ([]error, [
 	annotK8sSecretsStr := envAndAnnots[k8sSecretsKey]
 	if storeType == "k8s_secrets" {
 		if envK8sSecretsStr == "" && annotK8sSecretsStr == "" {
-			errorList = append(errorList, errors.New(messages.CSPFK048E))
+			infoList = append(infoList, fmt.Errorf(messages.CSPFK023J, "RequiredK8sSecrets"))
 		} else if envK8sSecretsStr != "" && annotK8sSecretsStr != "" {
 			infoList = append(infoList, fmt.Errorf(messages.CSPFK012I, "RequiredK8sSecrets", "K8S_SECRETS", k8sSecretsKey))
 		}

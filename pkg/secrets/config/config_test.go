@@ -300,12 +300,12 @@ var validateSecretsProviderSettingsTestCases = []validateSecretsProviderSettings
 		assert: assertErrorInList(fmt.Errorf(messages.CSPFK043E, SecretsDestinationKey, "invalid", []string{File, K8s})),
 	},
 	{
-		description: "if RequiredK8sSecrets is not configured in K8s Secrets mode, an error is returned",
+		description: "if RequiredK8sSecrets is not configured in K8s Secrets mode, all labeled secret should be used",
 		envAndAnnots: map[string]string{
 			"MY_POD_NAMESPACE":    "test-namespace",
 			SecretsDestinationKey: "k8s_secrets",
 		},
-		assert: assertErrorInList(errors.New(messages.CSPFK048E)),
+		assert: assertInfoInList(fmt.Errorf(messages.CSPFK023J, "RequiredK8sSecrets")),
 	},
 	{
 		description: "if RequiredK8sSecrets is set to a null string in K8s Secrets mode, an error is returned",
@@ -314,7 +314,7 @@ var validateSecretsProviderSettingsTestCases = []validateSecretsProviderSettings
 			"SECRETS_DESTINATION": "k8s_secrets",
 			"K8S_SECRETS":         "",
 		},
-		assert: assertErrorInList(errors.New(messages.CSPFK048E)),
+		assert: assertInfoInList(fmt.Errorf(messages.CSPFK023J, "RequiredK8sSecrets")),
 	},
 	{
 		description: "if envVar 'SECRETS_DESTINATION' is malformed in the absence of annotation 'conjur.org/secrets-destination', an error is returned",
@@ -429,7 +429,7 @@ var validateSecretsProviderSettingsTestCases = []validateSecretsProviderSettings
 			"SECRETS_DESTINATION":     "k8s_secrets",
 			"K8S_SECRETS":             "another-secret-1,another-secret-2",
 		},
-		assert:  assertEmptyErrorList(),
+		assert: assertEmptyErrorList(),
 	},
 }
 
