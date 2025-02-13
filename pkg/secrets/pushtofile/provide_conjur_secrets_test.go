@@ -3,6 +3,7 @@ package pushtofile
 import (
 	"context"
 	"fmt"
+	"github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/file_templates"
 	"os"
 	"testing"
 
@@ -33,7 +34,7 @@ func secretGroups(filePath string) []*SecretGroup {
 			FilePath:        filePath,
 			FileFormat:      "yaml",
 			FilePermissions: 123,
-			SecretSpecs: []SecretSpec{
+			SecretSpecs: []filetemplates.SecretSpec{
 				{
 					Alias: "password",
 					Path:  "path1",
@@ -67,7 +68,7 @@ func TestNewProvider(t *testing.T) {
 					FileTemplate:    "",
 					FileFormat:      "yaml",
 					FilePermissions: defaultFilePermissions,
-					SecretSpecs: []SecretSpec{
+					SecretSpecs: []filetemplates.SecretSpec{
 						{
 							Alias:       "password",
 							Path:        "path1",

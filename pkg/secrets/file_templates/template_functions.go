@@ -1,4 +1,4 @@
-package pushtofile
+package filetemplates
 
 import "encoding/base64"
 

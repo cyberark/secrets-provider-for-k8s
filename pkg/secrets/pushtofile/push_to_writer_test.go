@@ -2,6 +2,7 @@ package pushtofile
 
 import (
 	"bytes"
+	"github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/file_templates"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -10,7 +11,7 @@ import (
 type pushToWriterTestCase struct {
 	description string
 	template    string
-	secrets     []*Secret
+	secrets     []*filetemplates.Secret
 	assert      func(*testing.T, string, error)
 }
 
@@ -45,13 +46,13 @@ var writeToFileTestCases = []pushToWriterTestCase{
 	{
 		description: "happy path",
 		template:    `{{secret "alias"}}`,
-		secrets:     []*Secret{{Alias: "alias", Value: "secret value"}},
+		secrets:     []*filetemplates.Secret{{Alias: "alias", Value: "secret value"}},
 		assert:      assertGoodOutput("secret value"),
 	},
 	{
 		description: "undefined secret",
 		template:    `{{secret "x"}}`,
-		secrets:     []*Secret{{Alias: "some alias", Value: "secret value"}},
+		secrets:     []*filetemplates.Secret{{Alias: "some alias", Value: "secret value"}},
 		assert: func(t *testing.T, s string, err error) {
 			assert.Error(t, err)
 			assert.Contains(t, err.Error(), `secret alias "x" not present in specified secrets for group`)
@@ -62,25 +63,25 @@ var writeToFileTestCases = []pushToWriterTestCase{
 		// https://cs.opensource.google/go/go/+/refs/tags/go1.17.2:src/text/template/funcs.go;l=608
 		description: "confirm use of built-in html escape template function",
 		template:    `{{secret "alias" | html}}`,
-		secrets:     []*Secret{{Alias: "alias", Value: "\" ' & < > \000"}},
+		secrets:     []*filetemplates.Secret{{Alias: "alias", Value: "\" ' & < > \000"}},
 		assert:      assertGoodOutput("&#34; &#39; &amp; &lt; &gt; \uFFFD"),
 	},
 	{
 		description: "base64 encoding",
 		template:    `{{secret "alias" | b64enc}}`,
-		secrets:     []*Secret{{Alias: "alias", Value: "secret value"}},
+		secrets:     []*filetemplates.Secret{{Alias: "alias", Value: "secret value"}},
 		assert:      assertGoodOutput("c2VjcmV0IHZhbHVl"),
 	},
 	{
 		description: "base64 decoding",
 		template:    `{{secret "alias" | b64dec}}`,
-		secrets:     []*Secret{{Alias: "alias", Value: "c2VjcmV0IHZhbHVl"}},
+		secrets:     []*filetemplates.Secret{{Alias: "alias", Value: "c2VjcmV0IHZhbHVl"}},
 		assert:      assertGoodOutput("secret value"),
 	},
 	{
 		description: "base64 decoding invalid input",
 		template:    `{{secret "alias" | b64dec}}`,
-		secrets:     []*Secret{{Alias: "alias", Value: "c2VjcmV0IHZhbHVl_invalid"}},
+		secrets:     []*filetemplates.Secret{{Alias: "alias", Value: "c2VjcmV0IHZhbHVl_invalid"}},
 		assert: func(t *testing.T, s string, err error) {
 			assert.Error(t, err)
 			assert.Contains(t, err.Error(), "value could not be base64 decoded")
@@ -95,7 +96,7 @@ var writeToFileTestCases = []pushToWriterTestCase{
 {{ end }}
 {{- $secret.Alias }}: {{ $secret.Value }}
 {{- end -}}`,
-		secrets: []*Secret{
+		secrets: []*filetemplates.Secret{
 			{Alias: "environment", Value: "prod"},
 			{Alias: "url", Value: "https://example.com"},
 			{Alias: "username", Value: "example-user"},
@@ -120,7 +121,7 @@ Nested Template
 {{- range $index, $secret := .SecretsArray -}}
 {{ template "parent" . }}
 {{- end -}}`,
-		secrets: []*Secret{
+		secrets: []*filetemplates.Secret{
 			{Alias: "environment", Value: "prod"},
 			{Alias: "url", Value: "https://example.com"},
 			{Alias: "username", Value: "example-user"},
@@ -155,7 +156,7 @@ func Test_pushToWriter(t *testing.T) {
 func Test_pushToWriter_contentChanges(t *testing.T) {
 	t.Run("content changes", func(t *testing.T) {
 		// Call pushToWriter with a simple template and secret.
-		secrets := []*Secret{{Alias: "alias", Value: "secret value"}}
+		secrets := []*filetemplates.Secret{{Alias: "alias", Value: "secret value"}}
 		groupName := "group path"
 		template := `{{secret "alias"}}`
 
@@ -190,7 +191,7 @@ func Test_pushToWriter_contentChanges(t *testing.T) {
 			buf,
 			groupName,
 			template,
-			[]*Secret{{Alias: "alias", Value: "secret changed"}},
+			[]*filetemplates.Secret{{Alias: "alias", Value: "secret changed"}},
 		)
 		assert.NoError(t, err)
 		assert.True(t, updated)
@@ -203,7 +204,7 @@ func Test_pushToWriter_contentChanges(t *testing.T) {
 			buf,
 			groupName,
 			`- {{secret "alias"}}`,
-			[]*Secret{{Alias: "alias", Value: "secret changed"}},
+			[]*filetemplates.Secret{{Alias: "alias", Value: "secret changed"}},
 		)
 		assert.NoError(t, err)
 		assert.True(t, updated)

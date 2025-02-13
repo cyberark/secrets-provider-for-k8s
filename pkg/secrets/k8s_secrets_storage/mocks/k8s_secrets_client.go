@@ -2,9 +2,9 @@ package mocks
 
 import (
 	"errors"
-
 	"gopkg.in/yaml.v3"
 	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // K8sSecrets represents a collection of Kubernetes Secrets to be populated
@@ -31,15 +31,20 @@ type k8sSecretDataValues map[string]interface{}
 // (respectively) to a custom error.
 type KubeSecretsClient struct {
 	// Mocks a K8s database. Maps k8s secret names to K8s secrets.
-	database      map[string]map[string][]byte
+	database      map[string]K8sSecretsContent
 	ErrOnRetrieve error
 	ErrOnUpdate   error
+}
+
+type K8sSecretsContent struct {
+	annotations map[string]string
+	data        map[string][]byte
 }
 
 // NewKubeSecretsClient creates an instance of a KubeSecretsClient
 func NewKubeSecretsClient() *KubeSecretsClient {
 	return &KubeSecretsClient{
-		database:      map[string]map[string][]byte{},
+		database:      map[string]K8sSecretsContent{},
 		ErrOnRetrieve: nil,
 		ErrOnUpdate:   nil,
 	}
@@ -49,6 +54,7 @@ func NewKubeSecretsClient() *KubeSecretsClient {
 // database.
 func (c *KubeSecretsClient) AddSecret(
 	secretName string,
+	annotations map[string]string,
 	secretData k8sSecretData,
 ) {
 	// Convert string values to YAML format
@@ -61,7 +67,10 @@ func (c *KubeSecretsClient) AddSecret(
 		yamlizedSecretData[key] = yamlValue
 	}
 
-	c.database[secretName] = yamlizedSecretData
+	c.database[secretName] = K8sSecretsContent{
+		annotations: annotations,
+		data:        yamlizedSecretData,
+	}
 }
 
 // RetrieveSecret retrieves a Kubernetes Secret from the mock Kubernetes
@@ -73,13 +82,16 @@ func (c *KubeSecretsClient) RetrieveSecret(_ string, secretName string) (*v1.Sec
 	}
 
 	// Check if the secret exists in the mock K8s DB
-	secretData, ok := c.database[secretName]
+	secretContent, ok := c.database[secretName]
 	if !ok {
 		return nil, errors.New("custom error")
 	}
 
 	return &v1.Secret{
-		Data: secretData,
+		ObjectMeta: metav1.ObjectMeta{
+			Annotations: secretContent.annotations,
+		},
+		Data: secretContent.data,
 	}, nil
 }
 
@@ -96,7 +108,7 @@ func (c *KubeSecretsClient) UpdateSecret(
 
 	secretToUpdate := c.database[secretName]
 	for key, value := range stringDataEntriesMap {
-		secretToUpdate[key] = value
+		secretToUpdate.data[key] = value
 	}
 
 	return nil
@@ -106,5 +118,5 @@ func (c *KubeSecretsClient) UpdateSecret(
 // content of a Kubernetes Secret by reading this content directly from
 // the mock client's database.
 func (c *KubeSecretsClient) InspectSecret(secretName string) map[string][]byte {
-	return c.database[secretName]
+	return c.database[secretName].data
 }

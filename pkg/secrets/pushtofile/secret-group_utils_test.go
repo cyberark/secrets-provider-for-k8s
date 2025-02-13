@@ -2,6 +2,7 @@ package pushtofile
 
 import (
 	"bytes"
+	"github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/file_templates"
 	"io"
 	"os"
 )
@@ -18,7 +19,7 @@ type pushToWriterArgs struct {
 	writer        io.Writer
 	groupName     string
 	groupTemplate string
-	groupSecrets  []*Secret
+	groupSecrets  []*filetemplates.Secret
 }
 
 type pushToWriterSpy struct {
@@ -32,7 +33,7 @@ func (spy *pushToWriterSpy) Call(
 	writer io.Writer,
 	groupName string,
 	groupTemplate string,
-	groupSecrets []*Secret,
+	groupSecrets []*filetemplates.Secret,
 ) (bool, error) {
 	spy._calls++
 	// This is to ensure the spy is only ever used once!

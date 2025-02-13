@@ -247,6 +247,7 @@ func NewConfig(settings map[string]string) *Config {
 			k8sSecretsStr = strings.ReplaceAll(k8sSecretsStr, " ", "")
 			k8sSecretsArr = strings.Split(k8sSecretsStr, ",")
 		}
+		k8sSecretsArr = removeEmptyStrings(k8sSecretsArr)
 	}
 
 	retryCountLimitStr := settings[retryCountLimitKey]
@@ -417,4 +418,14 @@ func validRefreshInterval(intervalStr string, enableStr string, envAndAnnots map
 		}
 	}
 	return err
+}
+
+func removeEmptyStrings(s []string) []string {
+	var r []string
+	for _, str := range s {
+		if str != "" {
+			r = append(r, str)
+		}
+	}
+	return r
 }

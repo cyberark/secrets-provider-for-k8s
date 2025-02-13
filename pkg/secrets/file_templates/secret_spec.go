@@ -1,4 +1,4 @@
-package pushtofile
+package filetemplates
 
 import (
 	"fmt"
@@ -10,7 +10,7 @@ import (
 )
 
 const (
-	maxConjurVarNameLen = 126
+	MaxConjurVarNameLen = 126
 )
 
 // SecretSpec specifies a secret to be retrieved from Conjur by defining
@@ -20,6 +20,14 @@ type SecretSpec struct {
 	Alias       string
 	Path        string
 	ContentType string
+}
+
+// SecretGroup incorporates common information about a secret group
+// that has been parsed from that secret group's Annotations.
+type SecretGroup struct {
+	Name         string
+	FileTemplate string
+	SecretSpecs  []SecretSpec
 }
 
 // MarshalYAML is a custom marshaller for SecretSpec.
@@ -112,11 +120,11 @@ func NewSecretSpecs(raw []byte) ([]SecretSpec, error) {
 	return secretSpecs, nil
 }
 
-func validateSecretPathsAndContents(secretSpecs []SecretSpec, groupName string) []error {
+func ValidateSecretPathsAndContents(secretSpecs []SecretSpec, groupName string) []error {
 
-	errors := validateSecretPaths(secretSpecs, groupName)
+	errors := ValidateSecretPaths(secretSpecs, groupName)
 
-	errs := validateSecretContents(secretSpecs, groupName)
+	errs := ValidateSecretContents(secretSpecs, groupName)
 	if errs != nil {
 		for _, err := range errs {
 			// Log the errors as warnings but allow it to proceed
@@ -126,7 +134,7 @@ func validateSecretPathsAndContents(secretSpecs []SecretSpec, groupName string) 
 	return errors
 }
 
-func validateSecretPaths(secretSpecs []SecretSpec, groupName string) []error {
+func ValidateSecretPaths(secretSpecs []SecretSpec, groupName string) []error {
 	var errors []error
 	for _, secretSpec := range secretSpecs {
 		if err := validateSecretPath(secretSpec.Path, groupName); err != nil {
@@ -136,7 +144,7 @@ func validateSecretPaths(secretSpecs []SecretSpec, groupName string) []error {
 	return errors
 }
 
-func validateSecretContents(secretSpecs []SecretSpec, groupName string) []error {
+func ValidateSecretContents(secretSpecs []SecretSpec, groupName string) []error {
 	var errors []error
 	for _, secretSpec := range secretSpecs {
 		if err := validateSecretContent(secretSpec.ContentType, groupName); err != nil {
@@ -169,9 +177,9 @@ func validateSecretPath(path, groupName string) error {
 
 	// The Conjur variable name (the last word in the Conjur variable path)
 	// must be no longer than 126 characters.
-	if len(varName) > maxConjurVarNameLen {
+	if len(varName) > MaxConjurVarNameLen {
 		return fmt.Errorf("Secret group %s: the Conjur variable name '%s' is longer than %d characters",
-			groupName, varName, maxConjurVarNameLen)
+			groupName, varName, MaxConjurVarNameLen)
 	}
 
 	return nil
