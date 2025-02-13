@@ -54,7 +54,7 @@ func NewProvider(
 }
 
 // Provide implements a ProviderFunc to retrieve and push secrets to the filesystem.
-func (p fileProvider) Provide() (bool, error) {
+func (p fileProvider) Provide(_ ...string) (bool, error) {
 	return provideWithDeps(
 		p.traceContext,
 		p.secretGroups,

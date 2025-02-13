@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	secretsConfigProvider "github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/config"
 	"log"
 	"testing"
 	"time"
@@ -29,7 +30,7 @@ type mockProvider struct {
 	targetsUpdated       bool
 }
 
-func (m *mockProvider) provide() (bool, error) {
+func (m *mockProvider) provide(...string) (bool, error) {
 	m.calledCount++
 	switch {
 	case m.injectFailure && (m.calledCount >= m.failOnCountN):
@@ -184,8 +185,31 @@ func TestRunSecretsProvider(t *testing.T) {
 			assertOn:       "success",
 		},
 		{
+			description:    "standalone container, happy path, no targets updated",
+			mode:           "standalone",
+			interval:       time.Duration(100) * time.Millisecond,
+			testTime:       time.Duration(650+atomicWriteDelayMsecs) * time.Millisecond,
+			expectedCount:  7,
+			expectProvided: true,
+			expectUpdated:  false,
+			provider:       goodProvider(),
+			assertOn:       "success",
+		},
+		{
 			description:    "sidecar container, happy path, targets updated",
 			mode:           "sidecar",
+			interval:       time.Duration(100) * time.Millisecond,
+			testTime:       time.Duration(650+atomicWriteDelayMsecs) * time.Millisecond,
+			expectedCount:  7,
+			expectProvided: true,
+			expectUpdated:  true,
+			provider:       goodProviderTargetsUpdated(),
+			assertOn:       "success",
+			targetsUpdated: true,
+		},
+		{
+			description:    "standalone container, happy path, targets updated",
+			mode:           "standalone",
 			interval:       time.Duration(100) * time.Millisecond,
 			testTime:       time.Duration(650+atomicWriteDelayMsecs) * time.Millisecond,
 			expectedCount:  7,
@@ -269,6 +293,17 @@ func TestRunSecretsProvider(t *testing.T) {
 			assertOn:       "fail",
 		},
 		{
+			description:    "badProvider for standalone container",
+			mode:           "standalone",
+			interval:       time.Duration(100) * time.Millisecond,
+			testTime:       time.Duration(250) * time.Millisecond,
+			expectedCount:  1,
+			expectProvided: false,
+			expectUpdated:  false,
+			provider:       badProvider(),
+			assertOn:       "fail",
+		},
+		{
 			description:    "goodAtFirstThenBadProvider for sidecar",
 			mode:           "sidecar",
 			interval:       time.Duration(100) * time.Millisecond,
@@ -299,10 +334,15 @@ func TestRunSecretsProvider(t *testing.T) {
 				ProviderQuit:          providerQuit,
 			}
 
+			providerConfig := secretsConfigProvider.Config{
+				ContainerMode:      tc.mode,
+				RequiredK8sSecrets: make([]string, 0),
+			}
+
 			// Run the secrets provider
 			testError := make(chan error)
 			go func() {
-				err := RunSecretsProvider(refreshConfig, tc.provider.provide, fileUpdater)
+				err := RunSecretsProvider(refreshConfig, tc.provider.provide, fileUpdater, &providerConfig)
 				testError <- err
 			}()
 			select {

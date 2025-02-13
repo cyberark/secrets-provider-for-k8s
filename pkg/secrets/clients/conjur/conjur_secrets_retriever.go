@@ -98,7 +98,7 @@ func (retriever secretRetriever) Retrieve(variableIDs []string, traceContext con
 }
 
 func retrieveConjurSecrets(conjurClient ConjurClient, variableIDs []string) (map[string][]byte, error) {
-	log.Info(messages.CSPFK003I, variableIDs)
+	log.Debug(messages.CSPFK003I, variableIDs)
 
 	if len(variableIDs) == 0 {
 		return nil, log.RecordedError(messages.CSPFK034E, "no variables to retrieve")

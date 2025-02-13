@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -1165,5 +1167,293 @@ func TestProvideSanitization(t *testing.T) {
 		for _, assert := range tc.asserts {
 			assert(t, mocks, updated, err, tc.desc)
 		}
+	}
+}
+
+func TestMutate(t *testing.T) {
+	testCases := []struct {
+		desc                   string
+		k8sSecrets             k8sStorageMocks.K8sSecrets
+		mutateSecret           v1.Secret
+		requiredSecrets        []string
+		denyConjurRetrieve     bool
+		denyK8sRetrieve        bool
+		denyK8sUpdate          bool
+		alternateConjurSecrets map[string]string
+		expectedSecrets        map[string]string
+		asserts                []assertFunc
+	}{
+		{
+			desc: "Happy path, existing Conjur secret",
+			mutateSecret: v1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "k8s-secret1",
+				},
+				Data: map[string][]byte{
+					"conjur-map": []byte(`"secret1": "conjur/var/path1"`),
+				},
+			},
+			expectedSecrets: map[string]string{
+				"secret1": "secret-value1",
+			},
+		},
+		{
+			desc: "Happy path, 2 existing Conjur secrets",
+			mutateSecret: v1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "k8s-secret1",
+				},
+				Data: map[string][]byte{
+					"conjur-map": []byte(`
+"secret1": "conjur/var/path1"
+"secret2": "conjur/var/path2"`),
+				},
+			},
+			requiredSecrets: []string{"k8s-secret2"}, //configured secrets should be ignored in mutate case
+			expectedSecrets: map[string]string{
+				"secret1": "secret-value1",
+				"secret2": "secret-value2",
+			},
+		},
+		{
+			desc: "Plaintext secret with base64 content-type returns the secret as is",
+			k8sSecrets: k8sStorageMocks.K8sSecrets{
+				"k8s-secret1": {
+					"conjur-map": {
+						"secret1": map[string]interface{}{
+							"id":           "conjur/var/path1",
+							"content-type": "base64",
+						},
+					},
+				},
+			},
+			mutateSecret: v1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "k8s-secret1",
+				},
+				Data: map[string][]byte{
+					"conjur-map": []byte(`
+"secret1":
+    "id": "conjur/var/path1"
+    "content-type": "base64"`),
+				},
+			},
+			requiredSecrets: []string{"k8s-secret2", "k8s-secret3"}, //configured secrets should be ignored in mutate case
+			expectedSecrets: map[string]string{
+				"secret1": "secret-value1",
+			},
+			asserts: []assertFunc{
+				assertLogged(true, "warn", messages.CSPFK064E, "secret1", "base64", "illegal base64 data"),
+			},
+		},
+		{
+			desc: "Happy path, k8s Secret maps to Conjur secret with null string value",
+			mutateSecret: v1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "k8s-secret1",
+				},
+				Data: map[string][]byte{
+					"conjur-map": []byte(`"secret1": "conjur/var/empty-secret"`),
+				},
+			},
+			expectedSecrets: map[string]string{
+				"secret1": "",
+			},
+		},
+		{
+			desc: "Happy path, binary secret",
+			mutateSecret: v1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "k8s-secret1",
+				},
+				Data: map[string][]byte{
+					"conjur-map": []byte(`"secret1": "conjur/var/binary"`),
+				},
+			},
+			expectedSecrets: map[string]string{
+				"secret1": "\xf0\xff\x4a\xc3",
+			},
+		},
+		{
+			desc: "Happy path, encoded secrets with valid content-type",
+			mutateSecret: v1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "k8s-secret1",
+				},
+				Data: map[string][]byte{
+					"conjur-map": []byte(`
+"test-decoding":
+    "id": "conjur/var/encoded1"
+    "content-type": "base64"
+"test-still-encoded":
+    "id": "conjur/var/encoded1"
+    "content-type": "text"
+`),
+				},
+			},
+			expectedSecrets: map[string]string{
+				"test-decoding":      "decoded-value-1",
+				"test-still-encoded": "ZGVjb2RlZC12YWx1ZS0x",
+			},
+			asserts: []assertFunc{
+				assertLogged(true, "info", messages.CSPFK022I, "test-decoding", "k8s-secret1"),
+				assertLogged(false, "info", messages.CSPFK022I, "test-still-encoded", "k8s-secret1"),
+			},
+		},
+		{
+			desc: "Empty var ID throws error",
+			mutateSecret: v1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "k8s-secret1",
+				},
+				Data: map[string][]byte{
+					"conjur-map": []byte(`
+"test-decoding":
+    "id": ""
+    "content-type": "test"`),
+				},
+			},
+			asserts: []assertFunc{
+				assertErrorLogged(messages.CSPFK037E, "test-decoding", "k8s-secret1"),
+			},
+		},
+		{
+			desc: "Access to Conjur secrets is not authorized",
+			mutateSecret: v1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "k8s-secret1",
+				},
+				Data: map[string][]byte{
+					"conjur-map": []byte(`"secret1": "conjur/var/path1"`),
+				},
+			},
+			denyConjurRetrieve: true,
+			asserts: []assertFunc{
+				assertErrorLogged(messages.CSPFK070E, "k8s-secret1", "custom error"),
+			},
+		},
+		{
+			desc: "K8s secret has no 'conjur-map' entry",
+			mutateSecret: v1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "k8s-secret1",
+				},
+				Data: map[string][]byte{
+					"foobar": []byte(`"foo": "bar"`),
+				},
+			},
+			expectedSecrets: map[string]string{},
+			asserts: []assertFunc{
+				assertErrorLogged(messages.CSPFK028E, "k8s-secret1"),
+			},
+		},
+		{
+			desc: "K8s secret has an empty 'conjur-map' entry",
+			mutateSecret: v1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "k8s-secret1",
+				},
+				Data: map[string][]byte{
+					"conjur-map": []byte(``),
+				},
+			},
+			expectedSecrets: map[string]string{},
+			asserts: []assertFunc{
+				assertErrorLogged(messages.CSPFK028E, "k8s-secret1"),
+			},
+		},
+		{
+			desc: "K8s secret fetch all happy path",
+			mutateSecret: v1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "k8s-secret1",
+				},
+				Data: map[string][]byte{
+					"conjur-map": []byte(`"*": "*"`),
+				},
+			},
+			expectedSecrets: map[string]string{
+				"conjur.var.path1":        "secret-value1",
+				"conjur.var.path2":        "secret-value2",
+				"conjur.var.path3":        "secret-value3",
+				"conjur.var.path4":        "secret-value4",
+				"conjur.var.umlaut":       "ÄäÖöÜü",
+				"conjur.var.binary":       "\xf0\xff\x4a\xc3",
+				"conjur.var.empty-secret": "",
+				"conjur.var.encoded1":     "ZGVjb2RlZC12YWx1ZS0x",
+				"conjur.var.encoded2":     "ZGVjb2RlZC12YWx1ZS0y",
+				"conjur.var.encoded3":     "ZGVjb2RlZC12YWx1ZS0z",
+			},
+		},
+		{
+			desc: "K8s secret fetch all with duplicate normalized secret names",
+			mutateSecret: v1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "k8s-secret1",
+				},
+				Data: map[string][]byte{
+					"conjur-map": []byte(`"*": "*"`),
+				},
+			},
+			alternateConjurSecrets: map[string]string{
+				"conjur/var 1": "secret1", // normalized to conjur.var.1
+				"conjur/var+1": "secret2", // also normalized to conjur.var.1
+			},
+			expectedSecrets: map[string]string{},
+			asserts: []assertFunc{
+				assertLogged(true, "warn", messages.CSPFK067E, "conjur.var.1"),
+				// We can't predict which secret will be written to the K8s secret
+				// since the order of the secrets is not guaranteed
+			},
+		},
+		{
+			desc: "K8s secret fetch all with no secrets in Conjur",
+			mutateSecret: v1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "k8s-secret1",
+				},
+				Data: map[string][]byte{
+					"conjur-map": []byte(`"*": "*"`),
+				},
+			},
+			alternateConjurSecrets: map[string]string{},
+			expectedSecrets:        map[string]string{},
+			asserts: []assertFunc{
+				assertErrorLogged(messages.CSPFK034E, "no variables to retrieve"),
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.desc, func(t *testing.T) {
+			// Set up test case
+			mocks := newTestMocks()
+
+			if tc.alternateConjurSecrets != nil {
+				mocks.conjurClient.ClearSecrets()
+				mocks.conjurClient.AddSecrets(tc.alternateConjurSecrets)
+			}
+
+			mocks.setPermissions(tc.denyConjurRetrieve, tc.denyK8sRetrieve,
+				tc.denyK8sUpdate)
+
+			for secretName, secretData := range tc.k8sSecrets {
+				mocks.kubeClient.AddSecret(secretName, secretData)
+			}
+			provider := mocks.newProvider(tc.requiredSecrets)
+
+			// Run test case
+			actualSecretValue, err := provider.Mutate(tc.mutateSecret)
+
+			for key, val := range tc.expectedSecrets {
+				assert.Equal(t, val, string(actualSecretValue[key]), "")
+			}
+
+			if tc.asserts != nil {
+				for _, assert := range tc.asserts {
+					assert(t, mocks, true, err, tc.desc)
+				}
+			}
+		})
 	}
 }

@@ -344,12 +344,22 @@ var validateSecretsProviderSettingsTestCases = []validateSecretsProviderSettings
 		assert: assertErrorInList(fmt.Errorf(messages.CSPFK050E, "5", "time: missing unit in duration \"5\"")),
 	},
 	{
-		description: "if refresh enable is true and interval not set, no errors are returned",
+		description: "if refresh enable is true and interval not set in sidecar mode, no errors are returned",
 		envAndAnnots: map[string]string{
 			"MY_POD_NAMESPACE":       "test-namespace",
 			SecretsDestinationKey:    "file",
 			SecretsRefreshEnabledKey: "true",
 			ContainerModeKey:         "sidecar",
+		},
+		assert: assertEmptyErrorList(),
+	},
+	{
+		description: "if refresh enable is true and interval not set in standalone mode, no errors are returned",
+		envAndAnnots: map[string]string{
+			"MY_POD_NAMESPACE":       "test-namespace",
+			SecretsDestinationKey:    "file",
+			SecretsRefreshEnabledKey: "true",
+			ContainerModeKey:         "standalone",
 		},
 		assert: assertEmptyErrorList(),
 	},
@@ -364,12 +374,22 @@ var validateSecretsProviderSettingsTestCases = []validateSecretsProviderSettings
 		assert: assertEmptyErrorList(),
 	},
 	{
-		description: "if refresh enable is false and interval not set, no errors are returned",
+		description: "if refresh enable is false and interval not set in sidecar mode, no errors are returned",
 		envAndAnnots: map[string]string{
 			"MY_POD_NAMESPACE":       "test-namespace",
 			SecretsDestinationKey:    "file",
 			SecretsRefreshEnabledKey: "false",
 			ContainerModeKey:         "sidecar",
+		},
+		assert: assertEmptyErrorList(),
+	},
+	{
+		description: "if refresh enable is false and interval not set in standalone mode, no errors are returned",
+		envAndAnnots: map[string]string{
+			"MY_POD_NAMESPACE":       "test-namespace",
+			SecretsDestinationKey:    "file",
+			SecretsRefreshEnabledKey: "false",
+			ContainerModeKey:         "standalone",
 		},
 		assert: assertEmptyErrorList(),
 	},
@@ -429,7 +449,7 @@ var validateSecretsProviderSettingsTestCases = []validateSecretsProviderSettings
 			"SECRETS_DESTINATION":     "k8s_secrets",
 			"K8S_SECRETS":             "another-secret-1,another-secret-2",
 		},
-		assert:  assertEmptyErrorList(),
+		assert: assertEmptyErrorList(),
 	},
 }
 

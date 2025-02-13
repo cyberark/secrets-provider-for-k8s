@@ -1,0 +1,22 @@
+{{- if eq .Values.favorite.drink "standalone" }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}
+{{- with .Values.labels }}
+  labels:
+{{ toYaml . | indent 4 }}
+{{- end }}
+{{- with .Values.annotations }}
+  annotations:
+{{ toYaml . | indent 4 }}
+{{- end }}
+spec:
+  type: ClusterIP
+  ports:
+    - port: 5000
+      targetPort: 5000
+      name: {{ .Release.Name }}
+  selector:
+    app: {{ .Release.Name }}
+{{- end }}

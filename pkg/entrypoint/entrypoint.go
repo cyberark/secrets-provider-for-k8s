@@ -131,6 +131,7 @@ func startSecretsProviderWithDeps(
 		},
 		provideSecrets,
 		statusUpdaterFactory(),
+		secretsConfig,
 	); err != nil {
 		logError(err.Error())
 	}
@@ -212,6 +213,7 @@ func secretsProvider(
 		K8sProviderConfig: k8sSecretsStorage.K8sProviderConfig{
 			PodNamespace:       secretsConfig.PodNamespace,
 			RequiredK8sSecrets: secretsConfig.RequiredK8sSecrets,
+			IsRepeatableMode:   secretsConfig.ContainerMode == "standalone",
 		},
 		P2FProviderConfig: pushtofile.P2FProviderConfig{
 			SecretFileBasePath:   secretsBasePath,
@@ -282,7 +284,7 @@ func getContainerMode() string {
 	containerMode := "init"
 	if mode, exists := annotationsMap[secretsConfigProvider.ContainerModeKey]; exists {
 		containerMode = mode
-	} else if mode = os.Getenv("CONTAINER_MODE"); mode == "sidecar" || mode == "application" {
+	} else if mode = os.Getenv("CONTAINER_MODE"); mode == "sidecar" || mode == "application" || mode == "standalone" {
 		containerMode = mode
 	}
 	return containerMode

@@ -2,22 +2,28 @@ package k8s
 
 import (
 	"context"
+	"sync"
 
 	"github.com/cyberark/conjur-authn-k8s-client/pkg/log"
+	"github.com/cyberark/secrets-provider-for-k8s/pkg/log/messages"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
-
-	"github.com/cyberark/secrets-provider-for-k8s/pkg/log/messages"
 )
 
 type RetrieveK8sSecretFunc func(namespace string, secretName string) (*v1.Secret, error)
 type UpdateK8sSecretFunc func(namespace string, secretName string, originalK8sSecret *v1.Secret, stringDataEntriesMap map[string][]byte) error
 
+var kubeClient *kubernetes.Clientset
+
+var updateSecretLock sync.Mutex
+
+func init() {
+	kubeClient, _ = configK8sClient()
+}
+
 func RetrieveK8sSecret(namespace string, secretName string) (*v1.Secret, error) {
-	// get K8s client object
-	kubeClient, _ := configK8sClient()
 	log.Info(messages.CSPFK005I, secretName, namespace)
 	k8sSecret, err := kubeClient.CoreV1().Secrets(namespace).Get(context.Background(), secretName, metav1.GetOptions{})
 	if err != nil {
@@ -30,14 +36,23 @@ func RetrieveK8sSecret(namespace string, secretName string) (*v1.Secret, error) 
 }
 
 func UpdateK8sSecret(namespace string, secretName string, originalK8sSecret *v1.Secret, stringDataEntriesMap map[string][]byte) error {
-	// get K8s client object
-	kubeClient, _ := configK8sClient()
+
+	updateSecretLock.Lock()
+	defer updateSecretLock.Unlock()
 
 	for secretName, secretValue := range stringDataEntriesMap {
 		originalK8sSecret.Data[secretName] = secretValue
 	}
 
 	log.Info(messages.CSPFK006I, secretName, namespace)
+	//add magic annotation to let mutation webhook know it should ignore this action
+	if originalK8sSecret.Annotations == nil {
+		originalK8sSecret.Annotations = make(map[string]string)
+	}
+	originalK8sSecret.Annotations["conjur.org/just-provided"] = "true"
+	originalK8sSecret.SetAnnotations(originalK8sSecret.Annotations)
+
+	log.Debug(messages.CSPFK006I, secretName, namespace)
 	_, err := kubeClient.CoreV1().Secrets(namespace).Update(context.Background(), originalK8sSecret, metav1.UpdateOptions{})
 	// Clear secret from memory
 	stringDataEntriesMap = nil
