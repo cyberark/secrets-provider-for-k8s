@@ -220,12 +220,33 @@ follow the instructions in this section.
 
 1. Review the git log and ensure the [changelog](CHANGELOG.md) contains all
    relevant recent changes with references to GitHub issues or PRs, if possible.
-1. Review the changes since the last tag, and if the dependencies have changed
-   revise the [NOTICES](NOTICES.txt) to correctly capture the included
-   dependencies and their licenses / copyrights.
 1. Ensure that all documentation that needs to be written has been
    written by TW, approved by PO/Engineer, and pushed to the forward-facing documentation.
 1. Scan the project for vulnerabilities
+
+### Update the changelog and notices (if necessary)
+
+1. Update the `CHANGELOG.md` file with the new version and the changes that are included in the release.
+
+1. Update `NOTICES.txt`
+
+    ```sh-session
+    go install github.com/google/go-licenses@latest
+
+    # Verify that dependencies fit into supported licenses types.
+    # If there is new dependency having unsupported license, that license should be
+    # included to notices.tpl file in order to get generated in NOTICES.txt.
+    $(go env GOPATH)/bin/go-licenses check ./... \
+      --allowed_licenses="MIT,ISC,Apache-2.0,BSD-3-Clause,BSD-2-Clause" \
+      --ignore $(go list std | awk 'NR > 1 { printf(",") } { printf("%s",$0) } END { print "" }')
+
+    # If no errors occur, proceed to generate updated NOTICES.txt
+    $(go env GOPATH)/bin/go-licenses report ./... \
+      --template notices.tpl \
+      --ignore github.com/cyberark/secrets-provider-for-k8s \
+      --ignore $(go list std | awk 'NR > 1 { printf(",") } { printf("%s",$0) } END { print "" }') \
+      > NOTICES.txt
+    ```
 
 ### Update the version, changelog, and notices
 
