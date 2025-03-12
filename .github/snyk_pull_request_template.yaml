@@ -1,0 +1,17 @@
+title: "SNYK-0000: Fix {{ issue-count }} issues in {{ snyk_project_name }}"
+commitMessage: "SNYK-0000: Upgrade {{ package_name }} from {{ package_from }} to {{ package_to }}"
+description: |
+  The auto-generated PR addresses {{ issue_count }} issues by upgrading {{ package_name }} from {{ package_from }} to {{ package_to }}.
+
+  More details on these issues can be found at [Snyk]({{ snyk_project_url }}).
+
+  {{ #is_container_pr }}
+  Snyk recommends upgrading the container base image to {{container.recommended_base_image_name }}. We currently use 
+  {{ container.current_base_image_name }}. Snyk's recommendation may not be the latest version of base image available - just one
+  that Snyk knows about that has fewer issues than our current issue. Be careful about accepting this PR blindly - it may make more sense
+  to close it and use the latest available base image.
+  {{ /is_container_pr }}
+
+  {{ #jira_ids }}
+  - Fixes {{ . }}
+  {{ /jira_ids }}
