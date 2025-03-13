@@ -85,10 +85,6 @@ pipeline {
     timeout(time: 3, unit: 'HOURS')
   }
 
-  triggers {
-    cron(getDailyCronString())
-  }
-
   environment {
     // Sets the MODE to the specified or autocalculated value as appropriate
     MODE = release.canonicalizeMode()
@@ -96,6 +92,11 @@ pipeline {
     // Values to direct scan results to the right place in DefectDojo
     INFRAPOOL_PRODUCT_NAME = "${productName}"
     INFRAPOOL_PRODUCT_TYPE_NAME = "${productTypeName}"
+  }
+
+  triggers {
+    cron(getDailyCronString())
+    parameterizedCron(getWeeklyCronString("H(1-5)","%MODE=RELEASE"))
   }
 
   parameters {
