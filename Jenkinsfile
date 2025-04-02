@@ -208,6 +208,13 @@ pipeline {
             }
           }
         }
+        stage('Package helm chart') {
+          steps {
+            script {
+              INFRAPOOL_EXECUTORV2_AGENT_0.agentSh './ci/jenkins_build'
+            }
+          }
+        }
 
         // Allows for the promotion of images. Need to push before we do security scans
         // since the Snyk scans pull from artifactory on a seprate executor node
@@ -329,14 +336,16 @@ pipeline {
               MODE == "RELEASE"
             }
           }
-          parallel {
-            stage('Push Images') {
+          stages {
+          stage('Release') {
               steps {
                 script {
                   release(INFRAPOOL_EXECUTORV2_AGENT_0) { billOfMaterialsDirectory, assetDirectory, toolsDirectory ->
                     // Publish release artifacts to all the appropriate locations
                     // Copy any artifacts to assetDirectory to attach them to the Github release
 
+                    // Copy helm chart to assetDirectory
+                    INFRAPOOL_EXECUTORV2_AGENT_0.agentSh "cp -a helm-artifacts/*.tgz ${assetDirectory}"
                     // Create Go application SBOM using the go.mod version for the golang container image
                     INFRAPOOL_EXECUTORV2_AGENT_0.agentSh """export PATH="${toolsDirectory}/bin:${PATH}" && go-bom --tools "${toolsDirectory}" --go-mod ./go.mod --image "golang" --main "cmd/secrets-provider/" --output "${billOfMaterialsDirectory}/go-app-bom.json" """
                     // Create Go module SBOM
@@ -347,14 +356,6 @@ pipeline {
                     INFRAPOOL_EXECUTORV2_AGENT_0.agentSh "cp -a docker-image*.tar ${assetDirectory}"
 
                   }
-                }
-              }
-            }
-            stage('Package artifacts') {
-              steps {
-                script {
-                  INFRAPOOL_EXECUTORV2_AGENT_0.agentSh 'ci/jenkins_build'
-                  INFRAPOOL_EXECUTORV2_AGENT_0.agentArchiveArtifacts artifacts: "helm-artifacts/"
                 }
               }
             }
