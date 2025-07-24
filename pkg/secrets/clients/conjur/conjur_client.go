@@ -24,6 +24,7 @@ func NewConjurClient(tokenData []byte) (ConjurClient, error) {
 	if err != nil {
 		return nil, log.RecordedError(messages.CSPFK031E, err.Error())
 	}
+	config.CredentialStorage = conjurapi.CredentialStorageNone
 
 	client, err := conjurapi.NewClientFromToken(config, string(tokenData))
 	if err != nil {
