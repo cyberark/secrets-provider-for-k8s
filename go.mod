@@ -1,6 +1,8 @@
 module github.com/cyberark/secrets-provider-for-k8s
 
-go 1.24.1
+go 1.24.2
+
+toolchain go1.24.3
 
 require (
 	github.com/cenkalti/backoff v2.2.1+incompatible
@@ -16,7 +18,7 @@ require (
 
 require (
 	al.essio.dev/pkg/shellescape v1.6.0 // indirect
-	github.com/Masterminds/semver/v3 v3.3.1 // indirect
+	github.com/Masterminds/semver/v3 v3.4.0 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/blang/semver/v4 v4.0.0 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
@@ -56,7 +58,7 @@ require (
 
 require (
 	github.com/bgentry/go-netrc v0.0.0-20140422174119-9fd32a8b3d3d // indirect
-	github.com/cyberark/conjur-api-go v0.12.14 // version will be ignored by auto release process
+	github.com/cyberark/conjur-api-go v0.13.2 // version will be ignored by auto release process
 	github.com/cyberark/conjur-authn-k8s-client v0.26.5 // version will be ignored by auto release process
 	github.com/cyberark/conjur-opentelemetry-tracer v1.55.55 // version will be ignored by auto release process
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
@@ -77,7 +79,7 @@ require (
 	go.opentelemetry.io/otel/trace v1.35.0 // indirect
 	golang.org/x/net v0.38.0 // indirect
 	golang.org/x/oauth2 v0.28.0 // indirect
-	golang.org/x/sys v0.31.0 // indirect
+	golang.org/x/sys v0.33.0 // indirect
 	golang.org/x/term v0.30.0 // indirect
 	golang.org/x/text v0.23.0 // indirect
 	golang.org/x/time v0.11.0 // indirect
