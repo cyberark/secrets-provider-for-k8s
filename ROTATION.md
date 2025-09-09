@@ -13,7 +13,7 @@
 ## Overview
 
 The secrets rotation feature detailed below allows Kubernetes applications to
-refresh Conjur secrets if there are any changes to the secrets.
+refresh Secrets Manager secrets if there are any changes to the secrets.
 
 ## How Secrets Rotation Works
 
@@ -22,10 +22,10 @@ refresh Conjur secrets if there are any changes to the secrets.
 Note: see [how-push-to-file-works](PUSH_TO_FILE.md#how-push-to-file-works) for more detail on
 how Push to File works.
 
-1. The Secrets Provider authenticates to the Conjur server using the
+1. The Secrets Provider authenticates to the Secrets Manager server using the
    Kubernetes Authenticator (`conjur-authn-k8s-client`).
 
-2. The Secrets Provider reads all Conjur secrets required across all
+2. The Secrets Provider reads all Secrets Manager secrets required across all
    [secret groups](PUSH_TO_FILE.md#reference-table-of-configuration-annotations).
 
 3. The Secrets Provider sidecar container starts up and retrieves the initial secrets.
@@ -40,7 +40,7 @@ how Push to File works.
    secrets will be updated every three seconds.
 
    Note:
-   If one or more of the secrets have been removed from Conjur or have had access revoked, the Secrets Provider
+   If one or more of the secrets have been removed from Secrets Manager or have had access revoked, the Secrets Provider
    will remove the secrets files from the shared volume. To disable this feature, set the
    `conjur.org/remove-deleted-secrets-enabled` annotation to `false`.
 4. The Secrets Provider renders secret files for each secret group, and
@@ -197,7 +197,7 @@ below is a list of annotations that are needed for secrets rotation.
 | `conjur.org/container-mode`         | Configurable values: <ul><li>`init`</li><li>`application`</li><li>`sidecar`</li></ul>Defaults to `init`.<br>Must be set to `sidecar`for secrets rotation.|
 | `conjur.org/secrets-refresh-enabled`  | Set to `true` to enable Secrets Rotation. Defaults to `false` unless `conjur.org/secrets-refresh-interval` is explicitly set. Secrets Provider will exit with error if this is set to `false` and `conjur.org/secrets-refresh-interval` is set. |
 | `conjur.org/secrets-refresh-interval` | Set to a valid duration string as defined [here](https://pkg.go.dev/time#ParseDuration). Setting a time implicitly enables refresh. Valid time units are `s`, `m`, and `h` (for seconds, minutes, and hours, respectively). Some examples of valid duration strings:<ul><li>`5m`</li><li>`2h30m`</li><li>`48h`</li></ul>The minimum refresh interval is 1 second. A refresh interval of 0 seconds is treated as a fatal configuration error. The default refresh interval is 5 minutes. The maximum refresh interval is approximately 290 years. |
-| `conjur.org/remove-deleted-secrets-enabled` | Set to `false` to disable deletion of secrets files from the shared volume when a secret is removed or access is revoked in Conjur. Defaults to `true`. |
+| `conjur.org/remove-deleted-secrets-enabled` | Set to `false` to disable deletion of secrets files from the shared volume when a secret is removed or access is revoked in Secrets Manager. Defaults to `true`. |
 
 ## Troubleshooting
 

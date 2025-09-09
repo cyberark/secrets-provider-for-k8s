@@ -3,7 +3,7 @@
 ## Existing Functionality
 
 In the regular configuration of Secrets Provider, the application developer must
-specify each secret that needs to be retrieved from Conjur. This is done in one
+specify each secret that needs to be retrieved from Secrets Manager. This is done in one
 of two ways, depending on how the secrets are being provided:
 
 ### Kubernetes Secrets
@@ -144,7 +144,7 @@ There are several important things to note about this feature:
 ### Security Implications
 
 - The Fetch All feature should be used with caution, as it can expose more
-  secrets than intended. Ideally, Conjur should be configured to only allow the
+  secrets than intended. Ideally, Secrets Manager should be configured to only allow the
   host to access the secrets that it needs. Additionally, the host should only
   be used for a small unit, such as a single application, and therefore only
   need access to a small number of secrets. If the host has access to a large
@@ -157,7 +157,7 @@ There are several important things to note about this feature:
 ### Performance and Reliability
 
 - Using Fetch All will be slightly slower than specifying each secret
-  individually, as it requires multiple requests to Conjur - first to list all
+  individually, as it requires multiple requests to Secrets Manager - first to list all
   the available secrets, and then to fetch them. In cases where performance is
   critical, it may be better to specify the secrets individually.
 
@@ -179,12 +179,12 @@ There are several important things to note about this feature:
 
 - There is no way to use aliases for secrets when using the Fetch All feature.
   This means that the keys used for the secrets (both in K8s Secrets and P2F)
-  will be the *full path* of the secret in Conjur. At the same time, Kubernetes
+  will be the *full path* of the secret in Secrets Manager. At the same time, Kubernetes
   secrets do not allow keys to contain slashes (`/`) or most other special
   characters. Due to these limitations:
   
   - *In K8s secrets mode:* Any slashes, spaces or other special characters
-    (besides `_`, `-`, and `.`) in the Conjur secret path will be replaced with
+    (besides `_`, `-`, and `.`) in the Secrets Manager secret path will be replaced with
     dots (`.`) in the key names when using K8s Secrets. For example, if the
     secret is stored at `host/my-app/secrets/db-password`, the key in the K8s
     Secret will be `host.my-app.secrets.db-password`.
@@ -199,7 +199,7 @@ There are several important things to note about this feature:
     will be ignored. This will cause non-deterministic behavior in the
     application and must be avoided.
 
-  - *In P2F mode:* The key names will be the full path of the secret in Conjur.
+  - *In P2F mode:* The key names will be the full path of the secret in Secrets Manager.
     For example, if the secret is stored at `host/my-app/secrets/db-password`,
     the key in the P2F file will be `host/my-app/secrets/db-password`.
     This poses no issues for YAML and JSON files, since those formats

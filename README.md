@@ -16,19 +16,19 @@
 # CyberArk Secrets Provider for Kubernetes
 
 The CyberArk Secrets Provider for Kubernetes provides Kubernetes-based
-applications with access to secrets that are stored and managed in Conjur.
+applications with access to secrets that are stored and managed in CyberArk Secrets Manager.
 
 ## Consuming Secrets from CyberArk Secrets Provider
 
 Using the CyberArk Secrets Provider, your applications can easily consume
-secrets that have been retrieved from Conjur in one of two ways:
+secrets that have been retrieved from Secrets Manager in one of two ways:
 
 - **Using Kubernetes Secrets:** The Secrets Provider can populate Kubernetes
-  Secrets with secrets stored in Conjur. This is sometimes referred to as
+  Secrets with secrets stored in Secrets Manager. This is sometimes referred to as
   **"K8s Secrets"** mode.
 - **Using Secrets files:** The Secrets Provider can generate initialization or
   credentials files for your application based on secrets retrieved from
-  Conjur, and it can write those files to a volume that is shared with your
+  Secrets Manager, and it can write those files to a volume that is shared with your
   application container. This is referred to as the Secrets Provider
   **"Push to File"** mode. For more information, see the
   [Secrets Provider Push-to-File guide](PUSH_TO_FILE.md).
@@ -40,16 +40,16 @@ of two modes:
 
 - **As an init container:** The Secrets Provider can be deployed as a
   Kubernetes init container for each of your application Pods that requires
-  secrets to be retrieved from Conjur. This configuration allows you to employ
-  Conjur policy that authorizes access to Conjur secrets on a
+  secrets to be retrieved from Secrets Manager. This configuration allows you to employ
+  Secrets Manager policy that authorizes access to Secrets Manager secrets on a
   per-application-Pod basis.
 
 - **As a standalone application container (Kubernetes Job):**
   The Secrets Provider can be deployed as a separate, application container
   that runs to completion as part of a Kubernetes Job. In this mode, the
-  Secrets Provider can support delivery of Conjur secrets to multiple
-  application Pods. In this mode, you would use Conjur policy that authorizes
-  access to Conjur secrets on a per-Secrets-Provider basis.
+  Secrets Provider can support delivery of Secrets Manager secrets to multiple
+  application Pods. In this mode, you would use Secrets Manager policy that authorizes
+  access to Secrets Manager secrets on a per-Secrets-Provider basis.
 
   The [Secrets Provider Helm chart](helm) can be used to deploy the
   Secrets Provider in standalone application mode.
@@ -61,7 +61,7 @@ __NOTE: If you are using the Secrets Provider "Push to file" mode, the
   makes use of shared volumes to deliver secrets to an application.__
 
 ## Supported Services
-- Conjur Enterprise 11.1+
+- Secrets Manager, Self-Hosted 11.1+
 
 - Conjur Open Source v1.4.2+
 
@@ -70,7 +70,7 @@ __NOTE: If you are using the Secrets Provider "Push to file" mode, the
 
 - K8s 1.11+
 
-- Openshift v4.6-v4.8 _*(Conjur Enterprise only)*_
+- Openshift v4.6-v4.8 _*(Secrets Manager, Self-Hosted only)*_
 
 ## Using secrets-provider-for-k8s with Conjur Open Source 
 
