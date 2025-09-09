@@ -6,7 +6,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
-## [1.7.5] - 2025-04-01
+## [1.7.5] - 2025-09-09
+
+### Changed
+- Updated documentation to align with Conjur Enterprise name change to Secrets Manager. (CNJR-10982)
 
 ## [1.7.4] - 2025-04-01
 
@@ -368,7 +371,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ### Changed
   - Escape secrets with backslashes before patching in k8s
 
-[Unreleased]: https://github.com/cyberark/secrets-provider-for-k8s/compare/v1.7.4...HEAD
+[Unreleased]: https://github.com/cyberark/secrets-provider-for-k8s/compare/v1.7.5...HEAD
+[1.7.5]: https://github.com/cyberark/secrets-provider-for-k8s/compare/v1.7.4...v1.7.5
 [1.7.4]: https://github.com/cyberark/secrets-provider-for-k8s/compare/v1.7.3...v1.7.4
 [1.7.3]: https://github.com/cyberark/secrets-provider-for-k8s/compare/v1.7.2...v1.7.3
 [1.7.2]: https://github.com/cyberark/secrets-provider-for-k8s/compare/v1.7.1...v1.7.2
