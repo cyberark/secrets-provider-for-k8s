@@ -125,7 +125,7 @@ func TestStartSecretsProvider(t *testing.T) {
 				}.Retrieve,
 			},
 			providerFactory: mockProviderFactory{
-				providerFunc: func() (bool, error) {
+				providerFunc: func(...string) (bool, error) {
 					return true, nil
 				},
 				errs: []error{},
@@ -147,7 +147,7 @@ func TestStartSecretsProvider(t *testing.T) {
 				}.Retrieve,
 			},
 			providerFactory: mockProviderFactory{
-				providerFunc: func() (bool, error) {
+				providerFunc: func(...string) (bool, error) {
 					return true, nil
 				},
 				errs: []error{errors.New("provider factory failure")},
@@ -170,7 +170,7 @@ func TestStartSecretsProvider(t *testing.T) {
 				err: errors.New("retriever factory failure"),
 			},
 			providerFactory: mockProviderFactory{
-				providerFunc: func() (bool, error) {
+				providerFunc: func(...string) (bool, error) {
 					return true, nil
 				},
 				errs: []error{},
@@ -192,7 +192,7 @@ func TestStartSecretsProvider(t *testing.T) {
 				err: nil,
 			},
 			providerFactory: mockProviderFactory{
-				providerFunc: func() (bool, error) {
+				providerFunc: func(...string) (bool, error) {
 					return true, nil
 				},
 				errs: []error{},
@@ -214,7 +214,7 @@ func TestStartSecretsProvider(t *testing.T) {
 				err: nil,
 			},
 			providerFactory: mockProviderFactory{
-				providerFunc: func() (bool, error) {
+				providerFunc: func(...string) (bool, error) {
 					return true, nil
 				},
 				errs: []error{},
@@ -236,7 +236,7 @@ func TestStartSecretsProvider(t *testing.T) {
 				err: nil,
 			},
 			providerFactory: mockProviderFactory{
-				providerFunc: func() (bool, error) {
+				providerFunc: func(...string) (bool, error) {
 					return true, nil
 				},
 				errs: []error{},

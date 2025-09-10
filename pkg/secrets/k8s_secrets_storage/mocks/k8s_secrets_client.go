@@ -2,6 +2,7 @@ package mocks
 
 import (
 	"errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"gopkg.in/yaml.v3"
 	v1 "k8s.io/api/core/v1"
@@ -79,6 +80,9 @@ func (c *KubeSecretsClient) RetrieveSecret(_ string, secretName string) (*v1.Sec
 	}
 
 	return &v1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: secretName,
+		},
 		Data: secretData,
 	}, nil
 }
