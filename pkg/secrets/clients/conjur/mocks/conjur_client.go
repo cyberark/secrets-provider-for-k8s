@@ -182,3 +182,7 @@ func (mc *ConjurMockClient) getAllSecrets() map[string][]byte {
 
 	return res
 }
+
+func (mc *ConjurMockClient) Cleanup() {
+	// Cleanup is not needed in tests
+}
