@@ -90,6 +90,7 @@ func (retriever secretRetriever) Retrieve(variableIDs []string, traceContext con
 		return nil, log.RecordedError(messages.CSPFK033E)
 	}
 
+	defer conjurClient.Cleanup()
 	if fetchAll {
 		return retrieveConjurSecretsAll(conjurClient)
 	}
