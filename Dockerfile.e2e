@@ -43,7 +43,7 @@ RUN apt-get update && \
     git
 
 # Download and install Golang
-ENV GOLANG_VERSION 1.24.1
+ENV GOLANG_VERSION 1.25.3
 RUN curl -L https://golang.org/dl/go${GOLANG_VERSION}.linux-amd64.tar.gz | tar -C /usr/local -xz
 ENV PATH=$PATH:/usr/local/go/bin
 

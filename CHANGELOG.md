@@ -11,6 +11,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ### Added
 - Cleanup idle sockets
 
+### Changed
+- Updated Go to 1.25 (CONJSE-2067)
+
 ## [1.7.5] - 2025-09-09
 
 ### Changed
