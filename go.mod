@@ -1,8 +1,6 @@
 module github.com/cyberark/secrets-provider-for-k8s
 
-go 1.24.2
-
-toolchain go1.24.3
+go 1.25.3
 
 require (
 	github.com/cenkalti/backoff v2.2.1+incompatible
