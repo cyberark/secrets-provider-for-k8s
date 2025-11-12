@@ -1,7 +1,6 @@
 package pushtofile
 
 import (
-	"bytes"
 	"context"
 	"encoding/base64"
 	"fmt"
@@ -111,13 +110,12 @@ func decodeIfNeeded(spec SecretSpec, alias string, sValue []byte) []byte {
 	}
 
 	decodedSecretValue := make([]byte, base64.StdEncoding.DecodedLen(len(sValue)))
-	_, err := base64.StdEncoding.Decode(decodedSecretValue, sValue)
-	decodedSecretValue = bytes.Trim(decodedSecretValue, "\x00")
+	n, err := base64.StdEncoding.Decode(decodedSecretValue, sValue)
 	if err != nil {
 		// Log the error as a warning but still provide the original secret value
 		log.Warn(messages.CSPFK064E, alias, spec.ContentType, err.Error())
 	} else {
-		return decodedSecretValue
+		return decodedSecretValue[:n]
 	}
 
 	return sValue

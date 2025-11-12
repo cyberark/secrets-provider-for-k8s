@@ -6,13 +6,16 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
-## [1.7.6] - 2025-10-06
+## [1.7.6] - 2025-11-18
 
 ### Added
 - Cleanup idle sockets
 
 ### Changed
 - Updated Go to 1.25 (CONJSE-2067)
+
+### Fixed
+- Preserved trailing null bytes when decoding base64 secrets. (CNJR-11482). [cyberark/secrets-provider-for-k8s#555](https://github.com/cyberark/secrets-provider-for-k8s/issues/555)
 
 ## [1.7.5] - 2025-09-09
 

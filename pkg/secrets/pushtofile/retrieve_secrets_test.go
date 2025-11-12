@@ -3,6 +3,7 @@ package pushtofile
 import (
 	"context"
 	"testing"
+	"encoding/base64"
 
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/clients/conjur"
 	conjurMocks "github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/clients/conjur/mocks"
@@ -372,4 +373,19 @@ func TestGetAllPaths(t *testing.T) {
 		// Verify results
 		assert.ElementsMatch(t, paths, tc.expectedPaths)
 	}
+}
+
+func TestDecodeIfNeeded_Base64PreservesTrailingNull(t *testing.T) {
+    original := []byte{0xde, 0xad, 0xbe, 0xef, 0x00}
+    encoded := make([]byte, base64.StdEncoding.EncodedLen(len(original)))
+    base64.StdEncoding.Encode(encoded, original)
+
+    spec := SecretSpec{
+        ContentType: "base64",
+        Alias:       "test-secret",
+    }
+
+    result := decodeIfNeeded(spec, "test-alias", encoded)
+
+    assert.Equal(t, original, result, "decoded secret should match original including trailing null bytes")
 }
