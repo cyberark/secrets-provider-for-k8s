@@ -2,6 +2,7 @@ package k8ssecretsstorage
 
 import (
 	"context"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"testing"
@@ -1166,4 +1167,31 @@ func TestProvideSanitization(t *testing.T) {
 			assert(t, mocks, updated, err, tc.desc)
 		}
 	}
+}
+
+func TestBase64PKCS12SecretPreservesTrailingNull(t *testing.T) {
+    original := []byte{0xde, 0xad, 0xbe, 0xef, 0x00}
+    encoded := make([]byte, base64.StdEncoding.EncodedLen(len(original)))
+    base64.StdEncoding.Encode(encoded, original)
+
+    provider := K8sProvider{
+        secretsState: k8sSecretsState{
+            updateDestinations: map[string][]updateDestination{
+                "pkcs12var": {{
+                    k8sSecretName: "pkcs12secret",
+                    secretName:    "pkcs12file",
+                    contentType:   "base64",
+                }},
+            },
+        },
+    }
+
+    conjurSecrets := map[string][]byte{
+        "pkcs12var": encoded,
+    }
+
+    secretData := provider.createSecretData(conjurSecrets)
+    got := secretData["pkcs12secret"]["pkcs12file"]
+
+    assert.Equal(t, original, got, "decoded PKCS#12 secret should match original including trailing null bytes")
 }
