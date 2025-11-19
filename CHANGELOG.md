@@ -6,13 +6,14 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
-## [1.7.6] - 2025-11-18
+## [1.7.6] - 2025-11-19
 
 ### Added
 - Cleanup idle sockets
 
 ### Changed
 - Updated Go to 1.25 (CONJSE-2067)
+- Update conjur-api-go to v0.13.10 and conjur-authn-k8s-client to v0.26.9 (CNJR-11784)
 
 ### Fixed
 - Preserved trailing null bytes when decoding base64 secrets. (CNJR-11482). [cyberark/secrets-provider-for-k8s#555](https://github.com/cyberark/secrets-provider-for-k8s/issues/555)
@@ -382,7 +383,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ### Changed
   - Escape secrets with backslashes before patching in k8s
 
-[Unreleased]: https://github.com/cyberark/secrets-provider-for-k8s/compare/v1.7.5...HEAD
+[Unreleased]: https://github.com/cyberark/secrets-provider-for-k8s/compare/v1.7.6...HEAD
+[1.7.6]: https://github.com/cyberark/secrets-provider-for-k8s/compare/v1.7.5...v1.7.6
 [1.7.5]: https://github.com/cyberark/secrets-provider-for-k8s/compare/v1.7.4...v1.7.5
 [1.7.4]: https://github.com/cyberark/secrets-provider-for-k8s/compare/v1.7.3...v1.7.4
 [1.7.3]: https://github.com/cyberark/secrets-provider-for-k8s/compare/v1.7.2...v1.7.3
