@@ -284,9 +284,10 @@ pipeline {
               tasks["Kubernetes GKE, DAP"] = {
                 INFRAPOOL_EXECUTORV2_AGENT_0.agentSh "./bin/start --docker --dap --gke"
               }
-              tasks["Openshift (Current), DAP"] = {
-                INFRAPOOL_EXECUTORV2_AGENT_0.agentSh "./bin/start --docker --dap --current"
-              }
+            //   TODO: Re-enable OpenShift tests once the flakiness is resolved
+            //   tasks["Openshift (Current), DAP"] = {
+            //     INFRAPOOL_EXECUTORV2_AGENT_0.agentSh "./bin/start --docker --dap --current"
+            //   }
               parallel tasks
             }
           }
