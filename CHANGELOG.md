@@ -6,6 +6,11 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [1.7.7] - 2025-11-20
+
+### Added
+- Remove improper type check for RETRY_COUNT_LIMIT configuration (CNJR-11028)
+
 ## [1.7.6] - 2025-11-19
 
 ### Added
