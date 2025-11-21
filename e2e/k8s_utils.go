@@ -323,3 +323,80 @@ func ClearBuffer(stdout *bytes.Buffer, stderr *bytes.Buffer) {
 	stdout.Reset()
 	stderr.Reset()
 }
+
+// WaitForSecretValue polls the pod environment to check if a secret value has been updated
+// Returns nil when the expected value is found, or an error if timeout is reached
+func WaitForSecretValue(client klient.Client, labelSelector string, container string, envVar string, expectedValue string, timeout time.Duration) error {
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	ticker := time.NewTicker(2 * time.Second)
+	defer ticker.Stop()
+
+	var lastStdout, lastStderr string
+	for {
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("timeout waiting for %s to contain %s. Last output: %q (stderr: %q)", envVar, expectedValue, lastStdout, lastStderr)
+		case <-ticker.C:
+			var stdout, stderr bytes.Buffer
+			command := []string{"sh", "-c", fmt.Sprintf("printenv | grep %s || true", envVar)}
+			err := RunCommandInSecretsProviderPod(client, labelSelector, container, command, &stdout, &stderr)
+			lastStdout = stdout.String()
+			lastStderr = stderr.String()
+			
+			// Check if command succeeded and output contains the expected value
+			if err == nil && strings.Contains(lastStdout, expectedValue) {
+				return nil
+			}
+		}
+	}
+}
+
+// WaitForFileContent polls the pod to check if a file contains the expected content
+// Returns nil when the expected content is found, or an error if timeout is reached
+func WaitForFileContent(client klient.Client, labelSelector string, container string, filePath string, expectedContent string, timeout time.Duration) error {
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	ticker := time.NewTicker(2 * time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("timeout waiting for file %s to contain expected content", filePath)
+		case <-ticker.C:
+			var stdout, stderr bytes.Buffer
+			command := []string{"cat", filePath}
+			err := RunCommandInSecretsProviderPod(client, labelSelector, container, command, &stdout, &stderr)
+			if err == nil && stdout.String() == expectedContent {
+				return nil
+			}
+		}
+	}
+}
+
+// WaitForFileDeleted polls the pod to check if a file has been deleted
+// Returns nil when the file is deleted (empty output), or an error if timeout is reached
+func WaitForFileDeleted(client klient.Client, labelSelector string, container string, filePath string, timeout time.Duration) error {
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	ticker := time.NewTicker(2 * time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("timeout waiting for file %s to be deleted", filePath)
+		case <-ticker.C:
+			var stdout, stderr bytes.Buffer
+			command := []string{"cat", filePath}
+			RunCommandInSecretsProviderPod(client, labelSelector, container, command, &stdout, &stderr)
+			if stdout.String() == "" {
+				return nil
+			}
+		}
+	}
+}

@@ -121,8 +121,11 @@ func TestPushToFileSecretsRotation(t *testing.T) {
 			err = SetConjurSecret(cfg.Client(), "secrets/encoded", encodedStr)
 			assert.Nil(t, err)
 
-			// wait for value to refresh in conjur
-			time.Sleep(15 * time.Second)
+			// wait for secrets to be rotated and files to be updated
+			// Poll for the first file to confirm rotation has occurred
+			err = WaitForFileContent(cfg.Client(), SPLabelSelector, TestAppContainer, "/opt/secrets/conjur/group5.template",
+				"username | some-user\npassword | 7H1SiSmYp@5Sw0rd\ntest | secret2\n", 30*time.Second)
+			assert.Nil(t, err)
 
 			// files to test against
 			files := []string{"group1.yaml", "group2.json", "some-dotenv.env", "group4.bash", "group5.template", "group6.yaml"}
@@ -175,8 +178,10 @@ func TestPushToFileSecretsRotation(t *testing.T) {
 			err = DeleteTestSecret(cfg.Client())
 			require.Nil(t, err)
 
-			// wait for values to be deleted in conjur
-			time.Sleep(15 * time.Second)
+			// wait for files to be deleted after secret deletion
+			// Poll for the first file to be deleted
+			err = WaitForFileDeleted(cfg.Client(), SPLabelSelector, TestAppContainer, "/opt/secrets/conjur/group1.yaml", 30*time.Second)
+			assert.Nil(t, err)
 
 			for _, f := range files {
 				fmt.Printf("Checking if file %s exists\n", f)
@@ -264,8 +269,9 @@ func TestK8sSecretsRotation(t *testing.T) {
 			err = SetConjurSecret(cfg.Client(), "secrets/encoded", encodedStr)
 			assert.Nil(t, err)
 
-			// wait for conjur secrets to refresh
-			time.Sleep(45 * time.Second)
+			// wait for K8s secrets to be rotated
+			err = WaitForSecretValue(cfg.Client(), SPLabelSelector, TestAppContainer, "TEST_SECRET", "secret2", 90*time.Second)
+			assert.Nil(t, err)
 
 			// verify new secret values
 			command = []string{"printenv", "|", "grep", "TEST_SECRET"}
@@ -293,8 +299,27 @@ func TestK8sSecretsRotation(t *testing.T) {
 			err = DeleteTestSecret(cfg.Client())
 			require.Nil(t, err)
 
-			// wait for values to be deleted in conjur
-			time.Sleep(45 * time.Second)
+			// wait for secret to be removed from K8s after deletion
+			// Poll until the environment variable is empty
+			waitCtx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+			defer cancel()
+			ticker := time.NewTicker(2 * time.Second)
+			defer ticker.Stop()
+			secretDeleted := false
+			for !secretDeleted {
+				select {
+				case <-waitCtx.Done():
+					t.Logf("Warning: timeout waiting for TEST_SECRET to be removed")
+					secretDeleted = true
+				case <-ticker.C:
+					var checkStdout, checkStderr bytes.Buffer
+					checkCmd := []string{"printenv", "|", "grep", "TEST_SECRET"}
+					RunCommandInSecretsProviderPod(cfg.Client(), SPLabelSelector, TestAppContainer, checkCmd, &checkStdout, &checkStderr)
+					if strings.TrimSpace(checkStdout.String()) == "" {
+						secretDeleted = true
+					}
+				}
+			}
 
 			command = []string{"printenv", "|", "grep", "TEST_SECRET"}
 			RunCommandInSecretsProviderPod(cfg.Client(), SPLabelSelector, TestAppContainer, command, &stdout, &stderr)
