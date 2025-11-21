@@ -209,6 +209,9 @@ pipeline {
           steps {
             script {
               INFRAPOOL_EXECUTORV2_AGENT_0.agentSh './ci/jenkins_build'
+              INFRAPOOL_EXECUTORV2_AGENT_0.agentStash name: 'helm-artifacts', includes: 'helm-artifacts/*.tgz'
+              unstash 'helm-artifacts'
+              archiveArtifacts artifacts: "helm-artifacts/*.tgz", fingerprint: true
             }
           }
         }
@@ -343,6 +346,7 @@ pipeline {
                     // Copy any artifacts to assetDirectory to attach them to the Github release
 
                     // Copy helm chart to assetDirectory
+                    INFRAPOOL_EXECUTORV2_AGENT_0.agentUnstash name: 'helm-artifacts'
                     INFRAPOOL_EXECUTORV2_AGENT_0.agentSh "cp -a helm-artifacts/*.tgz ${assetDirectory}"
                     // Create Go application SBOM using the go.mod version for the golang container image
                     INFRAPOOL_EXECUTORV2_AGENT_0.agentSh """export PATH="${toolsDirectory}/bin:${PATH}" && go-bom --tools "${toolsDirectory}" --go-mod ./go.mod --image "golang" --main "cmd/secrets-provider/" --output "${billOfMaterialsDirectory}/go-app-bom.json" """
