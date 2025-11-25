@@ -352,7 +352,7 @@ pipeline {
                     // Create Go module SBOM
                     INFRAPOOL_EXECUTORV2_AGENT_0.agentSh """export PATH="${toolsDirectory}/bin:${PATH}" && go-bom --tools "${toolsDirectory}" --go-mod ./go.mod --image "golang" --output "${billOfMaterialsDirectory}/go-mod-bom.json" """
                     // Publish will save docker images to the executing directory
-                    INFRAPOOL_EXECUTORV2_AGENT_0.agentSh 'summon ./bin/publish --edge'
+                    // INFRAPOOL_EXECUTORV2_AGENT_0.agentSh 'summon ./bin/publish --edge'
                     // Copy the docker images into the assetDirectory for signing in the promote step
                     INFRAPOOL_EXECUTORV2_AGENT_0.agentSh "cp -a docker-image*.tar ${assetDirectory}"
 
