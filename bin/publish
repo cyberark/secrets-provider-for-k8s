@@ -3,17 +3,15 @@
 set -e
 
 # The following is used to:
-# Publish images on pre-release and tag as edge
+# Publish images on pre-release internally
 # Promote pre-releases to releases and tag as latest
 
 . bin/build_utils
 
 function print_help() {
   echo "Build Usage: $0 --internal"
-  echo "Release Usage: $0 --edge"
   echo "Promote Usage: $0 --promote --source <VERSION> --target <VERSION>"
   echo " --internal: publish images to registry.tld"
-  echo " --edge: publish docker images to docker hub"
   echo " --source <VERSION>: specify version number of local image"
   echo " --target <VERSION>: specify version number of remote image"
 }
@@ -25,16 +23,12 @@ if [[ $# -lt 1 ]]; then
 fi
 
 PUBLISH_INTERNAL=false
-PUBLISH_EDGE=false
 PROMOTE=false
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
   --internal)
     PUBLISH_INTERNAL=true
-    ;;
-  --edge)
-    PUBLISH_EDGE=true
     ;;
   --promote)
     PROMOTE=true
@@ -68,7 +62,6 @@ readonly REDHAT_REGISTRY="quay.io"
 readonly REDHAT_CERT_PID="5ec6353078e79e6a879fa296"
 # Version derived from CHANGLEOG and automated release library
 VERSION=$(<VERSION)
-readonly VERSION="${VERSION/-*/}"
 FULL_VERSION_TAG="$VERSION-$(git_tag)"
 readonly FULL_VERSION_TAG
 
@@ -82,20 +75,6 @@ if [[ ${PUBLISH_INTERNAL} = true ]]; then
 
   tag_and_push "${IMAGE_NAME}:${SOURCE_TAG}" "${LOCAL_REGISTRY}/${IMAGE_NAME}:${REMOTE_TAG}" true
   tag_and_push "${REDHAT_LOCAL_IMAGE}:${SOURCE_TAG}" "${LOCAL_REGISTRY}/${REDHAT_LOCAL_IMAGE}:${REMOTE_TAG}" true
-fi
-
-if [[ ${PUBLISH_EDGE} = true ]]; then
-  echo "Performing edge release."
-  SOURCE_TAG=$FULL_VERSION_TAG
-  REMOTE_TAG=edge
-  readonly TAGS=(
-    "$VERSION"
-    "$REMOTE_TAG"
-  )
-
-  for tag in "${TAGS[@]}"; do
-    tag_and_push "$IMAGE_NAME:$SOURCE_TAG" "$REGISTRY/$IMAGE_NAME:$tag"
-  done
 fi
 
 if [[ ${PROMOTE} = true ]]; then
@@ -113,6 +92,7 @@ if [[ ${PROMOTE} = true ]]; then
   readonly TAGS=(
     "$REMOTE_TAG"
     "latest"
+    "edge"
   )
 
   # Publish images to docker hub

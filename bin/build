@@ -22,9 +22,9 @@ cd $(dirname $0)/..
 VERSION=unreleased
 # Version derived from CHANGELOG and automated release library
 [ -f VERSION ] && VERSION=$(<VERSION)
+FULL_VERSION_TAG="$VERSION-$(git_tag)"
 # Remove Jenkins build number from VERSION
 readonly VERSION="${VERSION/-*/}"
-FULL_VERSION_TAG="$VERSION-$(git_tag)"
 
 echo "---"
 
