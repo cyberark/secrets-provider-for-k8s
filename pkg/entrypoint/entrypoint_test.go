@@ -21,10 +21,6 @@ type mockRetrieverFactory struct {
 	err       error
 }
 
-func (r mockRetrieverFactory) GetRetriever(a config.Configuration) (conjur.RetrieveSecretsFunc, error) {
-	return r.retriever, r.err
-}
-
 type mockRetriever struct {
 	data map[string][]byte
 	err  error
@@ -80,6 +76,13 @@ func (m editableMap) Copy() editableMap {
 	}
 	return mCopy
 }
+
+type fakeAuth struct {
+	token []byte
+	err   error
+}
+
+func (f *fakeAuth) GetAccessToken(ctx context.Context) ([]byte, error) { return f.token, f.err }
 
 func TestStartSecretsProvider(t *testing.T) {
 	tmpDir, _ := os.MkdirTemp("", "entrypoint_test")
@@ -267,11 +270,22 @@ func TestStartSecretsProvider(t *testing.T) {
 			err := os.WriteFile(annotationsFilePath, []byte(annotationFileContent), 0666)
 			assert.Nil(t, err)
 
+			retrieverFactory := conjur.RetrieverFactory(func(_ conjur.ConjurAuthenticator) (conjur.RetrieveSecretsFunc, error) {
+				if tc.retrieverFactory.err != nil {
+					return nil, tc.retrieverFactory.err
+				}
+				return tc.retrieverFactory.retriever, nil
+			})
+			fakeAuthFactory := conjur.AuthenticatorFactory(func(_ config.Configuration, _ string) (conjur.ConjurAuthenticator, error) {
+				return &fakeAuth{token: []byte("test-token"), err: nil}, nil
+			})
+
 			exitCode := startSecretsProviderWithDeps(
 				annotationsFilePath,
 				secretsBasePath,
 				templatesBasePath,
-				tc.retrieverFactory.GetRetriever,
+				retrieverFactory,
+				fakeAuthFactory,
 				tc.providerFactory.GetProvider,
 				getMockStatusUpdater,
 			)
