@@ -32,13 +32,15 @@ FROM secrets-provider-builder-base AS secrets-provider-builder
 
 COPY . .
 
-# this value is set in ./bin/build
-ARG TAG
+# these values are set in ./bin/build
+ARG TAG="dev"
+ARG VERSION="unreleased"
 
 RUN go build \
     -a \
     -installsuffix cgo \
-    -ldflags="-X github.com/cyberark/secrets-provider-for-k8s/pkg/secrets.Tag=$TAG" \
+    -ldflags="-X 'github.com/cyberark/secrets-provider-for-k8s/pkg/secrets.Tag=$TAG' \
+              -X 'github.com/cyberark/secrets-provider-for-k8s/pkg/secrets.Version=$VERSION'" \
     -o secrets-provider \
     ./cmd/secrets-provider
 

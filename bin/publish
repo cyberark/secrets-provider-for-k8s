@@ -68,7 +68,7 @@ readonly REDHAT_REGISTRY="quay.io"
 readonly REDHAT_CERT_PID="5ec6353078e79e6a879fa296"
 # Version derived from CHANGLEOG and automated release library
 VERSION=$(<VERSION)
-readonly VERSION
+readonly VERSION="${VERSION/-*/}"
 FULL_VERSION_TAG="$VERSION-$(git_tag)"
 readonly FULL_VERSION_TAG
 
