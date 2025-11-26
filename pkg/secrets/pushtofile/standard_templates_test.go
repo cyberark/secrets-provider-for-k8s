@@ -312,3 +312,47 @@ func testValidateAliasForBashOrDotenv(t *testing.T, fileFormat string) {
 		tc.assert(t, err, desc)
 	}
 }
+
+func TestStandardTemplate_ValidateAlias(t *testing.T) {
+	t.Run("nil validateAlias function returns no error", func(t *testing.T) {
+		template := standardTemplate{
+			template:      "test template",
+			fileFormat:    "test",
+			validateAlias: nil,
+		}
+
+		err := template.ValidateAlias("any_alias")
+		assert.NoError(t, err)
+	})
+
+	t.Run("validateAlias function is called when not nil", func(t *testing.T) {
+		expectedError := fmt.Errorf("validation failed")
+		template := standardTemplate{
+			template:   "test template",
+			fileFormat: "test",
+			validateAlias: func(alias string) error {
+				if alias == "invalid" {
+					return expectedError
+				}
+				return nil
+			},
+		}
+
+		// Test valid alias
+		err := template.ValidateAlias("valid")
+		assert.NoError(t, err)
+
+		// Test invalid alias
+		err = template.ValidateAlias("invalid")
+		assert.Error(t, err)
+		assert.Equal(t, expectedError, err)
+	})
+}
+
+func TestUnrecognizedFormat(t *testing.T) {
+	t.Run("returns error for unrecognized file format", func(t *testing.T) {
+		_, err := FileTemplateForFormat("txt", []SecretSpec{})
+		assert.Error(t, err)
+		assert.EqualError(t, err, "unrecognized standard file format, \"txt\"")
+	})
+}
