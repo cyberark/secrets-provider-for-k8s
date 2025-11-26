@@ -3,23 +3,16 @@ package pushtofile
 import (
 	"bytes"
 	"fmt"
+	"github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/file_templates"
+	"github.com/cyberark/secrets-provider-for-k8s/pkg/utils"
 	"io"
 	"os"
 	"path/filepath"
-	"text/template"
-
-	"github.com/cyberark/secrets-provider-for-k8s/pkg/utils"
 
 	"github.com/cyberark/conjur-authn-k8s-client/pkg/log"
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/atomicwriter"
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/log/messages"
 )
-
-// templateData describes the form in which data is presented to push-to-file templates
-type templateData struct {
-	SecretsArray []*Secret
-	SecretsMap   map[string]*Secret
-}
 
 // pushToWriterFunc is the func definition for pushToWriter. It allows switching out pushToWriter
 // for a mock implementation
@@ -27,7 +20,7 @@ type pushToWriterFunc func(
 	writer io.Writer,
 	groupName string,
 	groupTemplate string,
-	groupSecrets []*Secret,
+	groupSecrets []*filetemplates.Secret,
 ) (bool, error)
 
 // openWriteCloserFunc is the func definition for openFileAsWriteCloser. It allows switching
@@ -70,50 +63,29 @@ func pushToWriter(
 	writer io.Writer,
 	groupName string,
 	groupTemplate string,
-	groupSecrets []*Secret,
+	groupSecrets []*filetemplates.Secret,
 ) (bool, error) {
-	secretsMap := map[string]*Secret{}
+	secretsMap := map[string]*filetemplates.Secret{}
 	for _, s := range groupSecrets {
 		secretsMap[s.Alias] = s
 	}
 
-	tpl, err := template.New(groupName).Funcs(template.FuncMap{
-		// secret is a custom utility function for streamlined access to secret values.
-		// It panics for secrets aliases not specified on the group.
-		"secret": func(alias string) string {
-			v, ok := secretsMap[alias]
-			if ok {
-				return v.Value
-			}
-
-			// Panic in a template function is captured as an error
-			// when the template is executed.
-			panic(fmt.Sprintf("secret alias %q not present in specified secrets for group", alias))
-		},
-		"b64enc": b64encTemplateFunc,
-		"b64dec": b64decTemplateFunc,
-	}).Parse(groupTemplate)
+	tpl, err := filetemplates.GetTemplate(groupName, secretsMap).Parse(groupTemplate)
 	if err != nil {
 		return false, err
 	}
 
 	// Render the secret file content
-	tplData := templateData{
+	tplData := filetemplates.TemplateData{
 		SecretsArray: groupSecrets,
 		SecretsMap:   secretsMap,
 	}
-	fileContent, err := renderFile(tpl, tplData)
+	fileContent, err := filetemplates.RenderFile(tpl, tplData)
 	if err != nil {
 		return false, err
 	}
 
 	return writeContent(writer, fileContent, groupName)
-}
-
-func renderFile(tpl *template.Template, tplData templateData) (*bytes.Buffer, error) {
-	buf := &bytes.Buffer{}
-	err := tpl.Execute(buf, tplData)
-	return buf, err
 }
 
 func writeContent(writer io.Writer, fileContent *bytes.Buffer, groupName string) (bool, error) {

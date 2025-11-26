@@ -1,6 +1,9 @@
 package pushtofile
 
-import "fmt"
+import (
+	"fmt"
+	"github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/file_templates"
+)
 
 type standardTemplate struct {
 	template      string
@@ -28,7 +31,7 @@ var standardTemplates = map[string]standardTemplate{
 // standard template exists and validating secret spec aliases against it
 func FileTemplateForFormat(
 	fileFormat string,
-	secretSpecs []SecretSpec,
+	secretSpecs []filetemplates.SecretSpec,
 ) (string, error) {
 	stdTemplate, ok := standardTemplates[fileFormat]
 	if !ok {

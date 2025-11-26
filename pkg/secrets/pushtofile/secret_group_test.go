@@ -11,6 +11,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/file_templates"
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/utils"
 	"github.com/stretchr/testify/assert"
 )
@@ -18,8 +19,8 @@ import (
 type pushToFileWithDepsTestCase struct {
 	description            string
 	group                  SecretGroup
-	overrideSecrets        []*Secret // Overrides secrets generated from group secret specs
-	overridePushToWriter   func(writer io.Writer, groupName string, groupTemplate string, groupSecrets []*Secret) (bool, error)
+	overrideSecrets        []*filetemplates.Secret // Overrides secrets generated from group secret specs
+	overridePushToWriter   func(writer io.Writer, groupName string, groupTemplate string, groupSecrets []*filetemplates.Secret) (bool, error)
 	toWriterPusherErr      error
 	toWriteCloserOpenerErr error
 	targetsUpdated         bool
@@ -48,13 +49,13 @@ func (tc *pushToFileWithDepsTestCase) Run(t *testing.T) {
 		}
 
 		// Use secrets from group or override
-		var secrets []*Secret
+		var secrets []*filetemplates.Secret
 		if tc.overrideSecrets != nil {
 			secrets = tc.overrideSecrets
 		} else {
-			secrets = make([]*Secret, len(group.SecretSpecs))
+			secrets = make([]*filetemplates.Secret, len(group.SecretSpecs))
 			for i, spec := range group.SecretSpecs {
-				secrets[i] = &Secret{
+				secrets[i] = &filetemplates.Secret{
 					Alias: spec.Alias,
 					Value: "value-" + spec.Path,
 				}
@@ -93,8 +94,8 @@ func modifyGoodGroup(modifiers ...func(SecretGroup) SecretGroup) SecretGroup {
 	return group
 }
 
-func goodSecretSpecs() []SecretSpec {
-	return []SecretSpec{
+func goodSecretSpecs() []filetemplates.SecretSpec {
+	return []filetemplates.SecretSpec{
 		{
 			Alias: "alias1",
 			Path:  "path1",
@@ -132,7 +133,7 @@ func TestNewSecretGroups(t *testing.T) {
 			FileFormat:       "template",
 			FilePermissions:  defaultFilePermissions,
 			PolicyPathPrefix: "path/to/secret/",
-			SecretSpecs: []SecretSpec{
+			SecretSpecs: []filetemplates.SecretSpec{
 				{
 					Alias:       "first1",
 					Path:        "path/to/secret/first1",
@@ -151,7 +152,7 @@ func TestNewSecretGroups(t *testing.T) {
 			FileTemplate:    "secondfiletemplate",
 			FileFormat:      "template",
 			FilePermissions: defaultFilePermissions,
-			SecretSpecs: []SecretSpec{
+			SecretSpecs: []filetemplates.SecretSpec{
 				{
 					Alias:       "second",
 					Path:        "path/to/secret/second",
@@ -461,7 +462,7 @@ func TestNewSecretGroups(t *testing.T) {
 			FileFormat:       "template",
 			FilePermissions:  defaultFilePermissions,
 			PolicyPathPrefix: "",
-			SecretSpecs: []SecretSpec{
+			SecretSpecs: []filetemplates.SecretSpec{
 				{Alias: "first1", Path: "path/to/secret/first1",
 					ContentType: "text"},
 			},
@@ -553,7 +554,7 @@ func TestNewSecretGroups(t *testing.T) {
 			FileFormat:       "template",
 			FilePermissions:  defaultFilePermissions,
 			PolicyPathPrefix: "",
-			SecretSpecs: []SecretSpec{
+			SecretSpecs: []filetemplates.SecretSpec{
 				{Alias: "first1", Path: "path/to/secret/first1",
 					ContentType: "text"},
 			},
@@ -661,7 +662,7 @@ var pushToFileWithDepsTestCases = []pushToFileWithDepsTestCase{
 					writer:        closableBuf,
 					groupName:     "groupname",
 					groupTemplate: "filetemplate",
-					groupSecrets: []*Secret{
+					groupSecrets: []*filetemplates.Secret{
 						{
 							Alias: "alias1",
 							Value: "value-path1",
@@ -709,7 +710,7 @@ var pushToFileWithDepsTestCases = []pushToFileWithDepsTestCase{
 					writer:        closableBuf,
 					groupName:     "groupname",
 					groupTemplate: "filetemplate",
-					groupSecrets: []*Secret{
+					groupSecrets: []*filetemplates.Secret{
 						{
 							Alias: "alias1",
 							Value: "value-path1",
@@ -761,7 +762,7 @@ var pushToFileWithDepsTestCases = []pushToFileWithDepsTestCase{
 	{
 		description:     "secrets list is empty",
 		group:           modifyGoodGroup(),
-		overrideSecrets: []*Secret{},
+		overrideSecrets: []*filetemplates.Secret{},
 		assert: func(
 			t *testing.T,
 			spyOpenWriteCloser openWriteCloserSpy,
@@ -780,14 +781,14 @@ var pushToFileWithDepsTestCases = []pushToFileWithDepsTestCase{
 	{
 		description: "fetch all",
 		group: modifyGoodGroup(func(group SecretGroup) SecretGroup {
-			group.SecretSpecs = []SecretSpec{
+			group.SecretSpecs = []filetemplates.SecretSpec{
 				{
 					Path: "*",
 				},
 			}
 			return group
 		}),
-		overrideSecrets: []*Secret{
+		overrideSecrets: []*filetemplates.Secret{
 			{
 				Alias: "alias1",
 				Value: "value-path1",
@@ -840,7 +841,7 @@ var pushToFileWithDepsTestCases = []pushToFileWithDepsTestCase{
 		description:     "template execution error",
 		group:           modifyGoodGroup(),
 		overrideSecrets: nil,
-		overridePushToWriter: func(writer io.Writer, groupName string, groupTemplate string, groupSecrets []*Secret) (bool, error) {
+		overridePushToWriter: func(writer io.Writer, groupName string, groupTemplate string, groupSecrets []*filetemplates.Secret) (bool, error) {
 			return false, errors.New("underlying error message")
 		},
 		assert: func(
@@ -863,7 +864,7 @@ var pushToFileWithDepsTestCases = []pushToFileWithDepsTestCase{
 		description:     "template execution panic",
 		group:           modifyGoodGroup(),
 		overrideSecrets: nil,
-		overridePushToWriter: func(writer io.Writer, groupName string, groupTemplate string, groupSecrets []*Secret) (bool, error) {
+		overridePushToWriter: func(writer io.Writer, groupName string, groupTemplate string, groupSecrets []*filetemplates.Secret) (bool, error) {
 			panic("canned panic response - maybe containing secrets")
 		},
 		assert: func(
@@ -947,7 +948,7 @@ func TestSecretGroup_PushToFile(t *testing.T) {
 				FileTemplate:    "",
 				FileFormat:      "yaml",
 				FilePermissions: tc.filePermissions,
-				SecretSpecs: []SecretSpec{
+				SecretSpecs: []filetemplates.SecretSpec{
 					{
 						Alias: "alias1",
 						Path:  "path1",
@@ -958,7 +959,7 @@ func TestSecretGroup_PushToFile(t *testing.T) {
 					},
 				},
 			}
-			_, err = group.PushToFile([]*Secret{
+			_, err = group.PushToFile([]*filetemplates.Secret{
 				{
 					Alias: "alias1",
 					Value: "value1",
@@ -994,7 +995,7 @@ func TestSecretGroup_PushToFile(t *testing.T) {
 			FileTemplate:    "",
 			FileFormat:      "yaml",
 			FilePermissions: 0744,
-			SecretSpecs: []SecretSpec{
+			SecretSpecs: []filetemplates.SecretSpec{
 				{
 					Alias: "alias1",
 					Path:  "path1",
@@ -1005,7 +1006,7 @@ func TestSecretGroup_PushToFile(t *testing.T) {
 				},
 			},
 		}
-		_, err = group.PushToFile([]*Secret{
+		_, err = group.PushToFile([]*filetemplates.Secret{
 			{
 				Alias: "alias1",
 				Value: "value1",
@@ -1027,7 +1028,7 @@ func TestSecretGroup_PushToFile(t *testing.T) {
 			FileTemplate:    "",
 			FileFormat:      "yaml",
 			FilePermissions: 0744,
-			SecretSpecs: []SecretSpec{
+			SecretSpecs: []filetemplates.SecretSpec{
 				{
 					Alias: "alias1",
 					Path:  "path1",
@@ -1038,7 +1039,7 @@ func TestSecretGroup_PushToFile(t *testing.T) {
 				},
 			},
 		}
-		_, err = group.PushToFile([]*Secret{
+		_, err = group.PushToFile([]*filetemplates.Secret{
 			{
 				Alias: "alias1",
 				Value: "value1",
