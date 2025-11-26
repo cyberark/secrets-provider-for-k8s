@@ -228,6 +228,8 @@ follow the instructions in this section.
 
 1. Update the `CHANGELOG.md` file with the new version and the changes that are included in the release.
 
+1. Update the version in the [Chart version](helm/secrets-provider/Chart.yaml) file.
+
 1. Update `NOTICES.txt`
 
     ```sh-session
@@ -248,15 +250,7 @@ follow the instructions in this section.
       > NOTICES.txt
     ```
 
-### Update the version, changelog, and notices
-
-1. Create a new branch for the version bump.
-1. Based on the changelog content, determine the new version number.
-1. Update this version in the following files:
-    1. [version.go](pkg/secrets/version.go)
-    1. [Chart version](helm/secrets-provider/Chart.yaml)
-    2. [Helm unit test for chart defaults](helm/secrets-provider/tests/secrets_provider_test.yaml)
-2. Commit these changes - `Bump version to x.y.z` is an acceptable commit
+1. Commit these changes - `Bump version to x.y.z` is an acceptable commit
    message - and open a PR for review.
 
 ### Push Helm package
@@ -276,5 +270,5 @@ Navigate to the 'Artifacts' tab of the _tagged version_ build and save this file
 
 ### Publish the Red Hat image
 
-1. Visit the [Red Hat project page](https://connect.redhat.com/project/4381831/view) once the images have been pushed
+1. Visit the [Red Hat project page](https://connect.redhat.com/component/view/5ec6353078e79e6a879fa296) once the images have been pushed
 and manually choose to publish the latest release.

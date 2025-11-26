@@ -23,6 +23,8 @@ VERSION=unreleased
 # Version derived from CHANGELOG and automated release library
 [ -f VERSION ] && VERSION=$(<VERSION)
 FULL_VERSION_TAG="$VERSION-$(git_tag)"
+# Remove Jenkins build number from VERSION
+readonly VERSION="${VERSION/-*/}"
 
 echo "---"
 
@@ -38,6 +40,7 @@ function build_docker_image() {
 
     docker build \
       --build-arg TAG="debug" \
+      --build-arg VERSION="${VERSION}" \
       --tag "secrets-provider-for-k8s-debug:latest" \
       --target "secrets-provider-debug" \
       .
@@ -46,6 +49,7 @@ function build_docker_image() {
 
     docker build \
       --build-arg TAG=$(git_tag) \
+      --build-arg VERSION="${VERSION}" \
       --tag "secrets-provider-for-k8s:dev" \
       --tag "secrets-provider-for-k8s:${FULL_VERSION_TAG}" \
       --tag "secrets-provider-for-k8s:latest" \
@@ -56,7 +60,7 @@ function build_docker_image() {
 
     docker build \
        --build-arg TAG=$(git_tag) \
-       --build-arg VERSION="$FULL_VERSION_TAG" \
+       --build-arg VERSION="${VERSION}" \
        --tag "secrets-provider-for-k8s-redhat:${FULL_VERSION_TAG}" \
        --tag "secrets-provider-for-k8s-redhat:latest" \
        --target "secrets-provider-for-k8s-redhat" \

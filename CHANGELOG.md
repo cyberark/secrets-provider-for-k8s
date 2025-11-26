@@ -6,6 +6,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [1.7.8] - 2025-11-25
+
 ## [1.7.7] - 2025-11-24
 
 ### Fixed
@@ -389,7 +391,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ### Changed
   - Escape secrets with backslashes before patching in k8s
 
-[Unreleased]: https://github.com/cyberark/secrets-provider-for-k8s/compare/v1.7.6...HEAD
+[Unreleased]: https://github.com/cyberark/secrets-provider-for-k8s/compare/v1.7.8...HEAD
+[1.7.8]: https://github.com/cyberark/secrets-provider-for-k8s/compare/v1.7.7...v1.7.8
+[1.7.7]: https://github.com/cyberark/secrets-provider-for-k8s/compare/v1.7.6...v1.7.7
 [1.7.6]: https://github.com/cyberark/secrets-provider-for-k8s/compare/v1.7.5...v1.7.6
 [1.7.5]: https://github.com/cyberark/secrets-provider-for-k8s/compare/v1.7.4...v1.7.5
 [1.7.4]: https://github.com/cyberark/secrets-provider-for-k8s/compare/v1.7.3...v1.7.4
