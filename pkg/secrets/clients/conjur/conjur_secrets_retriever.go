@@ -2,7 +2,9 @@ package conjur
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"regexp"
 	"strings"
 
 	"github.com/cyberark/conjur-api-go/conjurapi"
@@ -18,6 +20,7 @@ import (
 )
 
 var fetchAllMaxSecrets = 500
+var errorRegex = regexp.MustCompile("CONJ00076E Variable .+:.+:(.+) is empty or not found")
 
 // SecretRetriever implements a Retrieve function that is capable of
 // authenticating with Conjur and retrieving multiple Conjur variables
@@ -107,7 +110,30 @@ func retrieveConjurSecrets(conjurClient ConjurClient, variableIDs []string) (map
 
 	retrievedSecretsByFullIDs, err := conjurClient.RetrieveBatchSecretsSafe(variableIDs)
 	if err != nil {
-		return nil, err
+		log.Error(err.Error())
+		//if there is one failed variable in batch request, whole request failed no data is returned.
+		//if batch failed we check the corrupted variableID, remove it from array ant try the batch request again
+		matches := errorRegex.FindStringSubmatch(err.Error())
+		if matches != nil {
+			if len(variableIDs) > 1 && len(matches) > 0 {
+				log.Debug("Removing failed %s variableID from list and try batch retrieve again", matches[1])
+				for i, v := range variableIDs {
+					if v == matches[1] {
+						variableIDs = append(variableIDs[:i], variableIDs[i+1:]...)
+						break
+					}
+				}
+				// try retrieveConjurSecrets again without bad variableIDs
+				// and join error from downstream call and return to upstream call
+				if retrievedSecrets, e := retrieveConjurSecrets(conjurClient, variableIDs); e != nil {
+					return retrievedSecrets, errors.Join(err, e)
+				} else {
+					return retrievedSecrets, err
+				}
+			}
+		} else if retrievedSecretsByFullIDs == nil || len(retrievedSecretsByFullIDs) == 0 {
+			return nil, err
+		}
 	}
 
 	// Normalise secret IDs from batch secrets back to <variable_id>

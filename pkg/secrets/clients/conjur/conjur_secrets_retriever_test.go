@@ -58,6 +58,49 @@ func TestRetrieveConjurSecrets(t *testing.T) {
 	}
 }
 
+func TestRetrieveConjurSecretsWithBadVariableID(t *testing.T) {
+
+	testCases := []struct {
+		name            string
+		variableIDs     []string
+		expectedSecrets map[string][]byte
+		expectError     bool
+	}{
+		{
+			name: "Retrieve secrets successfully",
+			variableIDs: []string{
+				"secret1",
+				"notFound",
+				"secret3",
+			},
+			expectedSecrets: map[string][]byte{
+				"secret1": []byte("secret1"),
+				"secret3": []byte("secret3"),
+			},
+			expectError: true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			client := &mocks.ConjurMockClient{
+				Database: map[string]string{
+					"secret1": "secret1",
+					"secret3": "secret3",
+				},
+			}
+			secrets, err := retrieveConjurSecrets(client, tc.variableIDs)
+			if tc.expectError {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+			}
+
+			assert.Equal(t, tc.expectedSecrets, secrets)
+		})
+	}
+}
+
 func TestRetrieveConjurSecretsAll(t *testing.T) {
 	testCases := []struct {
 		name                 string
