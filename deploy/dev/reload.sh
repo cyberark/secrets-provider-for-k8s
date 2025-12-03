@@ -7,8 +7,8 @@ main() {
   export DEV_HELM=${DEV_HELM:-"false"}
 
    # Clean-up previous run
-  if [ "$(helm ls -aq | wc -l | tr -d ' ')" != 0 ]; then
-    helm delete $(helm ls -aq)
+  if [ "$(helm ls -q | wc -l | tr -d ' ')" != 0 ]; then
+    helm delete $(helm ls -q)
   fi
   $cli_with_timeout "delete deployment test-env --ignore-not-found=true"
 

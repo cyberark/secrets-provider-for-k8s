@@ -19,8 +19,8 @@ popd
 
 # Delete Helm Chart if already exists
 set_namespace $APP_NAMESPACE_NAME
-if [ "$(helm ls -aq | wc -l | tr -d ' ')" != 0 ]; then
-  helm delete $(helm ls -aq)
+if [ "$(helm ls -q | wc -l | tr -d ' ')" != 0 ]; then
+  helm delete $(helm ls -q)
 fi
 
 set_namespace $CONJUR_NAMESPACE_NAME
