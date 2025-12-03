@@ -2,13 +2,9 @@ package conjur
 
 import (
 	"context"
-	"fmt"
 	"strings"
 
 	"github.com/cyberark/conjur-api-go/conjurapi"
-	"github.com/cyberark/conjur-authn-k8s-client/pkg/access_token/memory"
-	"github.com/cyberark/conjur-authn-k8s-client/pkg/authenticator"
-	"github.com/cyberark/conjur-authn-k8s-client/pkg/authenticator/config"
 	"github.com/cyberark/conjur-authn-k8s-client/pkg/log"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
@@ -23,50 +19,33 @@ var fetchAllMaxSecrets = 500
 // authenticating with Conjur and retrieving multiple Conjur variables
 // in bulk.
 type secretRetriever struct {
-	authn authenticator.Authenticator
+	authenticator ConjurAuthenticator
 }
 
 // RetrieveSecretsFunc defines a function type for retrieving secrets.
 type RetrieveSecretsFunc func(variableIDs []string, traceContext context.Context) (map[string][]byte, error)
 
-// RetrieverFactory defines a function type for creating a RetrieveSecretsFunc
-// implementation given an authenticator config.
-type RetrieverFactory func(authnConfig config.Configuration) (RetrieveSecretsFunc, error)
+// RetrieverFactory defines a function type for creating a RetrieveSecretsFunc.
+// implementation given a ConjurAuthenticator
+type RetrieverFactory func(authenticator ConjurAuthenticator) (RetrieveSecretsFunc, error)
 
-// NewSecretRetriever creates a new SecretRetriever and Authenticator
-// given an authenticator config.
-func NewSecretRetriever(authnConfig config.Configuration) (RetrieveSecretsFunc, error) {
-	accessToken, err := memory.NewAccessToken()
-	if err != nil {
-		return nil, fmt.Errorf("%s", messages.CSPFK001E)
+// NewSecretRetriever creates a new secret retriever given an authenticator and
+// returns its Retrieve function.
+func NewSecretRetriever(authenticator ConjurAuthenticator) (RetrieveSecretsFunc, error) {
+	retriever := &secretRetriever{
+		authenticator: authenticator,
 	}
-
-	authn, err := authenticator.NewAuthenticatorWithAccessToken(authnConfig, accessToken)
-	if err != nil {
-		return nil, fmt.Errorf("%s", messages.CSPFK009E)
-	}
-
-	return secretRetriever{
-		authn: authn,
-	}.Retrieve, nil
+	return retriever.Retrieve, nil
 }
 
 // Retrieve implements a RetrieveSecretsFunc for a given SecretRetriever.
 // Authenticates the client, and retrieves a given batch of variables from Conjur.
 func (retriever secretRetriever) Retrieve(variableIDs []string, traceContext context.Context) (map[string][]byte, error) {
-	authn := retriever.authn
-
-	err := authn.AuthenticateWithContext(traceContext)
+	// Authenticate and get access token
+	accessTokenData, err := retriever.authenticator.GetAccessToken(traceContext)
 	if err != nil {
 		return nil, log.RecordedError(messages.CSPFK010E)
 	}
-
-	accessTokenData, err := authn.GetAccessToken().Read()
-	if err != nil {
-		return nil, log.RecordedError(messages.CSPFK002E)
-	}
-	// Always delete the access token. The deletion is idempotent and never fails
-	defer authn.GetAccessToken().Delete()
 	defer func() {
 		// Clear the access token from memory after we use it to authenticate
 		for b := range accessTokenData {

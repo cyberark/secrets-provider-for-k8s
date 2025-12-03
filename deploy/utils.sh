@@ -233,13 +233,13 @@ setup_helm_environment() {
 
   fetch_ssl_from_conjur
   # Save cert for later setting in Helm
-  $cli_with_timeout "exec ${conjur_pod_name} --namespace $CONJUR_NAMESPACE_NAME cat $cert_location" > "$ssl_location"
+  $cli_with_timeout "exec --namespace $CONJUR_NAMESPACE_NAME ${conjur_pod_name} -- cat $cert_location" > "$ssl_location"
   i=0
   while [[ ! -f "$ssl_location" || ! -s "$ssl_location" && $i -le 5 ]]; do
     i=$(( $i + 1 ))
     fetch_ssl_from_conjur
     # Save cert for later setting in Helm
-    $cli_with_timeout "exec ${conjur_pod_name} --namespace $CONJUR_NAMESPACE_NAME cat $cert_location" > "$ssl_location"
+    $cli_with_timeout "exec --namespace $CONJUR_NAMESPACE_NAME ${conjur_pod_name} -- cat $cert_location" > "$ssl_location"
   done
 
   set_namespace $APP_NAMESPACE_NAME

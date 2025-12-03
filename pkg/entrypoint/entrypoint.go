@@ -54,6 +54,7 @@ func StartSecretsProvider() {
 		defaultSecretsBasePath,
 		defaultTemplatesBasePath,
 		conjur.NewSecretRetriever,
+		conjur.NewAuthenticator,
 		secrets.NewProviderForType,
 		secrets.NewStatusUpdater,
 	)
@@ -65,6 +66,7 @@ func startSecretsProviderWithDeps(
 	secretsBasePath string,
 	templatesBasePath string,
 	retrieverFactory conjur.RetrieverFactory,
+	authenticatorFactory conjur.AuthenticatorFactory,
 	providerFactory secrets.ProviderFactory,
 	statusUpdaterFactory secrets.StatusUpdaterFactory,
 ) (exitCode int) {
@@ -92,8 +94,8 @@ func startSecretsProviderWithDeps(
 		return
 	}
 
-	// Gather K8s authenticator config and create a Conjur secret retriever
-	secretRetriever, err := secretRetriever(ctx, tracer, retrieverFactory)
+	// Retrieves secrets using provided access token (after auth)
+	secretRetriever, err := secretRetriever(ctx, tracer, retrieverFactory, authenticatorFactory)
 	if err != nil {
 		logError(err.Error())
 		return
@@ -161,10 +163,14 @@ func processAnnotations(ctx context.Context, tracer trace.Tracer, annotationsFil
 	return nil
 }
 
+// secretRetriever selects the appropriate authenticator based on the CONJUR_AUTHN_URL,
+// obtains a Conjur access token, and returns a RetrieveSecretsFunc that fetches secrets
+// using that token.
 func secretRetriever(
 	ctx context.Context,
 	tracer trace.Tracer,
 	retrieverFactory conjur.RetrieverFactory,
+	authenticatorFactory conjur.AuthenticatorFactory,
 ) (conjur.RetrieveSecretsFunc, error) {
 	// Gather authenticator config
 	_, span := tracer.Start(ctx, "Gather authenticator config")
@@ -176,14 +182,18 @@ func secretRetriever(
 		log.Error(messages.CSPFK008E)
 		return nil, err
 	}
+	authnURL := customEnv("CONJUR_AUTHN_URL")
 
-	// Initialize a Conjur secret retriever
-	secretRetriever, err := retrieverFactory(authnConfig)
+	// Create authenticator using the factory
+	authenticator, err := authenticatorFactory(authnConfig, authnURL)
 	if err != nil {
+		span.RecordErrorAndSetStatus(err)
 		log.Error(err.Error())
 		return nil, err
 	}
-	return secretRetriever, nil
+
+	// Create secret retriever using the factory
+	return retrieverFactory(authenticator)
 }
 
 func secretsProvider(
