@@ -3,8 +3,13 @@ package conjur
 import (
 	"context"
 	"fmt"
+	"net/url"
+	"os"
+	"slices"
 	"strings"
+	"sync"
 
+	"github.com/cyberark/conjur-api-go/conjurapi"
 	"github.com/cyberark/conjur-authn-k8s-client/pkg/access_token/memory"
 	"github.com/cyberark/conjur-authn-k8s-client/pkg/authenticator"
 	"github.com/cyberark/conjur-authn-k8s-client/pkg/authenticator/config"
@@ -14,6 +19,82 @@ import (
 // ConjurAuthenticator defines how to get an access token
 type ConjurAuthenticator interface {
 	GetAccessToken(ctx context.Context) ([]byte, error)
+}
+
+type conjurClient interface {
+	IAMAuthenticate() ([]byte, error)
+	AzureAuthenticate(string) ([]byte, error)
+	GCPAuthenticate(string) ([]byte, error)
+}
+
+var conjurGoClient conjurClient
+var clientOnce sync.Once
+
+var newConjurClientFromConfig = func(cfg conjurapi.Config) (conjurClient, error) {
+	c, err := conjurapi.NewClient(cfg)
+	if err != nil {
+		return nil, err
+	}
+	return c, nil
+}
+
+var authnNewWithAccessToken = func(cfg config.Configuration, at *memory.AccessToken) (authenticator.Authenticator, error) {
+	return authenticator.NewAuthenticatorWithAccessToken(cfg, at)
+}
+
+// Helper to create the conjur-api-go client for a given authnType for iam, gcp, or azure.
+func createConjurClientForAuthenticator(authnURL, authnType string) (conjurClient, error) {
+	var createErr error = nil
+	clientOnce.Do(func() {
+		applianceURL := os.Getenv("CONJUR_APPLIANCE_URL")
+		account := os.Getenv("CONJUR_ACCOUNT")
+		if applianceURL == "" || account == "" {
+			createErr = fmt.Errorf("CONJUR_APPLIANCE_URL or CONJUR_ACCOUNT environment variable is not set")
+			return
+		}
+		cfg := conjurapi.Config{
+			ApplianceURL: applianceURL,
+			Account:      account,
+			AuthnType:    authnType,
+		}
+		if authnType == "iam" || authnType == "azure" {
+			serviceID, err := parseServiceID(authnURL, authnType)
+			if err != nil {
+				createErr = err
+				return
+			}
+			cfg.ServiceID = serviceID
+		}
+		client, err := newConjurClientFromConfig(cfg)
+		if err != nil {
+			createErr = fmt.Errorf("%s", messages.CSPFK033E)
+			return
+		}
+		conjurGoClient = client
+	})
+	if createErr != nil {
+		return nil, createErr
+	}
+	return conjurGoClient, nil
+}
+
+func parseServiceID(authnURL, authnType string) (string, error) {
+	parsedURL, err := url.Parse(authnURL)
+	if err != nil {
+		return "", fmt.Errorf(messages.CSPFK069E, err)
+	}
+
+	pathParts := strings.Split(parsedURL.Path, "/")
+	// Remove empty parts
+	pathParts = slices.DeleteFunc(pathParts, func(s string) bool { return s == "" })
+
+	// Validate: must end with /authn-{type}/{service_id}
+	if len(pathParts) < 2 || pathParts[len(pathParts)-2] != "authn-"+authnType {
+		detail := fmt.Sprintf("expected path to end with /authn-%s/<service_id>", authnType)
+		return "", fmt.Errorf(messages.CSPFK069E, detail)
+	}
+
+	return pathParts[len(pathParts)-1], nil
 }
 
 // AuthenticatorFactory defines a function type for creating a ConjurAuthenticator
@@ -53,7 +134,7 @@ func (a *K8sAuthenticator) GetAccessToken(ctx context.Context) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("%s", messages.CSPFK001E)
 	}
-	authn, err := authenticator.NewAuthenticatorWithAccessToken(a.authnConfig, accessToken)
+	authn, err := authnNewWithAccessToken(a.authnConfig, accessToken)
 	if err != nil {
 		return nil, fmt.Errorf("%s", messages.CSPFK009E)
 	}
@@ -88,7 +169,7 @@ func (a *JwtAuthenticator) GetAccessToken(ctx context.Context) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("%s", messages.CSPFK001E)
 	}
-	authn, err := authenticator.NewAuthenticatorWithAccessToken(a.authnConfig, accessToken)
+	authn, err := authnNewWithAccessToken(a.authnConfig, accessToken)
 	if err != nil {
 		return nil, fmt.Errorf("%s", messages.CSPFK009E)
 	}
@@ -119,8 +200,18 @@ func NewIamAuthenticator(authnURL string) *IamAuthenticator {
 }
 
 func (a *IamAuthenticator) GetAccessToken(ctx context.Context) ([]byte, error) {
-	// TODO
-	return nil, fmt.Errorf("This authentication not yet implemented")
+	client, err := createConjurClientForAuthenticator(a.authnURL, "iam")
+	if err != nil {
+		return nil, err
+	}
+	if client == nil {
+		return nil, fmt.Errorf("%s", messages.CSPFK033E)
+	}
+	tok, err := client.IAMAuthenticate()
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", messages.CSPFK010E, err)
+	}
+	return tok, nil
 }
 
 type AzureAuthenticator struct {
@@ -132,8 +223,18 @@ func NewAzureAuthenticator(authnURL string) *AzureAuthenticator {
 }
 
 func (a *AzureAuthenticator) GetAccessToken(ctx context.Context) ([]byte, error) {
-	// TODO
-	return nil, fmt.Errorf("This authentication not yet implemented")
+	client, err := createConjurClientForAuthenticator(a.authnURL, "azure")
+	if err != nil {
+		return nil, err
+	}
+	if client == nil {
+		return nil, fmt.Errorf("%s", messages.CSPFK033E)
+	}
+	tok, err := client.AzureAuthenticate("")
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", messages.CSPFK010E, err)
+	}
+	return tok, nil
 }
 
 type GcpAuthenticator struct {
@@ -145,6 +246,16 @@ func NewGcpAuthenticator(authnURL string) *GcpAuthenticator {
 }
 
 func (a *GcpAuthenticator) GetAccessToken(ctx context.Context) ([]byte, error) {
-	// TODO
-	return nil, fmt.Errorf("This authentication not yet implemented")
+	client, err := createConjurClientForAuthenticator(a.authnURL, "gcp")
+	if err != nil {
+		return nil, err
+	}
+	if client == nil {
+		return nil, fmt.Errorf("%s", messages.CSPFK033E)
+	}
+	tok, err := client.GCPAuthenticate("")
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", messages.CSPFK010E, err)
+	}
+	return tok, nil
 }
