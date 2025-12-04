@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // mockReadCloser returns an instantiation of the io.ReadCloser interface
@@ -28,6 +29,26 @@ func mockFileOpenerGenerator(store map[string]io.ReadCloser) fileOpener {
 }
 
 func TestNewAnnotationsFromFile(t *testing.T) {
+	t.Run("Nonexistent annotations file", func(t *testing.T) {
+		_, err := NewAnnotationsFromFile("/nonexistent/path")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "CSPFK041E")
+	})
+	t.Run("Valid annotations file", func(t *testing.T) {
+		// Create a temporary file with sample annotations content
+		content := `conjur.org/conjur-secrets.test="- test-password: test/password\n"`
+		tmpFile, err := os.CreateTemp("", "annotations-*.txt")
+		tmpFile.WriteString(content)
+
+		require.NoError(t, err)
+
+		ret, err := NewAnnotationsFromFile(tmpFile.Name())
+		assert.NoError(t, err)
+		assert.NotNil(t, ret)
+	})
+}
+
+func TestNewAnnotationsFromFileWithMock(t *testing.T) {
 	// Create a mock 'fileOpener' that supports reading of a sample valid
 	// annotations file.
 	content := `conjur.org/conjur-secrets.test="- test-password: test/password\n"`

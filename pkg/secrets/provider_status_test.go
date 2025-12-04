@@ -201,6 +201,15 @@ func TestCopyScripts(t *testing.T) {
 			},
 		},
 		{
+			description: "Error on mkdir for script destination directory",
+			injectErrs:  injectErrs{mkDirErr: os.ErrPermission},
+			assert: func(t *testing.T, scriptFile string, err error) {
+				assert.Error(t, err)
+				assert.Contains(t, err.Error(), "unable to mkdir")
+				assert.NoFileExists(t, scriptFile)
+			},
+		},
+		{
 			description: "Error on source file open",
 			injectErrs:  injectErrs{openErr: os.ErrPermission},
 			assert: func(t *testing.T, scriptFile string, err error) {
