@@ -11,6 +11,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ### Changed
 - Refactored Authentication and Secret Retrieval. (CNJR-11712)
 
+### Added
+- Added cloud authentication for iam, gcp, and azure. (CNJR-11713)
+
 ## [1.7.7] - 2025-11-24
 
 ### Fixed

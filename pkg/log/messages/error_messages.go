@@ -93,3 +93,6 @@ const CSPFK065E string = "CSPFK065E Secret group %s: the content-type of %s is i
 // Fetch All
 const CSPFK066E string = "CSPFK066E Stopped fetching additional secrets after %d secrets were fetched"
 const CSPFK068E string = "CSPFK068E Retrieved secrets did not include secret '%s' requested by secret group '%s'"
+
+// URL Parsing
+const CSPFK069E string = "CSPFK069E Invalid URL format: %s"
