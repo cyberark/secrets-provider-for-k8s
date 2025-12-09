@@ -671,3 +671,12 @@ generate_manifest_and_deploy() {
     $cli_with_timeout "get pods --namespace=$APP_NAMESPACE_NAME --selector app=$deployment_name --no-headers | wc -l | grep $expected_num_replicas"
   fi
 }
+
+set_namespace_exp() {
+  # Set the namespace label to expire in an hour. This tells the cleanup job
+  # that it can safely delete this namespace after that time.
+  local namespace=$1
+  local fmt="+%Y-%m-%dT%H%M%SZ"
+  exp=$(date -u -d "+1Hour" $fmt 2>/dev/null||date -u -v "+1H" $fmt)
+  $cli_with_timeout "label namespace $namespace safely_delete_after=$exp"
+}
