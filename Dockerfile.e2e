@@ -40,7 +40,8 @@ RUN apt-get update && \
     apt-get install -y --no-install-recommends \
     ca-certificates \
     curl \
-    git
+    git \
+    jq
 
 # Download and install Golang
 ENV GOLANG_VERSION=1.25.3

@@ -8,7 +8,6 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
-	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -24,7 +23,7 @@ func TestPushToFile(t *testing.T) {
 	f := features.New("push to file").
 		Setup(func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
 			// set secrets mode to P2F
-			os.Setenv("SECRETS_MODE", "p2f")
+			t.Setenv("SECRETS_MODE", "p2f")
 
 			// reload testing environment with P2F template
 			err := ReloadWithTemplate(cfg.Client(), P2fTemplate)
@@ -70,12 +69,6 @@ func TestPushToFile(t *testing.T) {
 			}
 
 			return ctx
-		}).
-		Teardown(func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
-			// reset environment variable to default k8s
-			os.Setenv("SECRETS_MODE", "k8s")
-
-			return ctx
 		})
 
 	testenv.Test(t, f.Feature())
@@ -89,7 +82,7 @@ func TestPushToFileSecretsRotation(t *testing.T) {
 			assert.Nil(t, err)
 
 			// set secrets mode to P2F rotation
-			os.Setenv("SECRETS_MODE", "p2f-rotation")
+			t.Setenv("SECRETS_MODE", "p2f-rotation")
 
 			// reload testing environment with P2F rotation template
 			err = ReloadWithTemplate(cfg.Client(), P2fRotationTemplate)
@@ -196,9 +189,6 @@ func TestPushToFileSecretsRotation(t *testing.T) {
 			return ctx
 		}).
 		Teardown(func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
-			// reset environment variable to default k8s
-			os.Setenv("SECRETS_MODE", "k8s")
-
 			// reset conjur secrets
 			err := RestoreTestSecret(cfg.Client())
 			assert.Nil(t, err)
@@ -221,7 +211,7 @@ func TestK8sSecretsRotation(t *testing.T) {
 	f := features.New("k8s secrets rotation").
 		Setup(func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
 			// set secrets mode to K8s Rotation
-			os.Setenv("SECRETS_MODE", "k8s-rotation")
+			t.Setenv("SECRETS_MODE", "k8s-rotation")
 
 			// reload testing environment with K8s Rotation template
 			err := ReloadWithTemplate(cfg.Client(), K8sRotationTemplate)
@@ -338,9 +328,6 @@ func TestK8sSecretsRotation(t *testing.T) {
 			return ctx
 		}).
 		Teardown(func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
-			// reset environment variable to default k8s
-			os.Setenv("SECRETS_MODE", "k8s")
-
 			// reset conjur secrets
 			err := RestoreTestSecret(cfg.Client())
 			assert.Nil(t, err)

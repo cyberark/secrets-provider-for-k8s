@@ -13,116 +13,95 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"sigs.k8s.io/e2e-framework/pkg/envconf"
 	"sigs.k8s.io/e2e-framework/pkg/features"
 )
+
+// Helper function to assert environment variable contains expected value
+func assertEnvVarContains(t *testing.T, cfg *envconf.Config, envVarName string, expectedValue string) {
+	var stdout, stderr bytes.Buffer
+	command := []string{"sh", "-c", fmt.Sprintf("printenv | grep %s", envVarName)}
+
+	err := RunCommandInSecretsProviderPod(cfg.Client(), SPLabelSelector, TestAppContainer, command, &stdout, &stderr)
+	if err != nil {
+		t.Logf("Command execution warning: %v", err)
+	}
+
+	assert.Contains(t, stdout.String(), expectedValue)
+}
+
+// Define common test functions so they can be reused in different scenarios
+
+// Replaces TEST_ID_1.1_providing_ssh_keys_successfully
+func assessSSHKey(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
+	assertEnvVarContains(t, cfg, "SSH_KEY", "\"ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEA879BJGYlPTLIuc9/R5MYiN4yc/YiCLcdBpSdzgK9Dt0Bkfe3rSz5cPm4wmehdE7GkVFXrBJ2YHqPLuM1yx1AUxIebpwlIl9f/aUHOts9eVnVh4NztPy0iSU/Sv0b2ODQQvcy2vYcujlorscl8JjAgfWsO3W4iGEe6QwBpVomcME8IU35v5VbylM9ORQa6wvZMVrPECBvwItTY8cPWH3MGZiK/74eHbSLKA4PY3gM4GHI450Nie16yggEg2aTQfWA1rry9JYWEoHS9pJ1dnLqZU3k/8OWgqJrilwSoC5rGjgp93iu0H8T6+mEHGRQe84Nk1y5lESSWIbn6P636Bl3uQ== your@email.com\"")
+	return ctx
+}
+
+// Replaces TEST_ID_1.2_providing_json_object_secret_successfully
+func assessJSONObject(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
+	assertEnvVarContains(t, cfg, "JSON_OBJECT_SECRET", "\"{\"auths\":{\"someurl\":{\"auth\":\"sometoken=\"}}}\"")
+	return ctx
+}
+
+// Replaces TEST_ID_1.3_providing_variables_with_spaces_successfully
+func assessVariablesWithSpaces(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
+	assertEnvVarContains(t, cfg, "VARIABLE_WITH_SPACES_SECRET", "some-secret")
+	return ctx
+}
+
+// Replaces TEST_ID_1.4_providing_variables_with_pluses_successfully
+func assessVariablesWithPluses(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
+	assertEnvVarContains(t, cfg, "VARIABLE_WITH_PLUSES_SECRET", "some-secret")
+	return ctx
+}
+
+// Replaces TEST_ID_1.5_providing_variables_with_german_umlaut_successfully
+func assessUmlaut(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
+	assertEnvVarContains(t, cfg, "VARIABLE_WITH_UMLAUT_SECRET", "ÄäÖöÜü")
+	return ctx
+}
+
+// Replaces TEST_ID_1.6_providing_variables_with_base64_decoding_successfully
+func assessBase64Decoding(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
+	assertEnvVarContains(t, cfg, "VARIABLE_WITH_BASE64_SECRET", "secret-value")
+	return ctx
+}
+
+// Replaces TEST_ID_16_non_conjur_keys_stay_intact_in_k8s_secret
+func assessNonConjurKeys(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
+	assertEnvVarContains(t, cfg, "NON_CONJUR_SECRET", "some-value")
+	return ctx
+}
+
+func assessFetchAllSecrets(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
+	assertEnvVarContains(t, cfg, "FETCH_ALL_TEST_SECRET", "supersecret")
+	return ctx
+}
+
+func assessFetchAllBase64(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
+	assertEnvVarContains(t, cfg, "FETCH_ALL_BASE64", "secret-value")
+	return ctx
+}
 
 func TestSecretsProvidedK8s(t *testing.T) {
 	f := features.New("secrets provided (K8s secrets mode)").
 		Setup(func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
 			err := ReloadWithTemplate(cfg.Client(), K8sTemplate)
-			assert.Nil(t, err)
+			require.Nil(t, err)
 
 			return ctx
 		}).
-		// Replaces TEST_ID_1.1_providing_ssh_keys_successfully
-		Assess("ssh key set correctly in pod", func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
-			var stdout, stderr bytes.Buffer
-			command := []string{"printenv", "|", "grep", "SSH_KEY"}
-
-			RunCommandInSecretsProviderPod(cfg.Client(), SPLabelSelector, TestAppContainer, command, &stdout, &stderr)
-
-			assert.Contains(t, stdout.String(), "\"ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEA879BJGYlPTLIuc9/R5MYiN4yc/YiCLcdBpSdzgK9Dt0Bkfe3rSz5cPm4wmehdE7GkVFXrBJ2YHqPLuM1yx1AUxIebpwlIl9f/aUHOts9eVnVh4NztPy0iSU/Sv0b2ODQQvcy2vYcujlorscl8JjAgfWsO3W4iGEe6QwBpVomcME8IU35v5VbylM9ORQa6wvZMVrPECBvwItTY8cPWH3MGZiK/74eHbSLKA4PY3gM4GHI450Nie16yggEg2aTQfWA1rry9JYWEoHS9pJ1dnLqZU3k/8OWgqJrilwSoC5rGjgp93iu0H8T6+mEHGRQe84Nk1y5lESSWIbn6P636Bl3uQ== your@email.com\"")
-
-			return ctx
-		}).
-		// Replaces TEST_ID_1.2_providing_json_object_secret_successfully
-		Assess("json object secret set correctly in pod", func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
-			var stdout, stderr bytes.Buffer
-			command := []string{"printenv", "|", "grep", "JSON_OBJECT_SECRET"}
-
-			RunCommandInSecretsProviderPod(cfg.Client(), SPLabelSelector, TestAppContainer, command, &stdout, &stderr)
-
-			assert.Contains(t, stdout.String(), "\"{\"auths\":{\"someurl\":{\"auth\":\"sometoken=\"}}}\"")
-
-			return ctx
-		}).
-		// Replaces TEST_ID_1.3_providing_variables_with_spaces_successfully
-		Assess("variables with spaces secret set correctly in pod", func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
-			var stdout, stderr bytes.Buffer
-			command := []string{"printenv", "|", "grep", "VARIABLE_WITH_SPACES_SECRET"}
-
-			RunCommandInSecretsProviderPod(cfg.Client(), SPLabelSelector, TestAppContainer, command, &stdout, &stderr)
-
-			assert.Contains(t, stdout.String(), "some-secret")
-
-			return ctx
-		}).
-		// Replaces TEST_ID_1.4_providing_variables_with_pluses_successfully
-		Assess("variables with pluses secret set correctly in pod", func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
-			var stdout, stderr bytes.Buffer
-			command := []string{"printenv", "|", "grep", "VARIABLE_WITH_PLUSES_SECRET"}
-
-			RunCommandInSecretsProviderPod(cfg.Client(), SPLabelSelector, TestAppContainer, command, &stdout, &stderr)
-
-			assert.Contains(t, stdout.String(), "some-secret")
-
-			return ctx
-		}).
-		// Replaces TEST_ID_1.5_providing_variables_with_german_umlaut_successfully
-		Assess("umlaut secret set correctly in pod", func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
-			var stdout, stderr bytes.Buffer
-
-			command := []string{"printenv", "|", "grep", "VARIABLE_WITH_UMLAUT_SECRET"}
-
-			RunCommandInSecretsProviderPod(cfg.Client(), SPLabelSelector, TestAppContainer, command, &stdout, &stderr)
-
-			assert.Contains(t, stdout.String(), "ÄäÖöÜü")
-
-			return ctx
-		}).
-		// Replaces TEST_ID_1.6_providing_variables_with_base64_decoding_successfully
-		Assess("variables with base64 decoding secret set correctly in pod", func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
-			var stdout, stderr bytes.Buffer
-			command := []string{"printenv", "|", "grep", "VARIABLE_WITH_BASE64_SECRET"}
-
-			RunCommandInSecretsProviderPod(cfg.Client(), SPLabelSelector, TestAppContainer, command, &stdout, &stderr)
-
-			assert.Contains(t, stdout.String(), "secret-value")
-
-			return ctx
-		}).
-		// Replaces TEST_ID_16_non_conjur_keys_stay_intact_in_k8s_secret
-		Assess("non conjur keys stay intact secret set correctly in pod", func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
-			var stdout, stderr bytes.Buffer
-			command := []string{"printenv", "|", "grep", "NON_CONJUR_SECRET"}
-
-			RunCommandInSecretsProviderPod(cfg.Client(), SPLabelSelector, TestAppContainer, command, &stdout, &stderr)
-
-			assert.Contains(t, stdout.String(), "some-value")
-
-			return ctx
-		}).
-		Assess("fetch all secrets provided", func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
-			var stdout, stderr bytes.Buffer
-			command := []string{"printenv", "|", "grep", "FETCH_ALL_TEST_SECRET"}
-
-			RunCommandInSecretsProviderPod(cfg.Client(), SPLabelSelector, TestAppContainer, command, &stdout, &stderr)
-
-			assert.Contains(t, stdout.String(), "supersecret")
-
-			return ctx
-		}).
-		Assess("fetch all base64 secrets provided", func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
-			var stdout, stderr bytes.Buffer
-			command := []string{"printenv", "|", "grep", "FETCH_ALL_BASE64"}
-
-			RunCommandInSecretsProviderPod(cfg.Client(), SPLabelSelector, TestAppContainer, command, &stdout, &stderr)
-
-			assert.Contains(t, stdout.String(), "secret-value")
-
-			return ctx
-		})
+		Assess("ssh key set correctly in pod", assessSSHKey).
+		Assess("json object secret set correctly in pod", assessJSONObject).
+		Assess("variables with spaces secret set correctly in pod", assessVariablesWithSpaces).
+		Assess("variables with pluses secret set correctly in pod", assessVariablesWithPluses).
+		Assess("umlaut secret set correctly in pod", assessUmlaut).
+		Assess("variables with base64 decoding secret set correctly in pod", assessBase64Decoding).
+		Assess("non conjur keys stay intact secret set correctly in pod", assessNonConjurKeys).
+		Assess("fetch all secrets provided", assessFetchAllSecrets).
+		Assess("fetch all base64 secrets provided", assessFetchAllBase64)
 
 	testenv.Test(t, f.Feature())
 }
@@ -141,10 +120,10 @@ func TestLargeDecodedVariableSecretProvidedK8s(t *testing.T) {
 
 			// set encoded value in conjur and reload template
 			err := SetConjurSecret(cfg.Client(), "secrets/encoded", encodedStr)
-			assert.Nil(t, err)
+			require.Nil(t, err)
 
 			err = ReloadWithTemplate(cfg.Client(), K8sTemplate)
-			assert.Nil(t, err)
+			require.Nil(t, err)
 
 			return context.WithValue(ctx, "expected", string(str))
 		}).
@@ -152,7 +131,7 @@ func TestLargeDecodedVariableSecretProvidedK8s(t *testing.T) {
 		Assess("large decoded variable secret set correctly in pod", func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
 			// check environment variable for expected value (the secret before encoding)
 			var stdout, stderr bytes.Buffer
-			command := []string{"printenv", "|", "grep", "VARIABLE_WITH_BASE64_SECRET"}
+			command := []string{"sh", "-c", "printenv | grep VARIABLE_WITH_BASE64_SECRET"}
 
 			RunCommandInSecretsProviderPod(cfg.Client(), SPLabelSelector, TestAppContainer, command, &stdout, &stderr)
 
@@ -164,7 +143,7 @@ func TestLargeDecodedVariableSecretProvidedK8s(t *testing.T) {
 			// reset the secret value in Conjur
 			encodedStr := base64.StdEncoding.EncodeToString([]byte("secret-value"))
 			err := SetConjurSecret(cfg.Client(), "secrets/encoded", encodedStr)
-			assert.Nil(t, err)
+			require.Nil(t, err)
 
 			return ctx
 		})
@@ -177,7 +156,7 @@ func TestMultiplePodsChangingPwdInbetweenSecretProvidedK8s(t *testing.T) {
 		// Replaces TEST_ID_2_multiple_pods_changing_pwd_inbetween
 		Assess("multiple pods secrets set correctly inbetween", func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
 			var stdout, stderr bytes.Buffer
-			command := []string{"printenv", "|", "grep", "TEST_SECRET"}
+			command := []string{"sh", "-c", "printenv | grep TEST_SECRET"}
 
 			// verify initial secret
 			RunCommandInSecretsProviderPod(cfg.Client(), SPLabelSelector, TestAppContainer, command, &stdout, &stderr)
@@ -185,13 +164,13 @@ func TestMultiplePodsChangingPwdInbetweenSecretProvidedK8s(t *testing.T) {
 
 			// scale and set secret to secret2
 			err := SetConjurSecret(cfg.Client(), "secrets/test_secret", "secret2")
-			assert.Nil(t, err)
+			require.Nil(t, err)
 
 			err = ScaleDeployment(cfg.Client(), "test-env", SecretsProviderNamespace(), SPLabelSelector, 0)
-			assert.Nil(t, err)
+			require.Nil(t, err)
 
 			err = ScaleDeployment(cfg.Client(), "test-env", SecretsProviderNamespace(), SPLabelSelector, 1)
-			assert.Nil(t, err)
+			require.Nil(t, err)
 
 			ClearBuffer(&stdout, &stderr)
 
@@ -201,16 +180,16 @@ func TestMultiplePodsChangingPwdInbetweenSecretProvidedK8s(t *testing.T) {
 
 			// scale and set secret to secret3
 			err = SetConjurSecret(cfg.Client(), "secrets/test_secret", "secret3")
-			assert.Nil(t, err)
+			require.Nil(t, err)
 
 			err = ScaleDeployment(cfg.Client(), "test-env", SecretsProviderNamespace(), SPLabelSelector, 0)
-			assert.Nil(t, err)
+			require.Nil(t, err)
 
 			err = ScaleDeployment(cfg.Client(), "test-env", SecretsProviderNamespace(), SPLabelSelector, 3)
-			assert.Nil(t, err)
+			require.Nil(t, err)
 
 			pods, err := GetPods(cfg.Client(), SecretsProviderNamespace(), SPLabelSelector)
-			assert.Nil(t, err)
+			require.Nil(t, err)
 			for _, pod := range pods.Items {
 				ClearBuffer(&stdout, &stderr)
 
@@ -223,13 +202,13 @@ func TestMultiplePodsChangingPwdInbetweenSecretProvidedK8s(t *testing.T) {
 		}).
 		Teardown(func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
 			err := SetConjurSecret(cfg.Client(), "secrets/test_secret", "supersecret")
-			assert.Nil(t, err)
+			require.Nil(t, err)
 
 			err = ScaleDeployment(cfg.Client(), "test-env", SecretsProviderNamespace(), SPLabelSelector, 0)
-			assert.Nil(t, err)
+			require.Nil(t, err)
 
 			err = ScaleDeployment(cfg.Client(), "test-env", SecretsProviderNamespace(), SPLabelSelector, 1)
-			assert.Nil(t, err)
+			require.Nil(t, err)
 
 			return ctx
 		})
@@ -240,12 +219,10 @@ func TestMultiplePodsChangingPwdInbetweenSecretProvidedK8s(t *testing.T) {
 func TestHostNotInAppsSecretProvidedK8s(t *testing.T) {
 	f := features.New("host not in apps secret provided").
 		Setup(func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
-			// set login configuration in local environment
 			appNamespaceName := os.Getenv("APP_NAMESPACE_NAME")
-
 			loginURI := fmt.Sprintf("host/some-apps/%s/*/*", appNamespaceName)
 
-			os.Setenv("CONJUR_AUTHN_LOGIN", loginURI)
+			t.Setenv("CONJUR_AUTHN_LOGIN", loginURI)
 
 			// reload template with new login configuration
 			err := ReloadWithTemplate(cfg.Client(), K8sTemplate)
@@ -257,16 +234,12 @@ func TestHostNotInAppsSecretProvidedK8s(t *testing.T) {
 		Assess("host not in apps secret set correctly in pod", func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
 			// expect pod has conjur secret
 			var stdout, stderr bytes.Buffer
-			command := []string{"printenv", "|", "grep", "TEST_SECRET"}
+			command := []string{"sh", "-c", "printenv | grep TEST_SECRET"}
 
 			RunCommandInSecretsProviderPod(cfg.Client(), SPLabelSelector, TestAppContainer, command, &stdout, &stderr)
 
 			assert.Contains(t, stdout.String(), "supersecret")
 
-			return ctx
-		}).
-		Teardown(func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
-			os.Unsetenv("CONJUR_AUTHN_LOGIN")
 			return ctx
 		})
 
@@ -279,7 +252,7 @@ func TestHostInRootPolicySecretProvidedK8s(t *testing.T) {
 			// set login configuration in local environment
 			loginURI := fmt.Sprintf("host/%s/*/*", os.Getenv("APP_NAMESPACE_NAME"))
 
-			os.Setenv("CONJUR_AUTHN_LOGIN", loginURI)
+			t.Setenv("CONJUR_AUTHN_LOGIN", loginURI)
 
 			// reload template with new login configuration
 			err := ReloadWithTemplate(cfg.Client(), K8sTemplate)
@@ -291,16 +264,12 @@ func TestHostInRootPolicySecretProvidedK8s(t *testing.T) {
 		Assess("host in root policy secret set correctly in pod", func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
 			// expect pod has conjur secret
 			var stdout, stderr bytes.Buffer
-			command := []string{"printenv", "|", "grep", "TEST_SECRET"}
+			command := []string{"sh", "-c", "printenv | grep TEST_SECRET"}
 
 			RunCommandInSecretsProviderPod(cfg.Client(), SPLabelSelector, TestAppContainer, command, &stdout, &stderr)
 
 			assert.Contains(t, stdout.String(), "supersecret")
 
-			return ctx
-		}).
-		Teardown(func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
-			os.Unsetenv("CONJUR_AUTHN_LOGIN")
 			return ctx
 		})
 
@@ -313,7 +282,7 @@ func TestHostWithApplicationIdentityInAnnotationsSecretProvidedK8s(t *testing.T)
 			// set login configuration in local environment
 			loginURI := "host/some-apps/annotations-app"
 
-			os.Setenv("CONJUR_AUTHN_LOGIN", loginURI)
+			t.Setenv("CONJUR_AUTHN_LOGIN", loginURI)
 
 			// reload template with new login configuration
 			err := ReloadWithTemplate(cfg.Client(), K8sTemplate)
@@ -325,16 +294,12 @@ func TestHostWithApplicationIdentityInAnnotationsSecretProvidedK8s(t *testing.T)
 		Assess("host with application identity in annotations secret set correctly in pod", func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
 			// expect pod has conjur secret
 			var stdout, stderr bytes.Buffer
-			command := []string{"printenv", "|", "grep", "TEST_SECRET"}
+			command := []string{"sh", "-c", "printenv | grep TEST_SECRET"}
 
 			RunCommandInSecretsProviderPod(cfg.Client(), SPLabelSelector, TestAppContainer, command, &stdout, &stderr)
 
 			assert.Contains(t, stdout.String(), "supersecret")
 
-			return ctx
-		}).
-		Teardown(func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
-			os.Unsetenv("CONJUR_AUTHN_LOGIN")
 			return ctx
 		})
 

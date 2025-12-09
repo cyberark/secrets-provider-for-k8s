@@ -42,4 +42,10 @@ conjur variable set -i secrets/url -v "postgresql://test-app-backend.app-test.sv
 conjur variable set -i secrets/username -v "some-user"
 conjur variable set -i secrets/password -v "7H1SiSmYp@5Sw0rd"
 
+echo "Adding authn-jwt variables"
+conjur variable set -i "conjur/authn-jwt/$AUTHENTICATOR_ID/jwks-uri" -v "$JWKS_URI"
+conjur variable set -i "conjur/authn-jwt/$AUTHENTICATOR_ID/issuer" -v "$ISSUER"
+conjur variable set -i "conjur/authn-jwt/$AUTHENTICATOR_ID/ca-cert" -v "$(cat <(echo $CA_CERT_B64 | base64 -d))"
+conjur variable set -i "conjur/authn-jwt/$AUTHENTICATOR_ID/identity-path" -v "conjur/authn-jwt/$AUTHENTICATOR_ID/apps"
+
 conjur logout

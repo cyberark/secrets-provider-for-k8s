@@ -291,6 +291,13 @@ pipeline {
               parallel tasks
             }
           }
+          post {
+            always {
+              script {
+                INFRAPOOL_EXECUTORV2_AGENT_0.agentStash name: 'logs-dap-gke-ocp', includes: 'deploy/output/*.txt'
+              }
+            }
+          }
         }
 
         stage ("DAP Integration Tests on OpenShift oldest/next") {
@@ -310,6 +317,13 @@ pipeline {
               parallel tasks
             }
           }
+          post {
+            always {
+              script {
+                INFRAPOOL_EXECUTORV2_AGENT_0.agentStash name: 'logs-ocp-oldest-next', includes: 'deploy/output/*.txt'
+              }
+            }
+          }
         }
 
         // We want to avoid running in parallel.
@@ -327,6 +341,13 @@ pipeline {
                   INFRAPOOL_EXECUTORV2_AGENT_0.agentSh "./bin/start --docker --oss --gke"
                 }
               parallel tasks
+            }
+          }
+          post {
+            always {
+              script {
+                INFRAPOOL_EXECUTORV2_AGENT_0.agentStash name: 'logs-oss-gke', includes: 'deploy/output/*.txt'
+              }
             }
           }
         }
@@ -366,12 +387,23 @@ pipeline {
 
   post {
     always {
-      archiveArtifacts artifacts: "deploy/output/*.txt", fingerprint: false, allowEmptyArchive: true
-      releaseInfraPoolAgent(".infrapool/release_agents")
+      script {
+        try {
+          unstash 'logs-dap-gke-ocp'
+        } catch (e) {}
+        try {
+          unstash 'logs-oss-gke'
+        } catch (e) {}
+        try {
+          unstash 'logs-ocp-oldest-next'
+        } catch (e) {}
+        archiveArtifacts artifacts: "deploy/output/*.txt", fingerprint: false, allowEmptyArchive: true
+        releaseInfraPoolAgent(".infrapool/release_agents")
 
-      // Resolve ownership issue before running infra post hook
-      sh 'git config --global --add safe.directory ${PWD}'
-      infraPostHook()
+        // Resolve ownership issue before running infra post hook
+        sh 'git config --global --add safe.directory ${PWD}'
+        infraPostHook()
+      }
     }
   }
 }

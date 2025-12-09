@@ -97,6 +97,7 @@ runDockerCommand() {
       -e CONJUR_FOLLOWER_COUNT \
       -e CONJUR_ACCOUNT \
       -e AUTHENTICATOR_ID \
+      -e CONJUR_AUTHENTICATORS \
       -e CONJUR_ADMIN_PASSWORD \
       -e DEPLOY_MASTER_CLUSTER \
       -e CONJUR_NAMESPACE_NAME \
@@ -144,6 +145,7 @@ runDockerCommand() {
       -e CONJUR_FOLLOWER_COUNT \
       -e CONJUR_ACCOUNT \
       -e AUTHENTICATOR_ID \
+      -e CONJUR_AUTHENTICATORS \
       -e CONJUR_ADMIN_PASSWORD \
       -e DEPLOY_MASTER_CLUSTER \
       -e CONJUR_NAMESPACE_NAME \
@@ -204,9 +206,11 @@ configure_conjur_url() {
   if [ "$CONJUR_DEPLOYMENT" = "dap" ]; then
       conjur_appliance_url="$conjur_appliance_url/api"
   fi
-  conjur_authenticator_url=$conjur_appliance_url/authn-k8s/$AUTHENTICATOR_ID
 
   export CONJUR_APPLIANCE_URL=$conjur_appliance_url
+
+  authn_type=${CONJUR_AUTHN_TYPE:-k8s}
+  conjur_authenticator_url=$conjur_appliance_url/authn-$authn_type/$AUTHENTICATOR_ID
   export CONJUR_AUTHN_URL=$conjur_authenticator_url
 }
 
@@ -482,7 +486,7 @@ verify_secret_value_in_pod() {
 get_app_logs_container() {
     echo "Get logs from the Secrets Provider container"
     set_namespace "$APP_NAMESPACE_NAME"
-    helm=$(helm ls -aq)
+    helm=$(helm ls -q)
     $cli_without_timeout get pods
 
     if [[ -z "$helm" ]]; then
@@ -499,9 +503,9 @@ get_app_logs_container() {
       echo "pod_name="$pod_name
 
       if [[ $pod_name != "" ]]; then
-          $cli_without_timeout describe pod $pod_name
-          $cli_without_timeout get events
-         $cli_without_timeout logs $pod_name  > "output/$SUMMON_ENV-secrets-provider-logs-with-helm.txt"
+        $cli_without_timeout describe pod $pod_name
+        $cli_without_timeout get events
+        $cli_without_timeout logs $pod_name  > "output/$SUMMON_ENV-secrets-provider-logs-with-helm.txt"
       fi
     fi
 }
@@ -654,7 +658,7 @@ generate_manifest_and_deploy() {
     expected_num_replicas=`$CONFIG_DIR/$yaml_template_name.sh.yml |  awk '/replicas:/ {print $2}' `
     
     # Deployment (Deployment for k8s and DeploymentConfig for Openshift) might fail on error flows, even before creating the pods. If so, re-deploy.
-    $cli_with_timeout "get deployment $deployment_name -o jsonpath={.status.replicas} | grep '^${expected_num_replicas}$'|| $cli_without_timeout rollout latest deployment $deployment_name"
+    $cli_with_timeout "get deployment $deployment_name -o jsonpath={.status.replicas} | grep '^${expected_num_replicas}$'|| $cli_without_timeout rollout restart deployment $deployment_name"
 
     echo "Expecting $expected_num_replicas deployed pods"
     $cli_with_timeout "get pods --namespace=$APP_NAMESPACE_NAME --selector app=$deployment_name --no-headers | wc -l | grep $expected_num_replicas"

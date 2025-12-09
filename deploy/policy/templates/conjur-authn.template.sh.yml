@@ -8,11 +8,11 @@ cat << EOL
 - !policy
   id: conjur/authn-k8s/${AUTHENTICATOR_ID}/apps
   annotations:
-    description: Identities permitted to authenticate
+    description: Identities permitted to authenticate via authn-k8s
   body:
     - !layer
       annotations:
-        description: Layer of authenticator identities permitted to call authn svc
+        description: Layer of authenticator identities permitted to call authn-k8s svc
     - &hosts
       - !host
         id: ${APP_NAMESPACE_NAME}/*/*
@@ -28,4 +28,24 @@ cat << EOL
     - !grant
       role: !layer
       members: *hosts
+
+
+- !policy
+  id: conjur/authn-jwt/${AUTHENTICATOR_ID}/apps
+  annotations:
+    description: Identities permitted to authenticate via authn-jwt
+  body:
+    - !layer
+      annotations:
+        description: Layer of authenticator identities permitted to call authn-jwt svc
+    - &jwt_hosts
+      - !host
+        id: system:serviceaccount:${APP_NAMESPACE_NAME}-sa
+        annotations:
+          authn-jwt/${AUTHENTICATOR_ID}/kubernetes.io/namespace: ${APP_NAMESPACE_NAME}
+          authn-jwt/${AUTHENTICATOR_ID}/kubernetes.io/serviceaccount/name: ${APP_NAMESPACE_NAME}-sa
+
+    - !grant
+      role: !layer
+      members: *jwt_hosts
 EOL

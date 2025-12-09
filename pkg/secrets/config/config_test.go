@@ -3,7 +3,6 @@ package config
 import (
 	"errors"
 	"fmt"
-	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -429,7 +428,7 @@ var validateSecretsProviderSettingsTestCases = []validateSecretsProviderSettings
 			"SECRETS_DESTINATION":     "k8s_secrets",
 			"K8S_SECRETS":             "another-secret-1,another-secret-2",
 		},
-		assert:  assertEmptyErrorList(),
+		assert: assertEmptyErrorList(),
 	},
 }
 
@@ -549,15 +548,11 @@ func TestGatherSecretsProviderSettings(t *testing.T) {
 	for _, tc := range gatherSecretsProviderSettingsTestCases {
 		t.Run(tc.description, func(t *testing.T) {
 			for envVar, value := range tc.env {
-				os.Setenv(envVar, value)
+				t.Setenv(envVar, value)
 			}
 
 			settingsMap := GatherSecretsProviderSettings(tc.annotations)
 			tc.assert(t, settingsMap)
-
-			for envVar := range tc.env {
-				os.Unsetenv(envVar)
-			}
 		})
 	}
 }
