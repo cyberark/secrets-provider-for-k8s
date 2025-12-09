@@ -5,7 +5,6 @@ package e2e
 
 import (
 	"context"
-	"os"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -17,9 +16,9 @@ func TestAuthnJWT(t *testing.T) {
 	f := features.New("authn-jwt").
 		Setup(func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
 			// Override the authn parameters to use authn-jwt
-			os.Setenv("CONJUR_AUTHN_LOGIN", "host/conjur/authn-jwt/"+AuthenticatorId()+"/apps/system:serviceaccount:"+SecretsProviderNamespace()+"-sa")
-			os.Setenv("CONJUR_AUTHN_TYPE", "jwt")
-			os.Setenv("CONJUR_AUTHN_URL", ConjurApplianceUrl()+"/authn-jwt/dev")
+			t.Setenv("CONJUR_AUTHN_LOGIN", "host/conjur/authn-jwt/"+AuthenticatorId()+"/apps/system:serviceaccount:"+SecretsProviderNamespace()+"-sa")
+			t.Setenv("CONJUR_AUTHN_TYPE", "jwt")
+			t.Setenv("CONJUR_AUTHN_URL", ConjurApplianceUrl()+"/authn-jwt/dev")
 
 			err := ReloadWithTemplate(cfg.Client(), K8sTemplate)
 			require.Nil(t, err)
@@ -34,13 +33,7 @@ func TestAuthnJWT(t *testing.T) {
 		Assess("variables with base64 decoding secret set correctly in pod", assessBase64Decoding).
 		Assess("non conjur keys stay intact secret set correctly in pod", assessNonConjurKeys).
 		Assess("fetch all secrets provided", assessFetchAllSecrets).
-		Assess("fetch all base64 secrets provided", assessFetchAllBase64).
-		Teardown(func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
-			os.Unsetenv("CONJUR_AUTHN_LOGIN")
-			os.Unsetenv("CONJUR_AUTHN_TYPE")
-			os.Unsetenv("CONJUR_AUTHN_URL")
-			return ctx
-		})
+		Assess("fetch all base64 secrets provided", assessFetchAllBase64)
 
 	testenv.Test(t, f.Feature())
 }

@@ -222,7 +222,7 @@ func TestHostNotInAppsSecretProvidedK8s(t *testing.T) {
 			appNamespaceName := os.Getenv("APP_NAMESPACE_NAME")
 			loginURI := fmt.Sprintf("host/some-apps/%s/*/*", appNamespaceName)
 
-			os.Setenv("CONJUR_AUTHN_LOGIN", loginURI)
+			t.Setenv("CONJUR_AUTHN_LOGIN", loginURI)
 
 			// reload template with new login configuration
 			err := ReloadWithTemplate(cfg.Client(), K8sTemplate)
@@ -241,10 +241,6 @@ func TestHostNotInAppsSecretProvidedK8s(t *testing.T) {
 			assert.Contains(t, stdout.String(), "supersecret")
 
 			return ctx
-		}).
-		Teardown(func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
-			os.Unsetenv("CONJUR_AUTHN_LOGIN")
-			return ctx
 		})
 
 	testenv.Test(t, f.Feature())
@@ -256,7 +252,7 @@ func TestHostInRootPolicySecretProvidedK8s(t *testing.T) {
 			// set login configuration in local environment
 			loginURI := fmt.Sprintf("host/%s/*/*", os.Getenv("APP_NAMESPACE_NAME"))
 
-			os.Setenv("CONJUR_AUTHN_LOGIN", loginURI)
+			t.Setenv("CONJUR_AUTHN_LOGIN", loginURI)
 
 			// reload template with new login configuration
 			err := ReloadWithTemplate(cfg.Client(), K8sTemplate)
@@ -275,10 +271,6 @@ func TestHostInRootPolicySecretProvidedK8s(t *testing.T) {
 			assert.Contains(t, stdout.String(), "supersecret")
 
 			return ctx
-		}).
-		Teardown(func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
-			os.Unsetenv("CONJUR_AUTHN_LOGIN")
-			return ctx
 		})
 
 	testenv.Test(t, f.Feature())
@@ -290,7 +282,7 @@ func TestHostWithApplicationIdentityInAnnotationsSecretProvidedK8s(t *testing.T)
 			// set login configuration in local environment
 			loginURI := "host/some-apps/annotations-app"
 
-			os.Setenv("CONJUR_AUTHN_LOGIN", loginURI)
+			t.Setenv("CONJUR_AUTHN_LOGIN", loginURI)
 
 			// reload template with new login configuration
 			err := ReloadWithTemplate(cfg.Client(), K8sTemplate)
@@ -308,10 +300,6 @@ func TestHostWithApplicationIdentityInAnnotationsSecretProvidedK8s(t *testing.T)
 
 			assert.Contains(t, stdout.String(), "supersecret")
 
-			return ctx
-		}).
-		Teardown(func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
-			os.Unsetenv("CONJUR_AUTHN_LOGIN")
 			return ctx
 		})
 
