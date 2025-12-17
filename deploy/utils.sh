@@ -211,7 +211,7 @@ configure_conjur_url() {
 
   authn_type=${CONJUR_AUTHN_TYPE:-k8s}
   conjur_authenticator_url=$conjur_appliance_url/authn-$authn_type/$AUTHENTICATOR_ID
-  export CONJUR_AUTHN_URL=$conjur_authenticator_url
+  export CONJUR_AUTHN_URL=${CONJUR_AUTHN_URL:-$conjur_authenticator_url}
 }
 
 fetch_ssl_from_conjur() {

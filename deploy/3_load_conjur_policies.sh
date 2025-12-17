@@ -42,6 +42,8 @@ if [[ "${DEPLOY_MASTER_CLUSTER}" == "true" ]]; then
   $cli_without_timeout delete clusterrolebinding oidc-reviewer --ignore-not-found
   $cli_without_timeout create clusterrolebinding oidc-reviewer --clusterrole=system:service-account-issuer-discovery --group=system:unauthenticated
   
+  PROVIDER_URI="https://sts.windows.net/df242c82-fe4a-47e0-b0f4-e3cb7f8104f1/"
+
   $cli_with_timeout "exec $conjur_cli_pod -- \
     sh -c \"
       CONJUR_ADMIN_PASSWORD=${CONJUR_ADMIN_PASSWORD} \
@@ -50,6 +52,7 @@ if [[ "${DEPLOY_MASTER_CLUSTER}" == "true" ]]; then
       JWKS_URI='${JWKS_URI}'\
       ISSUER='${ISSUER}'\
       CA_CERT_B64='${CA_CERT_B64}' \
+      PROVIDER_URI='${PROVIDER_URI}' \
       /tmp/policy/load_policies.sh
     \""
 

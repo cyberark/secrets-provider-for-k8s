@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	authnConfigProvider "github.com/cyberark/conjur-authn-k8s-client/pkg/authenticator/config"
@@ -72,6 +73,7 @@ func startSecretsProviderWithDeps(
 ) (exitCode int) {
 	exitCode = 0
 
+	log.SetLogLevel("debug")
 	logError := func(errStr string) {
 		log.Error(errStr)
 		exitCode = 1
@@ -176,13 +178,23 @@ func secretRetriever(
 	_, span := tracer.Start(ctx, "Gather authenticator config")
 	defer span.End()
 
-	authnConfig, err := authnConfigProvider.NewConfigFromCustomEnv(os.ReadFile, customEnv)
-	if err != nil {
-		span.RecordErrorAndSetStatus(err)
-		log.Error(messages.CSPFK008E)
-		return nil, err
-	}
 	authnURL := customEnv("CONJUR_AUTHN_URL")
+	log.Debug("AuthnURL: " + authnURL)
+	// If using authn-k8s or authn-jwt, load config using conjur-authn-k8s-client
+	// TODO: This should really be handled inside authenticatorFactory. Entrypoint shouldn't
+	// need to know about different authenticator types. We may need to move customEnv and all
+	// the annotation handling to a separate package and then pass the result of processAnnotations
+	// to the authenticatorFactory.
+	var authnConfig authnConfigProvider.Configuration
+	if strings.Contains(authnURL, "authn-k8s") || strings.Contains(authnURL, "authn-jwt") {
+		var err error
+		authnConfig, err = authnConfigProvider.NewConfigFromCustomEnv(os.ReadFile, customEnv)
+		if err != nil {
+			span.RecordErrorAndSetStatus(err)
+			log.Error(messages.CSPFK008E)
+			return nil, err
+		}
+	}
 
 	// Create authenticator using the factory
 	authenticator, err := authenticatorFactory(authnConfig, authnURL)

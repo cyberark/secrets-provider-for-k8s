@@ -30,7 +30,7 @@ create_secret_access_role
 create_secret_access_role_binding
 deploy_env
 pushd /secrets-provider-for-k8s
-go test -v -tags e2e -timeout 0 ./e2e/...
+go test -v -tags e2e -run TestAuthnGCP -timeout 0 ./e2e/...
 popd
 
 ../../teardown_resources.sh

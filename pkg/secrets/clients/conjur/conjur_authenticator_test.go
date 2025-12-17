@@ -27,7 +27,6 @@ func resetClientState() {
 
 func contains(s, substr string) bool { return strings.Contains(s, substr) }
 
-
 // --- Mocks used across tests -----------------------------------------------------
 
 type mockAuthenticator struct {
@@ -54,19 +53,23 @@ func (e *errConjurClient) AzureAuthenticate(string) ([]byte, error) {
 }
 func (e *errConjurClient) GCPAuthenticate(string) ([]byte, error) { return nil, fmt.Errorf("gcp fail") }
 
-
 type failAuth struct{ at *memory.AccessToken }
 
-func (f *failAuth) Authenticate() error                               { return nil }
-func (f *failAuth) AuthenticateWithContext(ctx context.Context) error { return fmt.Errorf("authenticate fail") }
-func (f *failAuth) GetAccessToken() access_token.AccessToken          { return f.at }
+func (f *failAuth) Authenticate() error { return nil }
+func (f *failAuth) AuthenticateWithContext(ctx context.Context) error {
+	return fmt.Errorf("authenticate fail")
+}
+func (f *failAuth) GetAccessToken() access_token.AccessToken { return f.at }
 
 type failingConjurClient struct{}
 
-func (f *failingConjurClient) IAMAuthenticate() ([]byte, error)   { return nil, fmt.Errorf("iam fail") }
-func (f *failingConjurClient) AzureAuthenticate(string) ([]byte, error) { return nil, fmt.Errorf("azure fail") }
-func (f *failingConjurClient) GCPAuthenticate(string) ([]byte, error)   { return nil, fmt.Errorf("gcp fail") }
-
+func (f *failingConjurClient) IAMAuthenticate() ([]byte, error) { return nil, fmt.Errorf("iam fail") }
+func (f *failingConjurClient) AzureAuthenticate(string) ([]byte, error) {
+	return nil, fmt.Errorf("azure fail")
+}
+func (f *failingConjurClient) GCPAuthenticate(string) ([]byte, error) {
+	return nil, fmt.Errorf("gcp fail")
+}
 
 // --- parseServiceID tests -------------------------------------------------------
 
@@ -117,7 +120,6 @@ func TestParseServiceID_Azure(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			id, err := parseServiceID(tc.url, "azure")
@@ -137,7 +139,7 @@ func TestParseServiceID_Azure(t *testing.T) {
 func TestCreateConjurClientForAuthenticator_MissingEnv(t *testing.T) {
 	t.Setenv("CONJUR_APPLIANCE_URL", "")
 	t.Setenv("CONJUR_ACCOUNT", "")
-    resetClientState()
+	resetClientState()
 
 	client, err := createConjurClientForAuthenticator("https://conjur.example.com/authn-iam/iam-service", "iam")
 	require.Error(t, err, "expected createConjurClientForAuthenticator to return an error when env vars are missing; got client=%v", client)
@@ -160,20 +162,21 @@ func TestCreateConjurClientForAuthenticator_InvalidServiceID(t *testing.T) {
 }
 
 func TestCreateConjurClientForAuthenticator_HappyPath_GCP(t *testing.T) {
-    t.Setenv("CONJUR_APPLIANCE_URL", "https://conjur.example.com")
-    t.Setenv("CONJUR_ACCOUNT", "test")
-    resetClientState()
+	t.Setenv("CONJUR_APPLIANCE_URL", "https://conjur.example.com")
+	t.Setenv("CONJUR_ACCOUNT", "test")
+	resetClientState()
 
-    oldFactory := newConjurClientFromConfig
-    newConjurClientFromConfig = func(cfg conjurapi.Config) (conjurClient, error) {
-        return &mockConjurClient{}, nil
-    }
-    t.Cleanup(func() { newConjurClientFromConfig = oldFactory })
+	oldFactory := newConjurClientFromConfig
+	newConjurClientFromConfig = func(cfg conjurapi.Config) (conjurClient, error) {
+		return &mockConjurClient{}, nil
+	}
+	t.Cleanup(func() { newConjurClientFromConfig = oldFactory })
 
-    client, err := createConjurClientForAuthenticator("https://conjur.example.com/authn-gcp", "gcp")
-    require.NoError(t, err)
-    require.NotNil(t, client)
+	client, err := createConjurClientForAuthenticator("https://conjur.example.com/authn-gcp", "gcp")
+	require.NoError(t, err)
+	require.NotNil(t, client)
 }
+
 // --- NewAuthenticator factory tests ------------------------------------------------
 
 func TestNewAuthenticatorFactory_SelectsCorrectTypes(t *testing.T) {
@@ -185,11 +188,10 @@ func TestNewAuthenticatorFactory_SelectsCorrectTypes(t *testing.T) {
 		{"https://conjur.example.com/authn-jwt/some", reflect.TypeOf(&JwtAuthenticator{})},
 		{"https://conjur.example.com/authn-iam/some", reflect.TypeOf(&IamAuthenticator{})},
 		{"https://conjur.example.com/authn-azure/some", reflect.TypeOf(&AzureAuthenticator{})},
-		{"https://conjur.example.com/authn-gcp/some", reflect.TypeOf(&GcpAuthenticator{})},
+		{"https://conjur.example.com/authn-gcp", reflect.TypeOf(&GcpAuthenticator{})},
 	}
 
 	for _, tc := range cases {
-		tc := tc
 		t.Run(tc.url, func(t *testing.T) {
 			var authnConfig config.Configuration
 			authn, err := NewAuthenticator(authnConfig, tc.url)
@@ -201,67 +203,67 @@ func TestNewAuthenticatorFactory_SelectsCorrectTypes(t *testing.T) {
 }
 
 func TestNewAuthenticatorFactory_Unsupported(t *testing.T) {
-    var authnConfig config.Configuration
-    _, err := NewAuthenticator(authnConfig, "https://conjur.example.com/unsupported/abc")
-    require.Error(t, err)
-    require.Contains(t, err.Error(), "unsupported authenticator")
+	var authnConfig config.Configuration
+	_, err := NewAuthenticator(authnConfig, "https://conjur.example.com/unsupported/abc")
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "unsupported authenticator")
 }
 
 // --- K8s / JWT error-path tests -------------------------------------------------
 func TestK8sAuthenticator_GetAccessToken_Error_AuthnConstructorFails(t *testing.T) {
-    old := authnNewWithAccessToken
-    authnNewWithAccessToken = func(cfg config.Configuration, at *memory.AccessToken) (authenticator.Authenticator, error) {
-        return nil, fmt.Errorf("constructor failure")
-    }
-    t.Cleanup(func() { authnNewWithAccessToken = old })
+	old := authnNewWithAccessToken
+	authnNewWithAccessToken = func(cfg config.Configuration, at *memory.AccessToken) (authenticator.Authenticator, error) {
+		return nil, fmt.Errorf("constructor failure")
+	}
+	t.Cleanup(func() { authnNewWithAccessToken = old })
 
-    var authnConfig config.Configuration
-    auth := NewK8sAuthenticator(authnConfig)
-    _, err := auth.GetAccessToken(context.Background())
-    require.Error(t, err)
-    require.Contains(t, err.Error(), messages.CSPFK009E)
+	var authnConfig config.Configuration
+	auth := NewK8sAuthenticator(authnConfig)
+	_, err := auth.GetAccessToken(context.Background())
+	require.Error(t, err)
+	require.Contains(t, err.Error(), messages.CSPFK009E)
 }
 
 func TestK8sAuthenticator_GetAccessToken_Error_AuthenticateFails(t *testing.T) {
-    old := authnNewWithAccessToken
-    authnNewWithAccessToken = func(cfg config.Configuration, at *memory.AccessToken) (authenticator.Authenticator, error) {
-        return &failAuth{at: at}, nil
-    }
-    t.Cleanup(func() { authnNewWithAccessToken = old })
+	old := authnNewWithAccessToken
+	authnNewWithAccessToken = func(cfg config.Configuration, at *memory.AccessToken) (authenticator.Authenticator, error) {
+		return &failAuth{at: at}, nil
+	}
+	t.Cleanup(func() { authnNewWithAccessToken = old })
 
-    var authnConfig config.Configuration
-    auth := NewK8sAuthenticator(authnConfig)
-    _, err := auth.GetAccessToken(context.Background())
-    require.Error(t, err)
-    require.Contains(t, err.Error(), messages.CSPFK010E)
+	var authnConfig config.Configuration
+	auth := NewK8sAuthenticator(authnConfig)
+	_, err := auth.GetAccessToken(context.Background())
+	require.Error(t, err)
+	require.Contains(t, err.Error(), messages.CSPFK010E)
 }
 
 func TestJwtAuthenticator_GetAccessToken_Error_AuthnConstructorFails(t *testing.T) {
-    old := authnNewWithAccessToken
-    authnNewWithAccessToken = func(cfg config.Configuration, at *memory.AccessToken) (authenticator.Authenticator, error) {
-        return nil, fmt.Errorf("constructor failure")
-    }
-    t.Cleanup(func() { authnNewWithAccessToken = old })
+	old := authnNewWithAccessToken
+	authnNewWithAccessToken = func(cfg config.Configuration, at *memory.AccessToken) (authenticator.Authenticator, error) {
+		return nil, fmt.Errorf("constructor failure")
+	}
+	t.Cleanup(func() { authnNewWithAccessToken = old })
 
-    var authnConfig config.Configuration
-    auth := NewJwtAuthenticator(authnConfig)
-    _, err := auth.GetAccessToken(context.Background())
-    require.Error(t, err)
-    require.Contains(t, err.Error(), messages.CSPFK009E)
+	var authnConfig config.Configuration
+	auth := NewJwtAuthenticator(authnConfig)
+	_, err := auth.GetAccessToken(context.Background())
+	require.Error(t, err)
+	require.Contains(t, err.Error(), messages.CSPFK009E)
 }
 
 func TestJwtAuthenticator_GetAccessToken_Error_AuthenticateFails(t *testing.T) {
-    old := authnNewWithAccessToken
-    authnNewWithAccessToken = func(cfg config.Configuration, at *memory.AccessToken) (authenticator.Authenticator, error) {
-        return &failAuth{at: at}, nil
-    }
-    t.Cleanup(func() { authnNewWithAccessToken = old })
+	old := authnNewWithAccessToken
+	authnNewWithAccessToken = func(cfg config.Configuration, at *memory.AccessToken) (authenticator.Authenticator, error) {
+		return &failAuth{at: at}, nil
+	}
+	t.Cleanup(func() { authnNewWithAccessToken = old })
 
-    var authnConfig config.Configuration
-    auth := NewJwtAuthenticator(authnConfig)
-    _, err := auth.GetAccessToken(context.Background())
-    require.Error(t, err)
-    require.Contains(t, err.Error(), messages.CSPFK010E)
+	var authnConfig config.Configuration
+	auth := NewJwtAuthenticator(authnConfig)
+	_, err := auth.GetAccessToken(context.Background())
+	require.Error(t, err)
+	require.Contains(t, err.Error(), messages.CSPFK010E)
 }
 
 // --- K8s / JWT success tests ------------------
@@ -299,157 +301,157 @@ func TestJwtAuthenticator_GetAccessToken_Success(t *testing.T) {
 // --- IAM / Azure / GCP client-error tests --------------------------------------
 
 func TestIamAuthenticator_GetAccessToken_ClientError(t *testing.T) {
-    t.Setenv("CONJUR_APPLIANCE_URL", "https://conjur.example.com")
-    t.Setenv("CONJUR_ACCOUNT", "test")
-    resetClientState()
+	t.Setenv("CONJUR_APPLIANCE_URL", "https://conjur.example.com")
+	t.Setenv("CONJUR_ACCOUNT", "test")
+	resetClientState()
 
-    old := newConjurClientFromConfig
-    newConjurClientFromConfig = func(cfg conjurapi.Config) (conjurClient, error) {
-        return nil, fmt.Errorf("factory failure")
-    }
-    t.Cleanup(func() { newConjurClientFromConfig = old })
+	old := newConjurClientFromConfig
+	newConjurClientFromConfig = func(cfg conjurapi.Config) (conjurClient, error) {
+		return nil, fmt.Errorf("factory failure")
+	}
+	t.Cleanup(func() { newConjurClientFromConfig = old })
 
-    auth := NewIamAuthenticator("https://conjur.example.com/authn-iam/iam-service")
-    _, err := auth.GetAccessToken(context.Background())
-    require.Error(t, err)
-    require.Contains(t, err.Error(), messages.CSPFK033E)
+	auth := NewIamAuthenticator("https://conjur.example.com/authn-iam/iam-service")
+	_, err := auth.GetAccessToken(context.Background())
+	require.Error(t, err)
+	require.Contains(t, err.Error(), messages.CSPFK033E)
 }
 
 func TestIamAuthenticator_GetAccessToken_NilClientProducesCSPFK033E(t *testing.T) {
-    t.Setenv("CONJUR_APPLIANCE_URL", "https://conjur.example.com")
-    t.Setenv("CONJUR_ACCOUNT", "test")
-    resetClientState()
+	t.Setenv("CONJUR_APPLIANCE_URL", "https://conjur.example.com")
+	t.Setenv("CONJUR_ACCOUNT", "test")
+	resetClientState()
 
-    old := newConjurClientFromConfig
-    newConjurClientFromConfig = func(cfg conjurapi.Config) (conjurClient, error) {
-        // simulate factory that returns nil client but no error
-        return nil, nil
-    }
-    t.Cleanup(func() { newConjurClientFromConfig = old })
+	old := newConjurClientFromConfig
+	newConjurClientFromConfig = func(cfg conjurapi.Config) (conjurClient, error) {
+		// simulate factory that returns nil client but no error
+		return nil, nil
+	}
+	t.Cleanup(func() { newConjurClientFromConfig = old })
 
-    auth := NewIamAuthenticator("https://conjur.example.com/authn-iam/iam-service")
-    _, err := auth.GetAccessToken(context.Background())
-    require.Error(t, err)
-    require.Contains(t, err.Error(), messages.CSPFK033E)
+	auth := NewIamAuthenticator("https://conjur.example.com/authn-iam/iam-service")
+	_, err := auth.GetAccessToken(context.Background())
+	require.Error(t, err)
+	require.Contains(t, err.Error(), messages.CSPFK033E)
 }
 
 func TestIamAuthenticator_GetAccessToken_ClientAuthenticateFailsProducesCSPFK010E(t *testing.T) {
-    t.Setenv("CONJUR_APPLIANCE_URL", "https://conjur.example.com")
-    t.Setenv("CONJUR_ACCOUNT", "test")
-    resetClientState()
+	t.Setenv("CONJUR_APPLIANCE_URL", "https://conjur.example.com")
+	t.Setenv("CONJUR_ACCOUNT", "test")
+	resetClientState()
 
-    old := newConjurClientFromConfig
-    newConjurClientFromConfig = func(cfg conjurapi.Config) (conjurClient, error) {
-        return &failingConjurClient{}, nil
-    }
-    t.Cleanup(func() { newConjurClientFromConfig = old })
+	old := newConjurClientFromConfig
+	newConjurClientFromConfig = func(cfg conjurapi.Config) (conjurClient, error) {
+		return &failingConjurClient{}, nil
+	}
+	t.Cleanup(func() { newConjurClientFromConfig = old })
 
-    auth := NewIamAuthenticator("https://conjur.example.com/authn-iam/iam-service")
-    _, err := auth.GetAccessToken(context.Background())
-    require.Error(t, err)
-    require.Contains(t, err.Error(), messages.CSPFK010E)
+	auth := NewIamAuthenticator("https://conjur.example.com/authn-iam/iam-service")
+	_, err := auth.GetAccessToken(context.Background())
+	require.Error(t, err)
+	require.Contains(t, err.Error(), messages.CSPFK010E)
 }
 
 func TestAzureAuthenticator_GetAccessToken_ClientError(t *testing.T) {
-    t.Setenv("CONJUR_APPLIANCE_URL", "https://conjur.example.com")
-    t.Setenv("CONJUR_ACCOUNT", "test")
-    resetClientState()
+	t.Setenv("CONJUR_APPLIANCE_URL", "https://conjur.example.com")
+	t.Setenv("CONJUR_ACCOUNT", "test")
+	resetClientState()
 
-    old := newConjurClientFromConfig
-    newConjurClientFromConfig = func(cfg conjurapi.Config) (conjurClient, error) {
-        return nil, fmt.Errorf("factory failure")
-    }
-    t.Cleanup(func() { newConjurClientFromConfig = old })
+	old := newConjurClientFromConfig
+	newConjurClientFromConfig = func(cfg conjurapi.Config) (conjurClient, error) {
+		return nil, fmt.Errorf("factory failure")
+	}
+	t.Cleanup(func() { newConjurClientFromConfig = old })
 
-    auth := NewAzureAuthenticator("https://conjur.example.com/authn-azure/azure-service")
-    _, err := auth.GetAccessToken(context.Background())
-    require.Error(t, err)
-    require.Contains(t, err.Error(), messages.CSPFK033E)
+	auth := NewAzureAuthenticator("https://conjur.example.com/authn-azure/azure-service")
+	_, err := auth.GetAccessToken(context.Background())
+	require.Error(t, err)
+	require.Contains(t, err.Error(), messages.CSPFK033E)
 }
 
 func TestAzureAuthenticator_GetAccessToken_NilClientProducesCSPFK033E(t *testing.T) {
-    t.Setenv("CONJUR_APPLIANCE_URL", "https://conjur.example.com")
-    t.Setenv("CONJUR_ACCOUNT", "test")
-    resetClientState()
+	t.Setenv("CONJUR_APPLIANCE_URL", "https://conjur.example.com")
+	t.Setenv("CONJUR_ACCOUNT", "test")
+	resetClientState()
 
-    old := newConjurClientFromConfig
-    newConjurClientFromConfig = func(cfg conjurapi.Config) (conjurClient, error) {
-        return nil, nil
-    }
-    t.Cleanup(func() { newConjurClientFromConfig = old })
+	old := newConjurClientFromConfig
+	newConjurClientFromConfig = func(cfg conjurapi.Config) (conjurClient, error) {
+		return nil, nil
+	}
+	t.Cleanup(func() { newConjurClientFromConfig = old })
 
-    auth := NewAzureAuthenticator("https://conjur.example.com/authn-azure/azure-service")
-    _, err := auth.GetAccessToken(context.Background())
-    require.Error(t, err)
-    require.Contains(t, err.Error(), messages.CSPFK033E)
+	auth := NewAzureAuthenticator("https://conjur.example.com/authn-azure/azure-service")
+	_, err := auth.GetAccessToken(context.Background())
+	require.Error(t, err)
+	require.Contains(t, err.Error(), messages.CSPFK033E)
 }
 
 func TestAzureAuthenticator_GetAccessToken_ClientAuthenticateFailsProducesCSPFK010E(t *testing.T) {
-    t.Setenv("CONJUR_APPLIANCE_URL", "https://conjur.example.com")
-    t.Setenv("CONJUR_ACCOUNT", "test")
-    resetClientState()
+	t.Setenv("CONJUR_APPLIANCE_URL", "https://conjur.example.com")
+	t.Setenv("CONJUR_ACCOUNT", "test")
+	resetClientState()
 
-    old := newConjurClientFromConfig
-    newConjurClientFromConfig = func(cfg conjurapi.Config) (conjurClient, error) {
-        return &failingConjurClient{}, nil
-    }
-    t.Cleanup(func() { newConjurClientFromConfig = old })
+	old := newConjurClientFromConfig
+	newConjurClientFromConfig = func(cfg conjurapi.Config) (conjurClient, error) {
+		return &failingConjurClient{}, nil
+	}
+	t.Cleanup(func() { newConjurClientFromConfig = old })
 
-    auth := NewAzureAuthenticator("https://conjur.example.com/authn-azure/azure-service")
-    _, err := auth.GetAccessToken(context.Background())
-    require.Error(t, err)
-    require.Contains(t, err.Error(), messages.CSPFK010E)
+	auth := NewAzureAuthenticator("https://conjur.example.com/authn-azure/azure-service")
+	_, err := auth.GetAccessToken(context.Background())
+	require.Error(t, err)
+	require.Contains(t, err.Error(), messages.CSPFK010E)
 }
 
 func TestGcpAuthenticator_GetAccessToken_ClientError(t *testing.T) {
-    t.Setenv("CONJUR_APPLIANCE_URL", "https://conjur.example.com")
-    t.Setenv("CONJUR_ACCOUNT", "test")
-    resetClientState()
+	t.Setenv("CONJUR_APPLIANCE_URL", "https://conjur.example.com")
+	t.Setenv("CONJUR_ACCOUNT", "test")
+	resetClientState()
 
-    old := newConjurClientFromConfig
-    newConjurClientFromConfig = func(cfg conjurapi.Config) (conjurClient, error) {
-        return nil, fmt.Errorf("factory failure")
-    }
-    t.Cleanup(func() { newConjurClientFromConfig = old })
+	old := newConjurClientFromConfig
+	newConjurClientFromConfig = func(cfg conjurapi.Config) (conjurClient, error) {
+		return nil, fmt.Errorf("factory failure")
+	}
+	t.Cleanup(func() { newConjurClientFromConfig = old })
 
-    auth := NewGcpAuthenticator("https://conjur.example.com/authn-gcp")
-    _, err := auth.GetAccessToken(context.Background())
-    require.Error(t, err)
-    require.Contains(t, err.Error(), messages.CSPFK033E)
+	auth := NewGcpAuthenticator("https://conjur.example.com/authn-gcp")
+	_, err := auth.GetAccessToken(context.Background())
+	require.Error(t, err)
+	require.Contains(t, err.Error(), messages.CSPFK033E)
 }
 
 func TestGcpAuthenticator_GetAccessToken_NilClientProducesCSPFK033E(t *testing.T) {
-    t.Setenv("CONJUR_APPLIANCE_URL", "https://conjur.example.com")
-    t.Setenv("CONJUR_ACCOUNT", "test")
-    resetClientState()
+	t.Setenv("CONJUR_APPLIANCE_URL", "https://conjur.example.com")
+	t.Setenv("CONJUR_ACCOUNT", "test")
+	resetClientState()
 
-    old := newConjurClientFromConfig
-    newConjurClientFromConfig = func(cfg conjurapi.Config) (conjurClient, error) {
-        return nil, nil
-    }
-    t.Cleanup(func() { newConjurClientFromConfig = old })
+	old := newConjurClientFromConfig
+	newConjurClientFromConfig = func(cfg conjurapi.Config) (conjurClient, error) {
+		return nil, nil
+	}
+	t.Cleanup(func() { newConjurClientFromConfig = old })
 
-    auth := NewGcpAuthenticator("https://conjur.example.com/authn-gcp")
-    _, err := auth.GetAccessToken(context.Background())
-    require.Error(t, err)
-    require.Contains(t, err.Error(), messages.CSPFK033E)
+	auth := NewGcpAuthenticator("https://conjur.example.com/authn-gcp")
+	_, err := auth.GetAccessToken(context.Background())
+	require.Error(t, err)
+	require.Contains(t, err.Error(), messages.CSPFK033E)
 }
 
 func TestGcpAuthenticator_GetAccessToken_ClientAuthenticateFailsProducesCSPFK010E(t *testing.T) {
-    t.Setenv("CONJUR_APPLIANCE_URL", "https://conjur.example.com")
-    t.Setenv("CONJUR_ACCOUNT", "test")
-    resetClientState()
+	t.Setenv("CONJUR_APPLIANCE_URL", "https://conjur.example.com")
+	t.Setenv("CONJUR_ACCOUNT", "test")
+	resetClientState()
 
-    old := newConjurClientFromConfig
-    newConjurClientFromConfig = func(cfg conjurapi.Config) (conjurClient, error) {
-        return &failingConjurClient{}, nil
-    }
-    t.Cleanup(func() { newConjurClientFromConfig = old })
+	old := newConjurClientFromConfig
+	newConjurClientFromConfig = func(cfg conjurapi.Config) (conjurClient, error) {
+		return &failingConjurClient{}, nil
+	}
+	t.Cleanup(func() { newConjurClientFromConfig = old })
 
-    auth := NewGcpAuthenticator("https://conjur.example.com/authn-gcp")
-    _, err := auth.GetAccessToken(context.Background())
-    require.Error(t, err)
-    require.Contains(t, err.Error(), messages.CSPFK010E)
+	auth := NewGcpAuthenticator("https://conjur.example.com/authn-gcp")
+	_, err := auth.GetAccessToken(context.Background())
+	require.Error(t, err)
+	require.Contains(t, err.Error(), messages.CSPFK010E)
 }
 
 // --- IAM / Azure / GCP success tests (override newConjurClientFromConfig seam) ------------

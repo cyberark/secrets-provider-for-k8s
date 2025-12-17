@@ -44,6 +44,7 @@ func (retriever secretRetriever) Retrieve(variableIDs []string, traceContext con
 	// Authenticate and get access token
 	accessTokenData, err := retriever.authenticator.GetAccessToken(traceContext)
 	if err != nil {
+		log.Debug(err.Error())
 		return nil, log.RecordedError(messages.CSPFK010E)
 	}
 	defer func() {

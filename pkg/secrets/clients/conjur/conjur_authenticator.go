@@ -13,6 +13,7 @@ import (
 	"github.com/cyberark/conjur-authn-k8s-client/pkg/access_token/memory"
 	"github.com/cyberark/conjur-authn-k8s-client/pkg/authenticator"
 	"github.com/cyberark/conjur-authn-k8s-client/pkg/authenticator/config"
+	"github.com/cyberark/conjur-authn-k8s-client/pkg/log"
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/log/messages"
 )
 
@@ -48,14 +49,19 @@ func createConjurClientForAuthenticator(authnURL, authnType string) (conjurClien
 	clientOnce.Do(func() {
 		applianceURL := os.Getenv("CONJUR_APPLIANCE_URL")
 		account := os.Getenv("CONJUR_ACCOUNT")
+		hostID := os.Getenv("CONJUR_AUTHN_LOGIN")
+		sslCert := os.Getenv("CONJUR_SSL_CERTIFICATE")
 		if applianceURL == "" || account == "" {
 			createErr = fmt.Errorf("CONJUR_APPLIANCE_URL or CONJUR_ACCOUNT environment variable is not set")
 			return
 		}
 		cfg := conjurapi.Config{
-			ApplianceURL: applianceURL,
-			Account:      account,
-			AuthnType:    authnType,
+			ApplianceURL:      applianceURL,
+			Account:           account,
+			AuthnType:         authnType,
+			CredentialStorage: conjurapi.CredentialStorageNone,
+			JWTHostID:         hostID,
+			SSLCert:           sslCert,
 		}
 		if authnType == "iam" || authnType == "azure" {
 			serviceID, err := parseServiceID(authnURL, authnType)
@@ -67,7 +73,7 @@ func createConjurClientForAuthenticator(authnURL, authnType string) (conjurClien
 		}
 		client, err := newConjurClientFromConfig(cfg)
 		if err != nil {
-			createErr = fmt.Errorf("%s", messages.CSPFK033E)
+			createErr = fmt.Errorf("%s: %s", messages.CSPFK033E, err.Error())
 			return
 		}
 		conjurGoClient = client
@@ -104,16 +110,20 @@ type AuthenticatorFactory func(authnConfig config.Configuration, authnURL string
 // NewAuthenticator is the default authenticator factory that selects the appropriate
 // authenticator based on the CONJUR_AUTHN_URL.
 func NewAuthenticator(authnConfig config.Configuration, authnURL string) (ConjurAuthenticator, error) {
+	log.Debug("Detecting authentication type from URL %q", authnURL)
 	switch {
 	case strings.Contains(authnURL, "authn-k8s"):
 		return NewK8sAuthenticator(authnConfig), nil
 	case strings.Contains(authnURL, "authn-jwt"):
 		return NewJwtAuthenticator(authnConfig), nil
 	case strings.Contains(authnURL, "authn-iam"):
+		log.Debug("Using authn-iam")
 		return NewIamAuthenticator(authnURL), nil
 	case strings.Contains(authnURL, "authn-azure"):
+		log.Debug("Using authn-azure")
 		return NewAzureAuthenticator(authnURL), nil
 	case strings.Contains(authnURL, "authn-gcp"):
+		log.Debug("Using authn-gcp")
 		return NewGcpAuthenticator(authnURL), nil
 	default:
 		return nil, fmt.Errorf("unsupported authenticator in CONJUR_AUTHN_URL: %s", authnURL)
