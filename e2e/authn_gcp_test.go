@@ -20,7 +20,7 @@ func TestAuthnGCP(t *testing.T) {
 
 	f := features.New("authn-gcp").
 		Setup(func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
-			t.Setenv("CONJUR_AUTHN_LOGIN", "host/conjur/authn-gcp/apps/test-app")
+			t.Setenv("CONJUR_AUTHN_LOGIN", "conjur/authn-gcp/apps/test-app")
 			t.Setenv("CONJUR_AUTHN_TYPE", "gcp")
 			t.Setenv("CONJUR_AUTHN_URL", ConjurApplianceUrl()+"/authn-gcp")
 

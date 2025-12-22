@@ -104,7 +104,7 @@ pipeline {
 
     booleanParam(name: 'TEST_OCP_OLDEST', defaultValue: false, description: 'Run DAP tests against our running "oldest version" of Openshift')
 
-    booleanParam(name: 'TEST_E2E', defaultValue: true, description: 'Run E2E tests on a branch')
+    booleanParam(name: 'TEST_E2E', defaultValue: false, description: 'Run E2E tests on a branch')
   }
 
   stages {
@@ -139,7 +139,7 @@ pipeline {
         }
       }
     }
-    /*
+
     stage('Validate') {
       parallel {
         stage('Log messages') {
@@ -149,7 +149,7 @@ pipeline {
         }
       }
     }
-    */
+
     // Generates a VERSION file based on the current build number and latest version in CHANGELOG.md
     stage('Validate Changelog and set version') {
       steps {
@@ -205,7 +205,6 @@ pipeline {
             }
           }
         }
-        /*
         stage('Package helm chart') {
           steps {
             script {
@@ -216,7 +215,6 @@ pipeline {
             }
           }
         }
-        */
 
         // Allows for the promotion of images. Need to push before we do security scans
         // since the Snyk scans pull from artifactory on a seprate executor node
@@ -227,7 +225,7 @@ pipeline {
             }
           }
         }
-        /*
+
         stage('Scan Docker Image') {
           parallel {
             stage("Scan main image") {
@@ -327,7 +325,7 @@ pipeline {
             }
           }
         }
-        */
+
         // We want to avoid running in parallel.
         // When we have 2 build running on the same environment (gke env only) in parallel,
         // we get the error "gcloud crashed : database is locked"

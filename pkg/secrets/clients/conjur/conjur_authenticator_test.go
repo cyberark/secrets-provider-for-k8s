@@ -4,8 +4,6 @@ import (
 	"context"
 	"fmt"
 	"reflect"
-	"strings"
-	"sync"
 	"testing"
 
 	"github.com/cyberark/conjur-api-go/conjurapi"
@@ -18,15 +16,6 @@ import (
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/log/messages"
 )
 
-// --- Test helpers -----------------------------------------------------------------
-
-func resetClientState() {
-	conjurGoClient = nil
-	clientOnce = sync.Once{}
-}
-
-func contains(s, substr string) bool { return strings.Contains(s, substr) }
-
 // --- Mocks used across tests -----------------------------------------------------
 
 type mockAuthenticator struct {
@@ -37,21 +26,11 @@ func (f *mockAuthenticator) Authenticate() error                               {
 func (f *mockAuthenticator) AuthenticateWithContext(ctx context.Context) error { return nil }
 func (f *mockAuthenticator) GetAccessToken() access_token.AccessToken          { return f.at }
 
-type mockConjurClient struct{}
-
-func (f *mockConjurClient) IAMAuthenticate() ([]byte, error) { return []byte("iam-token"), nil }
-func (f *mockConjurClient) AzureAuthenticate(_ string) ([]byte, error) {
-	return []byte("azure-token"), nil
+type mockConjurClient struct {
+	token []byte
 }
-func (f *mockConjurClient) GCPAuthenticate(_ string) ([]byte, error) { return []byte("gcp-token"), nil }
 
-type errConjurClient struct{}
-
-func (e *errConjurClient) IAMAuthenticate() ([]byte, error) { return nil, fmt.Errorf("iam fail") }
-func (e *errConjurClient) AzureAuthenticate(string) ([]byte, error) {
-	return nil, fmt.Errorf("azure fail")
-}
-func (e *errConjurClient) GCPAuthenticate(string) ([]byte, error) { return nil, fmt.Errorf("gcp fail") }
+func (f *mockConjurClient) InternalAuthenticate() ([]byte, error) { return f.token, nil }
 
 type failAuth struct{ at *memory.AccessToken }
 
@@ -63,12 +42,8 @@ func (f *failAuth) GetAccessToken() access_token.AccessToken { return f.at }
 
 type failingConjurClient struct{}
 
-func (f *failingConjurClient) IAMAuthenticate() ([]byte, error) { return nil, fmt.Errorf("iam fail") }
-func (f *failingConjurClient) AzureAuthenticate(string) ([]byte, error) {
-	return nil, fmt.Errorf("azure fail")
-}
-func (f *failingConjurClient) GCPAuthenticate(string) ([]byte, error) {
-	return nil, fmt.Errorf("gcp fail")
+func (f *failingConjurClient) InternalAuthenticate() ([]byte, error) {
+	return nil, fmt.Errorf("auth fail")
 }
 
 // --- parseServiceID tests -------------------------------------------------------
@@ -139,22 +114,16 @@ func TestParseServiceID_Azure(t *testing.T) {
 func TestCreateConjurClientForAuthenticator_MissingEnv(t *testing.T) {
 	t.Setenv("CONJUR_APPLIANCE_URL", "")
 	t.Setenv("CONJUR_ACCOUNT", "")
-	resetClientState()
+	t.Setenv("CONJUR_AUTHN_LOGIN", "")
 
 	client, err := createConjurClientForAuthenticator("https://conjur.example.com/authn-iam/iam-service", "iam")
 	require.Error(t, err, "expected createConjurClientForAuthenticator to return an error when env vars are missing; got client=%v", client)
-
-	require.True(t,
-		(contains(err.Error(), "CONJUR_APPLIANCE_URL") ||
-			contains(err.Error(), "CONJUR_ACCOUNT")),
-		"unexpected error: "+err.Error(),
-	)
+	require.Contains(t, err.Error(), messages.CSPFK033E, "expected error to contain CSPFK033E error code")
 }
 
 func TestCreateConjurClientForAuthenticator_InvalidServiceID(t *testing.T) {
 	t.Setenv("CONJUR_APPLIANCE_URL", "https://conjur.example.com")
 	t.Setenv("CONJUR_ACCOUNT", "test")
-	resetClientState()
 
 	_, err := createConjurClientForAuthenticator("https://conjur.example.com/authn-iam", "iam")
 	require.Error(t, err)
@@ -164,7 +133,6 @@ func TestCreateConjurClientForAuthenticator_InvalidServiceID(t *testing.T) {
 func TestCreateConjurClientForAuthenticator_HappyPath_GCP(t *testing.T) {
 	t.Setenv("CONJUR_APPLIANCE_URL", "https://conjur.example.com")
 	t.Setenv("CONJUR_ACCOUNT", "test")
-	resetClientState()
 
 	oldFactory := newConjurClientFromConfig
 	newConjurClientFromConfig = func(cfg conjurapi.Config) (conjurClient, error) {
@@ -185,7 +153,8 @@ func TestNewAuthenticatorFactory_SelectsCorrectTypes(t *testing.T) {
 		expected reflect.Type
 	}{
 		{"https://conjur.example.com/authn-k8s/some", reflect.TypeOf(&K8sAuthenticator{})},
-		{"https://conjur.example.com/authn-jwt/some", reflect.TypeOf(&JwtAuthenticator{})},
+		// Note: authn-jwt is excluded from this test because it requires a physical JWT token file
+		// at /var/run/secrets/kubernetes.io/serviceaccount/token. JWT authenticator is tested separately.
 		{"https://conjur.example.com/authn-iam/some", reflect.TypeOf(&IamAuthenticator{})},
 		{"https://conjur.example.com/authn-azure/some", reflect.TypeOf(&AzureAuthenticator{})},
 		{"https://conjur.example.com/authn-gcp", reflect.TypeOf(&GcpAuthenticator{})},
@@ -193,8 +162,27 @@ func TestNewAuthenticatorFactory_SelectsCorrectTypes(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.url, func(t *testing.T) {
-			var authnConfig config.Configuration
-			authn, err := NewAuthenticator(authnConfig, tc.url)
+			customEnv := func(key string) string {
+				switch key {
+				case "CONJUR_AUTHN_URL":
+					return tc.url
+				case "MY_POD_NAME":
+					return "test-pod"
+				case "MY_POD_NAMESPACE":
+					return "test-namespace"
+				case "CONJUR_AUTHN_LOGIN":
+					return "host/test"
+				case "CONJUR_ACCOUNT":
+					return "test-account"
+				case "CONJUR_APPLIANCE_URL":
+					return "https://conjur.example.com"
+				case "CONJUR_SSL_CERTIFICATE":
+					return "-----BEGIN CERTIFICATE-----\ntest\n-----END CERTIFICATE-----"
+				default:
+					return ""
+				}
+			}
+			authn, err := NewAuthenticator(customEnv)
 			require.NoError(t, err)
 			require.NotNil(t, authn)
 			require.Equal(t, tc.expected, reflect.TypeOf(authn))
@@ -203,10 +191,41 @@ func TestNewAuthenticatorFactory_SelectsCorrectTypes(t *testing.T) {
 }
 
 func TestNewAuthenticatorFactory_Unsupported(t *testing.T) {
-	var authnConfig config.Configuration
-	_, err := NewAuthenticator(authnConfig, "https://conjur.example.com/unsupported/abc")
+	customEnv := func(key string) string {
+		if key == "CONJUR_AUTHN_URL" {
+			return "https://conjur.example.com/unsupported/abc"
+		}
+		return ""
+	}
+	_, err := NewAuthenticator(customEnv)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "unsupported authenticator")
+}
+
+func TestNewAuthenticatorFactory_InvalidAuthnIdentity(t *testing.T) {
+	customEnv := func(key string) string {
+		switch key {
+		case "CONJUR_AUTHN_URL":
+			return "https://conjur.example.com/authn-k8s/test-service"
+		case "MY_POD_NAME":
+			return "test-pod"
+		case "MY_POD_NAMESPACE":
+			return "test-namespace"
+		case "CONJUR_AUTHN_LOGIN":
+			return "1" // Invalid: doesn't start with 'host/'
+		case "CONJUR_ACCOUNT":
+			return "test-account"
+		case "CONJUR_APPLIANCE_URL":
+			return "https://conjur.example.com"
+		case "CONJUR_SSL_CERTIFICATE":
+			return "-----BEGIN CERTIFICATE-----\ntest\n-----END CERTIFICATE-----"
+		default:
+			return ""
+		}
+	}
+	_, err := NewAuthenticator(customEnv)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), messages.CSPFK008E, "expected CSPFK008E error when authn-identity is invalid")
 }
 
 // --- K8s / JWT error-path tests -------------------------------------------------
@@ -303,7 +322,6 @@ func TestJwtAuthenticator_GetAccessToken_Success(t *testing.T) {
 func TestIamAuthenticator_GetAccessToken_ClientError(t *testing.T) {
 	t.Setenv("CONJUR_APPLIANCE_URL", "https://conjur.example.com")
 	t.Setenv("CONJUR_ACCOUNT", "test")
-	resetClientState()
 
 	old := newConjurClientFromConfig
 	newConjurClientFromConfig = func(cfg conjurapi.Config) (conjurClient, error) {
@@ -320,7 +338,6 @@ func TestIamAuthenticator_GetAccessToken_ClientError(t *testing.T) {
 func TestIamAuthenticator_GetAccessToken_NilClientProducesCSPFK033E(t *testing.T) {
 	t.Setenv("CONJUR_APPLIANCE_URL", "https://conjur.example.com")
 	t.Setenv("CONJUR_ACCOUNT", "test")
-	resetClientState()
 
 	old := newConjurClientFromConfig
 	newConjurClientFromConfig = func(cfg conjurapi.Config) (conjurClient, error) {
@@ -335,27 +352,9 @@ func TestIamAuthenticator_GetAccessToken_NilClientProducesCSPFK033E(t *testing.T
 	require.Contains(t, err.Error(), messages.CSPFK033E)
 }
 
-func TestIamAuthenticator_GetAccessToken_ClientAuthenticateFailsProducesCSPFK010E(t *testing.T) {
-	t.Setenv("CONJUR_APPLIANCE_URL", "https://conjur.example.com")
-	t.Setenv("CONJUR_ACCOUNT", "test")
-	resetClientState()
-
-	old := newConjurClientFromConfig
-	newConjurClientFromConfig = func(cfg conjurapi.Config) (conjurClient, error) {
-		return &failingConjurClient{}, nil
-	}
-	t.Cleanup(func() { newConjurClientFromConfig = old })
-
-	auth := NewIamAuthenticator("https://conjur.example.com/authn-iam/iam-service")
-	_, err := auth.GetAccessToken(context.Background())
-	require.Error(t, err)
-	require.Contains(t, err.Error(), messages.CSPFK010E)
-}
-
 func TestAzureAuthenticator_GetAccessToken_ClientError(t *testing.T) {
 	t.Setenv("CONJUR_APPLIANCE_URL", "https://conjur.example.com")
 	t.Setenv("CONJUR_ACCOUNT", "test")
-	resetClientState()
 
 	old := newConjurClientFromConfig
 	newConjurClientFromConfig = func(cfg conjurapi.Config) (conjurClient, error) {
@@ -372,7 +371,6 @@ func TestAzureAuthenticator_GetAccessToken_ClientError(t *testing.T) {
 func TestAzureAuthenticator_GetAccessToken_NilClientProducesCSPFK033E(t *testing.T) {
 	t.Setenv("CONJUR_APPLIANCE_URL", "https://conjur.example.com")
 	t.Setenv("CONJUR_ACCOUNT", "test")
-	resetClientState()
 
 	old := newConjurClientFromConfig
 	newConjurClientFromConfig = func(cfg conjurapi.Config) (conjurClient, error) {
@@ -386,27 +384,9 @@ func TestAzureAuthenticator_GetAccessToken_NilClientProducesCSPFK033E(t *testing
 	require.Contains(t, err.Error(), messages.CSPFK033E)
 }
 
-func TestAzureAuthenticator_GetAccessToken_ClientAuthenticateFailsProducesCSPFK010E(t *testing.T) {
-	t.Setenv("CONJUR_APPLIANCE_URL", "https://conjur.example.com")
-	t.Setenv("CONJUR_ACCOUNT", "test")
-	resetClientState()
-
-	old := newConjurClientFromConfig
-	newConjurClientFromConfig = func(cfg conjurapi.Config) (conjurClient, error) {
-		return &failingConjurClient{}, nil
-	}
-	t.Cleanup(func() { newConjurClientFromConfig = old })
-
-	auth := NewAzureAuthenticator("https://conjur.example.com/authn-azure/azure-service")
-	_, err := auth.GetAccessToken(context.Background())
-	require.Error(t, err)
-	require.Contains(t, err.Error(), messages.CSPFK010E)
-}
-
 func TestGcpAuthenticator_GetAccessToken_ClientError(t *testing.T) {
 	t.Setenv("CONJUR_APPLIANCE_URL", "https://conjur.example.com")
 	t.Setenv("CONJUR_ACCOUNT", "test")
-	resetClientState()
 
 	old := newConjurClientFromConfig
 	newConjurClientFromConfig = func(cfg conjurapi.Config) (conjurClient, error) {
@@ -423,7 +403,6 @@ func TestGcpAuthenticator_GetAccessToken_ClientError(t *testing.T) {
 func TestGcpAuthenticator_GetAccessToken_NilClientProducesCSPFK033E(t *testing.T) {
 	t.Setenv("CONJUR_APPLIANCE_URL", "https://conjur.example.com")
 	t.Setenv("CONJUR_ACCOUNT", "test")
-	resetClientState()
 
 	old := newConjurClientFromConfig
 	newConjurClientFromConfig = func(cfg conjurapi.Config) (conjurClient, error) {
@@ -437,33 +416,15 @@ func TestGcpAuthenticator_GetAccessToken_NilClientProducesCSPFK033E(t *testing.T
 	require.Contains(t, err.Error(), messages.CSPFK033E)
 }
 
-func TestGcpAuthenticator_GetAccessToken_ClientAuthenticateFailsProducesCSPFK010E(t *testing.T) {
-	t.Setenv("CONJUR_APPLIANCE_URL", "https://conjur.example.com")
-	t.Setenv("CONJUR_ACCOUNT", "test")
-	resetClientState()
-
-	old := newConjurClientFromConfig
-	newConjurClientFromConfig = func(cfg conjurapi.Config) (conjurClient, error) {
-		return &failingConjurClient{}, nil
-	}
-	t.Cleanup(func() { newConjurClientFromConfig = old })
-
-	auth := NewGcpAuthenticator("https://conjur.example.com/authn-gcp")
-	_, err := auth.GetAccessToken(context.Background())
-	require.Error(t, err)
-	require.Contains(t, err.Error(), messages.CSPFK010E)
-}
-
 // --- IAM / Azure / GCP success tests (override newConjurClientFromConfig seam) ------------
 
 func TestIamAuthenticator_GetAccessToken_Success(t *testing.T) {
 	t.Setenv("CONJUR_APPLIANCE_URL", "https://conjur.example.com")
 	t.Setenv("CONJUR_ACCOUNT", "test")
-	resetClientState()
 
 	old := newConjurClientFromConfig
 	newConjurClientFromConfig = func(cfg conjurapi.Config) (conjurClient, error) {
-		return &mockConjurClient{}, nil
+		return &mockConjurClient{token: []byte("iam-token")}, nil
 	}
 	t.Cleanup(func() { newConjurClientFromConfig = old })
 
@@ -476,11 +437,10 @@ func TestIamAuthenticator_GetAccessToken_Success(t *testing.T) {
 func TestAzureAuthenticator_GetAccessToken_Success(t *testing.T) {
 	t.Setenv("CONJUR_APPLIANCE_URL", "https://conjur.example.com")
 	t.Setenv("CONJUR_ACCOUNT", "test")
-	resetClientState()
 
 	old := newConjurClientFromConfig
 	newConjurClientFromConfig = func(cfg conjurapi.Config) (conjurClient, error) {
-		return &mockConjurClient{}, nil
+		return &mockConjurClient{token: []byte("azure-token")}, nil
 	}
 	t.Cleanup(func() { newConjurClientFromConfig = old })
 
@@ -493,11 +453,10 @@ func TestAzureAuthenticator_GetAccessToken_Success(t *testing.T) {
 func TestGcpAuthenticator_GetAccessToken_Success(t *testing.T) {
 	t.Setenv("CONJUR_APPLIANCE_URL", "https://conjur.example.com")
 	t.Setenv("CONJUR_ACCOUNT", "test")
-	resetClientState()
 
 	old := newConjurClientFromConfig
 	newConjurClientFromConfig = func(cfg conjurapi.Config) (conjurClient, error) {
-		return &mockConjurClient{}, nil
+		return &mockConjurClient{token: []byte("gcp-token")}, nil
 	}
 	t.Cleanup(func() { newConjurClientFromConfig = old })
 

@@ -7,7 +7,6 @@ import (
 	"os"
 	"slices"
 	"strings"
-	"sync"
 
 	"github.com/cyberark/conjur-api-go/conjurapi"
 	"github.com/cyberark/conjur-authn-k8s-client/pkg/access_token/memory"
@@ -23,20 +22,20 @@ type ConjurAuthenticator interface {
 }
 
 type conjurClient interface {
-	IAMAuthenticate() ([]byte, error)
-	AzureAuthenticate(string) ([]byte, error)
-	GCPAuthenticate(string) ([]byte, error)
+	InternalAuthenticate() ([]byte, error)
 }
 
-var conjurGoClient conjurClient
-var clientOnce sync.Once
-
 var newConjurClientFromConfig = func(cfg conjurapi.Config) (conjurClient, error) {
-	c, err := conjurapi.NewClient(cfg)
-	if err != nil {
-		return nil, err
+	switch cfg.AuthnType {
+	case "iam":
+		return conjurapi.NewClientFromAWSCredentials(cfg)
+	case "azure":
+		return conjurapi.NewClientFromAzureCredentials(cfg)
+	case "gcp":
+		return conjurapi.NewClientFromGCPCredentials(cfg, "")
+	default:
+		return conjurapi.NewClient(cfg)
 	}
-	return c, nil
 }
 
 var authnNewWithAccessToken = func(cfg config.Configuration, at *memory.AccessToken) (authenticator.Authenticator, error) {
@@ -45,43 +44,29 @@ var authnNewWithAccessToken = func(cfg config.Configuration, at *memory.AccessTo
 
 // Helper to create the conjur-api-go client for a given authnType for iam, gcp, or azure.
 func createConjurClientForAuthenticator(authnURL, authnType string) (conjurClient, error) {
-	var createErr error = nil
-	clientOnce.Do(func() {
-		applianceURL := os.Getenv("CONJUR_APPLIANCE_URL")
-		account := os.Getenv("CONJUR_ACCOUNT")
-		hostID := os.Getenv("CONJUR_AUTHN_LOGIN")
-		sslCert := os.Getenv("CONJUR_SSL_CERTIFICATE")
-		if applianceURL == "" || account == "" {
-			createErr = fmt.Errorf("CONJUR_APPLIANCE_URL or CONJUR_ACCOUNT environment variable is not set")
-			return
-		}
-		cfg := conjurapi.Config{
-			ApplianceURL:      applianceURL,
-			Account:           account,
-			AuthnType:         authnType,
-			CredentialStorage: conjurapi.CredentialStorageNone,
-			JWTHostID:         hostID,
-			SSLCert:           sslCert,
-		}
-		if authnType == "iam" || authnType == "azure" {
-			serviceID, err := parseServiceID(authnURL, authnType)
-			if err != nil {
-				createErr = err
-				return
-			}
-			cfg.ServiceID = serviceID
-		}
-		client, err := newConjurClientFromConfig(cfg)
-		if err != nil {
-			createErr = fmt.Errorf("%s: %s", messages.CSPFK033E, err.Error())
-			return
-		}
-		conjurGoClient = client
-	})
-	if createErr != nil {
-		return nil, createErr
+	cfg := conjurapi.Config{
+		ApplianceURL:      os.Getenv("CONJUR_APPLIANCE_URL"),
+		Account:           os.Getenv("CONJUR_ACCOUNT"),
+		AuthnType:         authnType,
+		CredentialStorage: conjurapi.CredentialStorageNone,
+		JWTHostID:         os.Getenv("CONJUR_AUTHN_LOGIN"),
+		SSLCert:           os.Getenv("CONJUR_SSL_CERTIFICATE"),
 	}
-	return conjurGoClient, nil
+	if authnType == "iam" || authnType == "azure" {
+		serviceID, err := parseServiceID(authnURL, authnType)
+		if err != nil {
+			return nil, err
+		}
+		cfg.ServiceID = serviceID
+	}
+	client, err := newConjurClientFromConfig(cfg)
+	if err != nil {
+		return nil, fmt.Errorf("%s: %s", messages.CSPFK033E, err.Error())
+	}
+	if client == nil {
+		return nil, nil
+	}
+	return client, nil
 }
 
 func parseServiceID(authnURL, authnType string) (string, error) {
@@ -103,18 +88,28 @@ func parseServiceID(authnURL, authnType string) (string, error) {
 	return pathParts[len(pathParts)-1], nil
 }
 
+// EnvFunc defines a function type for retrieving environment variables or annotations
+type EnvFunc func(string) string
+
 // AuthenticatorFactory defines a function type for creating a ConjurAuthenticator
-// implementation given an authenticator config and authn URL.
-type AuthenticatorFactory func(authnConfig config.Configuration, authnURL string) (ConjurAuthenticator, error)
+// implementation given a customEnv function for reading config.
+type AuthenticatorFactory func(customEnv EnvFunc) (ConjurAuthenticator, error)
 
 // NewAuthenticator is the default authenticator factory that selects the appropriate
 // authenticator based on the CONJUR_AUTHN_URL.
-func NewAuthenticator(authnConfig config.Configuration, authnURL string) (ConjurAuthenticator, error) {
+func NewAuthenticator(customEnv EnvFunc) (ConjurAuthenticator, error) {
+	authnURL := customEnv("CONJUR_AUTHN_URL")
 	log.Debug("Detecting authentication type from URL %q", authnURL)
 	switch {
-	case strings.Contains(authnURL, "authn-k8s"):
-		return NewK8sAuthenticator(authnConfig), nil
-	case strings.Contains(authnURL, "authn-jwt"):
+	case strings.Contains(authnURL, "authn-k8s"), strings.Contains(authnURL, "authn-jwt"):
+		// Load config using conjur-authn-k8s-client for authn-k8s and authn-jwt
+		authnConfig, err := config.NewConfigFromCustomEnv(os.ReadFile, customEnv)
+		if err != nil {
+			return nil, fmt.Errorf("%s: %w", messages.CSPFK008E, err)
+		}
+		if strings.Contains(authnURL, "authn-k8s") {
+			return NewK8sAuthenticator(authnConfig), nil
+		}
 		return NewJwtAuthenticator(authnConfig), nil
 	case strings.Contains(authnURL, "authn-iam"):
 		log.Debug("Using authn-iam")
@@ -214,14 +209,18 @@ func (a *IamAuthenticator) GetAccessToken(ctx context.Context) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+	return readToken(client)
+}
+
+func readToken(client conjurClient) ([]byte, error) {
 	if client == nil {
 		return nil, fmt.Errorf("%s", messages.CSPFK033E)
 	}
-	tok, err := client.IAMAuthenticate()
+	token, err := client.InternalAuthenticate()
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", messages.CSPFK010E, err)
 	}
-	return tok, nil
+	return token, nil
 }
 
 type AzureAuthenticator struct {
@@ -237,14 +236,7 @@ func (a *AzureAuthenticator) GetAccessToken(ctx context.Context) ([]byte, error)
 	if err != nil {
 		return nil, err
 	}
-	if client == nil {
-		return nil, fmt.Errorf("%s", messages.CSPFK033E)
-	}
-	tok, err := client.AzureAuthenticate("")
-	if err != nil {
-		return nil, fmt.Errorf("%s: %w", messages.CSPFK010E, err)
-	}
-	return tok, nil
+	return readToken(client)
 }
 
 type GcpAuthenticator struct {
@@ -260,12 +252,5 @@ func (a *GcpAuthenticator) GetAccessToken(ctx context.Context) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	if client == nil {
-		return nil, fmt.Errorf("%s", messages.CSPFK033E)
-	}
-	tok, err := client.GCPAuthenticate("")
-	if err != nil {
-		return nil, fmt.Errorf("%s: %w", messages.CSPFK010E, err)
-	}
-	return tok, nil
+	return readToken(client)
 }

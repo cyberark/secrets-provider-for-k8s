@@ -133,4 +133,9 @@ cat << EOL
       resource: !webservice
       privilege: [ read, authenticate ]
       role: !layer users
+
+- !grant
+  role: !layer conjur/authn-gcp/users
+  members:
+    - !layer conjur/authn-gcp/apps
 EOL

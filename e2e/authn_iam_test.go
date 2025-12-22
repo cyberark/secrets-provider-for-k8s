@@ -13,6 +13,9 @@ import (
 )
 
 func TestAuthnIAM(t *testing.T) {
+	// TODO: Enable this test when an AWS testing environment is available
+	t.Skip("Skipping authn-iam tests. They can only be run in an AWS environment.")
+
 	f := features.New("authn-iam").
 		Setup(func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
 			t.Setenv("CONJUR_AUTHN_LOGIN", "host/conjur/authn-iam/"+AuthenticatorId()+"/apps/601277729239/InstanceReadJenkinsExecutorHostFactoryToken")

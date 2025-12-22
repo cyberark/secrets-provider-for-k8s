@@ -5,10 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"strings"
 	"time"
 
-	authnConfigProvider "github.com/cyberark/conjur-authn-k8s-client/pkg/authenticator/config"
 	"github.com/cyberark/conjur-authn-k8s-client/pkg/log"
 	"github.com/cyberark/conjur-opentelemetry-tracer/pkg/trace"
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/log/messages"
@@ -73,7 +71,11 @@ func startSecretsProviderWithDeps(
 ) (exitCode int) {
 	exitCode = 0
 
-	log.SetLogLevel("debug")
+	// We will eventually be able to call conjur-authn-k8s-client's SetLogLevel function
+	if logLevel := os.Getenv("LOG_LEVEL"); logLevel != "" {
+		log.SetLogLevel(logLevel)
+	}
+
 	logError := func(errStr string) {
 		log.Error(errStr)
 		exitCode = 1
@@ -165,39 +167,20 @@ func processAnnotations(ctx context.Context, tracer trace.Tracer, annotationsFil
 	return nil
 }
 
-// secretRetriever selects the appropriate authenticator based on the CONJUR_AUTHN_URL,
-// obtains a Conjur access token, and returns a RetrieveSecretsFunc that fetches secrets
-// using that token.
+// secretRetriever creates an authenticator using the factory and returns a
+// RetrieveSecretsFunc that fetches secrets using Conjur access tokens.
 func secretRetriever(
 	ctx context.Context,
 	tracer trace.Tracer,
 	retrieverFactory conjur.RetrieverFactory,
 	authenticatorFactory conjur.AuthenticatorFactory,
 ) (conjur.RetrieveSecretsFunc, error) {
-	// Gather authenticator config
-	_, span := tracer.Start(ctx, "Gather authenticator config")
+	_, span := tracer.Start(ctx, "Create authenticator")
 	defer span.End()
 
-	authnURL := customEnv("CONJUR_AUTHN_URL")
-	log.Debug("AuthnURL: " + authnURL)
-	// If using authn-k8s or authn-jwt, load config using conjur-authn-k8s-client
-	// TODO: This should really be handled inside authenticatorFactory. Entrypoint shouldn't
-	// need to know about different authenticator types. We may need to move customEnv and all
-	// the annotation handling to a separate package and then pass the result of processAnnotations
-	// to the authenticatorFactory.
-	var authnConfig authnConfigProvider.Configuration
-	if strings.Contains(authnURL, "authn-k8s") || strings.Contains(authnURL, "authn-jwt") {
-		var err error
-		authnConfig, err = authnConfigProvider.NewConfigFromCustomEnv(os.ReadFile, customEnv)
-		if err != nil {
-			span.RecordErrorAndSetStatus(err)
-			log.Error(messages.CSPFK008E)
-			return nil, err
-		}
-	}
-
 	// Create authenticator using the factory
-	authenticator, err := authenticatorFactory(authnConfig, authnURL)
+	// The factory internally handles loading config based on authenticator type
+	authenticator, err := authenticatorFactory(customEnv)
 	if err != nil {
 		span.RecordErrorAndSetStatus(err)
 		log.Error(err.Error())

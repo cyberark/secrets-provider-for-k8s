@@ -93,7 +93,7 @@ cat << EOL
       - !host
         id: test-app
         annotations:
-          authn-gcp/project-id: ${GCLOUD_PROJECT_NAME}
+          authn-gcp/project-id: ${GCLOUD_PROJECT_NAME:-}
     
     - !grant
       role: !layer

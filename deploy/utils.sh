@@ -209,9 +209,16 @@ configure_conjur_url() {
 
   export CONJUR_APPLIANCE_URL=$conjur_appliance_url
 
-  authn_type=${CONJUR_AUTHN_TYPE:-k8s}
-  conjur_authenticator_url=$conjur_appliance_url/authn-$authn_type/$AUTHENTICATOR_ID
-  export CONJUR_AUTHN_URL=${CONJUR_AUTHN_URL:-$conjur_authenticator_url}
+  if [ -z "${CONJUR_AUTHN_URL:-}" ]; then
+    authn_type=${CONJUR_AUTHN_TYPE:-k8s}
+    # GCP authenticator doesn't use a service ID
+    if [ "$authn_type" = "gcp" ]; then
+      conjur_authenticator_url=$conjur_appliance_url/authn-$authn_type
+    else
+      conjur_authenticator_url=$conjur_appliance_url/authn-$authn_type/$AUTHENTICATOR_ID
+    fi
+    export CONJUR_AUTHN_URL=$conjur_authenticator_url
+  fi
 }
 
 fetch_ssl_from_conjur() {
