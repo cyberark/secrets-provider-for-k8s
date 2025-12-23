@@ -25,8 +25,8 @@ type secretRetriever struct {
 // RetrieveSecretsFunc defines a function type for retrieving secrets.
 type RetrieveSecretsFunc func(variableIDs []string, traceContext context.Context) (map[string][]byte, error)
 
-// RetrieverFactory defines a function type for creating a RetrieveSecretsFunc.
-// implementation given a ConjurAuthenticator
+// RetrieverFactory defines a function type for creating a RetrieveSecretsFunc
+// given a ConjurAuthenticator
 type RetrieverFactory func(authenticator ConjurAuthenticator) (RetrieveSecretsFunc, error)
 
 // NewSecretRetriever creates a new secret retriever given an authenticator and
@@ -44,6 +44,7 @@ func (retriever secretRetriever) Retrieve(variableIDs []string, traceContext con
 	// Authenticate and get access token
 	accessTokenData, err := retriever.authenticator.GetAccessToken(traceContext)
 	if err != nil {
+		log.Debug(err.Error())
 		return nil, log.RecordedError(messages.CSPFK010E)
 	}
 	defer func() {

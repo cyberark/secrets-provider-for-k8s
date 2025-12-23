@@ -9,7 +9,6 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/cyberark/conjur-authn-k8s-client/pkg/authenticator/config"
 	"github.com/cyberark/conjur-authn-k8s-client/pkg/log"
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/secrets"
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/clients/conjur"
@@ -108,12 +107,13 @@ func TestStartSecretsProvider(t *testing.T) {
 	templatesBasePath := filepath.Join(tmpDir, "templates")
 
 	TestCases := []struct {
-		description      string
-		environment      map[string]string
-		annotations      map[string]string
-		retrieverFactory mockRetrieverFactory
-		providerFactory  mockProviderFactory
-		assertions       func(*testing.T, int, string)
+		description        string
+		environment        map[string]string
+		annotations        map[string]string
+		retrieverFactory   mockRetrieverFactory
+		providerFactory    mockProviderFactory
+		authenticatorError error
+		assertions         func(*testing.T, int, string)
 	}{
 		{
 			description: "happy path",
@@ -206,9 +206,9 @@ func TestStartSecretsProvider(t *testing.T) {
 			},
 		},
 		{
-			description: "authenticator config validation failure",
+			description: "authenticator factory failure",
 			environment: env,
-			annotations: annots.Copy().Edit("conjur.org/authn-identity", "1"),
+			annotations: annots,
 			retrieverFactory: mockRetrieverFactory{
 				retriever: mockRetriever{
 					data: nil,
@@ -222,9 +222,10 @@ func TestStartSecretsProvider(t *testing.T) {
 				},
 				errs: []error{},
 			},
+			authenticatorError: errors.New("authenticator factory failure"),
 			assertions: func(t *testing.T, code int, logs string) {
 				assert.Equal(t, 1, code)
-				assert.Contains(t, logs, "CSPFK008E")
+				assert.Contains(t, logs, "authenticator factory failure")
 			},
 		},
 		{
@@ -276,9 +277,12 @@ func TestStartSecretsProvider(t *testing.T) {
 				}
 				return tc.retrieverFactory.retriever, nil
 			})
-			fakeAuthFactory := conjur.AuthenticatorFactory(func(_ config.Configuration, _ string) (conjur.ConjurAuthenticator, error) {
+			fakeAuthFactory := func(_ conjur.EnvFunc) (conjur.ConjurAuthenticator, error) {
+				if tc.authenticatorError != nil {
+					return nil, tc.authenticatorError
+				}
 				return &fakeAuth{token: []byte("test-token"), err: nil}, nil
-			})
+			}
 
 			exitCode := startSecretsProviderWithDeps(
 				annotationsFilePath,

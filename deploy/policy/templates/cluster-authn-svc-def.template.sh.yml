@@ -67,4 +67,75 @@ cat << EOL
   role: !layer conjur/authn-jwt/${AUTHENTICATOR_ID}/users
   members:
     - !layer conjur/authn-jwt/${AUTHENTICATOR_ID}/apps
+
+- !policy
+  id: conjur/authn-iam/${AUTHENTICATOR_ID}
+  owner: !group cluster_admin
+  annotations:
+    description: Namespace defs for the Conjur IAM authenticator in dev
+  body:
+    - !webservice
+      annotations:
+        description: authn-iam service for cluster
+
+    # define group of whitelisted authn ids permitted to call authn service
+    - !layer users
+
+    - !permit
+      resource: !webservice
+      privilege: [ read, authenticate ]
+      role: !layer users
+
+- !grant
+  role: !layer conjur/authn-iam/${AUTHENTICATOR_ID}/users
+  members:
+    - !layer conjur/authn-iam/${AUTHENTICATOR_ID}/apps
+
+- !policy
+  id: conjur/authn-azure/${AUTHENTICATOR_ID}
+  owner: !group cluster_admin
+  annotations:
+    description: Namespace defs for the Conjur Azure authenticator in dev
+  body:
+    - !webservice
+      annotations:
+        description: authn-azure service for cluster
+
+    - !variable provider-uri
+    
+    # define group of whitelisted authn ids permitted to call authn service
+    - !layer users
+
+    - !permit
+      resource: !webservice
+      privilege: [ read, authenticate ]
+      role: !layer users
+
+- !grant
+  role: !layer conjur/authn-azure/${AUTHENTICATOR_ID}/users
+  members:
+    - !layer conjur/authn-azure/${AUTHENTICATOR_ID}/apps
+
+- !policy
+  id: conjur/authn-gcp
+  owner: !group cluster_admin
+  annotations:
+    description: Namespace defs for the Conjur GCP authenticator in dev
+  body:
+    - !webservice
+      annotations:
+        description: authn-gcp service for cluster
+
+    # define group of whitelisted authn ids permitted to call authn service
+    - !layer users
+
+    - !permit
+      resource: !webservice
+      privilege: [ read, authenticate ]
+      role: !layer users
+
+- !grant
+  role: !layer conjur/authn-gcp/users
+  members:
+    - !layer conjur/authn-gcp/apps
 EOL

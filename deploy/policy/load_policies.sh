@@ -48,4 +48,8 @@ conjur variable set -i "conjur/authn-jwt/$AUTHENTICATOR_ID/issuer" -v "$ISSUER"
 conjur variable set -i "conjur/authn-jwt/$AUTHENTICATOR_ID/ca-cert" -v "$(cat <(echo $CA_CERT_B64 | base64 -d))"
 conjur variable set -i "conjur/authn-jwt/$AUTHENTICATOR_ID/identity-path" -v "conjur/authn-jwt/$AUTHENTICATOR_ID/apps"
 
+
+echo "Adding authn-azure variables"
+conjur variable set -i "conjur/authn-azure/$AUTHENTICATOR_ID/provider-uri" -v "$PROVIDER_URI"
+
 conjur logout

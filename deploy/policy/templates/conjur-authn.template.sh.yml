@@ -48,4 +48,54 @@ cat << EOL
     - !grant
       role: !layer
       members: *jwt_hosts
+
+- !policy
+  id: conjur/authn-iam/${AUTHENTICATOR_ID}/apps
+  annotations:
+    description: Identities permitted to authenticate via authn-iam
+  body:
+    - !layer
+      annotations:
+        description: Layer of authenticator identities permitted to call authn-iam svc
+    - &iam_hosts
+      - !host
+        id: 601277729239/InstanceReadJenkinsExecutorHostFactoryToken
+
+    - !grant
+      role: !layer
+      members: *iam_hosts
+
+- !policy
+  id: conjur/authn-azure/${AUTHENTICATOR_ID}/apps
+  annotations:
+    description: Identities permitted to authenticate via authn-azure
+  body:
+    - !layer
+      annotations:
+        description: Layer of authenticator identities permitted to call authn-azure svc
+    - &azure_hosts
+      - !host
+        id: azureVM
+
+    - !grant
+      role: !layer
+      members: *azure_hosts
+
+- !policy
+  id: conjur/authn-gcp/apps
+  annotations:
+    description: Identities permitted to authenticate via authn-gcp
+  body:
+    - !layer
+      annotations:
+        description: Layer of authenticator identities permitted to call authn-gcp svc
+    - &gcp_hosts
+      - !host
+        id: test-app
+        annotations:
+          authn-gcp/project-id: ${GCLOUD_PROJECT_NAME:-}
+    
+    - !grant
+      role: !layer
+      members: *gcp_hosts
 EOL
