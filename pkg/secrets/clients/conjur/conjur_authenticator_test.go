@@ -153,8 +153,7 @@ func TestNewAuthenticatorFactory_SelectsCorrectTypes(t *testing.T) {
 		expected reflect.Type
 	}{
 		{"https://conjur.example.com/authn-k8s/some", reflect.TypeOf(&K8sAuthenticator{})},
-		// Note: authn-jwt is excluded from this test because it requires a physical JWT token file
-		// at /var/run/secrets/kubernetes.io/serviceaccount/token. JWT authenticator is tested separately.
+		{"https://conjur.example.com/authn-jwt/some", reflect.TypeOf(&JwtAuthenticator{})},
 		{"https://conjur.example.com/authn-iam/some", reflect.TypeOf(&IamAuthenticator{})},
 		{"https://conjur.example.com/authn-azure/some", reflect.TypeOf(&AzureAuthenticator{})},
 		{"https://conjur.example.com/authn-gcp", reflect.TypeOf(&GcpAuthenticator{})},
@@ -178,6 +177,8 @@ func TestNewAuthenticatorFactory_SelectsCorrectTypes(t *testing.T) {
 					return "https://conjur.example.com"
 				case "CONJUR_SSL_CERTIFICATE":
 					return "-----BEGIN CERTIFICATE-----\ntest\n-----END CERTIFICATE-----"
+				case "JWT_TOKEN_PATH":
+					return "/tmp/test"
 				default:
 					return ""
 				}

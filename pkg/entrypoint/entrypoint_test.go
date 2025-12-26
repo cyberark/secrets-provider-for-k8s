@@ -305,3 +305,157 @@ func TestStartSecretsProvider(t *testing.T) {
 		})
 	}
 }
+
+func TestCustomEnv(t *testing.T) {
+	testCases := []struct {
+		description   string
+		annotations   map[string]string
+		environment   map[string]string
+		key           string
+		expectedValue string
+		expectedInLog string
+	}{
+		{
+			description: "returns value from annotation when available",
+			annotations: map[string]string{
+				"conjur.org/authn-identity": "host/my-app",
+			},
+			environment: map[string]string{
+				"CONJUR_AUTHN_LOGIN": "host/from-env",
+			},
+			key:           "CONJUR_AUTHN_LOGIN",
+			expectedValue: "host/my-app",
+			expectedInLog: "annotation conjur.org/authn-identity",
+		},
+		{
+			description: "returns value from environment when annotation not set",
+			annotations: map[string]string{},
+			environment: map[string]string{
+				"CONJUR_AUTHN_LOGIN": "host/from-env",
+			},
+			key:           "CONJUR_AUTHN_LOGIN",
+			expectedValue: "host/from-env",
+			expectedInLog: "environment",
+		},
+		{
+			description:   "returns default for CONTAINER_MODE when neither annotation nor env set",
+			annotations:   map[string]string{},
+			environment:   map[string]string{},
+			key:           "CONTAINER_MODE",
+			expectedValue: "init",
+			expectedInLog: "default",
+		},
+		{
+			description: "returns environment value for non-mapped keys",
+			annotations: map[string]string{},
+			environment: map[string]string{
+				"SOME_OTHER_VAR": "some-value",
+			},
+			key:           "SOME_OTHER_VAR",
+			expectedValue: "some-value",
+			expectedInLog: "",
+		},
+		{
+			description:   "returns empty string for unmapped and unset keys",
+			annotations:   map[string]string{},
+			environment:   map[string]string{},
+			key:           "NONEXISTENT_VAR",
+			expectedValue: "",
+			expectedInLog: "",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.description, func(t *testing.T) {
+			// Capture info logs
+			buf := &bytes.Buffer{}
+			log.InfoLogger.SetOutput(buf)
+
+			// Setup global annotations map
+			annotationsMap = tc.annotations
+
+			defer func() {
+				annotationsMap = nil
+				log.InfoLogger.SetOutput(os.Stdout)
+			}()
+
+			// Setup environment variables
+			for k, v := range tc.environment {
+				t.Setenv(k, v)
+			}
+
+			// Call customEnv
+			result := customEnv(tc.key)
+
+			// Assertions
+			assert.Equal(t, tc.expectedValue, result)
+			if tc.expectedInLog != "" {
+				assert.Contains(t, buf.String(), tc.expectedInLog)
+			}
+		})
+	}
+}
+
+func TestGetContainerMode(t *testing.T) {
+	testCases := []struct {
+		description   string
+		annotations   map[string]string
+		environment   map[string]string
+		expectedValue string
+	}{
+		{
+			description:   "returns default 'init' when neither annotation nor env set",
+			annotations:   map[string]string{},
+			environment:   map[string]string{},
+			expectedValue: "init",
+		},
+		{
+			description: "returns annotation value even if env var is set",
+			annotations: map[string]string{
+				"conjur.org/container-mode": "application",
+			},
+			environment: map[string]string{
+				"CONTAINER_MODE": "sidecar",
+			},
+			expectedValue: "application",
+		},
+		{
+			description: "returns environment value when annotation not set",
+			annotations: map[string]string{},
+			environment: map[string]string{
+				"CONTAINER_MODE": "sidecar",
+			},
+			expectedValue: "sidecar",
+		},
+		{
+			description: "returns default 'init' when env has invalid value",
+			annotations: map[string]string{},
+			environment: map[string]string{
+				"CONTAINER_MODE": "invalid-mode",
+			},
+			expectedValue: "init",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.description, func(t *testing.T) {
+			// Setup global annotations map
+			annotationsMap = tc.annotations
+
+			defer func() {
+				annotationsMap = nil
+			}()
+
+			// Setup environment variables
+			for k, v := range tc.environment {
+				t.Setenv(k, v)
+			}
+
+			// Call getContainerMode
+			result := getContainerMode()
+
+			// Assertions
+			assert.Equal(t, tc.expectedValue, result)
+		})
+	}
+}

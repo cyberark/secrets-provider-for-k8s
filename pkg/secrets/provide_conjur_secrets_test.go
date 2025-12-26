@@ -9,7 +9,10 @@ import (
 	"time"
 
 	logger "github.com/cyberark/conjur-authn-k8s-client/pkg/log"
+	k8sSecretsStorage "github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/k8s_secrets_storage"
+	"github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/pushtofile"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 const (
@@ -341,4 +344,38 @@ func TestRunSecretsProvider(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestNewProviderForType(t *testing.T) {
+	t.Run("Returns error for unknown provider type", func(t *testing.T) {
+		_, err := NewProviderForType(t.Context(), nil, ProviderConfig{
+			CommonProviderConfig: CommonProviderConfig{
+				StoreType: "unknown_type",
+			},
+		})
+		require.NotNil(t, err)
+		assert.Contains(t, err[0].Error(), "CSPFK054E")
+	})
+
+	t.Run("Returns file provider for 'file' type", func(t *testing.T) {
+		provider, err := NewProviderForType(t.Context(), nil, ProviderConfig{
+			CommonProviderConfig: CommonProviderConfig{
+				StoreType: "file",
+			},
+			P2FProviderConfig: pushtofile.P2FProviderConfig{},
+		})
+		require.Nil(t, err)
+		assert.NotNil(t, provider)
+	})
+
+	t.Run("Returns k8s provider for 'k8s_secrets' type", func(t *testing.T) {
+		provider, err := NewProviderForType(t.Context(), nil, ProviderConfig{
+			CommonProviderConfig: CommonProviderConfig{
+				StoreType: "k8s_secrets",
+			},
+			K8sProviderConfig: k8sSecretsStorage.K8sProviderConfig{},
+		})
+		require.Nil(t, err)
+		assert.NotNil(t, provider)
+	})
 }
