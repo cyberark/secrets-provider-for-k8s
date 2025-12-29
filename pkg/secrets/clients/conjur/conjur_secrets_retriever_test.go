@@ -109,3 +109,20 @@ func TestRetrieveConjurSecretsAllWithNoSecrets(t *testing.T) {
 	assert.Contains(t, err.Error(), "no variables to retrieve")
 	assert.Len(t, secrets, 0)
 }
+
+func TestNormalizeVariableId(t *testing.T) {
+	testCases := []struct {
+		input    string
+		expected string
+	}{
+		{"account:variable:my-variable", "my-variable"},
+		{"variable:my-variable", "variable:my-variable"},
+		{"my-variable", "my-variable"},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.input, func(t *testing.T) {
+			result := normaliseVariableId(tc.input)
+			assert.Equal(t, tc.expected, result)
+		})
+	}
+}

@@ -11,9 +11,6 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
-	"sigs.k8s.io/e2e-framework/klient/k8s"
-	"sigs.k8s.io/e2e-framework/klient/wait"
-	"sigs.k8s.io/e2e-framework/klient/wait/conditions"
 	"sigs.k8s.io/e2e-framework/pkg/envconf"
 	"sigs.k8s.io/e2e-framework/pkg/features"
 )
@@ -49,14 +46,8 @@ func TestHelmJobDeploysSuccessfully(t *testing.T) {
 				assert.Nil(t, err)
 			}
 
-			// wait for test app pod to be ready
-			pod, err := FetchPodWithLabelSelector(cfg.Client(), SecretsProviderNamespace(), SPLabelSelector)
-			if err == nil {
-				err = wait.For(conditions.New(cfg.Client().Resources()).PodReady(k8s.Object(&pod)), wait.WithTimeout(60*time.Second))
-				assert.Nil(t, err)
-			}
-
 			// wait for secret value to be available in pod
+			// This implicitly waits for the pod to be ready and working
 			err = WaitForSecretValue(cfg.Client(), SPLabelSelector, TestAppContainer, "TEST_SECRET", "supersecret", 60*time.Second)
 			assert.Nil(t, err)
 
@@ -213,7 +204,24 @@ func TestMultipleHelmJobsSameSecret(t *testing.T) {
 			// deploy test app to test against
 			err = DeployTestAppWithHelm(cfg.Client(), "")
 			assert.Nil(t, err)
+			// wait for first secrets provider job to complete
+			job1, err := GetJob(cfg.Client(), "secrets-provider")
+			if err == nil {
+				err = WaitJobCompleted(cfg.Client(), job1)
+				assert.Nil(t, err)
+			}
 
+			// wait for second secrets provider job to complete
+			job2, err := GetJob(cfg.Client(), "another-secrets-provider")
+			if err == nil {
+				err = WaitJobCompleted(cfg.Client(), job2)
+				assert.Nil(t, err)
+			}
+
+			// wait for secret value to be available in pod
+			// This implicitly waits for the pod to be ready and working
+			err = WaitForSecretValue(cfg.Client(), SPLabelSelector, TestAppContainer, "TEST_SECRET", "supersecret", 60*time.Second)
+			assert.Nil(t, err)
 			return ctx
 		}).
 		// Replaces TEST_ID_19_helm_multiple_provider_same_secret
