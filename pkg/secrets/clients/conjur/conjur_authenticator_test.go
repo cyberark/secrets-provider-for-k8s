@@ -369,22 +369,6 @@ func TestAzureAuthenticator_GetAccessToken_ClientError(t *testing.T) {
 	require.Contains(t, err.Error(), messages.CSPFK033E)
 }
 
-func TestAzureAuthenticator_GetAccessToken_NilClientProducesCSPFK033E(t *testing.T) {
-	t.Setenv("CONJUR_APPLIANCE_URL", "https://conjur.example.com")
-	t.Setenv("CONJUR_ACCOUNT", "test")
-
-	old := newConjurClientFromConfig
-	newConjurClientFromConfig = func(cfg conjurapi.Config) (conjurClient, error) {
-		return nil, nil
-	}
-	t.Cleanup(func() { newConjurClientFromConfig = old })
-
-	auth := NewAzureAuthenticator("https://conjur.example.com/authn-azure/azure-service")
-	_, err := auth.GetAccessToken(context.Background())
-	require.Error(t, err)
-	require.Contains(t, err.Error(), messages.CSPFK033E)
-}
-
 func TestGcpAuthenticator_GetAccessToken_ClientError(t *testing.T) {
 	t.Setenv("CONJUR_APPLIANCE_URL", "https://conjur.example.com")
 	t.Setenv("CONJUR_ACCOUNT", "test")

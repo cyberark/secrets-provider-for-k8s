@@ -47,10 +47,10 @@ func createConjurClientForAuthenticator(authnURL, authnType string) (conjurClien
 	cfg := conjurapi.Config{
 		ApplianceURL:      os.Getenv("CONJUR_APPLIANCE_URL"),
 		Account:           os.Getenv("CONJUR_ACCOUNT"),
-		AuthnType:         authnType,
-		CredentialStorage: conjurapi.CredentialStorageNone,
 		JWTHostID:         os.Getenv("CONJUR_AUTHN_LOGIN"),
 		SSLCert:           os.Getenv("CONJUR_SSL_CERTIFICATE"),
+		AuthnType:         authnType,
+		CredentialStorage: conjurapi.CredentialStorageNone,
 	}
 	if authnType == "iam" || authnType == "azure" {
 		serviceID, err := parseServiceID(authnURL, authnType)
@@ -62,9 +62,6 @@ func createConjurClientForAuthenticator(authnURL, authnType string) (conjurClien
 	client, err := newConjurClientFromConfig(cfg)
 	if err != nil {
 		return nil, fmt.Errorf("%s: %s", messages.CSPFK033E, err.Error())
-	}
-	if client == nil {
-		return nil, nil
 	}
 	return client, nil
 }
@@ -213,9 +210,6 @@ func (a *IamAuthenticator) GetAccessToken(ctx context.Context) ([]byte, error) {
 }
 
 func readToken(client conjurClient) ([]byte, error) {
-	if client == nil {
-		return nil, fmt.Errorf("%s", messages.CSPFK033E)
-	}
 	token, err := client.InternalAuthenticate()
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", messages.CSPFK010E, err)
