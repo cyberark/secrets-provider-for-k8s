@@ -21,6 +21,8 @@ else
     $cli_with_timeout "new-project $APP_NAMESPACE_NAME"
   fi
 
+  set_namespace_exp $APP_NAMESPACE_NAME
+
   set_namespace $APP_NAMESPACE_NAME
 fi
 

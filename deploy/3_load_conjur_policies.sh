@@ -28,6 +28,7 @@ if [[ "${DEPLOY_MASTER_CLUSTER}" == "true" ]]; then
   announce "Loading Conjur policy."
 
   set_namespace "$CONJUR_NAMESPACE_NAME"
+  set_namespace_exp "$CONJUR_NAMESPACE_NAME"
   conjur_cli_pod=$(get_conjur_cli_pod_name)
   $cli_with_timeout "exec $conjur_cli_pod -- rm -rf /tmp/policy"
   $cli_with_timeout "cp ./policy $conjur_cli_pod:/tmp/policy"

@@ -40,10 +40,10 @@ github.com/cenkalti/backoff v2.2.1+incompatible h1:tNowT99t7UNflLxfYYSlKYsBpXdEe
 github.com/cenkalti/backoff v2.2.1+incompatible/go.mod h1:90ReRw6GdpyfrHakVjL/QHaoyV4aDUVVkXQJJJ3NXXM=
 github.com/cespare/xxhash/v2 v2.3.0 h1:UL815xU9SqsFlibzuggzjXhog7bL6oX9BbNZnL2UFvs=
 github.com/cespare/xxhash/v2 v2.3.0/go.mod h1:VGX0DQ3Q6kWi7AoAeZDth3/j3BFtOZR5XLFGgcrjCOs=
-github.com/cyberark/conjur-api-go v0.13.13 h1:5hsDrzY68Dme6mkYqA1USq4IMcfbJ6WADbaRBcCbai4=
-github.com/cyberark/conjur-api-go v0.13.13/go.mod h1:BQmiYeA8hJmGSduF+wgfXY4Ktdky30+cevXm+tzr63k=
-github.com/cyberark/conjur-authn-k8s-client v0.26.10 h1:qud6yfFT5lqJSO4mFS3V/BbqRhngGchESAl2npugPa4=
-github.com/cyberark/conjur-authn-k8s-client v0.26.10/go.mod h1:+aQ3s04gjnE1St2dUvB4lTqJW2RaeRzKM/jlDsCpKLw=
+github.com/cyberark/conjur-api-go v0.13.14 h1:wZzlxqJdV4CMZhwc6sCp13k5Eet9SucFmYivtBRpMrM=
+github.com/cyberark/conjur-api-go v0.13.14/go.mod h1:BQmiYeA8hJmGSduF+wgfXY4Ktdky30+cevXm+tzr63k=
+github.com/cyberark/conjur-authn-k8s-client v0.26.11 h1:IXH0HfIgsqXrJVcjh+TfJNm2dFufMJswPU7wAqpDo18=
+github.com/cyberark/conjur-authn-k8s-client v0.26.11/go.mod h1:iN+C2mvFS3xDDYlc4g45Q0eI6czxEj95Bv/7rvFojyw=
 github.com/cyberark/conjur-opentelemetry-tracer v0.0.5 h1:EkqQoP0UGehN1v6FIxYMuIpFWjx5ZCBvKdt8mAEfHOY=
 github.com/cyberark/conjur-opentelemetry-tracer v0.0.5/go.mod h1:HL6GtlT7BEVC/FCiWlj6NyVfFgu3Bsfi514xbcVphUc=
 github.com/danieljoos/wincred v1.2.2 h1:774zMFJrqaeYCK2W57BgAem/MLi6mtSE47MB6BOJ0i0=
