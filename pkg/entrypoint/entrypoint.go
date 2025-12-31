@@ -7,6 +7,7 @@ import (
 	"os"
 	"time"
 
+	authnConfig "github.com/cyberark/conjur-authn-k8s-client/pkg/authenticator/config"
 	"github.com/cyberark/conjur-authn-k8s-client/pkg/log"
 	"github.com/cyberark/conjur-opentelemetry-tracer/pkg/trace"
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/log/messages"
@@ -70,11 +71,7 @@ func startSecretsProviderWithDeps(
 	statusUpdaterFactory secrets.StatusUpdaterFactory,
 ) (exitCode int) {
 	exitCode = 0
-
-	// We will eventually be able to call conjur-authn-k8s-client's SetLogLevel function
-	if logLevel := os.Getenv("LOG_LEVEL"); logLevel != "" {
-		log.SetLogLevel(logLevel)
-	}
+	authnConfig.SetLogLevel(customEnv)
 
 	logError := func(errStr string) {
 		log.Error(errStr)
