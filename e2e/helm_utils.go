@@ -56,6 +56,13 @@ func ConjurAuthnUrl() string {
 
 func GetImagePath() string {
 	image_path := SecretsProviderNamespace()
+
+	// KinD runs load images directly into the cluster (no registry push/pull).
+	// Avoid relying on DOCKER_REGISTRY_* env vars in that mode.
+	if strings.ToLower(os.Getenv("TEST_PLATFORM")) == "kind" {
+		return image_path
+	}
+
 	if os.Getenv("PLATFORM") == "openshift" && os.Getenv("DEV") == "false" {
 		image_path = fmt.Sprintf("%s/%s", os.Getenv("PULL_DOCKER_REGISTRY_PATH"), os.Getenv("APP_NAMESPACE_NAME"))
 	} else if os.Getenv("PLATFORM") == "kubernetes" && os.Getenv("DEV") == "false" {

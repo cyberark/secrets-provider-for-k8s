@@ -13,8 +13,15 @@ import (
 )
 
 func TestAuthnIAM(t *testing.T) {
-	// TODO: Enable this test when an AWS testing environment is available
-	t.Skip("Skipping authn-iam tests. They can only be run in an AWS environment.")
+	if testing.Short() {
+		t.Skip("Skipping authn-iam tests in short mode")
+	}
+
+	// Default behavior remains skipped unless explicitly enabled in CI.
+	// Enable by setting E2E_AUTHN_IAM=true.
+	if v := getenvDefault("E2E_AUTHN_IAM", "false"); v != "true" {
+		t.Skip("Skipping authn-iam tests (set E2E_AUTHN_IAM=true to enable)")
+	}
 
 	f := features.New("authn-iam").
 		Setup(func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {

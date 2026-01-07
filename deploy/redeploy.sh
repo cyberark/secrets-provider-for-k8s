@@ -14,7 +14,7 @@ set_config_directory_path
 
 ../deploy/teardown_resources.sh
 
-if [ "${DEV}" = "false" ]; then
+if [[ "${DEV}" = "false" && "${KIND}" != "true" ]]; then
   announce "Creating image pull secret."
   if [[ "${PLATFORM}" == "kubernetes" ]]; then
    $cli_with_timeout delete --ignore-not-found secret $IMAGE_PULL_SECRET

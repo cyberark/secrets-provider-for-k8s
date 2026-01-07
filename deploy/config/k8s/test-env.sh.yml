@@ -12,6 +12,32 @@ K8S_SECRETS_KEY_VALUE=${K8S_SECRETS_KEY_VALUE:-"K8S_SECRETS test-k8s-secret,test
 CONJUR_AUTHN_LOGIN=${CONJUR_AUTHN_LOGIN:-"host/conjur/authn-k8s/${AUTHENTICATOR_ID}/apps/${APP_NAMESPACE_NAME}/*/*"}
 LABELED_SECRETS=${LABELED_SECRETS:-"false"}
 
+# Enable hostNetwork for cloud authentication in KIND to access host IMDS
+# Both AWS IAM and Azure Managed Identity use IMDS at 169.254.169.254
+if [[ "${KIND:-false}" = "true" ]] && [[ "${E2E_AUTHN_IAM:-false}" = "true" || "${E2E_AUTHN_AZURE:-false}" = "true" ]]; then
+  HOST_NETWORK_CONFIG="hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet
+      "
+else
+  HOST_NETWORK_CONFIG=""
+fi
+
+# Build the image name, handling empty PULL_DOCKER_REGISTRY_PATH for KIND
+if [[ -n "${PULL_DOCKER_REGISTRY_PATH:-}" ]]; then
+  SECRETS_PROVIDER_IMAGE="${PULL_DOCKER_REGISTRY_PATH}/${APP_NAMESPACE_NAME}/secrets-provider:latest"
+  DEBIAN_IMAGE="${PULL_DOCKER_REGISTRY_PATH}/${APP_NAMESPACE_NAME}/debian:latest"
+else
+  SECRETS_PROVIDER_IMAGE="${APP_NAMESPACE_NAME}/secrets-provider:latest"
+  DEBIAN_IMAGE="debian:latest"  # For KIND, use standard debian from Docker Hub
+fi
+
+# Set imagePullPolicy based on environment
+if [[ "${KIND:-false}" = "true" ]]; then
+  IMAGE_PULL_POLICY="IfNotPresent"
+else
+  IMAGE_PULL_POLICY="Always"
+fi
+
 cat << EOL
 ---
 apiVersion: apps/v1
@@ -31,8 +57,8 @@ spec:
         app: test-env
     spec:
       serviceAccountName: ${APP_NAMESPACE_NAME}-sa
-      containers:
-      - image: '${PULL_DOCKER_REGISTRY_PATH}/${APP_NAMESPACE_NAME}/debian:latest'
+      ${HOST_NETWORK_CONFIG}containers:
+      - image: '${DEBIAN_IMAGE}'
         name: test-app
         command: ["sleep"]
         args: ["infinity"]
@@ -88,8 +114,8 @@ spec:
                 name: test-k8s-secret-fetch-all-base64
                 key: secrets.encoded
       initContainers:
-      - image: '${PULL_DOCKER_REGISTRY_PATH}/${APP_NAMESPACE_NAME}/secrets-provider:latest'
-        imagePullPolicy: Always
+      - image: '${SECRETS_PROVIDER_IMAGE}'
+        imagePullPolicy: ${IMAGE_PULL_POLICY}
         name: cyberark-secrets-provider-for-k8s
         env:
           - name: MY_POD_NAME
