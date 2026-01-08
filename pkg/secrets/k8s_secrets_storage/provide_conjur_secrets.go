@@ -159,6 +159,12 @@ func (p *K8sProvider) Provide() (bool, error) {
 		return false, p.log.recordedError(messages.CSPFK021E)
 	}
 
+	// In label-based mode with no secrets discovered, return gracefully
+	if len(p.requiredK8sSecrets) == 0 {
+		p.log.warn(messages.CSPFK070E)
+		return false, nil
+	}
+
 	// Retrieve Conjur secrets for all K8s Secrets.
 	var updated bool
 	retrievedConjurSecrets, err := p.retrieveConjurSecrets(tr)
@@ -219,14 +225,20 @@ func (p *K8sProvider) retrieveRequiredK8sSecrets(tracer trace.Tracer) error {
 	spanCtx, span := tracer.Start(p.traceContext, "Gather required K8s Secrets")
 	defer span.End()
 
-	for _, k8sSecretName := range p.requiredK8sSecrets {
-		_, childSpan := tracer.Start(spanCtx, "Retrieve K8s Secret")
-		defer childSpan.End()
-		if err := p.retrieveRequiredK8sSecret(k8sSecretName); err != nil {
-			childSpan.RecordErrorAndSetStatus(err)
-			span.RecordErrorAndSetStatus(err)
-			return err
+	if len(p.requiredK8sSecrets) > 0 {
+		// Default behavior - pre-configured secrets
+		for _, k8sSecretName := range p.requiredK8sSecrets {
+			_, childSpan := tracer.Start(spanCtx, "Retrieve K8s Secret")
+			defer childSpan.End()
+			if err := p.retrieveRequiredK8sSecret(k8sSecretName); err != nil {
+				childSpan.RecordErrorAndSetStatus(err)
+				span.RecordErrorAndSetStatus(err)
+				return err
+			}
 		}
+	} else {
+		// TODO: Check for labeled secrets
+		return nil
 	}
 	return nil
 }

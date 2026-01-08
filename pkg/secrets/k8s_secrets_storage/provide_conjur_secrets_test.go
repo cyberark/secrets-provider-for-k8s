@@ -142,6 +142,13 @@ func assertErrorLogged(msg string, args ...interface{}) assertFunc {
 	}
 }
 
+func assertNoErrorLogged() assertFunc {
+	return func(t *testing.T, mocks testMocks, updated bool, err error, desc string) {
+		// Check that no errors were logged by seeing if ErrorWasLogged returns false for any common error
+		assert.False(t, mocks.logger.ErrorWasLogged(""), desc+": should have no error logs")
+	}
+}
+
 func assertLogged(expected bool, logLevel string, msg string, args ...interface{}) assertFunc {
 	return func(t *testing.T, mocks testMocks, updated bool, err error, desc string) {
 		logStr := fmt.Sprintf(msg, args...)
@@ -814,6 +821,18 @@ func TestProvide(t *testing.T) {
 				assertErrorContains(fmt.Sprintf(messages.CSPFK034E, "no variables to retrieve"), false),
 			},
 		},
+		{
+			desc:            "Label-based mode with no pre-configured secrets returns gracefully",
+			k8sSecrets:      k8sStorageMocks.K8sSecrets{},
+			requiredSecrets: []string{},
+			asserts: []assertFunc{
+				assertNoErrorLogged(),
+				func(t *testing.T, mocks testMocks, updated bool, err error, desc string) {
+					assert.NoError(t, err, desc+": should not error")
+					assert.False(t, updated, desc+": should not have updates")
+				},
+			},
+		},
 	}
 
 	for _, tc := range testCases {
@@ -1170,28 +1189,28 @@ func TestProvideSanitization(t *testing.T) {
 }
 
 func TestBase64PKCS12SecretPreservesTrailingNull(t *testing.T) {
-    original := []byte{0xde, 0xad, 0xbe, 0xef, 0x00}
-    encoded := make([]byte, base64.StdEncoding.EncodedLen(len(original)))
-    base64.StdEncoding.Encode(encoded, original)
+	original := []byte{0xde, 0xad, 0xbe, 0xef, 0x00}
+	encoded := make([]byte, base64.StdEncoding.EncodedLen(len(original)))
+	base64.StdEncoding.Encode(encoded, original)
 
-    provider := K8sProvider{
-        secretsState: k8sSecretsState{
-            updateDestinations: map[string][]updateDestination{
-                "pkcs12var": {{
-                    k8sSecretName: "pkcs12secret",
-                    secretName:    "pkcs12file",
-                    contentType:   "base64",
-                }},
-            },
-        },
-    }
+	provider := K8sProvider{
+		secretsState: k8sSecretsState{
+			updateDestinations: map[string][]updateDestination{
+				"pkcs12var": {{
+					k8sSecretName: "pkcs12secret",
+					secretName:    "pkcs12file",
+					contentType:   "base64",
+				}},
+			},
+		},
+	}
 
-    conjurSecrets := map[string][]byte{
-        "pkcs12var": encoded,
-    }
+	conjurSecrets := map[string][]byte{
+		"pkcs12var": encoded,
+	}
 
-    secretData := provider.createSecretData(conjurSecrets)
-    got := secretData["pkcs12secret"]["pkcs12file"]
+	secretData := provider.createSecretData(conjurSecrets)
+	got := secretData["pkcs12secret"]["pkcs12file"]
 
-    assert.Equal(t, original, got, "decoded PKCS#12 secret should match original including trailing null bytes")
+	assert.Equal(t, original, got, "decoded PKCS#12 secret should match original including trailing null bytes")
 }
