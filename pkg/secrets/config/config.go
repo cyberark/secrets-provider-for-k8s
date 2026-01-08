@@ -198,7 +198,8 @@ func ValidateSecretsProviderSettings(envAndAnnots map[string]string) ([]error, [
 	annotK8sSecretsStr := envAndAnnots[k8sSecretsKey]
 	if storeType == "k8s_secrets" {
 		if envK8sSecretsStr == "" && annotK8sSecretsStr == "" {
-			errorList = append(errorList, errors.New(messages.CSPFK048E))
+			// This is no longer considered an error, but rather a signal to use the label-based K8s Secrets mode
+			infoList = append(infoList, fmt.Errorf(messages.CSPFK024I))
 		} else if envK8sSecretsStr != "" && annotK8sSecretsStr != "" {
 			infoList = append(infoList, fmt.Errorf(messages.CSPFK012I, "RequiredK8sSecrets", "K8S_SECRETS", k8sSecretsKey))
 		}
@@ -245,7 +246,10 @@ func NewConfig(settings map[string]string) *Config {
 		} else {
 			k8sSecretsStr = settings["K8S_SECRETS"]
 			k8sSecretsStr = strings.ReplaceAll(k8sSecretsStr, " ", "")
-			k8sSecretsArr = strings.Split(k8sSecretsStr, ",")
+			// Only split if the string is not empty to avoid creating a slice with one empty element
+			if k8sSecretsStr != "" {
+				k8sSecretsArr = strings.Split(k8sSecretsStr, ",")
+			}
 		}
 	}
 

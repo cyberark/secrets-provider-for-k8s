@@ -96,3 +96,6 @@ const CSPFK068E string = "CSPFK068E Retrieved secrets did not include secret '%s
 
 // URL Parsing
 const CSPFK069E string = "CSPFK069E Invalid URL format: %s"
+
+// Label-based mode
+const CSPFK070E string = "CSPFK070E No labeled secrets were discovered"
