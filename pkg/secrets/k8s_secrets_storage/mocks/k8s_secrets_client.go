@@ -5,6 +5,7 @@ import (
 
 	"gopkg.in/yaml.v3"
 	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // K8sSecrets represents a collection of Kubernetes Secrets to be populated
@@ -79,6 +80,9 @@ func (c *KubeSecretsClient) RetrieveSecret(_ string, secretName string) (*v1.Sec
 	}
 
 	return &v1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: secretName,
+		},
 		Data: secretData,
 	}, nil
 }
@@ -100,6 +104,28 @@ func (c *KubeSecretsClient) UpdateSecret(
 	}
 
 	return nil
+}
+
+// ListSecrets retrieves a Kubernetes Secrets list from the mock Kubernetes
+// Secrets client's database.
+func (c *KubeSecretsClient) ListSecrets(_ string) (*v1.SecretList, error) {
+
+	if c.ErrOnRetrieve != nil {
+		return nil, c.ErrOnRetrieve
+	}
+
+	secretList := &v1.SecretList{}
+	// Return all secret objects from the mock K8s DB
+	for secretName, secretData := range c.database {
+		secretList.Items = append(secretList.Items, v1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: secretName,
+			},
+			Data: secretData,
+		})
+	}
+
+	return secretList, nil
 }
 
 // InspectSecret provides a way for unit tests to view the 'Data' field

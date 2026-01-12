@@ -3,6 +3,8 @@ package k8s
 import (
 	"context"
 
+	"github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/config"
+
 	"github.com/cyberark/conjur-authn-k8s-client/pkg/log"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -14,6 +16,7 @@ import (
 
 type RetrieveK8sSecretFunc func(namespace string, secretName string) (*v1.Secret, error)
 type UpdateK8sSecretFunc func(namespace string, secretName string, originalK8sSecret *v1.Secret, stringDataEntriesMap map[string][]byte) error
+type ListLabeledK8sSecretsFunc func(namespace string) (*v1.SecretList, error)
 
 func RetrieveK8sSecret(namespace string, secretName string) (*v1.Secret, error) {
 	// get K8s client object
@@ -49,6 +52,18 @@ func UpdateK8sSecret(namespace string, secretName string, originalK8sSecret *v1.
 	}
 
 	return nil
+}
+
+func ListLabeledK8sSecrets(namespace string) (*v1.SecretList, error) {
+	kubeClient, _ := configK8sClient()
+	log.Info(messages.CSPFK025I, namespace)
+	secretList, err := kubeClient.CoreV1().Secrets(namespace).List(context.TODO(), metav1.ListOptions{LabelSelector: config.ManagedByProviderKey + "=true"})
+	if err != nil {
+		log.Debug(messages.CSPFK011D, err.Error())
+		return nil, log.RecordedError(messages.CSPFK024E)
+	}
+
+	return secretList, nil
 }
 
 func configK8sClient() (*kubernetes.Clientset, error) {

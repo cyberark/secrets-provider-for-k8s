@@ -44,8 +44,9 @@ type k8sSecretsState struct {
 }
 
 type k8sAccessDeps struct {
-	retrieveSecret k8sClient.RetrieveK8sSecretFunc
-	updateSecret   k8sClient.UpdateK8sSecretFunc
+	retrieveSecret     k8sClient.RetrieveK8sSecretFunc
+	updateSecret       k8sClient.UpdateK8sSecretFunc
+	listLabeledSecrets k8sClient.ListLabeledK8sSecretsFunc
 }
 
 type conjurAccessDeps struct {
@@ -108,6 +109,7 @@ func NewProvider(
 			k8s: k8sAccessDeps{
 				k8sClient.RetrieveK8sSecret,
 				k8sClient.UpdateK8sSecret,
+				k8sClient.ListLabeledK8sSecrets,
 			},
 			conjur: conjurAccessDeps{
 				retrieveConjurSecrets,
@@ -159,8 +161,9 @@ func (p *K8sProvider) Provide() (bool, error) {
 		return false, p.log.recordedError(messages.CSPFK021E)
 	}
 
-	// In label-based mode with no secrets discovered, return gracefully
-	if len(p.requiredK8sSecrets) == 0 {
+	// In label-based mode with no updateable secrets discovered, return gracefully
+	// so we can continue monitorying for new/updated K8s Secrets.
+	if len(p.secretsState.updateDestinations) == 0 {
 		p.log.warn(messages.CSPFK070E)
 		return false, nil
 	}
@@ -225,38 +228,55 @@ func (p *K8sProvider) retrieveRequiredK8sSecrets(tracer trace.Tracer) error {
 	spanCtx, span := tracer.Start(p.traceContext, "Gather required K8s Secrets")
 	defer span.End()
 
+	// If strict list of secrets is provided from config, process them.
+	// Otherwise, try to retrieve and process all labeled secrets.
 	if len(p.requiredK8sSecrets) > 0 {
-		// Default behavior - pre-configured secrets
 		for _, k8sSecretName := range p.requiredK8sSecrets {
 			_, childSpan := tracer.Start(spanCtx, "Retrieve K8s Secret")
 			defer childSpan.End()
-			if err := p.retrieveRequiredK8sSecret(k8sSecretName); err != nil {
+			k8sSecret, err := p.k8s.retrieveSecret(p.podNamespace, k8sSecretName)
+			if err != nil {
+				childSpan.RecordErrorAndSetStatus(err)
+				span.RecordErrorAndSetStatus(err)
+				return p.log.recordedError(messages.CSPFK020E)
+			}
+			if err := p.retrieveRequiredK8sSecret(k8sSecret); err != nil {
 				childSpan.RecordErrorAndSetStatus(err)
 				span.RecordErrorAndSetStatus(err)
 				return err
 			}
 		}
 	} else {
-		// TODO: Check for labeled secrets
-		return nil
+		_, childSpan := tracer.Start(spanCtx, "List Labeled K8s Secrets")
+		defer childSpan.End()
+		k8sSecrets, err := p.k8s.listLabeledSecrets(p.podNamespace)
+		if err != nil {
+			childSpan.RecordErrorAndSetStatus(err)
+			span.RecordErrorAndSetStatus(err)
+			return p.log.recordedError(messages.CSPFK024E)
+		}
+
+		if k8sSecrets.Items != nil {
+			for _, k8sSecret := range k8sSecrets.Items {
+				_, childSpan := tracer.Start(spanCtx, "Process K8s Secret")
+				defer childSpan.End()
+				if err := p.retrieveRequiredK8sSecret(&k8sSecret); err != nil {
+					childSpan.RecordErrorAndSetStatus(err)
+					span.RecordErrorAndSetStatus(err)
+					return err
+				}
+			}
+		}
 	}
 	return nil
 }
 
 // retrieveRequiredK8sSecret retrieves an individual K8s Secrets that needs
 // to be managed/updated by the Secrets Provider.
-func (p *K8sProvider) retrieveRequiredK8sSecret(k8sSecretName string) error {
-
-	// Retrieve the K8s Secret
-	k8sSecret, err := p.k8s.retrieveSecret(p.podNamespace, k8sSecretName)
-	if err != nil {
-		// Error messages returned from K8s should be printed only in debug mode
-		p.log.debug(messages.CSPFK004D, err.Error())
-		return p.log.recordedError(messages.CSPFK020E)
-	}
+func (p *K8sProvider) retrieveRequiredK8sSecret(k8sSecret *v1.Secret) error {
 
 	// Record the K8s Secret API object
-	p.secretsState.originalK8sSecrets[k8sSecretName] = k8sSecret
+	p.secretsState.originalK8sSecrets[k8sSecret.Name] = k8sSecret
 
 	// Read the value of the "conjur-map" entry in the K8s Secret's Data
 	// field, if it exists. If the entry does not exist or has a null
@@ -264,18 +284,18 @@ func (p *K8sProvider) retrieveRequiredK8sSecret(k8sSecretName string) error {
 	conjurMapKey := config.ConjurMapKey
 	conjurSecretsYAML, entryExists := k8sSecret.Data[conjurMapKey]
 	if !entryExists {
-		p.log.debug(messages.CSPFK008D, k8sSecretName, conjurMapKey)
-		return p.log.recordedError(messages.CSPFK028E, k8sSecretName)
+		p.log.debug(messages.CSPFK008D, k8sSecret.Name, conjurMapKey)
+		return p.log.recordedError(messages.CSPFK028E, k8sSecret.Name)
 	}
 	if len(conjurSecretsYAML) == 0 {
-		p.log.debug(messages.CSPFK006D, k8sSecretName, conjurMapKey)
-		return p.log.recordedError(messages.CSPFK028E, k8sSecretName)
+		p.log.debug(messages.CSPFK006D, k8sSecret.Name, conjurMapKey)
+		return p.log.recordedError(messages.CSPFK028E, k8sSecret.Name)
 	}
 
 	// Parse the YAML-formatted Conjur secrets mapping that has been
 	// retrieved from this K8s Secret.
-	p.log.debug(messages.CSPFK009D, conjurMapKey, k8sSecretName)
-	return p.parseConjurSecretsYAML(conjurSecretsYAML, k8sSecretName)
+	p.log.debug(messages.CSPFK009D, conjurMapKey, k8sSecret.Name)
+	return p.parseConjurSecretsYAML(conjurSecretsYAML, k8sSecret.Name)
 }
 
 // parseConjurSecretsYAML parses the YAML-formatted Conjur secrets mapping

@@ -341,3 +341,139 @@ func TestK8sSecretsRotation(t *testing.T) {
 
 	testenv.Test(t, f.Feature())
 }
+
+func TestLabeledK8sSecretsRotation(t *testing.T) {
+	f := features.New("k8s secrets rotation").
+		Setup(func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
+			// set secrets mode to K8s Rotation
+			t.Setenv("SECRETS_MODE", "k8s-rotation")
+			t.Setenv("LABELED_SECRETS", "true")
+
+			// reload testing environment with K8s Rotation template
+			err := ReloadWithTemplate(cfg.Client(), K8sRotationTemplate)
+			assert.Nil(t, err)
+
+			// delete any initial 'generated' and 'policy' directories
+			err = DeleteTestingDirectories(cfg.Client())
+			assert.Nil(t, err)
+
+			// create temporary 'generated' and 'policy' directories for testing
+			err = CreateTestingDirectories(cfg.Client())
+			assert.Nil(t, err)
+
+			return ctx
+		}).
+		// Replaces TEST_ID_29_k8s_secrets_rotation
+		Assess("k8s rotation", func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
+			// // verify initial secret values
+			var stdout, stderr bytes.Buffer
+			command := []string{"printenv", "|", "grep", "TEST_SECRET"}
+			RunCommandInSecretsProviderPod(cfg.Client(), SPLabelSelector, TestAppContainer, command, &stdout, &stderr)
+			assert.Contains(t, stdout.String(), "supersecret")
+			ClearBuffer(&stdout, &stderr)
+
+			command = []string{"printenv", "|", "grep", "VARIABLE_WITH_BASE64_SECRET"}
+			RunCommandInSecretsProviderPod(cfg.Client(), SPLabelSelector, TestAppContainer, command, &stdout, &stderr)
+			assert.Contains(t, stdout.String(), "secret-value")
+			ClearBuffer(&stdout, &stderr)
+
+			command = []string{"printenv", "|", "grep", "FETCH_ALL_TEST_SECRET"}
+			RunCommandInSecretsProviderPod(cfg.Client(), SPLabelSelector, TestAppContainer, command, &stdout, &stderr)
+			assert.Contains(t, stdout.String(), "supersecret")
+			ClearBuffer(&stdout, &stderr)
+
+			command = []string{"printenv", "|", "grep", "FETCH_ALL_BASE64"}
+			RunCommandInSecretsProviderPod(cfg.Client(), SPLabelSelector, TestAppContainer, command, &stdout, &stderr)
+			assert.Contains(t, stdout.String(), "secret-value")
+			ClearBuffer(&stdout, &stderr)
+
+			// change conjur secrets
+			err := SetConjurSecret(cfg.Client(), "secrets/test_secret", "secret2")
+			assert.Nil(t, err)
+
+			encodedStr := base64.StdEncoding.EncodeToString([]byte("secret-value2"))
+			err = SetConjurSecret(cfg.Client(), "secrets/encoded", encodedStr)
+			assert.Nil(t, err)
+
+			// wait for K8s secrets to be rotated
+			err = WaitForSecretValue(cfg.Client(), SPLabelSelector, TestAppContainer, "TEST_SECRET", "secret2", 90*time.Second)
+			assert.Nil(t, err)
+
+			// verify new secret values
+			command = []string{"printenv", "|", "grep", "TEST_SECRET"}
+			RunCommandInSecretsProviderPod(cfg.Client(), SPLabelSelector, TestAppContainer, command, &stdout, &stderr)
+			assert.Contains(t, stdout.String(), "secret2")
+			ClearBuffer(&stdout, &stderr)
+
+			command = []string{"printenv", "|", "grep", "VARIABLE_WITH_BASE64_SECRET"}
+			RunCommandInSecretsProviderPod(cfg.Client(), SPLabelSelector, TestAppContainer, command, &stdout, &stderr)
+			assert.Contains(t, stdout.String(), "secret-value2")
+			ClearBuffer(&stdout, &stderr)
+
+			// verify new secret values
+			command = []string{"printenv", "|", "grep", "FETCH_ALL_TEST_SECRET"}
+			RunCommandInSecretsProviderPod(cfg.Client(), SPLabelSelector, TestAppContainer, command, &stdout, &stderr)
+			assert.Contains(t, stdout.String(), "secret2")
+			ClearBuffer(&stdout, &stderr)
+
+			command = []string{"printenv", "|", "grep", "FETCH_ALL_BASE64"}
+			RunCommandInSecretsProviderPod(cfg.Client(), SPLabelSelector, TestAppContainer, command, &stdout, &stderr)
+			assert.Contains(t, stdout.String(), "secret-value2")
+			ClearBuffer(&stdout, &stderr)
+
+			// delete a secret from conjur
+			err = DeleteTestSecret(cfg.Client())
+			require.Nil(t, err)
+
+			// wait for secret to be removed from K8s after deletion
+			// Poll until the environment variable is empty
+			waitCtx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+			defer cancel()
+			ticker := time.NewTicker(2 * time.Second)
+			defer ticker.Stop()
+			secretDeleted := false
+			for !secretDeleted {
+				select {
+				case <-waitCtx.Done():
+					t.Logf("Warning: timeout waiting for TEST_SECRET to be removed")
+					secretDeleted = true
+				case <-ticker.C:
+					var checkStdout, checkStderr bytes.Buffer
+					checkCmd := []string{"printenv", "|", "grep", "TEST_SECRET"}
+					RunCommandInSecretsProviderPod(cfg.Client(), SPLabelSelector, TestAppContainer, checkCmd, &checkStdout, &checkStderr)
+					if strings.TrimSpace(checkStdout.String()) == "" {
+						secretDeleted = true
+					}
+				}
+			}
+
+			command = []string{"printenv", "|", "grep", "TEST_SECRET"}
+			RunCommandInSecretsProviderPod(cfg.Client(), SPLabelSelector, TestAppContainer, command, &stdout, &stderr)
+			assert.Empty(t, strings.TrimSpace(stdout.String()))
+			ClearBuffer(&stdout, &stderr)
+
+			command = []string{"printenv", "|", "grep", "FETCH_ALL_TEST_SECRET"}
+			RunCommandInSecretsProviderPod(cfg.Client(), SPLabelSelector, TestAppContainer, command, &stdout, &stderr)
+			assert.Empty(t, strings.TrimSpace(stdout.String()))
+			ClearBuffer(&stdout, &stderr)
+
+			command = []string{"printenv", "|", "grep", "FETCH_ALL_BASE64"}
+			RunCommandInSecretsProviderPod(cfg.Client(), SPLabelSelector, TestAppContainer, command, &stdout, &stderr)
+			assert.Contains(t, stdout.String(), "secret-value2") // This one should still be there
+
+			return ctx
+		}).
+		Teardown(func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
+			// reset conjur secrets
+			err := RestoreTestSecret(cfg.Client())
+			assert.Nil(t, err)
+
+			encodedStr := base64.StdEncoding.EncodeToString([]byte("secret-value"))
+			err = SetConjurSecret(cfg.Client(), "secrets/encoded", encodedStr)
+			assert.Nil(t, err)
+
+			return ctx
+		})
+
+	testenv.Test(t, f.Feature())
+}

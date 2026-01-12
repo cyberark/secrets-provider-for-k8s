@@ -39,6 +39,7 @@ const CSPFK020E string = "CSPFK020E Failed to retrieve Kubernetes Secret"
 const CSPFK021E string = "CSPFK021E Failed to retrieve Kubernetes Secrets"
 const CSPFK022E string = "CSPFK022E Failed to update Kubernetes Secret"
 const CSPFK023E string = "CSPFK023E Failed to update Kubernetes Secrets"
+const CSPFK024E string = "CSPFK024E Failed to list labeled Kubernetes Secrets"
 const CSPFK025E string = "CSPFK025E PathMap cannot be empty"
 const CSPFK027E string = "CSPFK027E Failed to update Kubernetes Secrets map with DAP/Conjur secrets"
 const CSPFK028E string = "CSPFK028E Unable to update Kubernetes Secret '%s'"
@@ -67,7 +68,6 @@ const CSPFK045E string = "CSPFK045E Annotation file line %d is malformed: expect
 
 const CSPFK046E string = "CSPFK046E Secret Store Type needs to be configured, either with 'SECRETS_DESTINATION' environment variable or 'conjur.org/secrets-destination' Pod annotation"
 const CSPFK047E string = "CSPFK047E Secrets Provider in Push-to-File mode can only be configured with Pod annotations"
-const CSPFK048E string = "CSPFK048E Secrets Provider in K8s Secrets mode requires either the 'K8S_SECRETS' environment variable or 'conjur.org/k8s-secrets' Pod annotation"
 const CSPFK049E string = "CSPFK049E Failed to validate Pod annotations"
 const CSPFK050E string = "CSPFK050E Invalid secrets refresh interval annotation: %s %s"
 const CSPFK051E string = "CSPFK051E Invalid secrets refresh configuration: %s %s"
@@ -98,4 +98,4 @@ const CSPFK068E string = "CSPFK068E Retrieved secrets did not include secret '%s
 const CSPFK069E string = "CSPFK069E Invalid URL format: %s"
 
 // Label-based mode
-const CSPFK070E string = "CSPFK070E No labeled secrets were discovered"
+const CSPFK070E string = "CSPFK070E No updateable labeled secrets were discovered"

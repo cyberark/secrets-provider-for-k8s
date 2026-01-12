@@ -96,8 +96,8 @@ Run `kubectl config use-context docker-desktop` to switch to a local context. Th
 
 1. Run `./bin/start --dev`, appending `--oss` or `--dap` according to the environment that needs to be deployed
 
-1. To view the pod(s) that were deployed and the Secrets Provider logs, run `kubectl get pods` and `kubectl logs <pod-name> -c cyberark-secrets-provider-for-k8s` respectively.
-You can also view Secrets Manager, Self-Hosted / Conjur Open Source pod logs by running `kubectl get pods -n local-conjur` and `kubectl logs <conjur-pod-name> -n local-conjur`
+1. To view the pod(s) that were deployed and the Secrets Provider logs, run `kubectl get pods` and `kubectl logs -l app=test-env -c cyberark-secrets-provider-for-k8s --tail=100` respectively.
+You can also view Secrets Manager, Self-Hosted / Conjur Open Source pod logs by running `kubectl get pods -n local-conjur` and `kubectl logs -l app=conjur-oss -n local-conjur -c conjur --tail=100`
 
 1. If a cluster is already locally deployed run `./bin/start --dev --reload` to build your local changes and redeploy them to the local Secrets Provider K8s cluster
 

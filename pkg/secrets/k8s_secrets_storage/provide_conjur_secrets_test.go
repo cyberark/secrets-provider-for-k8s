@@ -65,6 +65,7 @@ func (m testMocks) newProvider(requiredSecrets []string) K8sProvider {
 			k8s: k8sAccessDeps{
 				m.kubeClient.RetrieveSecret,
 				m.kubeClient.UpdateSecret,
+				m.kubeClient.ListSecrets,
 			},
 			conjur: conjurAccessDeps{
 				m.conjurClient.RetrieveSecrets,
@@ -235,6 +236,42 @@ func TestProvide(t *testing.T) {
 					expectedMissingValues{
 						"k8s-secret1": {"secret-value3", "secret-value4"},
 						"k8s-secret2": {"secret-value1", "secret-value2"},
+					},
+					false,
+				),
+			},
+		},
+		{
+			desc: "Happy path without requiredSecrets configured, 2 existing k8s Secrets with 2 existing Conjur secrets",
+			k8sSecrets: k8sStorageMocks.K8sSecrets{
+				"k8s-labeled-secret1": {
+					"conjur-map": {
+						"secret1": "conjur/var/path1",
+						"secret2": "conjur/var/path2",
+					},
+				},
+				"k8s-labeled-secret2": {
+					"conjur-map": {
+						"secret3": "conjur/var/path3",
+						"secret4": "conjur/var/path4",
+					},
+				},
+			},
+			asserts: []assertFunc{
+				assertSecretsUpdated(
+					expectedK8sSecrets{
+						"k8s-labeled-secret1": {
+							"secret1": "secret-value1",
+							"secret2": "secret-value2",
+						},
+						"k8s-labeled-secret2": {
+							"secret3": "secret-value3",
+							"secret4": "secret-value4",
+						},
+					},
+					expectedMissingValues{
+						"k8s-labeled-secret1": {"secret-value3", "secret-value4"},
+						"k8s-labeled-secret2": {"secret-value1", "secret-value2"},
 					},
 					false,
 				),
@@ -529,6 +566,46 @@ func TestProvide(t *testing.T) {
 			denyK8sRetrieve: true,
 			asserts: []assertFunc{
 				assertErrorLogged(messages.CSPFK020E),
+				assertErrorContains(messages.CSPFK021E, false),
+			},
+		},
+		{
+			desc: "List access to labeled K8s Secrets is not permitted (label-based mode)",
+			k8sSecrets: k8sStorageMocks.K8sSecrets{
+				"k8s-labeled-secret1": {
+					"conjur-map": {"secret1": "conjur/var/path1"},
+				},
+			},
+			requiredSecrets: []string{}, // Empty list triggers label-based mode
+			denyK8sRetrieve: true,
+			asserts: []assertFunc{
+				assertErrorLogged(messages.CSPFK024E),
+				assertErrorContains(messages.CSPFK021E, false),
+			},
+		},
+		{
+			desc: "Labeled K8s secret has no 'conjur-map' entry (label-based mode)",
+			k8sSecrets: k8sStorageMocks.K8sSecrets{
+				"k8s-labeled-secret1": {
+					"foobar": {"foo": "bar"},
+				},
+			},
+			requiredSecrets: []string{}, // Empty list triggers label-based mode
+			asserts: []assertFunc{
+				assertErrorLogged(messages.CSPFK028E, "k8s-labeled-secret1"),
+				assertErrorContains(messages.CSPFK021E, false),
+			},
+		},
+		{
+			desc: "Labeled K8s secret has an empty 'conjur-map' entry (label-based mode)",
+			k8sSecrets: k8sStorageMocks.K8sSecrets{
+				"k8s-labeled-secret1": {
+					"conjur-map": {},
+				},
+			},
+			requiredSecrets: []string{}, // Empty list triggers label-based mode
+			asserts: []assertFunc{
+				assertErrorLogged(messages.CSPFK028E, "k8s-labeled-secret1"),
 				assertErrorContains(messages.CSPFK021E, false),
 			},
 		},

@@ -116,6 +116,13 @@ Some notes about the different configuration methods:
 1. If you are using the Secrets Provider in Kubernetes Secrets mode, it
    is recommended that you use environment variable settings to configure
    the Secrets Provider.
+1. Beginning with v1.8.0, when running in Kubernetes Secrets mode the Secrets
+   Provider can detect which secrets it should manage by checking for the label
+   `conjur.org/managed-by-secrets-provider: true` on the Kubernetes secret in the
+   same namespace. If the label exists with the expected value, the Secrets Provider
+   will automatically manage the K8s secret. Note: this only applies when the
+   `K8S_SECRETS` environment variable AND the `conjur.org/k8s-secrets` annotation
+   are not set.
 
 ## Enabling Tracing
 
