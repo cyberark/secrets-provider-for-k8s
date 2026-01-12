@@ -32,3 +32,4 @@ const CSPFK021I string = "CSPFK021I Error fetching Conjur secrets, clearing Kube
 const CSPFK022I string = "CSPFK022I Storing secret with base64 content-type '%s' in destination '%s'"
 const CSPFK023I string = "CSPFK023I Retrieving all available secrets from Conjur"
 const CSPFK024I string = "CSPFK024I Secrets Provider set to retrieve Kubernetes secrets by label"
+const CSPFK025I string = "CSPFK025I Retrieving labeled Kubernetes secrets from namespace '%s'"

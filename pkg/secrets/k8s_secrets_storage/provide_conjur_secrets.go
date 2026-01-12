@@ -44,9 +44,9 @@ type k8sSecretsState struct {
 }
 
 type k8sAccessDeps struct {
-	retrieveSecret k8sClient.RetrieveK8sSecretFunc
-	updateSecret   k8sClient.UpdateK8sSecretFunc
-	listSecret     k8sClient.RetrieveK8sSecretListFunc
+	retrieveSecret     k8sClient.RetrieveK8sSecretFunc
+	updateSecret       k8sClient.UpdateK8sSecretFunc
+	listLabeledSecrets k8sClient.ListLabeledK8sSecretsFunc
 }
 
 type conjurAccessDeps struct {
@@ -109,7 +109,7 @@ func NewProvider(
 			k8s: k8sAccessDeps{
 				k8sClient.RetrieveK8sSecret,
 				k8sClient.UpdateK8sSecret,
-				k8sClient.RetrieveK8sSecretList,
+				k8sClient.ListLabeledK8sSecrets,
 			},
 			conjur: conjurAccessDeps{
 				retrieveConjurSecrets,
@@ -161,8 +161,9 @@ func (p *K8sProvider) Provide() (bool, error) {
 		return false, p.log.recordedError(messages.CSPFK021E)
 	}
 
-	// In label-based mode with no secrets discovered, return gracefully
-	if len(p.requiredK8sSecrets) == 0 {
+	// In label-based mode with no updateable secrets discovered, return gracefully
+	// so we can continue monitorying for new/updated K8s Secrets.
+	if len(p.secretsState.updateDestinations) == 0 {
 		p.log.warn(messages.CSPFK070E)
 		return false, nil
 	}
@@ -227,16 +228,16 @@ func (p *K8sProvider) retrieveRequiredK8sSecrets(tracer trace.Tracer) error {
 	spanCtx, span := tracer.Start(p.traceContext, "Gather required K8s Secrets")
 	defer span.End()
 
-	// If strict list of secrets is provided from config, processed them.
-	// Otherwise, try to retrieve and processed all labeled secrets.
+	// If strict list of secrets is provided from config, process them.
+	// Otherwise, try to retrieve and process all labeled secrets.
 	if len(p.requiredK8sSecrets) > 0 {
 		for _, k8sSecretName := range p.requiredK8sSecrets {
 			_, childSpan := tracer.Start(spanCtx, "Retrieve K8s Secret")
 			defer childSpan.End()
 			k8sSecret, err := p.k8s.retrieveSecret(p.podNamespace, k8sSecretName)
 			if err != nil {
-				// Error messages returned from K8s should be printed only in debug mode
-				p.log.debug(messages.CSPFK004D, err.Error())
+				childSpan.RecordErrorAndSetStatus(err)
+				span.RecordErrorAndSetStatus(err)
 				return p.log.recordedError(messages.CSPFK020E)
 			}
 			if err := p.retrieveRequiredK8sSecret(k8sSecret); err != nil {
@@ -246,10 +247,13 @@ func (p *K8sProvider) retrieveRequiredK8sSecrets(tracer trace.Tracer) error {
 			}
 		}
 	} else {
-		k8sSecrets, err := p.k8s.listSecret(p.podNamespace)
+		_, childSpan := tracer.Start(spanCtx, "List Labeled K8s Secrets")
+		defer childSpan.End()
+		k8sSecrets, err := p.k8s.listLabeledSecrets(p.podNamespace)
 		if err != nil {
-			p.log.logError(err.Error())
-			return p.log.recordedError("CSPFK020E Failed to retrieve Kubernetes Secrets from %s namespace", p.podNamespace)
+			childSpan.RecordErrorAndSetStatus(err)
+			span.RecordErrorAndSetStatus(err)
+			return p.log.recordedError(messages.CSPFK024E)
 		}
 
 		if k8sSecrets.Items != nil {
@@ -262,8 +266,6 @@ func (p *K8sProvider) retrieveRequiredK8sSecrets(tracer trace.Tracer) error {
 					return err
 				}
 			}
-		} else {
-			p.log.info("No secrets to retrieve")
 		}
 	}
 	return nil

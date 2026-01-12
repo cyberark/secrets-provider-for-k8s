@@ -39,6 +39,7 @@ const CSPFK020E string = "CSPFK020E Failed to retrieve Kubernetes Secret"
 const CSPFK021E string = "CSPFK021E Failed to retrieve Kubernetes Secrets"
 const CSPFK022E string = "CSPFK022E Failed to update Kubernetes Secret"
 const CSPFK023E string = "CSPFK023E Failed to update Kubernetes Secrets"
+const CSPFK024E string = "CSPFK024E Failed to list labeled Kubernetes Secrets"
 const CSPFK025E string = "CSPFK025E PathMap cannot be empty"
 const CSPFK027E string = "CSPFK027E Failed to update Kubernetes Secrets map with DAP/Conjur secrets"
 const CSPFK028E string = "CSPFK028E Unable to update Kubernetes Secret '%s'"
@@ -97,4 +98,4 @@ const CSPFK068E string = "CSPFK068E Retrieved secrets did not include secret '%s
 const CSPFK069E string = "CSPFK069E Invalid URL format: %s"
 
 // Label-based mode
-const CSPFK070E string = "CSPFK070E No labeled secrets were discovered"
+const CSPFK070E string = "CSPFK070E No updateable labeled secrets were discovered"

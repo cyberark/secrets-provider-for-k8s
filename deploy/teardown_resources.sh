@@ -43,6 +43,10 @@ $cli_with_timeout "delete secret test-k8s-secret-fetch-all-base64 --ignore-not-f
 
 $cli_with_timeout "delete secret another-test-k8s-secret --ignore-not-found=true"
 
+$cli_with_timeout "delete secret non-labeled-k8s-secret --ignore-not-found=true"
+
+$cli_with_timeout "delete secret false-labeled-k8s-secret --ignore-not-found=true"
+
 $cli_with_timeout "delete serviceaccount ${APP_NAMESPACE_NAME}-sa --ignore-not-found=true"
 
 $cli_with_timeout "delete serviceaccount another-secrets-provider-service-account --ignore-not-found=true"

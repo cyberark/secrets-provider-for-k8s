@@ -2,6 +2,7 @@ package mocks
 
 import (
 	"errors"
+
 	"gopkg.in/yaml.v3"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -105,9 +106,9 @@ func (c *KubeSecretsClient) UpdateSecret(
 	return nil
 }
 
-// RetrieveSecretList retrieves a Kubernetes Secrets list from the mock Kubernetes
+// ListSecrets retrieves a Kubernetes Secrets list from the mock Kubernetes
 // Secrets client's database.
-func (c *KubeSecretsClient) RetrieveSecretList(_ string) (*v1.SecretList, error) {
+func (c *KubeSecretsClient) ListSecrets(_ string) (*v1.SecretList, error) {
 
 	if c.ErrOnRetrieve != nil {
 		return nil, c.ErrOnRetrieve
