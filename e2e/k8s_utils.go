@@ -28,7 +28,7 @@ import (
 
 func ReloadWithTemplate(client klient.Client, template string) error {
 	fmt.Println("Reloading test environment with template " + template)
-	os.Setenv("TEMPLATE", template)
+	os.Setenv("TEMPLATE_OVERRIDE", template)
 	cmd := exec.Command("../deploy/redeploy.sh")
 	cmd.Env = os.Environ()
 	out, err := cmd.CombinedOutput()

@@ -31,7 +31,6 @@ spec:
           - test-k8s-secret-fetch-all
           - test-k8s-secret-fetch-all-base64
         conjur.org/log-level: "debug"
-        conjur.org/remove-deleted-secrets-enabled: "true"
     spec:
       serviceAccountName: ${APP_NAMESPACE_NAME}-sa
       containers:

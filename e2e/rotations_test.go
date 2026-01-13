@@ -15,6 +15,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/e2e-framework/pkg/envconf"
 	"sigs.k8s.io/e2e-framework/pkg/features"
 )
@@ -343,11 +345,12 @@ func TestK8sSecretsRotation(t *testing.T) {
 }
 
 func TestLabeledK8sSecretsRotation(t *testing.T) {
-	f := features.New("k8s secrets rotation").
+	f := features.New("timer-based k8s secrets rotation with labeled secrets").
 		Setup(func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
 			// set secrets mode to K8s Rotation
 			t.Setenv("SECRETS_MODE", "k8s-rotation")
 			t.Setenv("LABELED_SECRETS", "true")
+			t.Setenv("SECRETS_REFRESH_INTERVAL", "5s")
 
 			// reload testing environment with K8s Rotation template
 			err := ReloadWithTemplate(cfg.Client(), K8sRotationTemplate)
@@ -363,9 +366,8 @@ func TestLabeledK8sSecretsRotation(t *testing.T) {
 
 			return ctx
 		}).
-		// Replaces TEST_ID_29_k8s_secrets_rotation
-		Assess("k8s rotation", func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
-			// // verify initial secret values
+		Assess("k8s rotation with labeled secrets", func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
+			// verify initial secret values
 			var stdout, stderr bytes.Buffer
 			command := []string{"printenv", "|", "grep", "TEST_SECRET"}
 			RunCommandInSecretsProviderPod(cfg.Client(), SPLabelSelector, TestAppContainer, command, &stdout, &stderr)
@@ -470,6 +472,108 @@ func TestLabeledK8sSecretsRotation(t *testing.T) {
 
 			encodedStr := base64.StdEncoding.EncodeToString([]byte("secret-value"))
 			err = SetConjurSecret(cfg.Client(), "secrets/encoded", encodedStr)
+			assert.Nil(t, err)
+
+			return ctx
+		})
+
+	testenv.Test(t, f.Feature())
+}
+
+func TestLabeledK8sSecretsRotationViaInformer(t *testing.T) {
+	f := features.New("informer-based k8s secrets rotation with labeled secrets").
+		Setup(func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
+			// set secrets mode to K8s Rotation
+			t.Setenv("SECRETS_MODE", "k8s-rotation")
+			t.Setenv("LABELED_SECRETS", "true")
+			// Set a long interval so we can test informer-triggered updates
+			t.Setenv("SECRETS_REFRESH_INTERVAL", "999m")
+
+			// reload testing environment with K8s Rotation template
+			err := ReloadWithTemplate(cfg.Client(), K8sRotationTemplate)
+			assert.Nil(t, err)
+
+			// delete any initial 'generated' and 'policy' directories
+			err = DeleteTestingDirectories(cfg.Client())
+			assert.Nil(t, err)
+
+			// create temporary 'generated' and 'policy' directories for testing
+			err = CreateTestingDirectories(cfg.Client())
+			assert.Nil(t, err)
+
+			return ctx
+		}).
+		Assess("new labeled secret is processed", func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
+			// Create a new K8s secret with the proper label and conjur-map
+			secret := corev1.Secret{
+				TypeMeta: metav1.TypeMeta{
+					APIVersion: "v1",
+					Kind:       "Secret",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "new-labeled-k8s-secret",
+					Namespace: SecretsProviderNamespace(),
+					Labels: map[string]string{
+						"conjur.org/managed-by-provider": "true",
+					},
+				},
+				StringData: map[string]string{
+					"conjur-map": "NEW_SECRET: secrets/another_test_secret",
+				},
+				Type: "Opaque",
+			}
+			err := cfg.Client().Resources(SecretsProviderNamespace()).Create(context.TODO(), &secret)
+			require.Nil(t, err, "Failed to create new labeled K8s secret")
+
+			// Account for variation in event processing time by adding a small delay
+			time.Sleep(3 * time.Second)
+
+			// Verify the secret was updated in Kubernetes (check the actual secret data)
+			var updatedSecret corev1.Secret
+			err = cfg.Client().Resources(SecretsProviderNamespace()).Get(context.TODO(), "new-labeled-k8s-secret", SecretsProviderNamespace(), &updatedSecret)
+			require.Nil(t, err, "Failed to retrieve updated secret")
+			assert.NotNil(t, updatedSecret.Data["NEW_SECRET"], "Secret should have NEW_SECRET key in Data")
+			assert.Equal(t, "some-secret", string(updatedSecret.Data["NEW_SECRET"]), "Secret value should match Conjur value")
+
+			return ctx
+		}).
+		Assess("updated labeled secret is processed", func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
+			secret := corev1.Secret{
+				TypeMeta: metav1.TypeMeta{
+					APIVersion: "v1",
+					Kind:       "Secret",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "new-labeled-k8s-secret",
+					Namespace: SecretsProviderNamespace(),
+					Labels: map[string]string{
+						"conjur.org/managed-by-provider": "true",
+					},
+				},
+				StringData: map[string]string{
+					"conjur-map": "UPDATED_SECRET: secrets/password",
+				},
+				Type: "Opaque",
+			}
+			err := cfg.Client().Resources(SecretsProviderNamespace()).Update(context.TODO(), &secret)
+			require.Nil(t, err, "Failed to update labeled K8s secret")
+
+			// Account for variation in event processing time by adding a small delay
+			time.Sleep(3 * time.Second)
+
+			// Verify the secret was updated in Kubernetes (check the actual secret data)
+			var updatedSecret corev1.Secret
+			err = cfg.Client().Resources(SecretsProviderNamespace()).Get(context.TODO(), "new-labeled-k8s-secret", SecretsProviderNamespace(), &updatedSecret)
+			require.Nil(t, err, "Failed to retrieve updated secret")
+			assert.Nil(t, updatedSecret.Data["NEW_SECRET"], "Secret should not have NEW_SECRET key in Data")
+
+			assert.NotNil(t, updatedSecret.Data["UPDATED_SECRET"], "Secret should have UPDATED_SECRET key in Data")
+			assert.Equal(t, "7H1SiSmYp@5Sw0rd", string(updatedSecret.Data["UPDATED_SECRET"]), "Secret value should match Conjur value")
+
+			return ctx
+		}).
+		Teardown(func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
+			err := DeleteSecret(cfg.Client(), "new-labeled-k8s-secret")
 			assert.Nil(t, err)
 
 			return ctx

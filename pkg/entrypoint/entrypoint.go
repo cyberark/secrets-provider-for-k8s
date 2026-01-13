@@ -15,6 +15,7 @@ import (
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/annotations"
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/clients/conjur"
 	secretsConfigProvider "github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/config"
+	k8sinformer "github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/k8s_informer"
 	k8sSecretsStorage "github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/k8s_secrets_storage"
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/pushtofile"
 	"go.opentelemetry.io/otel/attribute"
@@ -121,6 +122,36 @@ func startSecretsProviderWithDeps(
 		provideSecrets,
 	)
 
+	// Create channel for informer events only when using labeled secrets mode
+	var informerEventsChan chan k8sinformer.SecretEvent
+
+	// Start the K8s Secret informer ONLY when the following conditions are met:
+	// - Container mode is sidecar
+	// - Store type is k8s_secrets
+	// - There are no pre-configured secrets on the SP container config (using labeled secrets)
+	if getContainerMode() == "sidecar" &&
+		secretsConfig.StoreType == "k8s_secrets" &&
+		len(secretsConfig.RequiredK8sSecrets) == 0 {
+		// Create channel for informer events
+		informerEventsChan = make(chan k8sinformer.SecretEvent, 10)
+
+		k8sClientset, err := k8sinformer.NewInClusterK8sClient()
+		if err != nil {
+			log.Warn(messages.CSPFK071E, err)
+		} else {
+			notifier := k8sinformer.NewChannelNotifier(informerEventsChan)
+			informer := k8sinformer.NewSecretInformer(k8sClientset, secretsConfig.PodNamespace, notifier)
+
+			// Log an error and continue running the Secrets Provider even if the informer fails to start since it
+			// will refresh secrets on each time-based interval assuming we rebuild the list on each run in this mode
+			if err := informer.Start(); err != nil {
+				log.Error(messages.CSPFK072E, err)
+				// Stop the informer to clean up background resources and goroutines if any
+				informer.Stop()
+			}
+		}
+	}
+
 	if err = secrets.RunSecretsProvider(
 		secrets.ProviderRefreshConfig{
 			Mode:                  getContainerMode(),
@@ -130,7 +161,8 @@ func startSecretsProviderWithDeps(
 			// may want to create a SIGTERM or SIGHUP handler to catch a signal from
 			// a user / external entity, and then send an (empty struct) quit signal
 			// on this channel to trigger a graceful shut down of the Secrets Provider.
-			ProviderQuit: make(chan struct{}),
+			ProviderQuit:   make(chan struct{}),
+			InformerEvents: informerEventsChan,
 		},
 		provideSecrets,
 		statusUpdaterFactory(),

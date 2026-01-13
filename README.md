@@ -116,13 +116,39 @@ Some notes about the different configuration methods:
 1. If you are using the Secrets Provider in Kubernetes Secrets mode, it
    is recommended that you use environment variable settings to configure
    the Secrets Provider.
-1. Beginning with v1.8.0, when running in Kubernetes Secrets mode the Secrets
-   Provider can detect which secrets it should manage by checking for the label
-   `conjur.org/managed-by-secrets-provider: true` on the Kubernetes secret in the
-   same namespace. If the label exists with the expected value, the Secrets Provider
-   will automatically manage the K8s secret. Note: this only applies when the
-   `K8S_SECRETS` environment variable AND the `conjur.org/k8s-secrets` annotation
-   are not set.
+
+
+## Label-based Secret Management
+
+Beginning with v1.8.0, when running in Kubernetes Secrets mode, the Secrets
+Provider can automatically detect which secrets it should manage by checking for
+the label `conjur.org/managed-by-provider: true` on Kubernetes secrets in the
+same namespace. If a secret has this label with the value `true`, the Secrets
+Provider will automatically manage it.
+
+This configuration only applies when both the `K8S_SECRETS` environment variable
+and the `conjur.org/k8s-secrets` annotation are not set. It requires `list`
+privileges on secrets within the namespace.
+
+> **Note:** It is strongly recommended to use this feature only with Secrets Manager
+> versions that support the V2 Batch Retrieval API:
+>
+> | Secrets Manager Flavor | Version |
+> |------------------------|---------|
+> | SaaS                   | Latest  |
+> | Self-Hosted            | 14.0+   |
+> | Conjur OSS             | 1.25.0+ |
+> 
+> Without this API, a Kubernetes secret which is improperly configured or lacking
+> necessary Secrets Manager privileges could cause the Secrets Provider to fail
+> to update all secrets until resolved.
+
+
+When using label-based secrets, if the Secrets Provider is running continuously
+(as a sidecar container) and has `watch` privileges on secrets within the
+namespace, it will detect when a labeled Kubernetes secret is added or updated
+and immediately provision the secret.
+
 
 ## Enabling Tracing
 

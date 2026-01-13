@@ -3,6 +3,8 @@
 
 package e2e
 
+import "os"
+
 const (
 	// Container names
 	TestAppContainer       = "test-app"
@@ -15,12 +17,6 @@ const (
 	SPHelmLabelSelector         = "app=test-helm"
 	ConjurCLILabelSelector      = "app=conjur-cli"
 	ConjurFollowerLabelSelector = "role=follower"
-
-	// Available templates
-	K8sTemplate         = "secrets-provider-init-container"
-	K8sRotationTemplate = "secrets-provider-k8s-rotation"
-	P2fTemplate         = "secrets-provider-init-push-to-file"
-	P2fRotationTemplate = "secrets-provider-p2f-rotation"
 
 	FetchAllJSONContent           = `{"secrets/another_test_secret":"some-secret","secrets/encoded":"c2VjcmV0LXZhbHVl","secrets/json_object_secret":"\"{\"auths\":{\"someurl\":{\"auth\":\"sometoken=\"}}}\"","secrets/password":"7H1SiSmYp@5Sw0rd","secrets/ssh_key":"\"ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEA879BJGYlPTLIuc9/R5MYiN4yc/YiCLcdBpSdzgK9Dt0Bkfe3rSz5cPm4wmehdE7GkVFXrBJ2YHqPLuM1yx1AUxIebpwlIl9f/aUHOts9eVnVh4NztPy0iSU/Sv0b2ODQQvcy2vYcujlorscl8JjAgfWsO3W4iGEe6QwBpVomcME8IU35v5VbylM9ORQa6wvZMVrPECBvwItTY8cPWH3MGZiK/74eHbSLKA4PY3gM4GHI450Nie16yggEg2aTQfWA1rry9JYWEoHS9pJ1dnLqZU3k/8OWgqJrilwSoC5rGjgp93iu0H8T6+mEHGRQe84Nk1y5lESSWIbn6P636Bl3uQ== your@email.com\"","secrets/test_secret":"supersecret","secrets/umlaut":"ÄäÖöÜü","secrets/url":"postgresql://test-app-backend.app-test.svc.cluster.local:5432","secrets/username":"some-user","secrets/var with spaces":"some-secret","secrets/var+with+pluses":"some-secret"}`
 	FetchAllBase64TemplateContent = `secrets/another_test_secret: c29tZS1zZWNyZXQ=
@@ -48,3 +44,18 @@ secrets/var+with+pluses: c29tZS1zZWNyZXQ=
 "secrets/var with spaces": "some-secret"
 "secrets/var+with+pluses": "some-secret"`
 )
+
+var (
+	K8sTemplate         = getTemplate("secrets-provider-init-container", "test-env")
+	K8sRotationTemplate = getTemplate("secrets-provider-k8s-rotation", "test-env-k8s-rotation")
+	P2fTemplate         = getTemplate("secrets-provider-init-push-to-file", "test-env-push-to-file")
+	P2fRotationTemplate = getTemplate("secrets-provider-p2f-rotation", "test-env-p2f-rotation")
+)
+
+// getTemplate returns the dev template name if DEV=true, otherwise returns the CI template name
+func getTemplate(devTemplate, ciTemplate string) string {
+	if os.Getenv("DEV") == "true" {
+		return devTemplate
+	}
+	return ciTemplate
+}
