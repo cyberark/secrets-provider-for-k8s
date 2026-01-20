@@ -13,8 +13,15 @@ import (
 )
 
 func TestAuthnAzure(t *testing.T) {
-	// TODO: Enable this test when an Azure testing environment is available
-	t.Skip("Skipping authn-azure tests. They can only be run in an Azure environment.")
+	if testing.Short() {
+		t.Skip("Skipping authn-azure tests in short mode")
+	}
+
+	// Default behavior remains skipped unless explicitly enabled in CI.
+	// Enable by setting E2E_AUTHN_AZURE=true.
+	if v := getenvDefault("E2E_AUTHN_AZURE", "false"); v != "true" {
+		t.Skip("Skipping authn-azure tests (set E2E_AUTHN_AZURE=true to enable)")
+	}
 
 	f := features.New("authn-azure").
 		Setup(func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {

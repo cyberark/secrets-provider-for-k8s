@@ -24,13 +24,31 @@ times=1
 
 announce "Preparing to run E2E tests"
 
-# Uncomment for Golang-based tests
+# Ensure Go and Kind binaries are in PATH (installed in Dockerfile.e2e)
+export PATH="${PATH}:/usr/local/go/bin:/root/go/bin"
+
+# If running KinD based cloud authn tests, only run those test cases.
+# We don't want to rerun all the other tests in KinD as they are run in other environments.
+testNameRegex=""
+if [[ "${E2E_AUTHN_AZURE:-false}" = "true" ]]; then
+  testNameRegex="TestAuthnAzure"
+  echo "Running only Authn Azure tests in KinD environment."
+elif [[ "${E2E_AUTHN_IAM:-false}" = "true" ]]; then
+  testNameRegex="TestAuthnIAM"
+  echo "Running only Authn IAM tests in KinD environment."
+fi
+
 ./test_case_setup.sh
 create_secret_access_role
 create_secret_access_role_binding
 deploy_env
 pushd /secrets-provider-for-k8s
-go test -v -tags e2e -timeout 0 ./e2e/...
+if [[ -n "$testNameRegex" ]]; then
+  echo "Running tests matching regex: $testNameRegex"
+  go test -v -tags e2e -run="$testNameRegex" -timeout 0 ./e2e/...
+else
+  go test -v -tags e2e -timeout 0 ./e2e/...
+fi
 popd
 
 ../../teardown_resources.sh

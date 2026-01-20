@@ -4,6 +4,8 @@ set -euo pipefail
 export KEY_VALUE_NOT_EXIST=" "
 mkdir -p output
 
+export PLATFORM="${PLATFORM:-kubernetes}"
+
 if [ "${PLATFORM}" = "kubernetes" ]; then
     cli_with_timeout="wait_for_it 300 kubectl"
     cli_without_timeout=kubectl
@@ -41,9 +43,18 @@ wait_for_it() {
 }
 
 check_env_var() {
+  # If running KinD tests, registry variables are optional; do not fail on them.
+  local var_name="$1"
+  
+  if [[ "${KIND}" = "true" ]]; then
+    case "${var_name}" in
+      DOCKER_REGISTRY_PATH|DOCKER_REGISTRY_URL|PULL_DOCKER_REGISTRY_PATH|IMAGE_PULL_SECRET)
+        return 0
+        ;;
+    esac
+  fi
+
   if [[ -z "${!1+x}" ]]; then
-# where ${var+x} is a parameter expansion which evaluates to nothing if var is unset, and substitutes the string x otherwise.
-# https://stackoverflow.com/questions/3601515/how-to-check-if-a-variable-is-set-in-bash/13864829#13864829
     echo "You must set $1 before running these scripts."
     exit 1
   fi
@@ -88,96 +99,93 @@ get_conjur_cli_pod_name() {
 }
 
 runDockerCommand() {
-  if [ "${PLATFORM}" = "kubernetes" ]; then
-    docker run --rm \
-      -i \
-      -e UNIQUE_TEST_ID \
-      -e CONJUR_APPLIANCE_IMAGE \
-      -e CONJUR_LOG_LEVEL \
-      -e CONJUR_FOLLOWER_COUNT \
-      -e CONJUR_ACCOUNT \
-      -e AUTHENTICATOR_ID \
-      -e CONJUR_AUTHENTICATORS \
-      -e CONJUR_ADMIN_PASSWORD \
-      -e DEPLOY_MASTER_CLUSTER \
-      -e CONJUR_NAMESPACE_NAME \
-      -e PLATFORM \
-      -e TEST_PLATFORM \
-      -e LOCAL_AUTHENTICATOR \
-      -e APP_NAMESPACE_NAME \
-      -e OPENSHIFT_URL \
-      -e OPENSHIFT_VERSION \
-      -e OPENSHIFT_USERNAME \
-      -e OPENSHIFT_PASSWORD \
-      -e DOCKER_REGISTRY_PATH \
-      -e DOCKER_REGISTRY_URL \
-      -e PULL_DOCKER_REGISTRY_PATH \
-      -e PULL_DOCKER_REGISTRY_URL \
-      -e GCLOUD_CLUSTER_NAME \
-      -e GCLOUD_ZONE \
-      -e GCLOUD_PROJECT_NAME \
-      -e GCLOUD_SERVICE_KEY=/tmp$GCLOUD_SERVICE_KEY \
-      -e MINIKUBE \
-      -e MINISHIFT \
-      -e DEV \
-      -e TEST_NAME_PREFIX \
-      -e CONJUR_DEPLOYMENT \
-      -e RUN_IN_DOCKER \
-      -e SUMMON_ENV \
-      -e IMAGE_PULL_SECRET \
-      -v $GCLOUD_SERVICE_KEY:/tmp$GCLOUD_SERVICE_KEY \
-      -v /var/run/docker.sock:/var/run/docker.sock \
-      -v ~/.config:/root/.config \
-      -v "$PWD/../helm":/helm \
-      -v "$PWD/..":/src \
-      -w /src/deploy \
-      $TEST_RUNNER_IMAGE:$CONJUR_NAMESPACE_NAME \
-      bash -c "
-        ./platform_login.sh
-        $1
-      "
+  local cmd="$1"
+  
+  # Build docker run arguments dynamically
+  local docker_args=(--rm -i)
+  
+  # Network configuration for Kind
+  if [[ "${KIND}" = "true" ]]; then
+    if [[ "${E2E_AUTHN_IAM:-false}" = "true" || "${E2E_AUTHN_AZURE:-false}" = "true" ]]; then
+      docker_args+=(--network host)
+    else
+      docker_args+=(--network "${KIND_DOCKER_NETWORK:-kind-network}")
+    fi
+    docker_args+=(-e CONTAINERIZED=true)
+  fi
+  
+  # Environment variables (with defaults for optional registry vars)
+  docker_args+=(
+    -e KIND_DOCKER_NETWORK
+    -e KIND_CLUSTER_NAME
+    -e KIND_FORCE_CLEAN
+    -e SKIP_KIND_CREATE
+    -e E2E_AUTHN_IAM
+    -e E2E_AUTHN_AZURE
+    -e UNIQUE_TEST_ID
+    -e CONJUR_APPLIANCE_IMAGE
+    -e CONJUR_LOG_LEVEL
+    -e CONJUR_FOLLOWER_COUNT
+    -e CONJUR_ACCOUNT
+    -e AUTHENTICATOR_ID
+    -e CONJUR_AUTHENTICATORS
+    -e CONJUR_ADMIN_PASSWORD
+    -e DEPLOY_MASTER_CLUSTER
+    -e CONJUR_NAMESPACE_NAME
+    -e CONJUR_START_TIMEOUT
+    -e PLATFORM
+    -e TEST_PLATFORM
+    -e LOCAL_AUTHENTICATOR
+    -e APP_NAMESPACE_NAME
+    -e OPENSHIFT_URL
+    -e OPENSHIFT_VERSION
+    -e OPENSHIFT_USERNAME
+    -e OPENSHIFT_PASSWORD
+    -e "DOCKER_REGISTRY_PATH=${DOCKER_REGISTRY_PATH:-}"
+    -e "DOCKER_REGISTRY_URL=${DOCKER_REGISTRY_URL:-}"
+    -e "PULL_DOCKER_REGISTRY_PATH=${PULL_DOCKER_REGISTRY_PATH:-}"
+    -e "PULL_DOCKER_REGISTRY_URL=${PULL_DOCKER_REGISTRY_URL:-}"
+    -e GCLOUD_CLUSTER_NAME
+    -e GCLOUD_ZONE
+    -e GCLOUD_PROJECT_NAME
+    -e AZURE_SUBSCRIPTION_ID
+    -e AZURE_RESOURCE_GROUP
+    -e MINIKUBE
+    -e MINISHIFT
+    -e DEV
+    -e KIND
+    -e TEST_NAME_PREFIX
+    -e CONJUR_DEPLOYMENT
+    -e RUN_IN_DOCKER
+    -e SUMMON_ENV
+    -e "IMAGE_PULL_SECRET=${IMAGE_PULL_SECRET:-}"
+  )
+  
+  # Optional gcloud credentials
+  if [[ -n "${GCLOUD_SERVICE_KEY:-}" && -f "${GCLOUD_SERVICE_KEY}" ]]; then
+    docker_args+=(-e "GCLOUD_SERVICE_KEY=/tmp${GCLOUD_SERVICE_KEY}")
+    docker_args+=(-v "${GCLOUD_SERVICE_KEY}:/tmp${GCLOUD_SERVICE_KEY}")
+  fi
+  
+  # Volume mounts
+  docker_args+=(
+    -v /var/run/docker.sock:/var/run/docker.sock
+    -v /tmp:/tmp
+    -v ~/.config:/root/.config
+    -v "$PWD/../helm":/helm
+    -v "$PWD/..":/src
+    -w /src/deploy
+    "$TEST_RUNNER_IMAGE:$CONJUR_NAMESPACE_NAME"
+  )
+  
+  # Execute command based on platform
+  if [[ "${KIND}" = "true" ]]; then
+    docker run "${docker_args[@]}" bash /src/deploy/runner_entrypoint.sh bash -lc "$cmd"
   else
-    docker run --rm \
-      -i \
-      -e UNIQUE_TEST_ID \
-      -e CONJUR_APPLIANCE_IMAGE \
-      -e CONJUR_LOG_LEVEL \
-      -e CONJUR_FOLLOWER_COUNT \
-      -e CONJUR_ACCOUNT \
-      -e AUTHENTICATOR_ID \
-      -e CONJUR_AUTHENTICATORS \
-      -e CONJUR_ADMIN_PASSWORD \
-      -e DEPLOY_MASTER_CLUSTER \
-      -e CONJUR_NAMESPACE_NAME \
-      -e PLATFORM \
-      -e TEST_PLATFORM \
-      -e LOCAL_AUTHENTICATOR \
-      -e APP_NAMESPACE_NAME \
-      -e OPENSHIFT_URL \
-      -e OPENSHIFT_VERSION \
-      -e OPENSHIFT_USERNAME \
-      -e OPENSHIFT_PASSWORD \
-      -e DOCKER_REGISTRY_PATH \
-      -e DOCKER_REGISTRY_URL \
-      -e PULL_DOCKER_REGISTRY_PATH \
-      -e PULL_DOCKER_REGISTRY_URL \
-      -e MINIKUBE \
-      -e MINISHIFT \
-      -e DEV \
-      -e TEST_NAME_PREFIX \
-      -e CONJUR_DEPLOYMENT \
-      -e RUN_IN_DOCKER \
-      -e SUMMON_ENV \
-      -e IMAGE_PULL_SECRET \
-      -v /var/run/docker.sock:/var/run/docker.sock \
-      -v "$PWD/../helm":/helm \
-      -v "$PWD/..":/src \
-      -w /src/deploy \
-      $TEST_RUNNER_IMAGE:$CONJUR_NAMESPACE_NAME \
-      bash -c "
-        ./platform_login.sh
-        $1
-      "
+    docker run "${docker_args[@]}" bash -c "
+      ./platform_login.sh
+      $cmd
+    "
   fi
 }
 
@@ -258,6 +266,10 @@ setup_helm_environment() {
 
 set_image_path() {
   image_path="$APP_NAMESPACE_NAME"
+  if [[ "${KIND}" = "true" ]]; then
+    export image_path
+    return 0
+  fi
   if [[ "${PLATFORM}" = "openshift" && "${DEV}" = "false" ]]; then
     # Image path needs to point to internal registry path to access image
     image_path="${PULL_DOCKER_REGISTRY_PATH}/${APP_NAMESPACE_NAME}"

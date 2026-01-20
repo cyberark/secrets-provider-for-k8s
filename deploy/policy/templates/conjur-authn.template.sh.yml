@@ -76,6 +76,9 @@ cat << EOL
     - &azure_hosts
       - !host
         id: azureVM
+        annotations:
+          authn-azure/subscription-id: ${AZURE_SUBSCRIPTION_ID:-}
+          authn-azure/resource-group: ${AZURE_RESOURCE_GROUP:-}
 
     - !grant
       role: !layer

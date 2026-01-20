@@ -15,7 +15,7 @@ check_env_var "CONJUR_NAMESPACE_NAME"
 
 check_env_var "APP_NAMESPACE_NAME"
 
-if [[ "${DEV}" = "false" ]]; then
+if [[ "${DEV}" = "false" && "${KIND}" != "true" ]]; then
   check_env_var "DOCKER_REGISTRY_PATH"
   check_env_var "DOCKER_REGISTRY_URL"
   check_env_var "IMAGE_PULL_SECRET"

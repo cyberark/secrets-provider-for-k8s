@@ -96,7 +96,7 @@ pipeline {
 
   triggers {
     cron(getDailyCronString())
-    parameterizedCron(getWeeklyCronString("H(1-5)","%MODE=RELEASE"))
+    parameterizedCron(getWeeklyCronString("H(1-5)","%MODE=RELEASE;TEST_KIND_AUTHN_IAM=true;TEST_KIND_AUTHN_AZURE=true"))
   }
 
   parameters {
@@ -105,6 +105,10 @@ pipeline {
     booleanParam(name: 'TEST_OCP_OLDEST', defaultValue: false, description: 'Run DAP tests against our running "oldest version" of Openshift')
 
     booleanParam(name: 'TEST_E2E', defaultValue: false, description: 'Run E2E tests on a branch')
+
+    booleanParam(name: 'TEST_KIND_AUTHN_IAM', defaultValue: false, description: 'Run KinD-based authn-iam e2e tests (requires AWS-capable Jenkins executor/IMDS)')
+
+    booleanParam(name: 'TEST_KIND_AUTHN_AZURE', defaultValue: false, description: 'Run KinD-based authn-azure e2e tests (requires Azure-capable Jenkins executor/IMDS)')
   }
 
   stages {
@@ -121,6 +125,11 @@ pipeline {
         script {
           // Request ExecutorV2 agents for 1 hour(s)
           INFRAPOOL_EXECUTORV2_AGENT_0 = getInfraPoolAgent.connected(type: "ExecutorV2", quantity: 1, duration: 2)[0]
+
+          // Request additional executors for cloud specific tests
+          if (params.TEST_KIND_AUTHN_AZURE) {
+            INFRAPOOL_AZURE_EXECUTORV2_AGENT_0 = getInfraPoolAgent.connected(type: "AzureExecutorV2", quantity: 1, duration: 1)[0]
+          }
         }
       }
     }
@@ -150,10 +159,16 @@ pipeline {
       }
     }
 
+
     // Generates a VERSION file based on the current build number and latest version in CHANGELOG.md
     stage('Validate Changelog and set version') {
       steps {
-        updateVersion(INFRAPOOL_EXECUTORV2_AGENT_0, "CHANGELOG.md", "${BUILD_NUMBER}")
+        script {
+          updateVersion(INFRAPOOL_EXECUTORV2_AGENT_0, "CHANGELOG.md", "${BUILD_NUMBER}")
+          if (params.TEST_KIND_AUTHN_AZURE) {
+            updateVersion(INFRAPOOL_AZURE_EXECUTORV2_AGENT_0, "CHANGELOG.md", "${BUILD_NUMBER}")
+          }
+        }
       }
     }
 
@@ -165,6 +180,11 @@ pipeline {
           INFRAPOOL_EXECUTORV2_AGENT_0.agentPut from: "vendor", to: "${WORKSPACE}"
           INFRAPOOL_EXECUTORV2_AGENT_0.agentPut from: "go.*", to: "${WORKSPACE}"
           INFRAPOOL_EXECUTORV2_AGENT_0.agentPut from: "/root/go", to: "/var/lib/jenkins/"
+          if (params.TEST_KIND_AUTHN_AZURE) {
+            INFRAPOOL_AZURE_EXECUTORV2_AGENT_0.agentPut from: "vendor", to: "${WORKSPACE}"
+            INFRAPOOL_AZURE_EXECUTORV2_AGENT_0.agentPut from: "go.*", to: "${WORKSPACE}"
+            INFRAPOOL_AZURE_EXECUTORV2_AGENT_0.agentPut from: "/root/go", to: "/var/lib/jenkins/"
+          }
         }
       }
     }
@@ -205,6 +225,7 @@ pipeline {
             }
           }
         }
+
         stage('Package helm chart') {
           steps {
             script {
@@ -295,6 +316,46 @@ pipeline {
             always {
               script {
                 INFRAPOOL_EXECUTORV2_AGENT_0.agentStash name: 'logs-dap-gke-ocp', includes: 'deploy/output/*.txt'
+              }
+            }
+          }
+        }
+
+
+        stage ("KinD E2E (authn-iam/authn-azure)") {
+          when {
+            anyOf {
+              expression { params.TEST_KIND_AUTHN_IAM == true }
+              expression { params.TEST_KIND_AUTHN_AZURE == true }
+            }
+          }
+          steps {
+            script {
+              def tasks = [:]
+
+              if (params.TEST_KIND_AUTHN_IAM) {
+                tasks["KinD authn-iam"] = {
+                  INFRAPOOL_EXECUTORV2_AGENT_0.agentSh "E2E_AUTHN_IAM=true ./bin/start --docker --dap --kind"
+                }
+              }
+              if (params.TEST_KIND_AUTHN_AZURE) {
+                tasks["KinD authn-azure"] = {
+                  INFRAPOOL_AZURE_EXECUTORV2_AGENT_0.agentSh "./bin/build"
+                  INFRAPOOL_AZURE_EXECUTORV2_AGENT_0.agentSh "E2E_AUTHN_AZURE=true ./bin/start --docker --oss --kind"
+                }
+              }
+              parallel tasks
+            }
+          }
+          post {
+            always {
+              script {
+                if (params.TEST_KIND_AUTHN_IAM) {
+                  INFRAPOOL_EXECUTORV2_AGENT_0.agentStash name: 'logs-kind-iam', includes: 'deploy/output/*.txt'
+                }
+                if (params.TEST_KIND_AUTHN_AZURE) {
+                  INFRAPOOL_AZURE_EXECUTORV2_AGENT_0.agentStash name: 'logs-kind-azure', includes: 'deploy/output/*.txt'
+                }
               }
             }
           }
@@ -396,6 +457,12 @@ pipeline {
         } catch (e) {}
         try {
           unstash 'logs-ocp-oldest-next'
+        } catch (e) {}
+        try {
+          unstash 'logs-kind-iam'
+        } catch (e) {}
+        try {
+          unstash 'logs-kind-azure'
         } catch (e) {}
         archiveArtifacts artifacts: "deploy/output/*.txt", fingerprint: false, allowEmptyArchive: true
         releaseInfraPoolAgent(".infrapool/release_agents")

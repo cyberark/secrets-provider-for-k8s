@@ -20,6 +20,8 @@ Usage: ./bin/start [options]
 
     --gke         Run the integration tests on GKE. By default the tests are run on GKE.
 
+    --kind        Run the integration tests on a local KinD cluster (used for Jenkins containerized runner).
+
     --oldest      Run the integration tests on the oldest running Openshift platform. By default the tests are run on GKE.
 
     --current     Run the integration tests on the currently supported Openshift platform. By default the tests are run on GKE.
@@ -53,6 +55,7 @@ while true ; do
     --oss ) CONJUR_DEPLOYMENT=oss ; shift ;;
     --dap ) CONJUR_DEPLOYMENT=dap ; shift ;;
     --gke ) SUMMON_ENV=gke ; shift ;;
+    --kind ) SUMMON_ENV=kind ; shift ;;
     --oldest ) SUMMON_ENV=oldest ; shift ;;
     --current ) SUMMON_ENV=current ; shift ;;
     --next ) SUMMON_ENV=next ; shift ;;
@@ -73,6 +76,12 @@ export DEV
 export SUMMON_ENV
 export TEMPLATE_OVERRIDE
 
+# Ensure TEST_PLATFORM is set to 'kind' when running with --kind (used by runner entrypoint)
+if [[ "${SUMMON_ENV:-}" = "kind" ]]; then
+  export TEST_PLATFORM=kind
+  export KIND=true
+fi
+
 echo $TEMPLATE_OVERRIDE
 
 # summon environment variable
@@ -85,7 +94,6 @@ source bootstrap.env
 
 pushd deploy
   if [[ $RUN_IN_DOCKER = true ]]; then
-    # this option cannot run locally due to lack of docker credentials. It works only in the Jenkins pipeline
     runScriptWithSummon ./test/test_in_docker.sh
   elif [[ "${DEV}" = "true" && $RELOAD_ENV = true ]]; then
     ./dev/reload.sh

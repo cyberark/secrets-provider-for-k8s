@@ -14,7 +14,7 @@ RUN apt-get update -y && \
 
 # Install kubectl CLI
 ARG KUBECTL_CLI_URL
-RUN wget -O /usr/local/bin/kubectl ${KUBECTL_CLI_URL:-https://storage.googleapis.com/kubernetes-release/release/v1.7.6/bin/linux/amd64/kubectl} && \
+RUN wget -O /usr/local/bin/kubectl ${KUBECTL_CLI_URL:-https://dl.k8s.io/release/v1.27.6/bin/linux/amd64/kubectl} && \
     chmod +x /usr/local/bin/kubectl
 
 # Install OpenShift oc CLI
@@ -44,9 +44,14 @@ RUN apt-get update && \
     jq
 
 # Download and install Golang
-ENV GOLANG_VERSION=1.25.3
+ENV GOLANG_VERSION=1.25.5
 RUN curl -L https://golang.org/dl/go${GOLANG_VERSION}.linux-amd64.tar.gz | tar -C /usr/local -xz
-ENV PATH=$PATH:/usr/local/go/bin
+ENV GOROOT=/usr/local/go
+ENV GOPATH=/root/go
+ENV PATH=$GOPATH/bin:$GOROOT/bin:$PATH
+
+# Install KinD so tests can create local clusters inside the runner
+RUN go install sigs.k8s.io/kind@v0.31.0
 
 RUN mkdir -p /secrets-provider-for-k8s
 WORKDIR /secrets-provider-for-k8s
