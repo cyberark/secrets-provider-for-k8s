@@ -99,3 +99,20 @@ const CSPFK069E string = "CSPFK069E Invalid URL format: %s"
 
 // Label-based mode
 const CSPFK070E string = "CSPFK070E No updateable labeled secrets were discovered"
+const CSPFK073E string = "CSPFK073E Skipping invalid labeled Kubernetes Secret '%s': %s"
+
+// Secrets informer
+const CSPFK071E string = "CSPFK071E Could not create K8s client for informer: %v"
+const CSPFK072E string = "CSPFK072E Could not start secret informer: %v, fall back to periodic refresh mode"
+const CSPFK074E string = "CSPFK074E Secret informer failed to parse new secret, skip onUpdate event"
+const CSPFK075E string = "CSPFK075E Secret informer failed to parse old secret, skip onUpdate event"
+const CSPFK076E string = "CSPFK076E Secret informer requires a notifier to send event"
+const CSPFK078E string = "CSPFK078E Secret informer failed to add event handler: %w"
+const CSPFK079E string = "CSPFK079E Secret informer failed to initialize cache sync"
+const CSPFK080E string = "CSPFK080E Secret informer initialize cache sync timed out, move on without waiting"
+const CSPFK081E string = "CSPFK081E Secret informer failed to process %q event, error: %v"
+const CSPFK082E string = "CSPFK082E Secret informer failed to send event using notifier"
+const CSPFK083E string = "CSPFK083E Secret informer event worker panic: %v"
+
+// Secrets event notifier
+const CSPFK084I string = "CSPFK084I Secret informer notifier has nil events channel, skip sending event"

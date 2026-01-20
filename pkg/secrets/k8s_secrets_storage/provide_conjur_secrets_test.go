@@ -592,8 +592,8 @@ func TestProvide(t *testing.T) {
 			},
 			requiredSecrets: []string{}, // Empty list triggers label-based mode
 			asserts: []assertFunc{
-				assertErrorLogged(messages.CSPFK028E, "k8s-labeled-secret1"),
-				assertErrorContains(messages.CSPFK021E, false),
+				assertLogged(true, "warn", "k8s-labeled-secret1"),
+				assertLogged(true, "warn", "CSPFK073E"),
 			},
 		},
 		{
@@ -605,8 +605,8 @@ func TestProvide(t *testing.T) {
 			},
 			requiredSecrets: []string{}, // Empty list triggers label-based mode
 			asserts: []assertFunc{
-				assertErrorLogged(messages.CSPFK028E, "k8s-labeled-secret1"),
-				assertErrorContains(messages.CSPFK021E, false),
+				assertLogged(true, "warn", "k8s-labeled-secret1"),
+				assertLogged(true, "warn", "CSPFK073E"),
 			},
 		},
 		{

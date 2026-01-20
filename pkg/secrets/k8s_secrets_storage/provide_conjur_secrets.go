@@ -261,9 +261,15 @@ func (p *K8sProvider) retrieveRequiredK8sSecrets(tracer trace.Tracer) error {
 				_, childSpan := tracer.Start(spanCtx, "Process K8s Secret")
 				defer childSpan.End()
 				if err := p.retrieveRequiredK8sSecret(&k8sSecret); err != nil {
+					// In label-based mode, skip invalid secrets and continue processing others
+					// instead of failing the entire operation. This makes the provider more
+					// resilient to misconfigured secrets.
 					childSpan.RecordErrorAndSetStatus(err)
 					span.RecordErrorAndSetStatus(err)
-					return err
+					p.log.warn(messages.CSPFK073E, k8sSecret.Name, err.Error())
+					// Remove the secret from originalK8sSecrets since we're skipping it
+					delete(p.secretsState.originalK8sSecrets, k8sSecret.Name)
+					continue
 				}
 			}
 		}
@@ -510,6 +516,9 @@ func (p *K8sProvider) createSecretData(conjurSecrets map[string][]byte) map[stri
 
 				if conjurSecrets[varID] == nil {
 					// The secret does not exist in conjurSecrets, set the value to an empty string
+					if secretData[dest.k8sSecretName] == nil {
+						secretData[dest.k8sSecretName] = map[string][]byte{}
+					}
 					secretData[dest.k8sSecretName][dest.secretName] = []byte("")
 				}
 			}
