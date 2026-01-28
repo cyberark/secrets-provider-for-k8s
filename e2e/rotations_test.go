@@ -434,6 +434,14 @@ func TestLabeledK8sSecretsRotationViaInformer(t *testing.T) {
 					Labels: map[string]string{
 						"conjur.org/managed-by-provider": "true",
 					},
+					Annotations: map[string]string{
+						"conjur.org/conjur-secrets.example.1": `- username: secrets/username
+- password: secrets/password
+- test: secrets/test_secret`,
+						"conjur.org/secret-file-template.example.1": `username | {{ secret "username" }}
+password | {{ secret "password" }}
+test | {{ secret "test" }}`,
+					},
 				},
 				StringData: map[string]string{
 					"conjur-map": "NEW_SECRET: secrets/another_test_secret",
@@ -445,6 +453,9 @@ func TestLabeledK8sSecretsRotationViaInformer(t *testing.T) {
 
 			// Wait for the secret to be updated in Kubernetes (check the actual secret data)
 			err = WaitForK8sSecretValue(cfg.Client(), SecretsProviderNamespace(), "labeled-k8s-secret", "NEW_SECRET", "some-secret", 20*time.Second)
+			assert.Nil(t, err)
+
+			err = WaitForK8sSecretValue(cfg.Client(), SecretsProviderNamespace(), "labeled-k8s-secret", "example.1", "username | some-user\npassword | 7H1SiSmYp@5Sw0rd\ntest | supersecret", 20*time.Second)
 			assert.Nil(t, err)
 
 			return ctx
@@ -460,6 +471,10 @@ func TestLabeledK8sSecretsRotationViaInformer(t *testing.T) {
 					Namespace: SecretsProviderNamespace(),
 					Labels: map[string]string{
 						"conjur.org/managed-by-provider": "true",
+					},
+					Annotations: map[string]string{
+						"conjur.org/conjur-secrets.example.1":       `- test_secret: secrets/test_secret`,
+						"conjur.org/secret-file-template.example.1": `test_secret | {{ secret "test_secret" }}`,
 					},
 				},
 				StringData: map[string]string{
@@ -511,6 +526,10 @@ func TestLabeledK8sSecretsRotationViaInformer(t *testing.T) {
 
 			_, secret2Exists := updatedSecret.Data["secret2"]
 			assert.False(t, secret2Exists, "secret2 key should be removed from secret data after conjur-map update")
+
+			// Validate group template secret is updated
+			err = WaitForK8sSecretValue(cfg.Client(), SecretsProviderNamespace(), "new-labeled-k8s-secret", "example.1", "test_secret | supersecret", 20*time.Second)
+			assert.Nil(t, err)
 
 			return ctx
 		}).

@@ -21,7 +21,7 @@ import (
 // Helper function to assert environment variable contains expected value
 func assertEnvVarContains(t *testing.T, cfg *envconf.Config, envVarName string, expectedValue string) {
 	var stdout, stderr bytes.Buffer
-	command := []string{"sh", "-c", fmt.Sprintf("printenv | grep %s", envVarName)}
+	command := []string{"sh", "-c", fmt.Sprintf("printenv %s", envVarName)}
 
 	err := RunCommandInSecretsProviderPod(cfg.Client(), SPLabelSelector, TestAppContainer, command, &stdout, &stderr)
 	if err != nil {
@@ -85,6 +85,11 @@ func assessFetchAllBase64(ctx context.Context, t *testing.T, cfg *envconf.Config
 	return ctx
 }
 
+func assessVariableFromTemplate(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
+	assertEnvVarContains(t, cfg, "VARIABLE_FROM_TEMPLATE", "username | some-user\npassword | 7H1SiSmYp@5Sw0rd\ntest | supersecret\n")
+	return ctx
+}
+
 func TestSecretsProvidedK8s(t *testing.T) {
 	f := features.New("secrets provided (K8s secrets mode)").
 		Setup(func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
@@ -101,7 +106,8 @@ func TestSecretsProvidedK8s(t *testing.T) {
 		Assess("variables with base64 decoding secret set correctly in pod", assessBase64Decoding).
 		Assess("non conjur keys stay intact secret set correctly in pod", assessNonConjurKeys).
 		Assess("fetch all secrets provided", assessFetchAllSecrets).
-		Assess("fetch all base64 secrets provided", assessFetchAllBase64)
+		Assess("fetch all base64 secrets provided", assessFetchAllBase64).
+		Assess("variable from template set correctly in pod", assessVariableFromTemplate)
 
 	testenv.Test(t, f.Feature())
 }
@@ -123,7 +129,8 @@ func TestLabeledSecretsProvidedK8s(t *testing.T) {
 		Assess("variables with base64 decoding secret set correctly in pod", assessBase64Decoding).
 		Assess("non conjur keys stay intact secret set correctly in pod", assessNonConjurKeys).
 		Assess("fetch all secrets provided", assessFetchAllSecrets).
-		Assess("fetch all base64 secrets provided", assessFetchAllBase64)
+		Assess("fetch all base64 secrets provided", assessFetchAllBase64).
+		Assess("variable from template set correctly in pod", assessVariableFromTemplate)
 
 	testenv.Test(t, f.Feature())
 }
