@@ -117,6 +117,16 @@ Some notes about the different configuration methods:
    is recommended that you use environment variable settings to configure
    the Secrets Provider.
 
+## Retry Behavior
+
+By default, the Secrets Provider will retry failed Conjur retrieval attempts up to a limited number of times. The default retry count is defined in the code as `DefaultRetryCountLimit` (currently `5`).
+
+- To change the retry behavior via environment variable, set `RETRY_COUNT_LIMIT` to an integer value.
+- To change the retry behavior via Pod annotation, set `conjur.org/retry-count-limit` to an integer value.
+- To configure via Helm, set `environment.conjur.retryCountLimit` in the chart values.
+
+Note: set the retry count to `-1` to indicate "unlimited" retries. Retries will continue indefinitely until success or process termination.
+
 
 ## Label-based Secret Management
 

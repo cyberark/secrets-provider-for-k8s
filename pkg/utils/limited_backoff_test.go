@@ -34,6 +34,13 @@ func TestLimitedBackOff(t *testing.T) {
 				testLimitedBackOff(t, backOff, retryLimit, interval)
 			})
 		})
+
+		t.Run("Given an unlimited limited backoff (RetryLimit = -1)", func(t *testing.T) {
+			backOff := NewLimitedBackOff(time.Second, -1)
+			results := callMultipleNextBackOffs(backOff, 10)
+			assertResultsEqualExpected(t, time.Second, results)
+			assertRetryCount(t, backOff, 10)
+		})
 	})
 }
 

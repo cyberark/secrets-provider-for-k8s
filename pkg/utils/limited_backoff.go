@@ -32,7 +32,7 @@ func (b *limitedBackOff) Reset() {
 }
 
 func (b *limitedBackOff) NextBackOff() time.Duration {
-	if b.retryCount >= b.RetryLimit {
+	if b.RetryLimit >= 0 && b.retryCount >= b.RetryLimit {
 		return backoff.Stop
 	}
 

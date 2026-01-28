@@ -530,14 +530,24 @@ func GetPodLogs(client klient.Client, podName string, namespace string, containe
 
 func GetTimestamp(logs string, token string) (time.Time, error) {
 	logsLines := strings.Split(logs, "\n")
+
 	for _, line := range logsLines {
 		if strings.Contains(line, token) {
 			parse := strings.Fields(line)
+			if len(parse) < 3 {
+				continue
+			}
+
 			stamp := parse[1] + " " + parse[2]
-			return time.Parse("2006/01/02 15:04:05.000000", stamp)
+			currentTime, err := time.Parse("2006/01/02 15:04:05.000000", stamp)
+			if err != nil {
+				continue
+			}
+
+			return currentTime, nil
 		}
 	}
-	return time.Time{}, fmt.Errorf("could not parse time")
+	return time.Time{}, fmt.Errorf("could not find token %s", token)
 }
 
 func ConfigDir() string {
