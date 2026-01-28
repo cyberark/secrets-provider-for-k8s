@@ -353,6 +353,68 @@ func WaitForSecretValue(client klient.Client, labelSelector string, container st
 	}
 }
 
+// WaitForK8sSecretValue polls the K8s secret to check if it contains the expected key-value pair
+// Returns nil when the expected value is found, or an error if timeout is reached
+func WaitForK8sSecretValue(client klient.Client, namespace string, secretName string, key string, expectedValue string, timeout time.Duration) error {
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	ticker := time.NewTicker(2 * time.Second)
+	defer ticker.Stop()
+
+	var lastErr error
+	for {
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("timeout waiting for secret %s/%s key %s to contain %s. Last error: %v", namespace, secretName, key, expectedValue, lastErr)
+		case <-ticker.C:
+			var secret corev1.Secret
+			err := client.Resources(namespace).Get(context.TODO(), secretName, namespace, &secret)
+			if err != nil {
+				lastErr = err
+				continue
+			}
+
+			// Check if the key exists and value matches
+			if secretData, exists := secret.Data[key]; exists {
+				if string(secretData) == expectedValue {
+					return nil
+				}
+			}
+		}
+	}
+}
+
+// WaitForK8sSecretKeyAbsent polls the K8s secret to check if a key is absent
+// Returns nil when the key is absent, or an error if timeout is reached
+func WaitForK8sSecretKeyAbsent(client klient.Client, namespace string, secretName string, key string, timeout time.Duration) error {
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	ticker := time.NewTicker(2 * time.Second)
+	defer ticker.Stop()
+
+	var lastErr error
+	for {
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("timeout waiting for secret %s/%s key %s to be absent. Last error: %v", namespace, secretName, key, lastErr)
+		case <-ticker.C:
+			var secret corev1.Secret
+			err := client.Resources(namespace).Get(context.TODO(), secretName, namespace, &secret)
+			if err != nil {
+				lastErr = err
+				continue
+			}
+
+			// Check if the key does not exist
+			if _, exists := secret.Data[key]; !exists {
+				return nil
+			}
+		}
+	}
+}
+
 // WaitForFileContent polls the pod to check if a file contains the expected content
 // Returns nil when the expected content is found, or an error if timeout is reached
 func WaitForFileContent(client klient.Client, labelSelector string, container string, filePath string, expectedContent string, timeout time.Duration) error {

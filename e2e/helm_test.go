@@ -36,9 +36,6 @@ func TestHelmJobDeploysSuccessfully(t *testing.T) {
 				fmt.Printf("WARN: %s", err)
 			}
 
-			err = DeployTestAppWithHelm(cfg.Client(), "")
-			assert.Nil(t, err)
-
 			// wait for secrets provider job to complete and secrets to be updated
 			job, err := GetJob(cfg.Client(), "secrets-provider")
 			if err == nil {
@@ -46,22 +43,14 @@ func TestHelmJobDeploysSuccessfully(t *testing.T) {
 				assert.Nil(t, err)
 			}
 
-			// wait for secret value to be available in pod
-			// This implicitly waits for the pod to be ready and working
-			err = WaitForSecretValue(cfg.Client(), SPLabelSelector, TestAppContainer, "TEST_SECRET", "supersecret", 60*time.Second)
-			assert.Nil(t, err)
-
 			return ctx
 		}).
 		// Replaces TEST_ID_17_helm_job_deploys_successfully
 		Assess("helm job deploys successfully", func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
-			// verify secret value in test app pod
-			var stdout, stderr bytes.Buffer
-			command := []string{"printenv", "|", "grep", "TEST_SECRET"}
-			RunCommandInSecretsProviderPod(cfg.Client(), SPLabelSelector, TestAppContainer, command, &stdout, &stderr)
-			assert.Contains(t, stdout.String(), "supersecret")
-
-			ClearBuffer(&stdout, &stderr)
+			// wait for secret value to be available in K8s secret			// wait for secret value to be available in K8s secret
+			// this implicitly waits for the secrets provider job to complete and validates the K8s secret contents
+			err := WaitForK8sSecretValue(cfg.Client(), SecretsProviderNamespace(), "test-k8s-secret", "secret", "supersecret", 60*time.Second)
+			assert.Nil(t, err)
 
 			// verify all secrets were updated successfully in secrets-provider pod
 			pod, err := FetchPodWithLabelSelector(cfg.Client(), SecretsProviderNamespace(), SPHelmLabelSelector)
@@ -77,12 +66,6 @@ func TestHelmJobDeploysSuccessfully(t *testing.T) {
 		Teardown(func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
 			// clean up job and test app
 			err := RemoveJobWithHelm(cfg, "secrets-provider")
-			assert.Nil(t, err)
-
-			deployment, err := GetDeployment(cfg.Client(), "test-env")
-			assert.Nil(t, err)
-
-			err = DeleteDeployment(cfg.Client(), SecretsProviderNamespace(), deployment)
 			assert.Nil(t, err)
 
 			return ctx

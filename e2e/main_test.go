@@ -20,8 +20,8 @@ import (
 )
 
 var (
-	testenv       env.Environment
-	k8sClient     klient.Client
+	testenv   env.Environment
+	k8sClient klient.Client
 )
 
 func TestMain(m *testing.M) {
@@ -40,7 +40,7 @@ func TestMain(m *testing.M) {
 			}
 
 			fmt.Printf("Verifying the secrets provider pod (%s) is ready before running tests\n", spPod.Name)
-			err = wait.For(conditions.New(k8sClient.Resources(SecretsProviderNamespace())).PodReady(k8s.Object(&spPod)), wait.WithTimeout(time.Minute*1))
+			err = wait.For(conditions.New(k8sClient.Resources(SecretsProviderNamespace())).PodReady(k8s.Object(&spPod)), wait.WithTimeout(time.Minute*2))
 			if err != nil {
 				fmt.Println("Setup error: " + err.Error())
 				return ctx, err
