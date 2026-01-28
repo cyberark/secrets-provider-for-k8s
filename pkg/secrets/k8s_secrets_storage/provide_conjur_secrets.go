@@ -308,14 +308,15 @@ func (p *K8sProvider) retrieveRequiredK8sSecret(k8sSecret *v1.Secret) error {
 
 	// Read the value of the "conjur-map" entry in the K8s Secret's Data
 	// field, if it exists. If the entry does not exist or has a null
-	// value, return an error.
+	// value, log debug messages.
 	conjurMapKey := config.ConjurMapKey
 	k8sSecretName := k8sSecret.Name
 	conjurSecretsYAML, conjurMapExists := k8sSecret.Data[conjurMapKey]
+	var hasValidConjurMap bool
+
 	if !conjurMapExists {
 		p.log.debug(messages.CSPFK008D, k8sSecretName, conjurMapKey)
-	}
-	if len(conjurSecretsYAML) == 0 {
+	} else if len(conjurSecretsYAML) == 0 {
 		p.log.debug(messages.CSPFK006D, k8sSecretName, conjurMapKey)
 	}
 
@@ -339,26 +340,77 @@ func (p *K8sProvider) retrieveRequiredK8sSecret(k8sSecret *v1.Secret) error {
 			} else {
 				p.log.warn(messages.CSPFK013D, k8sSecretName, filetemplates.SecretGroupFileTemplatePrefix+groupName)
 			}
-		}
-	}
+	} 
 
-	if len(secretGroups) < 1 {
-		p.log.debug("No %s annotation will be used for %s secret", "conjur.org/conjur-secrets", k8sSecret.Name)
-	} else {
-		p.secretsGroups[k8sSecretName] = secretGroups
+	// Look for "conjur.org/conjur-secrets.*" annotations and process secret groups
+	err := p.processSecretGroupAnnotations(k8sSecret)
+	if err != nil {
+		return err
 	}
 
 	// At least one of "conjur-map" field or "conjur.org/conjur-secrets.*" annotation must be defined.
 	// If it is not, error is returned
-	if (!conjurMapExists || len(conjurSecretsYAML) == 0) && (len(secretGroups) < 1) {
+	if !hasValidConjurMap && len(p.secretsGroups) == 0 {
 		p.log.logError("At least one of %s data entry or %s annotations must be defined", conjurMapKey, "conjur.org/conjur-secrets.* & conjur.org/secret-file-template.*")
 		return p.log.recordedError(messages.CSPFK028E, k8sSecretName)
 	}
 
 	// Parse the YAML-formatted Conjur secrets mapping that has been
-	// retrieved from this K8s Secret.
-	p.log.debug(messages.CSPFK009D, conjurMapKey, k8sSecret.Name)
-	return p.parseConjurSecretsYAML(conjurSecretsYAML, k8sSecret.Name)
+	// retrieved from this K8s Secret (only if conjur-map exists and has content).
+	// If we have valid secret groups, we can skip parsing empty conjur-map.
+	if conjurMapExists && hasValidConjurMap {
+		p.log.debug(messages.CSPFK009D, conjurMapKey, k8sSecret.Name)
+		return p.parseConjurSecretsYAML(conjurSecretsYAML, k8sSecret.Name)
+	}
+
+	return nil
+}
+
+// processSecretGroupAnnotations processes "conjur.org/conjur-secrets.*" annotations
+// and returns a list of SecretGroup objects. Returns an error if any annotation
+// is malformed or missing its required template annotation.
+func (p *K8sProvider) processSecretGroupAnnotations(k8sSecret *v1.Secret) error {
+	var secretGroups []*filetemplates.SecretGroup
+	k8sSecretName := k8sSecret.Name
+
+	for annotationName, annotationValue := range k8sSecret.Annotations {
+		if !strings.HasPrefix(annotationName, filetemplates.SecretGroupPrefix) {
+			continue
+		}
+
+		groupName := strings.TrimPrefix(annotationName, filetemplates.SecretGroupPrefix)
+		templateAnnotationName := filetemplates.SecretGroupFileTemplatePrefix + groupName
+
+		// Each secret group must have a corresponding template annotation
+		if _, tplExists := k8sSecret.Annotations[templateAnnotationName]; !tplExists {
+			p.log.warn(messages.CSPFK013D, k8sSecretName, templateAnnotationName)
+			continue
+		}
+
+		// Parse the secret specs from the annotation value
+		secretSpecs, err := filetemplates.NewSecretSpecs([]byte(annotationValue))
+		if err != nil {
+			p.log.logError(`unable to create secret specs from annotation "%s": %s`, annotationName, err.Error())
+			return fmt.Errorf(`unable to create secret specs from annotation "%s": %w`, annotationName, err)
+		}
+		if len(secretSpecs) == 0 {
+			p.log.logError(`annotation "%s" has no secret specs defined`, annotationName)
+			return fmt.Errorf(`annotation "%s" has no secret specs defined`, annotationName)
+		}
+
+		secretGroup := &filetemplates.SecretGroup{
+			Name:        groupName,
+			SecretSpecs: secretSpecs,
+		}
+		secretGroups = append(secretGroups, secretGroup)
+	}
+
+	if len(secretGroups) > 0 {
+		p.log.debug(messages.CSPFK014D, len(secretGroups), k8sSecretName)
+		p.secretsGroups[k8sSecretName] = secretGroups
+	}
+
+	return nil
 }
 
 // parseConjurSecretsYAML parses the YAML-formatted Conjur secrets mapping
@@ -411,11 +463,13 @@ func (p *K8sProvider) refreshUpdateDestinations(conjurMap map[string]interface{}
 	return nil
 }
 
-// appendDestination is helper function for slice of updateDestination objects
-// If not already exists, append new destination to list
+// appendDestination appends a destination to the slice if it doesn't already exist.
+// A destination is considered a duplicate if both k8sSecretName and secretName match.
+// This prevents duplicate destinations when the same K8s Secret is processed multiple times
+// or when the same secret name maps to the same Conjur variable ID.
 func appendDestination(dests []updateDestination, dest updateDestination) []updateDestination {
-	for _, destt := range dests {
-		if destt.k8sSecretName == dest.k8sSecretName && destt.secretName == dest.k8sSecretName {
+	for _, existing := range dests {
+		if existing.k8sSecretName == dest.k8sSecretName && existing.secretName == dest.secretName {
 			return dests
 		}
 	}
@@ -425,29 +479,38 @@ func appendDestination(dests []updateDestination, dest updateDestination) []upda
 func (p *K8sProvider) listConjurSecretsToFetch() ([]string, error) {
 	updateDests := p.secretsState.updateDestinations
 
-	if (updateDests == nil || len(updateDests) == 0) && len(p.secretsGroups) < 1 {
-		p.log.debug("No secrets to update")
+	// If there are no secrets to update, return gracefully.
+	if len(updateDests) == 0 && len(p.secretsGroups) == 0 {
+		p.log.debug(messages.CSPFK015D)
 		return make([]string, 0), nil
 	}
 
 	// Gather the set of variable IDs for all secrets that need to be
 	// retrieved from Conjur.
+	// Use a map to track seen variable IDs for O(1) lookup performance
+	seenIDs := make(map[string]bool)
 	var variableIDs []string
+
 	for key := range updateDests {
 		// If the variable is "*", then we should fetch all secrets
 		if key == "*" {
 			return []string{"*"}, nil
 		}
 
-		variableIDs = append(variableIDs, key)
+		if !seenIDs[key] {
+			seenIDs[key] = true
+			variableIDs = append(variableIDs, key)
+		}
 	}
 
 	for _, secretGroups := range p.secretsGroups {
 		for _, secretGroup := range secretGroups {
 			for _, secretSpec := range secretGroup.SecretSpecs {
-				if contains(variableIDs, secretSpec.Path) {
+				if seenIDs[secretSpec.Path] {
+					// already added to variableIDs from another source
 					continue
 				}
+				seenIDs[secretSpec.Path] = true
 				variableIDs = append(variableIDs, secretSpec.Path)
 			}
 		}
@@ -456,18 +519,8 @@ func (p *K8sProvider) listConjurSecretsToFetch() ([]string, error) {
 	if len(variableIDs) == 0 {
 		return nil, p.log.recordedError(messages.CSPFK025E)
 	}
-	p.log.debug("List of Conjur Secrets to fetch %s", updateDests)
 
 	return variableIDs, nil
-}
-
-func contains(elems []string, v string) bool {
-	for _, s := range elems {
-		if v == s {
-			return true
-		}
-	}
-	return false
 }
 
 func (p *K8sProvider) retrieveConjurSecrets(tracer trace.Tracer) (map[string][]byte, error) {
@@ -697,24 +750,26 @@ func diffConjurMapKeys(oldMap, newMap map[string]interface{}) []string {
 	}
 	return removed
 // createGroupTemplateSecretData creates a map of entries to be added to the 'Data' fields
-// of each K8s Secret. Data fields are created from group secret variables and rendered corresponding group template filled with secret values retrieved from Conjur,
+// of each K8s Secret. Data fields are created from group secret variables and rendered corresponding group
+// template filled with secret values retrieved from Conjur.
 // If a secret has a 'base64' content type, the resulting secret value will be decoded.
 func (p *K8sProvider) createGroupTemplateSecretData(conjurSecrets map[string][]byte,
 	newSecretsDataMap map[string]map[string][]byte) map[string]map[string][]byte {
 
 	for k8sSecretName, secretGroups := range p.secretsGroups {
-		//group for k8s secret
 		secretsByGroup := map[string][]*filetemplates.Secret{}
 
 		for _, secretGroup := range secretGroups {
 			for _, secSpec := range secretGroup.SecretSpecs {
+				// Check if the secret value was returned from Conjur
+				// If not, log an error and set the value to an empty string
 				bValue, ok := conjurSecrets[secSpec.Path]
 				if !ok {
-					p.log.logError("Value for '%s' group alias '%s' not fetched from Conjur", secretGroup.Name, secSpec.Alias)
+					p.log.logError(messages.CSPFK085E, secretGroup.Name, secSpec.Alias)
 					bValue = []byte{}
 				}
 
-				//add retrieved value for group
+				// Add the retrieved value for the group
 				secretsByGroup[secretGroup.Name] = append(
 					secretsByGroup[secretGroup.Name],
 					&filetemplates.Secret{
@@ -724,19 +779,22 @@ func (p *K8sProvider) createGroupTemplateSecretData(conjurSecrets map[string][]b
 			}
 		}
 
-		//render every group
-		for groupName, sec := range secretsByGroup {
+		// Render each group template
+		originalSecret := p.secretsState.originalK8sSecrets[k8sSecretName]
+		if originalSecret == nil {
+			continue
+		}
 
+		for groupName, sec := range secretsByGroup {
 			secretsMap := map[string]*filetemplates.Secret{}
 			for _, s := range sec {
 				secretsMap[s.Alias] = s
 			}
 
-			groupTemplate := p.secretsState.originalK8sSecrets[k8sSecretName].
-				Annotations[filetemplates.SecretGroupFileTemplatePrefix+groupName]
+			groupTemplate := originalSecret.Annotations[filetemplates.SecretGroupFileTemplatePrefix+groupName]
 			tpl, err := filetemplates.GetTemplate(groupName, secretsMap).Parse(groupTemplate)
 			if err != nil {
-				p.log.logError("Unable to get template for %s group in %s secret: %s", groupName, k8sSecretName, err.Error())
+				p.log.logError(messages.CSPFK086E, groupName, k8sSecretName, err.Error())
 				continue
 			}
 
@@ -747,14 +805,14 @@ func (p *K8sProvider) createGroupTemplateSecretData(conjurSecrets map[string][]b
 			}
 			fileContent, err := filetemplates.RenderFile(tpl, tplData)
 			if err != nil {
-				p.log.logError("Failed render template for %s group in %s secret: %s", groupName, k8sSecretName, err.Error())
+				p.log.logError(messages.CSPFK087E, groupName, k8sSecretName, err.Error())
 				continue
 			}
 
 			if newSecretsDataMap[k8sSecretName] == nil {
 				newSecretsDataMap[k8sSecretName] = map[string][]byte{}
 			}
-			//set rendered template into secret with groupName as a key
+			// Use rendered template as the value, groupname as the key for the K8s secret
 			newSecretsDataMap[k8sSecretName][groupName] = fileContent.Bytes()
 		}
 	}

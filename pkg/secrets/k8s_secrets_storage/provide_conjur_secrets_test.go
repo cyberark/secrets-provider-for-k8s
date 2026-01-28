@@ -16,6 +16,7 @@ import (
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/log/messages"
 	conjurMocks "github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/clients/conjur/mocks"
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/config"
+	"github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/file_templates"
 	k8sStorageMocks "github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/k8s_secrets_storage/mocks"
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/utils"
 )
@@ -868,8 +869,7 @@ func TestProvide(t *testing.T) {
 			asserts: []assertFunc{
 				assertErrorLogged(messages.CSPFK028E, "k8s-secret1"),
 				assertErrorContains(messages.CSPFK021E, false),
-				// TODO: uncomment this
-				// assertErrorLogged("At least one of %s data entry or %s annotations must defined", "conjur-map", "conjur.org/conjur-secrets.* & conjur.org/secret-file-template.*"),
+				assertErrorLogged("At least one of %s data entry or %s annotations must be defined", "conjur-map", "conjur.org/conjur-secrets.* & conjur.org/secret-file-template.*"),
 			},
 		},
 		{
@@ -883,6 +883,159 @@ func TestProvide(t *testing.T) {
 			asserts: []assertFunc{
 				assertErrorLogged(messages.CSPFK028E, "k8s-secret1"),
 				assertErrorContains(messages.CSPFK021E, false),
+			},
+		},
+		{
+			desc: "K8s secret has secret group annotation without template annotation, conjur-map still processed",
+			k8sSecrets: k8sStorageMocks.K8sSecrets{
+				"k8s-secret1": {
+					"conjur-map": {"secret1": "conjur/var/path1"},
+				},
+			},
+			annotations: map[string]map[string]string{
+				"k8s-secret1": {
+					"conjur.org/conjur-secrets.group1": "- var: conjur/var/path2",
+					// Missing: "conjur.org/secret-file-template.group1"
+				},
+			},
+			requiredSecrets: []string{"k8s-secret1"},
+			asserts: []assertFunc{
+				assertSecretsUpdated(
+					expectedK8sSecrets{
+						"k8s-secret1": {"secret1": "secret-value1"},
+					},
+					expectedMissingValues{},
+					false,
+				),
+				assertLogged(true, "warn", messages.CSPFK013D, "k8s-secret1", "conjur.org/secret-file-template.group1"),
+			},
+		},
+		{
+			desc: "K8s secret has no conjur-map but valid secret groups",
+			k8sSecrets: k8sStorageMocks.K8sSecrets{
+				"k8s-secret1": {},
+			},
+			annotations: map[string]map[string]string{
+				"k8s-secret1": {
+					"conjur.org/conjur-secrets.group1":       "- var: conjur/var/path1",
+					"conjur.org/secret-file-template.group1": "{{ secret \"var\" }}",
+				},
+			},
+			requiredSecrets: []string{"k8s-secret1"},
+			asserts: []assertFunc{
+				assertSecretsUpdated(
+					expectedK8sSecrets{
+						"k8s-secret1": {"group1": "secret-value1"},
+					},
+					expectedMissingValues{},
+					false,
+				),
+			},
+		},
+		{
+			desc: "K8s secret has empty conjur-map but valid secret groups",
+			k8sSecrets: k8sStorageMocks.K8sSecrets{
+				"k8s-secret1": {
+					"conjur-map": {},
+				},
+			},
+			annotations: map[string]map[string]string{
+				"k8s-secret1": {
+					"conjur.org/conjur-secrets.group1":       "- var: conjur/var/path1",
+					"conjur.org/secret-file-template.group1": "{{ secret \"var\" }}",
+				},
+			},
+			requiredSecrets: []string{"k8s-secret1"},
+			asserts: []assertFunc{
+				assertSecretsUpdated(
+					expectedK8sSecrets{
+						"k8s-secret1": {"group1": "secret-value1"},
+					},
+					expectedMissingValues{},
+					false,
+				),
+			},
+		},
+		{
+			desc: "K8s secret has empty conjur-map and no secret groups",
+			k8sSecrets: k8sStorageMocks.K8sSecrets{
+				"k8s-secret1": {
+					"conjur-map": {},
+				},
+			},
+			requiredSecrets: []string{"k8s-secret1"},
+			asserts: []assertFunc{
+				assertErrorLogged(messages.CSPFK028E, "k8s-secret1"),
+				assertErrorContains(messages.CSPFK021E, false),
+				assertErrorLogged("At least one of %s data entry or %s annotations must be defined", "conjur-map", "conjur.org/conjur-secrets.* & conjur.org/secret-file-template.*"),
+			},
+		},
+		{
+			desc: "K8s secret has multiple secret groups, some with templates, some without",
+			k8sSecrets: k8sStorageMocks.K8sSecrets{
+				"k8s-secret1": {
+					"conjur-map": {"secret1": "conjur/var/path1"},
+				},
+			},
+			annotations: map[string]map[string]string{
+				"k8s-secret1": {
+					"conjur.org/conjur-secrets.group1":       "- var: conjur/var/path2",
+					"conjur.org/secret-file-template.group1": "group1: {{ secret \"var\" }}",
+					"conjur.org/conjur-secrets.group2":       "- var: conjur/var/path3",
+					// Missing template for group2 - should warn and skip
+					"conjur.org/conjur-secrets.group3":       "- var: conjur/var/path4",
+					"conjur.org/secret-file-template.group3": "group3: {{ secret \"var\" }}",
+				},
+			},
+			requiredSecrets: []string{"k8s-secret1"},
+			asserts: []assertFunc{
+				assertSecretsUpdated(
+					expectedK8sSecrets{
+						"k8s-secret1": {
+							"secret1": "secret-value1",
+							"group1":  "group1: secret-value2",
+							"group3":  "group3: secret-value4",
+						},
+					},
+					expectedMissingValues{},
+					false,
+				),
+				assertLogged(true, "warn", messages.CSPFK013D, "k8s-secret1", "conjur.org/secret-file-template.group2"),
+			},
+		},
+		{
+			desc: "K8s secret has invalid secret specs in annotation",
+			k8sSecrets: k8sStorageMocks.K8sSecrets{
+				"k8s-secret1": {},
+			},
+			annotations: map[string]map[string]string{
+				"k8s-secret1": {
+					"conjur.org/conjur-secrets.group1":       "invalid: yaml: content",
+					"conjur.org/secret-file-template.group1": "{{ secret \"var\" }}",
+				},
+			},
+			requiredSecrets: []string{"k8s-secret1"},
+			asserts: []assertFunc{
+				assertErrorLogged(messages.CSPFK021E),
+				assertErrorLogged("unable to create secret specs from annotation"),
+				assertErrorLogged("conjur.org/conjur-secrets.group1"),
+			},
+		},
+		{
+			desc: "K8s secret has empty secret group annotation value",
+			k8sSecrets: k8sStorageMocks.K8sSecrets{
+				"k8s-secret1": {},
+			},
+			annotations: map[string]map[string]string{
+				"k8s-secret1": {
+					"conjur.org/conjur-secrets.group1":       "",
+					"conjur.org/secret-file-template.group1": "{{ secret \"var\" }}",
+				},
+			},
+			requiredSecrets: []string{"k8s-secret1"},
+			asserts: []assertFunc{
+				assertErrorLogged(messages.CSPFK021E),
+				assertErrorLogged(`annotation "conjur.org/conjur-secrets.group1" has no secret specs defined`),
 			},
 		},
 		{
@@ -1669,6 +1822,195 @@ func TestParseConjurMap(t *testing.T) {
 	}
 }
 
+func TestCreateGroupTemplateSecretData(t *testing.T) {
+	testCases := []struct {
+		name               string
+		secretsGroups      map[string][]*filetemplates.SecretGroup
+		originalK8sSecrets map[string]*v1.Secret
+		conjurSecrets      map[string][]byte
+		initialDataMap     map[string]map[string][]byte
+		expectedResult     map[string]map[string][]byte
+		expectedErrors     []string
+	}{
+		{
+			name: "successfully renders template with all secrets present",
+			secretsGroups: map[string][]*filetemplates.SecretGroup{
+				"k8s-secret1": {
+					{
+						Name: "group1",
+						SecretSpecs: []filetemplates.SecretSpec{
+							{Alias: "alias1", Path: "conjur/var/path1"},
+							{Alias: "alias2", Path: "conjur/var/path2"},
+						},
+					},
+				},
+			},
+			originalK8sSecrets: map[string]*v1.Secret{
+				"k8s-secret1": {
+					ObjectMeta: metav1.ObjectMeta{
+						Annotations: map[string]string{
+							"conjur.org/secret-file-template.group1": "{{ secret \"alias1\" }}-{{ secret \"alias2\" }}",
+						},
+					},
+				},
+			},
+			conjurSecrets: map[string][]byte{
+				"conjur/var/path1": []byte("secret-value1"),
+				"conjur/var/path2": []byte("secret-value2"),
+			},
+			initialDataMap: make(map[string]map[string][]byte),
+			expectedResult: map[string]map[string][]byte{
+				"k8s-secret1": {
+					"group1": []byte("secret-value1-secret-value2"),
+				},
+			},
+		},
+		{
+			name: "handles missing secret gracefully",
+			secretsGroups: map[string][]*filetemplates.SecretGroup{
+				"k8s-secret1": {
+					{
+						Name: "group1",
+						SecretSpecs: []filetemplates.SecretSpec{
+							{Alias: "alias1", Path: "conjur/var/path1"},
+							{Alias: "alias2", Path: "conjur/var/missing"},
+						},
+					},
+				},
+			},
+			originalK8sSecrets: map[string]*v1.Secret{
+				"k8s-secret1": {
+					ObjectMeta: metav1.ObjectMeta{
+						Annotations: map[string]string{
+							"conjur.org/secret-file-template.group1": "{{ secret \"alias1\" }}-{{ secret \"alias2\" }}",
+						},
+					},
+				},
+			},
+			conjurSecrets: map[string][]byte{
+				"conjur/var/path1": []byte("secret-value1"),
+			},
+			initialDataMap: make(map[string]map[string][]byte),
+			expectedResult: map[string]map[string][]byte{
+				"k8s-secret1": {
+					"group1": []byte("secret-value1-"),
+				},
+			},
+			expectedErrors: []string{"CSPFK085E"},
+		},
+		{
+			name: "handles invalid template parse error gracefully",
+			secretsGroups: map[string][]*filetemplates.SecretGroup{
+				"k8s-secret1": {
+					{
+						Name: "group1",
+						SecretSpecs: []filetemplates.SecretSpec{
+							{Alias: "alias1", Path: "conjur/var/path1"},
+						},
+					},
+				},
+			},
+			originalK8sSecrets: map[string]*v1.Secret{
+				"k8s-secret1": {
+					ObjectMeta: metav1.ObjectMeta{
+						Annotations: map[string]string{
+							"conjur.org/secret-file-template.group1": "{{ invalid template syntax }",
+						},
+					},
+				},
+			},
+			conjurSecrets: map[string][]byte{
+				"conjur/var/path1": []byte("secret-value1"),
+			},
+			initialDataMap: make(map[string]map[string][]byte),
+			expectedResult: map[string]map[string][]byte{},
+			expectedErrors: []string{"CSPFK086E"},
+		},
+		{
+			name: "handles multiple groups in same secret",
+			secretsGroups: map[string][]*filetemplates.SecretGroup{
+				"k8s-secret1": {
+					{
+						Name: "group1",
+						SecretSpecs: []filetemplates.SecretSpec{
+							{Alias: "alias1", Path: "conjur/var/path1"},
+						},
+					},
+					{
+						Name: "group2",
+						SecretSpecs: []filetemplates.SecretSpec{
+							{Alias: "alias2", Path: "conjur/var/path2"},
+						},
+					},
+				},
+			},
+			originalK8sSecrets: map[string]*v1.Secret{
+				"k8s-secret1": {
+					ObjectMeta: metav1.ObjectMeta{
+						Annotations: map[string]string{
+							"conjur.org/secret-file-template.group1": "{{ secret \"alias1\" }}",
+							"conjur.org/secret-file-template.group2": "{{ secret \"alias2\" }}",
+						},
+					},
+				},
+			},
+			conjurSecrets: map[string][]byte{
+				"conjur/var/path1": []byte("secret-value1"),
+				"conjur/var/path2": []byte("secret-value2"),
+			},
+			initialDataMap: make(map[string]map[string][]byte),
+			expectedResult: map[string]map[string][]byte{
+				"k8s-secret1": {
+					"group1": []byte("secret-value1"),
+					"group2": []byte("secret-value2"),
+				},
+			},
+		},
+		{
+			name: "merges with existing newSecretsDataMap",
+			secretsGroups: map[string][]*filetemplates.SecretGroup{
+				"k8s-secret1": {
+					{
+						Name: "group1",
+						SecretSpecs: []filetemplates.SecretSpec{
+							{Alias: "alias1", Path: "conjur/var/path1"},
+						},
+					},
+				},
+			},
+			originalK8sSecrets: map[string]*v1.Secret{
+				"k8s-secret1": {
+					ObjectMeta: metav1.ObjectMeta{
+						Annotations: map[string]string{
+							"conjur.org/secret-file-template.group1": "{{ secret \"alias1\" }}",
+						},
+					},
+				},
+			},
+			conjurSecrets: map[string][]byte{
+				"conjur/var/path1": []byte("secret-value1"),
+			},
+			initialDataMap: map[string]map[string][]byte{
+				"k8s-secret1": {
+					"existing-key": []byte("existing-value"),
+				},
+			},
+			expectedResult: map[string]map[string][]byte{
+				"k8s-secret1": {
+					"existing-key": []byte("existing-value"),
+					"group1":       []byte("secret-value1"),
+				},
+			},
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			result := createGroupTemplateSecretData(tc.secretsGroups, tc.originalK8sSecrets, tc.conjurSecrets, tc.initialDataMap)
+			assert.Equal(t, tc.expectedResult, result)
+		})
+	}
+}
+
 func TestDiffConjurMapKeys(t *testing.T) {
 	testCases := []struct {
 		name     string
@@ -1723,7 +2065,7 @@ func TestDiffConjurMapKeys(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			result := diffConjurMapKeys(tc.oldMap, tc.newMap)
-			assertSliceContainsElements(t, result, tc.expected)
+			assert.Contains(t, result, tc.expected)
 		})
 	}
 }
@@ -1856,29 +2198,8 @@ func TestGetRemovedKeys(t *testing.T) {
 			for secretName, expectedKeys := range tc.expected {
 				actualKeys, exists := result[secretName]
 				assert.True(t, exists, "GetRemovedKeys should include secret '%s'", secretName)
-				assertSliceContainsElements(t, actualKeys, expectedKeys)
+				assert.Contains(t, actualKeys, expectedKeys)
 			}
 		})
-	}
-}
-
-// assertSliceContainsElements checks if the actual slice contains all expected elements, regardless of order.
-func assertSliceContainsElements(t *testing.T, actual []string, expected []string) {
-	if len(actual) != len(expected) {
-		t.Errorf("slice length mismatch: expected %d elements, got %d. Expected: %v, Actual: %v", len(expected), len(actual), expected, actual)
-		return
-	}
-
-	// Create a map to track found elements
-	found := make(map[string]bool)
-	for _, elem := range actual {
-		found[elem] = true
-	}
-
-	// Verify all expected elements are present
-	for _, expectedElem := range expected {
-		if !found[expectedElem] {
-			t.Errorf("expected element '%s' not found in actual slice: %v", expectedElem, actual)
-		}
 	}
 }

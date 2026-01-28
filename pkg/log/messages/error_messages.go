@@ -118,3 +118,8 @@ const CSPFK086E string = "CSPFK086E Secret %s has removed the label '%s' and wil
 
 // Secrets event notifier
 const CSPFK084I string = "CSPFK084I Secret informer notifier has nil events channel, skip sending event"
+
+// Group templates
+const CSPFK085E string = "CSPFK085E Value for '%s' group alias '%s' not fetched from Conjur"
+const CSPFK086E string = "CSPFK086E Unable to get template for %s group in %s secret: %s"
+const CSPFK087E string = "CSPFK087E Failed to render template for %s group in %s secret: %s"

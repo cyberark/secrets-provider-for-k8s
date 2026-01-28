@@ -297,6 +297,127 @@ func TestSecretInformerUpdateEvents(t *testing.T) {
 			expectedEvents: []string{"added"},
 			description:    "Data-only updates should be ignored to prevent circular updates",
 		},
+		{
+			name: "conjur-secrets annotation change triggers updated event",
+			initialSecret: &v1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "managed-secret",
+					Namespace: "test-namespace",
+					Labels: map[string]string{
+						config.ManagedByProviderKey: "true",
+					},
+					Annotations: map[string]string{
+						"conjur.org/conjur-secrets.example.1": "- username: secrets/username\n- password: secrets/password",
+					},
+				},
+				Data: map[string][]byte{},
+			},
+			updateSecret: func(s *v1.Secret) {
+				s.Annotations["conjur.org/conjur-secrets.example.1"] = "- username: secrets/new_username\n- password: secrets/new_password"
+			},
+			expectedEvents: []string{"added", "updated"},
+			description:    "Changing conjur-secrets annotation should trigger UPDATE event",
+		},
+		{
+			name: "secret-file-template annotation change triggers updated event",
+			initialSecret: &v1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "managed-secret",
+					Namespace: "test-namespace",
+					Labels: map[string]string{
+						config.ManagedByProviderKey: "true",
+					},
+					Annotations: map[string]string{
+						"conjur.org/secret-file-template.example.1": "username | {{ secret \"username\" }}",
+					},
+				},
+				Data: map[string][]byte{},
+			},
+			updateSecret: func(s *v1.Secret) {
+				s.Annotations["conjur.org/secret-file-template.example.1"] = "username | {{ secret \"username\" }}\npassword | {{ secret \"password\" }}"
+			},
+			expectedEvents: []string{"added", "updated"},
+			description:    "Changing secret-file-template annotation should trigger UPDATE event",
+		},
+		{
+			name: "conjur-secrets annotation added triggers updated event",
+			initialSecret: &v1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "managed-secret",
+					Namespace: "test-namespace",
+					Labels: map[string]string{
+						config.ManagedByProviderKey: "true",
+					},
+					Annotations: map[string]string{},
+				},
+				Data: map[string][]byte{},
+			},
+			updateSecret: func(s *v1.Secret) {
+				s.Annotations["conjur.org/conjur-secrets.example.1"] = "- username: secrets/username"
+			},
+			expectedEvents: []string{"added", "updated"},
+			description:    "Adding conjur-secrets annotation should trigger UPDATE event",
+		},
+		{
+			name: "conjur-secrets annotation removed triggers updated event",
+			initialSecret: &v1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "managed-secret",
+					Namespace: "test-namespace",
+					Labels: map[string]string{
+						config.ManagedByProviderKey: "true",
+					},
+					Annotations: map[string]string{
+						"conjur.org/conjur-secrets.example.1": "- username: secrets/username",
+					},
+				},
+				Data: map[string][]byte{},
+			},
+			updateSecret: func(s *v1.Secret) {
+				delete(s.Annotations, "conjur.org/conjur-secrets.example.1")
+			},
+			expectedEvents: []string{"added", "updated"},
+			description:    "Removing conjur-secrets annotation should trigger UPDATE event",
+		},
+		{
+			name: "non-relevant annotation change does not trigger event",
+			initialSecret: &v1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "managed-secret",
+					Namespace: "test-namespace",
+					Labels: map[string]string{
+						config.ManagedByProviderKey: "true",
+					},
+					Annotations: map[string]string{
+						"some.other/annotation": "original-value",
+					},
+				},
+				Data: map[string][]byte{},
+			},
+			updateSecret: func(s *v1.Secret) {
+				s.Annotations["some.other/annotation"] = "updated-value"
+			},
+			expectedEvents: []string{"added"},
+			description:    "Changing non-relevant annotations should not trigger UPDATE event",
+		},
+		{
+			name: "annotation change without label does not trigger event",
+			initialSecret: &v1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "unmanaged-secret",
+					Namespace: "test-namespace",
+					Annotations: map[string]string{
+						"conjur.org/conjur-secrets.example.1": "- username: secrets/username",
+					},
+				},
+				Data: map[string][]byte{},
+			},
+			updateSecret: func(s *v1.Secret) {
+				s.Annotations["conjur.org/conjur-secrets.example.1"] = "- username: secrets/new_username"
+			},
+			expectedEvents: []string{},
+			description:    "Annotation changes without managed-by-provider label should not trigger events",
+		},
 	}
 
 	for _, tt := range tests {

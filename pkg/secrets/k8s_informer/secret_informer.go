@@ -2,6 +2,7 @@ package k8sinformer
 
 import (
 	"fmt"
+	"strings"
 	"sync"
 
 	"github.com/cyberark/conjur-authn-k8s-client/pkg/log"
@@ -13,6 +14,7 @@ import (
 
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/log/messages"
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/config"
+	"github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/file_templates"
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/utils"
 )
 
@@ -190,6 +192,56 @@ func (si *SecretInformer) labelsChanged(oldSecret, newSecret *v1.Secret) bool {
 	oldHasLabel := si.hasManagedByProviderLabel(oldSecret)
 	newHasLabel := si.hasManagedByProviderLabel(newSecret)
 	return oldHasLabel != newHasLabel
+}
+
+// relevantAnnotationsChanged checks if any relevant annotations changed
+// Relevant annotations are those used for secret groups:
+// - conjur.org/conjur-secrets.*
+// - conjur.org/secret-file-template.*
+func (si *SecretInformer) relevantAnnotationsChanged(oldSecret, newSecret *v1.Secret) bool {
+	oldAnnotations := oldSecret.Annotations
+	newAnnotations := newSecret.Annotations
+
+	// Handle nil Annotations as an empty map
+	if oldAnnotations == nil && newAnnotations == nil {
+		return false
+	}
+	if oldAnnotations == nil {
+		oldAnnotations = make(map[string]string)
+	}
+	if newAnnotations == nil {
+		newAnnotations = make(map[string]string)
+	}
+
+	// Collect all relevant annotation keys from both old and new secret objects
+	relevantKeys := make(map[string]bool)
+	for key := range oldAnnotations {
+		if si.isRelevantAnnotation(key) {
+			relevantKeys[key] = true
+		}
+	}
+	for key := range newAnnotations {
+		if si.isRelevantAnnotation(key) {
+			relevantKeys[key] = true
+		}
+	}
+
+	// Check if any relevant annotation changed
+	for key := range relevantKeys {
+		oldValue := oldAnnotations[key]
+		newValue := newAnnotations[key]
+		if oldValue != newValue {
+			return true
+		}
+	}
+
+	return false
+}
+
+// isRelevantAnnotation checks if an annotation key is relevant for secret groups
+func (si *SecretInformer) isRelevantAnnotation(key string) bool {
+	return strings.HasPrefix(key, filetemplates.SecretGroupPrefix) ||
+		strings.HasPrefix(key, filetemplates.SecretGroupFileTemplatePrefix)
 }
 
 // onUpdate is called when an existing secret is updated

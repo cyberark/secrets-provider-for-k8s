@@ -352,7 +352,7 @@ func TestStandardTemplate_ValidateAlias(t *testing.T) {
 
 func TestUnrecognizedFormat(t *testing.T) {
 	t.Run("returns error for unrecognized file format", func(t *testing.T) {
-		_, err := FileTemplateForFormat("txt", []SecretSpec{})
+		_, err := FileTemplateForFormat("txt", []filetemplates.SecretSpec{})
 		assert.Error(t, err)
 		assert.EqualError(t, err, "unrecognized standard file format, \"txt\"")
 	})

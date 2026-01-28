@@ -533,6 +533,54 @@ var newConfigTestCases = []newConfigTestCase{
 			SanitizeEnabled:        DefaultSanitizeEnabled,
 		}),
 	},
+	{
+		description: "annotation-based k8s secrets with blank lines filters out empty strings",
+		settings: map[string]string{
+			"MY_POD_NAMESPACE":    "test-namespace",
+			SecretsDestinationKey: "k8s_secrets",
+			k8sSecretsKey:         "- secret-1\n- \n- secret-2\n- secret-3\n",
+		},
+		assert: assertGoodConfig(&Config{
+			PodNamespace:       "test-namespace",
+			StoreType:          "k8s_secrets",
+			RequiredK8sSecrets: []string{"secret-1", "secret-2", "secret-3"},
+			RetryCountLimit:    DefaultRetryCountLimit,
+			RetryIntervalSec:   DefaultRetryIntervalSec,
+			SanitizeEnabled:    DefaultSanitizeEnabled,
+		}),
+	},
+	{
+		description: "envVar-based k8s secrets with trailing commas filters out empty strings",
+		settings: map[string]string{
+			"MY_POD_NAMESPACE":    "test-namespace",
+			"SECRETS_DESTINATION": "k8s_secrets",
+			"K8S_SECRETS":         "secret-1,secret-2,secret-3,",
+		},
+		assert: assertGoodConfig(&Config{
+			PodNamespace:       "test-namespace",
+			StoreType:          "k8s_secrets",
+			RequiredK8sSecrets: []string{"secret-1", "secret-2", "secret-3"},
+			RetryCountLimit:    DefaultRetryCountLimit,
+			RetryIntervalSec:   DefaultRetryIntervalSec,
+			SanitizeEnabled:    DefaultSanitizeEnabled,
+		}),
+	},
+	{
+		description: "envVar-based k8s secrets with multiple consecutive commas filters out empty strings",
+		settings: map[string]string{
+			"MY_POD_NAMESPACE":    "test-namespace",
+			"SECRETS_DESTINATION": "k8s_secrets",
+			"K8S_SECRETS":         "secret-1,,secret-2,secret-3",
+		},
+		assert: assertGoodConfig(&Config{
+			PodNamespace:       "test-namespace",
+			StoreType:          "k8s_secrets",
+			RequiredK8sSecrets: []string{"secret-1", "secret-2", "secret-3"},
+			RetryCountLimit:    DefaultRetryCountLimit,
+			RetryIntervalSec:   DefaultRetryIntervalSec,
+			SanitizeEnabled:    DefaultSanitizeEnabled,
+		}),
+	},
 }
 
 func TestValidateAnnotations(t *testing.T) {

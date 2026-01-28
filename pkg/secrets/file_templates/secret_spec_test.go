@@ -1,8 +1,7 @@
-package pushtofile
+package filetemplates
 
 import (
 	"fmt"
-	"github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/file_templates"
 	"strings"
 	"testing"
 
@@ -17,18 +16,18 @@ const (
 type secretsSpecTestCase struct {
 	description string
 	contents    string
-	assert      func(t *testing.T, result []filetemplates.SecretSpec, err error)
+	assert      func(t *testing.T, result []SecretSpec, err error)
 }
 
 func (tc secretsSpecTestCase) Run(t *testing.T) {
 	t.Run(tc.description, func(t *testing.T) {
-		secretsSpecs, err := filetemplates.NewSecretSpecs([]byte(tc.contents))
+		secretsSpecs, err := NewSecretSpecs([]byte(tc.contents))
 		tc.assert(t, secretsSpecs, err)
 	})
 }
 
-func assertGoodSecretSpecs(expectedResult []filetemplates.SecretSpec) func(*testing.T, []filetemplates.SecretSpec, error) {
-	return func(t *testing.T, result []filetemplates.SecretSpec, err error) {
+func assertGoodSecretSpecs(expectedResult []SecretSpec) func(*testing.T, []SecretSpec, error) {
+	return func(t *testing.T, result []SecretSpec, err error) {
 		if !assert.NoError(t, err) {
 			return
 		}
@@ -49,7 +48,7 @@ var secretsSpecTestCases = []secretsSpecTestCase{
 - admin-password: dev/openshift/password
 `,
 		assert: assertGoodSecretSpecs(
-			[]filetemplates.SecretSpec{
+			[]SecretSpec{
 				{
 					Alias:       "api-url",
 					Path:        "dev/openshift/api-url",
@@ -69,7 +68,7 @@ var secretsSpecTestCases = []secretsSpecTestCase{
 admin-password: dev/openshift/password
 another-password: dev/openshift/password
 `,
-		assert: func(t *testing.T, result []filetemplates.SecretSpec, err error) {
+		assert: func(t *testing.T, result []SecretSpec, err error) {
 			assert.Contains(t, err.Error(), "cannot unmarshal")
 			assert.Contains(t, err.Error(), "into []filetemplates.SecretSpec")
 		},
@@ -81,7 +80,7 @@ another-password: dev/openshift/password
   another-admin-password: dev/openshift/password
 - dev/openshift/api-url
 `,
-		assert: func(t *testing.T, result []filetemplates.SecretSpec, err error) {
+		assert: func(t *testing.T, result []SecretSpec, err error) {
 			assert.Contains(t, err.Error(), "expected a")
 			assert.Contains(t, err.Error(), "on line 2")
 		},
@@ -93,7 +92,7 @@ another-password: dev/openshift/password
 - key: 
     inner-key: inner-value
 `,
-		assert: func(t *testing.T, result []filetemplates.SecretSpec, err error) {
+		assert: func(t *testing.T, result []SecretSpec, err error) {
 			assert.Contains(t, err.Error(), "expected a")
 			assert.Contains(t, err.Error(), "on line 3")
 		},
@@ -105,7 +104,7 @@ another-password: dev/openshift/password
 - api-password: dev/openshift/api-password
 - - list item
 `,
-		assert: func(t *testing.T, result []filetemplates.SecretSpec, err error) {
+		assert: func(t *testing.T, result []SecretSpec, err error) {
 			assert.Contains(t, err.Error(), "expected a")
 			assert.Contains(t, err.Error(), "on line 4")
 		},
@@ -117,7 +116,7 @@ another-password: dev/openshift/password
   content-type: text
 `,
 		assert: assertGoodSecretSpecs(
-			[]filetemplates.SecretSpec{
+			[]SecretSpec{
 				{
 					Alias:       "dev",
 					Path:        "dev/openshift/api-url",
@@ -133,7 +132,7 @@ another-password: dev/openshift/password
   content-type: base64
 `,
 		assert: assertGoodSecretSpecs(
-			[]filetemplates.SecretSpec{
+			[]SecretSpec{
 				{
 					Alias:       "dev",
 					Path:        "dev/openshift/api-url",
@@ -146,7 +145,7 @@ another-password: dev/openshift/password
 		description: "fetch all",
 		contents:    "*",
 		assert: assertGoodSecretSpecs(
-			[]filetemplates.SecretSpec{
+			[]SecretSpec{
 				{
 					Path:        "*",
 					Alias:       "*",
@@ -162,7 +161,7 @@ another-password: dev/openshift/password
   content-type: base64
 `,
 		assert: assertGoodSecretSpecs(
-			[]filetemplates.SecretSpec{
+			[]SecretSpec{
 				{
 					Path:        "*",
 					Alias:       "*",
@@ -180,7 +179,7 @@ func TestNewSecretSpecs(t *testing.T) {
 }
 
 func TestValidateSecretSpecPaths(t *testing.T) {
-	maxLenConjurVarName := strings.Repeat("a", filetemplates.MaxConjurVarNameLen)
+	maxLenConjurVarName := strings.Repeat("a", MaxConjurVarNameLen)
 
 	type assertFunc func(*testing.T, []error, string)
 
@@ -230,7 +229,7 @@ func TestValidateSecretSpecPaths(t *testing.T) {
 			validConjurPath1 + "/" + maxLenConjurVarName + "a",
 			validConjurPath2,
 			assertErrorsContain(fmt.Sprintf(
-				"is longer than %d characters", filetemplates.MaxConjurVarNameLen)),
+				"is longer than %d characters", MaxConjurVarNameLen)),
 		}, {
 			"Two Conjur paths with trailing '/'",
 			validConjurPath1 + "/",
@@ -241,13 +240,13 @@ func TestValidateSecretSpecPaths(t *testing.T) {
 
 	for _, tc := range testCases {
 		// Set up test case
-		secretSpecs := []filetemplates.SecretSpec{
+		secretSpecs := []SecretSpec{
 			{Alias: "foo", Path: tc.path1},
 			{Alias: "bar", Path: tc.path2},
 		}
 
 		// Run test case
-		err := filetemplates.ValidateSecretPaths(secretSpecs, "some-group-name")
+		err := ValidateSecretPaths(secretSpecs, "some-group-name")
 
 		// Check result
 		tc.assert(t, err, tc.description)
@@ -307,13 +306,13 @@ func TestValidateSecretSpecContents(t *testing.T) {
 
 	for _, tc := range testCases {
 		// Set up test case
-		secretSpecs := []filetemplates.SecretSpec{
+		secretSpecs := []SecretSpec{
 			{Alias: "foo", Path: validConjurPath1, ContentType: tc.Content1},
 			{Alias: "bar", Path: validConjurPath1, ContentType: tc.Content2},
 		}
 
 		// Run test case
-		err := filetemplates.ValidateSecretContents(secretSpecs, "some-group-name")
+		err := ValidateSecretContents(secretSpecs, "some-group-name")
 
 		// Check result
 		tc.assert(t, err, tc.description)
