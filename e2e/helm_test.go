@@ -47,7 +47,7 @@ func TestHelmJobDeploysSuccessfully(t *testing.T) {
 		}).
 		// Replaces TEST_ID_17_helm_job_deploys_successfully
 		Assess("helm job deploys successfully", func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
-			// wait for secret value to be available in K8s secret			// wait for secret value to be available in K8s secret
+			// wait for secret value to be available in K8s secret
 			// this implicitly waits for the secrets provider job to complete and validates the K8s secret contents
 			err := WaitForK8sSecretValue(cfg.Client(), SecretsProviderNamespace(), "test-k8s-secret", "secret", "supersecret", 60*time.Second)
 			assert.Nil(t, err)

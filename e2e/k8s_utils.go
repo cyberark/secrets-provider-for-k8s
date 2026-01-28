@@ -344,7 +344,7 @@ func WaitForSecretValue(client klient.Client, labelSelector string, container st
 			err := RunCommandInSecretsProviderPod(client, labelSelector, container, command, &stdout, &stderr)
 			lastStdout = stdout.String()
 			lastStderr = stderr.String()
-			
+
 			// Check if command succeeded and output contains the expected value
 			if err == nil && strings.Contains(lastStdout, expectedValue) {
 				return nil
@@ -363,10 +363,15 @@ func WaitForK8sSecretValue(client klient.Client, namespace string, secretName st
 	defer ticker.Stop()
 
 	var lastErr error
+	var lastActualValue string
+	var keyExists bool
 	for {
 		select {
 		case <-ctx.Done():
-			return fmt.Errorf("timeout waiting for secret %s/%s key %s to contain %s. Last error: %v", namespace, secretName, key, expectedValue, lastErr)
+			if !keyExists {
+				return fmt.Errorf("timeout waiting for secret %s/%s key %s to exist. Last error: %v", namespace, secretName, key, lastErr)
+			}
+			return fmt.Errorf("timeout waiting for secret %s/%s key %s to contain %q. Actual value: %q. Last error: %v", namespace, secretName, key, expectedValue, lastActualValue, lastErr)
 		case <-ticker.C:
 			var secret corev1.Secret
 			err := client.Resources(namespace).Get(context.TODO(), secretName, namespace, &secret)
@@ -377,39 +382,14 @@ func WaitForK8sSecretValue(client klient.Client, namespace string, secretName st
 
 			// Check if the key exists and value matches
 			if secretData, exists := secret.Data[key]; exists {
-				if string(secretData) == expectedValue {
+				keyExists = true
+				actualValue := string(secretData)
+				lastActualValue = actualValue
+				if actualValue == expectedValue {
 					return nil
 				}
-			}
-		}
-	}
-}
-
-// WaitForK8sSecretKeyAbsent polls the K8s secret to check if a key is absent
-// Returns nil when the key is absent, or an error if timeout is reached
-func WaitForK8sSecretKeyAbsent(client klient.Client, namespace string, secretName string, key string, timeout time.Duration) error {
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
-	defer cancel()
-
-	ticker := time.NewTicker(2 * time.Second)
-	defer ticker.Stop()
-
-	var lastErr error
-	for {
-		select {
-		case <-ctx.Done():
-			return fmt.Errorf("timeout waiting for secret %s/%s key %s to be absent. Last error: %v", namespace, secretName, key, lastErr)
-		case <-ticker.C:
-			var secret corev1.Secret
-			err := client.Resources(namespace).Get(context.TODO(), secretName, namespace, &secret)
-			if err != nil {
-				lastErr = err
-				continue
-			}
-
-			// Check if the key does not exist
-			if _, exists := secret.Data[key]; !exists {
-				return nil
+			} else {
+				keyExists = false
 			}
 		}
 	}
