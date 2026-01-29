@@ -344,10 +344,52 @@ func WaitForSecretValue(client klient.Client, labelSelector string, container st
 			err := RunCommandInSecretsProviderPod(client, labelSelector, container, command, &stdout, &stderr)
 			lastStdout = stdout.String()
 			lastStderr = stderr.String()
-			
+
 			// Check if command succeeded and output contains the expected value
 			if err == nil && strings.Contains(lastStdout, expectedValue) {
 				return nil
+			}
+		}
+	}
+}
+
+// WaitForK8sSecretValue polls the K8s secret to check if it contains the expected key-value pair
+// Returns nil when the expected value is found, or an error if timeout is reached
+func WaitForK8sSecretValue(client klient.Client, namespace string, secretName string, key string, expectedValue string, timeout time.Duration) error {
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	ticker := time.NewTicker(2 * time.Second)
+	defer ticker.Stop()
+
+	var lastErr error
+	var lastActualValue string
+	var keyExists bool
+	for {
+		select {
+		case <-ctx.Done():
+			if !keyExists {
+				return fmt.Errorf("timeout waiting for secret %s/%s key %s to exist. Last error: %v", namespace, secretName, key, lastErr)
+			}
+			return fmt.Errorf("timeout waiting for secret %s/%s key %s to contain %q. Actual value: %q. Last error: %v", namespace, secretName, key, expectedValue, lastActualValue, lastErr)
+		case <-ticker.C:
+			var secret corev1.Secret
+			err := client.Resources(namespace).Get(context.TODO(), secretName, namespace, &secret)
+			if err != nil {
+				lastErr = err
+				continue
+			}
+
+			// Check if the key exists and value matches
+			if secretData, exists := secret.Data[key]; exists {
+				keyExists = true
+				actualValue := string(secretData)
+				lastActualValue = actualValue
+				if actualValue == expectedValue {
+					return nil
+				}
+			} else {
+				keyExists = false
 			}
 		}
 	}

@@ -104,7 +104,7 @@ pipeline {
 
     booleanParam(name: 'TEST_OCP_OLDEST', defaultValue: false, description: 'Run DAP tests against our running "oldest version" of Openshift')
 
-    booleanParam(name: 'TEST_E2E', defaultValue: false, description: 'Run E2E tests on a branch')
+    booleanParam(name: 'TEST_E2E', defaultValue: true, description: 'Run E2E tests on a branch')
 
     booleanParam(name: 'TEST_KIND_AUTHN_IAM', defaultValue: false, description: 'Run KinD-based authn-iam e2e tests (requires AWS-capable Jenkins executor/IMDS)')
 

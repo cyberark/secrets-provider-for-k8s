@@ -9,7 +9,6 @@ import (
 	"encoding/base64"
 	"fmt"
 	"path/filepath"
-	"strings"
 	"testing"
 	"time"
 
@@ -229,30 +228,24 @@ func TestK8sSecretsRotation(t *testing.T) {
 
 			return ctx
 		}).
-		// Replaces TEST_ID_29_k8s_secrets_rotation
-		Assess("k8s rotation", func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
-			// // verify initial secret values
-			var stdout, stderr bytes.Buffer
-			command := []string{"printenv", "|", "grep", "TEST_SECRET"}
-			RunCommandInSecretsProviderPod(cfg.Client(), SPLabelSelector, TestAppContainer, command, &stdout, &stderr)
-			assert.Contains(t, stdout.String(), "supersecret")
-			ClearBuffer(&stdout, &stderr)
+		Assess("initial values are set correctly", func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
 
-			command = []string{"printenv", "|", "grep", "VARIABLE_WITH_BASE64_SECRET"}
-			RunCommandInSecretsProviderPod(cfg.Client(), SPLabelSelector, TestAppContainer, command, &stdout, &stderr)
-			assert.Contains(t, stdout.String(), "secret-value")
-			ClearBuffer(&stdout, &stderr)
+			// verify initial secret values
+			err := WaitForK8sSecretValue(cfg.Client(), SecretsProviderNamespace(), "test-k8s-secret", "secret", "supersecret", 20*time.Second)
+			assert.Nil(t, err)
 
-			command = []string{"printenv", "|", "grep", "FETCH_ALL_TEST_SECRET"}
-			RunCommandInSecretsProviderPod(cfg.Client(), SPLabelSelector, TestAppContainer, command, &stdout, &stderr)
-			assert.Contains(t, stdout.String(), "supersecret")
-			ClearBuffer(&stdout, &stderr)
+			err = WaitForK8sSecretValue(cfg.Client(), SecretsProviderNamespace(), "test-k8s-secret", "var_with_base64", "secret-value", 20*time.Second)
+			assert.Nil(t, err)
 
-			command = []string{"printenv", "|", "grep", "FETCH_ALL_BASE64"}
-			RunCommandInSecretsProviderPod(cfg.Client(), SPLabelSelector, TestAppContainer, command, &stdout, &stderr)
-			assert.Contains(t, stdout.String(), "secret-value")
-			ClearBuffer(&stdout, &stderr)
+			err = WaitForK8sSecretValue(cfg.Client(), SecretsProviderNamespace(), "test-k8s-secret-fetch-all", "secrets.test_secret", "supersecret", 20*time.Second)
+			assert.Nil(t, err)
 
+			err = WaitForK8sSecretValue(cfg.Client(), SecretsProviderNamespace(), "test-k8s-secret-fetch-all-base64", "secrets.encoded", "secret-value", 20*time.Second)
+			assert.Nil(t, err)
+
+			return ctx
+		}).
+		Assess("values are updated correctly", func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
 			// change conjur secrets
 			err := SetConjurSecret(cfg.Client(), "secrets/test_secret", "secret2")
 			assert.Nil(t, err)
@@ -262,70 +255,36 @@ func TestK8sSecretsRotation(t *testing.T) {
 			assert.Nil(t, err)
 
 			// wait for K8s secrets to be rotated
-			err = WaitForSecretValue(cfg.Client(), SPLabelSelector, TestAppContainer, "TEST_SECRET", "secret2", 90*time.Second)
+			err = WaitForK8sSecretValue(cfg.Client(), SecretsProviderNamespace(), "test-k8s-secret", "secret", "secret2", 20*time.Second)
 			assert.Nil(t, err)
 
-			// verify new secret values
-			command = []string{"printenv", "|", "grep", "TEST_SECRET"}
-			RunCommandInSecretsProviderPod(cfg.Client(), SPLabelSelector, TestAppContainer, command, &stdout, &stderr)
-			assert.Contains(t, stdout.String(), "secret2")
-			ClearBuffer(&stdout, &stderr)
+			// verify VARIABLE_WITH_BASE64_SECRET updated
+			err = WaitForK8sSecretValue(cfg.Client(), SecretsProviderNamespace(), "test-k8s-secret", "var_with_base64", "secret-value2", 20*time.Second)
+			assert.Nil(t, err)
 
-			command = []string{"printenv", "|", "grep", "VARIABLE_WITH_BASE64_SECRET"}
-			RunCommandInSecretsProviderPod(cfg.Client(), SPLabelSelector, TestAppContainer, command, &stdout, &stderr)
-			assert.Contains(t, stdout.String(), "secret-value2")
-			ClearBuffer(&stdout, &stderr)
+			// verify FETCH_ALL_TEST_SECRET updated
+			err = WaitForK8sSecretValue(cfg.Client(), SecretsProviderNamespace(), "test-k8s-secret-fetch-all", "secrets.test_secret", "secret2", 20*time.Second)
+			assert.Nil(t, err)
 
-			// verify new secret values
-			command = []string{"printenv", "|", "grep", "FETCH_ALL_TEST_SECRET"}
-			RunCommandInSecretsProviderPod(cfg.Client(), SPLabelSelector, TestAppContainer, command, &stdout, &stderr)
-			assert.Contains(t, stdout.String(), "secret2")
-			ClearBuffer(&stdout, &stderr)
+			// verify FETCH_ALL_BASE64 updated
+			err = WaitForK8sSecretValue(cfg.Client(), SecretsProviderNamespace(), "test-k8s-secret-fetch-all-base64", "secrets.encoded", "secret-value2", 20*time.Second)
+			assert.Nil(t, err)
 
-			command = []string{"printenv", "|", "grep", "FETCH_ALL_BASE64"}
-			RunCommandInSecretsProviderPod(cfg.Client(), SPLabelSelector, TestAppContainer, command, &stdout, &stderr)
-			assert.Contains(t, stdout.String(), "secret-value2")
-			ClearBuffer(&stdout, &stderr)
+			return ctx
+		}).
+		Assess("values are removed correctly", func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
 
 			// delete a secret from conjur
-			err = DeleteTestSecret(cfg.Client())
+			err := DeleteTestSecret(cfg.Client())
 			require.Nil(t, err)
 
 			// wait for secret to be removed from K8s after deletion
-			// Poll until the environment variable is empty
-			waitCtx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
-			defer cancel()
-			ticker := time.NewTicker(2 * time.Second)
-			defer ticker.Stop()
-			secretDeleted := false
-			for !secretDeleted {
-				select {
-				case <-waitCtx.Done():
-					t.Logf("Warning: timeout waiting for TEST_SECRET to be removed")
-					secretDeleted = true
-				case <-ticker.C:
-					var checkStdout, checkStderr bytes.Buffer
-					checkCmd := []string{"printenv", "|", "grep", "TEST_SECRET"}
-					RunCommandInSecretsProviderPod(cfg.Client(), SPLabelSelector, TestAppContainer, checkCmd, &checkStdout, &checkStderr)
-					if strings.TrimSpace(checkStdout.String()) == "" {
-						secretDeleted = true
-					}
-				}
-			}
+			err = WaitForK8sSecretValue(cfg.Client(), SecretsProviderNamespace(), "test-k8s-secret", "secret", "", 20*time.Second)
+			assert.Nil(t, err)
 
-			command = []string{"printenv", "|", "grep", "TEST_SECRET"}
-			RunCommandInSecretsProviderPod(cfg.Client(), SPLabelSelector, TestAppContainer, command, &stdout, &stderr)
-			assert.Empty(t, strings.TrimSpace(stdout.String()))
-			ClearBuffer(&stdout, &stderr)
-
-			command = []string{"printenv", "|", "grep", "FETCH_ALL_TEST_SECRET"}
-			RunCommandInSecretsProviderPod(cfg.Client(), SPLabelSelector, TestAppContainer, command, &stdout, &stderr)
-			assert.Empty(t, strings.TrimSpace(stdout.String()))
-			ClearBuffer(&stdout, &stderr)
-
-			command = []string{"printenv", "|", "grep", "FETCH_ALL_BASE64"}
-			RunCommandInSecretsProviderPod(cfg.Client(), SPLabelSelector, TestAppContainer, command, &stdout, &stderr)
-			assert.Contains(t, stdout.String(), "secret-value2") // This one should still be there
+			// Verify FETCH_ALL_BASE64 still contains secret-value2
+			err = WaitForK8sSecretValue(cfg.Client(), SecretsProviderNamespace(), "test-k8s-secret-fetch-all-base64", "secrets.encoded", "secret-value2", 20*time.Second)
+			assert.Nil(t, err)
 
 			return ctx
 		}).
@@ -366,29 +325,23 @@ func TestLabeledK8sSecretsRotation(t *testing.T) {
 
 			return ctx
 		}).
-		Assess("k8s rotation with labeled secrets", func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
+		Assess("initial values are set correctly", func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
 			// verify initial secret values
-			var stdout, stderr bytes.Buffer
-			command := []string{"printenv", "|", "grep", "TEST_SECRET"}
-			RunCommandInSecretsProviderPod(cfg.Client(), SPLabelSelector, TestAppContainer, command, &stdout, &stderr)
-			assert.Contains(t, stdout.String(), "supersecret")
-			ClearBuffer(&stdout, &stderr)
+			err := WaitForK8sSecretValue(cfg.Client(), SecretsProviderNamespace(), "test-k8s-secret", "secret", "supersecret", 20*time.Second)
+			assert.Nil(t, err)
 
-			command = []string{"printenv", "|", "grep", "VARIABLE_WITH_BASE64_SECRET"}
-			RunCommandInSecretsProviderPod(cfg.Client(), SPLabelSelector, TestAppContainer, command, &stdout, &stderr)
-			assert.Contains(t, stdout.String(), "secret-value")
-			ClearBuffer(&stdout, &stderr)
+			err = WaitForK8sSecretValue(cfg.Client(), SecretsProviderNamespace(), "test-k8s-secret", "var_with_base64", "secret-value", 20*time.Second)
+			assert.Nil(t, err)
 
-			command = []string{"printenv", "|", "grep", "FETCH_ALL_TEST_SECRET"}
-			RunCommandInSecretsProviderPod(cfg.Client(), SPLabelSelector, TestAppContainer, command, &stdout, &stderr)
-			assert.Contains(t, stdout.String(), "supersecret")
-			ClearBuffer(&stdout, &stderr)
+			err = WaitForK8sSecretValue(cfg.Client(), SecretsProviderNamespace(), "test-k8s-secret-fetch-all", "secrets.test_secret", "supersecret", 20*time.Second)
+			assert.Nil(t, err)
 
-			command = []string{"printenv", "|", "grep", "FETCH_ALL_BASE64"}
-			RunCommandInSecretsProviderPod(cfg.Client(), SPLabelSelector, TestAppContainer, command, &stdout, &stderr)
-			assert.Contains(t, stdout.String(), "secret-value")
-			ClearBuffer(&stdout, &stderr)
+			err = WaitForK8sSecretValue(cfg.Client(), SecretsProviderNamespace(), "test-k8s-secret-fetch-all-base64", "secrets.encoded", "secret-value", 20*time.Second)
+			assert.Nil(t, err)
 
+			return ctx
+		}).
+		Assess("values are updated correctly", func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
 			// change conjur secrets
 			err := SetConjurSecret(cfg.Client(), "secrets/test_secret", "secret2")
 			assert.Nil(t, err)
@@ -397,71 +350,36 @@ func TestLabeledK8sSecretsRotation(t *testing.T) {
 			err = SetConjurSecret(cfg.Client(), "secrets/encoded", encodedStr)
 			assert.Nil(t, err)
 
-			// wait for K8s secrets to be rotated
-			err = WaitForSecretValue(cfg.Client(), SPLabelSelector, TestAppContainer, "TEST_SECRET", "secret2", 90*time.Second)
+			// verify VARIABLE_WITH_BASE64_SECRET updated
+			err = WaitForK8sSecretValue(cfg.Client(), SecretsProviderNamespace(), "test-k8s-secret", "var_with_base64", "secret-value2", 20*time.Second)
 			assert.Nil(t, err)
 
-			// verify new secret values
-			command = []string{"printenv", "|", "grep", "TEST_SECRET"}
-			RunCommandInSecretsProviderPod(cfg.Client(), SPLabelSelector, TestAppContainer, command, &stdout, &stderr)
-			assert.Contains(t, stdout.String(), "secret2")
-			ClearBuffer(&stdout, &stderr)
+			// verify FETCH_ALL_TEST_SECRET updated
+			err = WaitForK8sSecretValue(cfg.Client(), SecretsProviderNamespace(), "test-k8s-secret-fetch-all", "secrets.test_secret", "secret2", 20*time.Second)
+			assert.Nil(t, err)
 
-			command = []string{"printenv", "|", "grep", "VARIABLE_WITH_BASE64_SECRET"}
-			RunCommandInSecretsProviderPod(cfg.Client(), SPLabelSelector, TestAppContainer, command, &stdout, &stderr)
-			assert.Contains(t, stdout.String(), "secret-value2")
-			ClearBuffer(&stdout, &stderr)
+			// verify FETCH_ALL_BASE64 updated
+			err = WaitForK8sSecretValue(cfg.Client(), SecretsProviderNamespace(), "test-k8s-secret-fetch-all-base64", "secrets.encoded", "secret-value2", 20*time.Second)
+			assert.Nil(t, err)
 
-			// verify new secret values
-			command = []string{"printenv", "|", "grep", "FETCH_ALL_TEST_SECRET"}
-			RunCommandInSecretsProviderPod(cfg.Client(), SPLabelSelector, TestAppContainer, command, &stdout, &stderr)
-			assert.Contains(t, stdout.String(), "secret2")
-			ClearBuffer(&stdout, &stderr)
-
-			command = []string{"printenv", "|", "grep", "FETCH_ALL_BASE64"}
-			RunCommandInSecretsProviderPod(cfg.Client(), SPLabelSelector, TestAppContainer, command, &stdout, &stderr)
-			assert.Contains(t, stdout.String(), "secret-value2")
-			ClearBuffer(&stdout, &stderr)
-
+			return ctx
+		}).
+		Assess("values are removed correctly", func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
 			// delete a secret from conjur
-			err = DeleteTestSecret(cfg.Client())
+			err := DeleteTestSecret(cfg.Client())
 			require.Nil(t, err)
 
 			// wait for secret to be removed from K8s after deletion
-			// Poll until the environment variable is empty
-			waitCtx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
-			defer cancel()
-			ticker := time.NewTicker(2 * time.Second)
-			defer ticker.Stop()
-			secretDeleted := false
-			for !secretDeleted {
-				select {
-				case <-waitCtx.Done():
-					t.Logf("Warning: timeout waiting for TEST_SECRET to be removed")
-					secretDeleted = true
-				case <-ticker.C:
-					var checkStdout, checkStderr bytes.Buffer
-					checkCmd := []string{"printenv", "|", "grep", "TEST_SECRET"}
-					RunCommandInSecretsProviderPod(cfg.Client(), SPLabelSelector, TestAppContainer, checkCmd, &checkStdout, &checkStderr)
-					if strings.TrimSpace(checkStdout.String()) == "" {
-						secretDeleted = true
-					}
-				}
-			}
+			err = WaitForK8sSecretValue(cfg.Client(), SecretsProviderNamespace(), "test-k8s-secret", "secret", "", 20*time.Second)
+			assert.Nil(t, err)
 
-			command = []string{"printenv", "|", "grep", "TEST_SECRET"}
-			RunCommandInSecretsProviderPod(cfg.Client(), SPLabelSelector, TestAppContainer, command, &stdout, &stderr)
-			assert.Empty(t, strings.TrimSpace(stdout.String()))
-			ClearBuffer(&stdout, &stderr)
+			// Verify secret value is removed from fetch all secret
+			err = WaitForK8sSecretValue(cfg.Client(), SecretsProviderNamespace(), "test-k8s-secret-fetch-all", "secrets.test_secret", "", 20*time.Second)
+			assert.Nil(t, err)
 
-			command = []string{"printenv", "|", "grep", "FETCH_ALL_TEST_SECRET"}
-			RunCommandInSecretsProviderPod(cfg.Client(), SPLabelSelector, TestAppContainer, command, &stdout, &stderr)
-			assert.Empty(t, strings.TrimSpace(stdout.String()))
-			ClearBuffer(&stdout, &stderr)
-
-			command = []string{"printenv", "|", "grep", "FETCH_ALL_BASE64"}
-			RunCommandInSecretsProviderPod(cfg.Client(), SPLabelSelector, TestAppContainer, command, &stdout, &stderr)
-			assert.Contains(t, stdout.String(), "secret-value2") // This one should still be there
+			// Verify FETCH_ALL_BASE64 still contains secret-value2
+			err = WaitForK8sSecretValue(cfg.Client(), SecretsProviderNamespace(), "test-k8s-secret-fetch-all-base64", "secrets.encoded", "secret-value2", 20*time.Second)
+			assert.Nil(t, err)
 
 			return ctx
 		}).
@@ -525,15 +443,9 @@ func TestLabeledK8sSecretsRotationViaInformer(t *testing.T) {
 			err := cfg.Client().Resources(SecretsProviderNamespace()).Create(context.TODO(), &secret)
 			require.Nil(t, err, "Failed to create new labeled K8s secret")
 
-			// Account for variation in event processing time by adding a small delay
-			time.Sleep(3 * time.Second)
-
-			// Verify the secret was updated in Kubernetes (check the actual secret data)
-			var updatedSecret corev1.Secret
-			err = cfg.Client().Resources(SecretsProviderNamespace()).Get(context.TODO(), "new-labeled-k8s-secret", SecretsProviderNamespace(), &updatedSecret)
-			require.Nil(t, err, "Failed to retrieve updated secret")
-			assert.NotNil(t, updatedSecret.Data["NEW_SECRET"], "Secret should have NEW_SECRET key in Data")
-			assert.Equal(t, "some-secret", string(updatedSecret.Data["NEW_SECRET"]), "Secret value should match Conjur value")
+			// Wait for the secret to be updated in Kubernetes (check the actual secret data)
+			err = WaitForK8sSecretValue(cfg.Client(), SecretsProviderNamespace(), "new-labeled-k8s-secret", "NEW_SECRET", "some-secret", 20*time.Second)
+			assert.Nil(t, err)
 
 			return ctx
 		}).
@@ -558,17 +470,8 @@ func TestLabeledK8sSecretsRotationViaInformer(t *testing.T) {
 			err := cfg.Client().Resources(SecretsProviderNamespace()).Update(context.TODO(), &secret)
 			require.Nil(t, err, "Failed to update labeled K8s secret")
 
-			// Account for variation in event processing time by adding a small delay
-			time.Sleep(3 * time.Second)
-
-			// Verify the secret was updated in Kubernetes (check the actual secret data)
-			var updatedSecret corev1.Secret
-			err = cfg.Client().Resources(SecretsProviderNamespace()).Get(context.TODO(), "new-labeled-k8s-secret", SecretsProviderNamespace(), &updatedSecret)
-			require.Nil(t, err, "Failed to retrieve updated secret")
-			assert.Nil(t, updatedSecret.Data["NEW_SECRET"], "Secret should not have NEW_SECRET key in Data")
-
-			assert.NotNil(t, updatedSecret.Data["UPDATED_SECRET"], "Secret should have UPDATED_SECRET key in Data")
-			assert.Equal(t, "7H1SiSmYp@5Sw0rd", string(updatedSecret.Data["UPDATED_SECRET"]), "Secret value should match Conjur value")
+			err = WaitForK8sSecretValue(cfg.Client(), SecretsProviderNamespace(), "new-labeled-k8s-secret", "UPDATED_SECRET", "7H1SiSmYp@5Sw0rd", 20*time.Second)
+			assert.Nil(t, err)
 
 			return ctx
 		}).
