@@ -24,7 +24,8 @@ const (
 // SecretEvent contains information about a secret change event
 type SecretEvent struct {
 	Secret    *v1.Secret
-	EventType string // "added", "updated"
+	OldSecret *v1.Secret // For update events, holds the previous version of the secret for comparison
+	EventType string     // "added", "updated"
 }
 
 // SecretEventNotifier sends a notification when a secret event occurs
@@ -143,6 +144,7 @@ func (si *SecretInformer) onAdd(obj interface{}) {
 
 	secret, ok := obj.(*v1.Secret)
 	if !ok {
+		log.Warn(messages.CSPFK085E)
 		return
 	}
 
@@ -150,6 +152,7 @@ func (si *SecretInformer) onAdd(obj interface{}) {
 		// Add event to queue for asynchronous processing
 		event := SecretEvent{
 			Secret:    secret.DeepCopy(),
+			OldSecret: nil,
 			EventType: SecretEventTypeAdd,
 		}
 		si.queue.Add(event)
@@ -209,15 +212,26 @@ func (si *SecretInformer) onUpdate(oldObj, newObj interface{}) {
 	}
 
 	// Only process updates if:
-	// 1. The secret has the managed-by-provider label (either old or new)
-	// 2. AND either the conjur-map changed OR the label changed
+	// 1. The new secret has the managed-by-provider label and set to true
+	// 2. AND either
+	//   - the conjur-map changed (more or less secret key-value pairs) OR
+	//   - the label changed from not set/false to true
 	// This prevents circular updates: when the secrets provider updates secret values (Data field),
 	// it doesn't change conjur-map or labels, so we ignore those updates.
-	hasRelevantLabel := si.hasManagedByProviderLabel(oldSecret) || si.hasManagedByProviderLabel(newSecret)
-	if hasRelevantLabel && (si.conjurMapChanged(oldSecret, newSecret) || si.labelsChanged(oldSecret, newSecret)) {
+	// Note: if the new Secret has the label removed or set to false, we also ignore the update event,
+	//       because the customer might no longer want the secret update/rotation to occur.
+	if !si.hasManagedByProviderLabel(newSecret) {
+		if si.hasManagedByProviderLabel(oldSecret) {
+			log.Warn(messages.CSPFK086E, newSecret.Name, config.ManagedByProviderKey)
+		}
+		return
+	}
+
+	if si.conjurMapChanged(oldSecret, newSecret) || si.labelsChanged(oldSecret, newSecret) {
 		// Add event to queue for asynchronous processing
 		event := SecretEvent{
 			Secret:    newSecret.DeepCopy(),
+			OldSecret: oldSecret.DeepCopy(),
 			EventType: SecretEventTypeUpdate,
 		}
 		si.queue.Add(event)

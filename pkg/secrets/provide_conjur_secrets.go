@@ -251,10 +251,10 @@ func informerTriggeredProvider(
 		case event := <-config.informerEvents:
 			log.Info(messages.CSPFK028I, event.EventType, event.Secret.Namespace, event.Secret.Name)
 
-			// provideSecrets dynamically loads all labeled secrets from the namespace so we don't
-			// need to manually refresh any config. This ends up refreshing ALL secrets on each relevant
-			// event, but it's probably better than mutating config constantly
-			updated, err := provideSecrets()
+			// The informer has already filtered to only send events for secrets with managed-by-provider=true label.
+			// Get all the keys to be removed based on changes to the conjur-map configuration.
+			keysToRemove := k8sSecretsStorage.GetRemovedKeys(event.OldSecret, event.Secret)
+			updated, err := K8sProviderInstance.ProvideWithCleanup(keysToRemove)
 			if err == nil && updated {
 				err = status.SetSecretsUpdated()
 			}

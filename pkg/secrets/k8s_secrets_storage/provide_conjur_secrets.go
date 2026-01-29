@@ -154,6 +154,22 @@ func newProvider(
 
 // Provide implements a ProviderFunc to retrieve and push secrets to K8s secrets.
 func (p *K8sProvider) Provide() (bool, error) {
+	return p.ProvideWithCleanup(map[string][]string{})
+}
+
+// ProvideWithCleanup removes specified keys from K8s secrets before updating them with Conjur values.
+// keysToRemove maps a K8s Secret name to specific keys that should be removed from a secret.
+func (p *K8sProvider) ProvideWithCleanup(keysToRemove map[string][]string) (bool, error) {
+	defer func() {
+		// Always clear the secrets' state from memory. This prevents leakage of the secret values
+		// in `originalK8sSecrets` and prevents `updateDestinations` from growing each time
+		// the provider is run (e.g. during rotation).
+		p.secretsState = k8sSecretsState{
+			originalK8sSecrets: map[string]*v1.Secret{},
+			updateDestinations: map[string][]updateDestination{},
+		}
+	}()
+
 	// Use the global TracerProvider
 	tr := trace.NewOtelTracer(otel.Tracer("secrets-provider"))
 	// Retrieve required K8s Secrets and parse their Data fields.
@@ -161,8 +177,8 @@ func (p *K8sProvider) Provide() (bool, error) {
 		return false, p.log.recordedError(messages.CSPFK021E)
 	}
 
-	// In label-based mode with no updateable secrets discovered, return gracefully
-	// so we can continue monitorying for new/updated K8s Secrets.
+	// In label-based mode with no updateable secrets discovered, return gracefully.
+	// Todo: consider if we should handle the case where a labeled k8s secret has no conjur-map entry.
 	if len(p.secretsState.updateDestinations) == 0 {
 		p.log.warn(messages.CSPFK070E)
 		return false, nil
@@ -188,17 +204,9 @@ func (p *K8sProvider) Provide() (bool, error) {
 	}
 
 	// Update all K8s Secrets with the retrieved Conjur secrets.
-	updated, err = p.updateRequiredK8sSecrets(retrievedConjurSecrets, tr)
+	updated, err = p.updateRequiredK8sSecretsWithCleanup(retrievedConjurSecrets, tr, keysToRemove)
 	if err != nil {
 		return updated, p.log.recordedError(messages.CSPFK023E)
-	}
-
-	// Clear the secrets' state from memory. This prevents leakage of the secret values
-	// in `originalK8sSecrets` and prevents `updateDestinations` from growing each time
-	// the provider is run (e.g. during rotation).
-	p.secretsState = k8sSecretsState{
-		originalK8sSecrets: map[string]*v1.Secret{},
-		updateDestinations: map[string][]updateDestination{},
 	}
 
 	p.log.info(messages.CSPFK009I)
@@ -391,6 +399,11 @@ func (p *K8sProvider) retrieveConjurSecrets(tracer trace.Tracer) (map[string][]b
 
 func (p *K8sProvider) updateRequiredK8sSecrets(
 	conjurSecrets map[string][]byte, tracer trace.Tracer) (bool, error) {
+	return p.updateRequiredK8sSecretsWithCleanup(conjurSecrets, tracer, map[string][]string{})
+}
+
+func (p *K8sProvider) updateRequiredK8sSecretsWithCleanup(
+	conjurSecrets map[string][]byte, tracer trace.Tracer, keysToRemove map[string][]string) (bool, error) {
 
 	var updated bool
 
@@ -415,10 +428,20 @@ func (p *K8sProvider) updateRequiredK8sSecrets(
 		checksum, _ := utils.FileChecksum(b)
 
 		if utils.ContentHasChanged(k8sSecretName, checksum, p.prevSecretsChecksums) {
+			originalSecret := p.secretsState.originalK8sSecrets[k8sSecretName].DeepCopy()
+
+			// Remove keys those are not in conjur-map anymore
+			if keysToRemove[k8sSecretName] != nil {
+				for _, key := range keysToRemove[k8sSecretName] {
+					delete(originalSecret.Data, key)
+					p.log.debug(messages.CSPFK033I, key, k8sSecretName)
+				}
+			}
+
 			err := p.k8s.updateSecret(
 				p.podNamespace,
 				k8sSecretName,
-				p.secretsState.originalK8sSecrets[k8sSecretName],
+				originalSecret,
 				secretData)
 			if err != nil {
 				// Error messages returned from K8s should be printed only in debug mode
@@ -526,6 +549,63 @@ func (p *K8sProvider) createSecretData(conjurSecrets map[string][]byte) map[stri
 	}
 
 	return secretData
+}
+
+// GetRemovedKeys compares old and new secrets to find keys that were removed from conjur-map.
+// This function assumes both oldSecret and newSecret have the managed-by-provider label set to true,
+// as secrets without this label are filtered by the informer and never reach this function.
+// Returns a map of K8s Secret names to lists of keys that should be removed.
+//
+// TODO: if the secret was updated when there is no flag or the flag was disabled, the conjur-map will
+// get updated without triggering the onUpdate handler.
+// Once the label is enabled again, we won't be able to detect the removed keys anymore.
+// In this case, we cannot remove the keys that are not in the new conjur-map any more since we
+// won't be able to tell if any key was configured by the user.
+// The unexpected keys will be removed the next time the conjur-map is updated while the flag is enabled.
+func GetRemovedKeys(oldSecret, newSecret *v1.Secret) map[string][]string {
+	keysToRemove := make(map[string][]string)
+
+	if oldSecret == nil || newSecret == nil {
+		return keysToRemove
+	}
+
+	// Parse the conjur-map from both old and new secrets to detect removed keys
+	oldMap := parseConjurMap(oldSecret)
+	newMap := parseConjurMap(newSecret)
+	removedKeys := diffConjurMapKeys(oldMap, newMap)
+
+	// If any keys were removed from the conjur-map, add them to the cleanup map
+	if len(removedKeys) > 0 {
+		keysToRemove[newSecret.Name] = removedKeys
+		log.Debug(messages.CSPFK032I, newSecret.Name, removedKeys)
+	}
+
+	return keysToRemove
+}
+
+func parseConjurMap(secret *v1.Secret) map[string]interface{} {
+	result := map[string]interface{}{}
+	if secret == nil || secret.Data == nil {
+		return result
+	}
+
+	raw, ok := secret.Data[config.ConjurMapKey]
+	if !ok || len(raw) == 0 {
+		return result
+	}
+
+	_ = yaml.Unmarshal(raw, &result)
+	return result
+}
+
+func diffConjurMapKeys(oldMap, newMap map[string]interface{}) []string {
+	var removed []string
+	for key := range oldMap {
+		if _, exists := newMap[key]; !exists {
+			removed = append(removed, key)
+		}
+	}
+	return removed
 }
 
 func normalizeK8sSecretName(name string) string {

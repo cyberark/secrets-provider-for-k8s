@@ -113,6 +113,8 @@ const CSPFK080E string = "CSPFK080E Secret informer initialize cache sync timed 
 const CSPFK081E string = "CSPFK081E Secret informer failed to process %q event, error: %v"
 const CSPFK082E string = "CSPFK082E Secret informer failed to send event using notifier"
 const CSPFK083E string = "CSPFK083E Secret informer event worker panic: %v"
+const CSPFK085E string = "CSPFK085E Secret informer failed to parse secret, skip onAdd event"
+const CSPFK086E string = "CSPFK086E Secret %s has removed the label '%s' and will no longer be updated by Secrets Provider. Existing secret data may persist unintentionally and become stale"
 
 // Secrets event notifier
 const CSPFK084I string = "CSPFK084I Secret informer notifier has nil events channel, skip sending event"
