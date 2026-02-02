@@ -429,7 +429,7 @@ func TestLabeledK8sSecretsRotationViaInformer(t *testing.T) {
 					Kind:       "Secret",
 				},
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "new-labeled-k8s-secret",
+					Name:      "labeled-k8s-secret",
 					Namespace: SecretsProviderNamespace(),
 					Labels: map[string]string{
 						"conjur.org/managed-by-provider": "true",
@@ -444,7 +444,7 @@ func TestLabeledK8sSecretsRotationViaInformer(t *testing.T) {
 			require.Nil(t, err, "Failed to create new labeled K8s secret")
 
 			// Wait for the secret to be updated in Kubernetes (check the actual secret data)
-			err = WaitForK8sSecretValue(cfg.Client(), SecretsProviderNamespace(), "new-labeled-k8s-secret", "NEW_SECRET", "some-secret", 20*time.Second)
+			err = WaitForK8sSecretValue(cfg.Client(), SecretsProviderNamespace(), "labeled-k8s-secret", "NEW_SECRET", "some-secret", 20*time.Second)
 			assert.Nil(t, err)
 
 			return ctx
@@ -456,27 +456,66 @@ func TestLabeledK8sSecretsRotationViaInformer(t *testing.T) {
 					Kind:       "Secret",
 				},
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "new-labeled-k8s-secret",
+					Name:      "labeled-k8s-secret",
 					Namespace: SecretsProviderNamespace(),
 					Labels: map[string]string{
 						"conjur.org/managed-by-provider": "true",
 					},
 				},
 				StringData: map[string]string{
-					"conjur-map": "UPDATED_SECRET: secrets/password",
+					"conjur-map": "secret1: secrets/another_test_secret\nsecret2: secrets/password",
 				},
 				Type: "Opaque",
 			}
 			err := cfg.Client().Resources(SecretsProviderNamespace()).Update(context.TODO(), &secret)
 			require.Nil(t, err, "Failed to update labeled K8s secret")
 
-			err = WaitForK8sSecretValue(cfg.Client(), SecretsProviderNamespace(), "new-labeled-k8s-secret", "UPDATED_SECRET", "7H1SiSmYp@5Sw0rd", 20*time.Second)
-			assert.Nil(t, err)
+			// Wait for both keys to be populated in the secret data
+			err = WaitForK8sSecretValue(cfg.Client(), SecretsProviderNamespace(), "labeled-k8s-secret", "secret1", "some-secret", 20*time.Second)
+			assert.Nil(t, err, "secret1 should be populated")
+
+			err = WaitForK8sSecretValue(cfg.Client(), SecretsProviderNamespace(), "labeled-k8s-secret", "secret2", "7H1SiSmYp@5Sw0rd", 20*time.Second)
+			assert.Nil(t, err, "secret2 should be populated")
+
+			return ctx
+		}).
+		Assess("remove one key from conjur-map and verify cleanup", func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
+			// Update the secret to remove secret2 from conjur-map
+			secret := corev1.Secret{
+				TypeMeta: metav1.TypeMeta{
+					APIVersion: "v1",
+					Kind:       "Secret",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "labeled-k8s-secret",
+					Namespace: SecretsProviderNamespace(),
+					Labels: map[string]string{
+						"conjur.org/managed-by-provider": "true",
+					},
+				},
+				StringData: map[string]string{
+					"conjur-map": "secret1: secrets/another_test_secret",
+				},
+				Type: "Opaque",
+			}
+			err := cfg.Client().Resources(SecretsProviderNamespace()).Update(context.TODO(), &secret)
+			require.Nil(t, err, "Failed to update cleanup test secret")
+
+			// Wait for secret1 to be re-populated (confirming informer processed the update)
+			err = WaitForK8sSecretValue(cfg.Client(), SecretsProviderNamespace(), "labeled-k8s-secret", "secret1", "some-secret", 20*time.Second)
+			assert.Nil(t, err, "secret1 should still exist with correct value after update")
+
+			// Verify that secret2 key has been removed from the secret data
+			updatedSecret, err := GetSecret(cfg.Client(), "labeled-k8s-secret")
+			require.Nil(t, err, "Should be able to retrieve the updated secret")
+
+			_, secret2Exists := updatedSecret.Data["secret2"]
+			assert.False(t, secret2Exists, "secret2 key should be removed from secret data after conjur-map update")
 
 			return ctx
 		}).
 		Teardown(func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
-			err := DeleteSecret(cfg.Client(), "new-labeled-k8s-secret")
+			err := DeleteSecret(cfg.Client(), "labeled-k8s-secret")
 			assert.Nil(t, err)
 
 			return ctx

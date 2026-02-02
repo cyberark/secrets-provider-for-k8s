@@ -8,10 +8,16 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"go.opentelemetry.io/otel"
+	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"github.com/cyberark/conjur-opentelemetry-tracer/pkg/trace"
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/log/messages"
 	conjurMocks "github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/clients/conjur/mocks"
+	"github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/config"
 	k8sStorageMocks "github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/k8s_secrets_storage/mocks"
+	"github.com/cyberark/secrets-provider-for-k8s/pkg/utils"
 )
 
 var testConjurSecrets = map[string]string{
@@ -1290,4 +1296,386 @@ func TestBase64PKCS12SecretPreservesTrailingNull(t *testing.T) {
 	got := secretData["pkcs12secret"]["pkcs12file"]
 
 	assert.Equal(t, original, got, "decoded PKCS#12 secret should match original including trailing null bytes")
+}
+
+func TestUpdateRequiredK8sSecretsWithCleanupRemovesKeys(t *testing.T) {
+	mocks := newTestMocks()
+
+	// Prepare K8s Secret with stale key
+	mocks.kubeClient.AddSecret("k8s-secret1", k8sStorageMocks.K8sSecrets{
+		"k8s-secret1": {
+			"conjur-map": map[string]interface{}{"secret1": "conjur/var/path1"},
+			"secret1":    map[string]interface{}{"value": "old-value1"},
+			"secret2":    map[string]interface{}{"value": "stale-value"},
+		},
+	}["k8s-secret1"])
+
+	// Retrieve the full Secret object from mock client
+	originalSecret, err := mocks.kubeClient.RetrieveSecret("", "k8s-secret1")
+	assert.NoError(t, err, "should retrieve secret from mock client")
+
+	// Directly construct provider with pre-populated state (simulating informer behavior)
+	provider := K8sProvider{
+		k8s: k8sAccessDeps{
+			mocks.kubeClient.RetrieveSecret,
+			mocks.kubeClient.UpdateSecret,
+			mocks.kubeClient.ListSecrets,
+		},
+		conjur: conjurAccessDeps{
+			mocks.conjurClient.RetrieveSecrets,
+		},
+		log: logDeps{
+			mocks.logger.RecordedError,
+			mocks.logger.Error,
+			mocks.logger.Warn,
+			mocks.logger.Info,
+			mocks.logger.Debug,
+		},
+		podNamespace: "someNamespace",
+		secretsState: k8sSecretsState{
+			originalK8sSecrets: map[string]*v1.Secret{
+				"k8s-secret1": originalSecret,
+			},
+			updateDestinations: map[string][]updateDestination{
+				"conjur/var/path1": {
+					{
+						k8sSecretName: "k8s-secret1",
+						secretName:    "secret1",
+						contentType:   "",
+					},
+				},
+			},
+		},
+		traceContext:         context.Background(),
+		prevSecretsChecksums: map[string]utils.Checksum{},
+	}
+
+	tracer := trace.NewOtelTracer(otel.Tracer("test"))
+
+	conjurSecrets := map[string][]byte{
+		"conjur/var/path1": []byte("new-value1"),
+	}
+	keysToRemove := map[string][]string{
+		"k8s-secret1": {"secret2"},
+	}
+
+	updated, err := provider.updateRequiredK8sSecretsWithCleanup(conjurSecrets, tracer, keysToRemove)
+	assert.NoError(t, err, "updateRequiredK8sSecretsWithCleanup should succeed")
+	assert.True(t, updated, "updateRequiredK8sSecretsWithCleanup should report updates")
+
+	// Verify that the stale key was removed before update
+	if assert.NotNil(t, mocks.kubeClient.LastUpdateOriginalSecret, "original secret should be captured") {
+		_, exists := mocks.kubeClient.LastUpdateOriginalSecret.Data["secret2"]
+		assert.False(t, exists, "stale key 'secret2' should be removed from original secret before K8s update")
+	}
+}
+
+func TestParseConjurMap(t *testing.T) {
+	testCases := []struct {
+		name        string
+		secret      *v1.Secret
+		expectError bool
+		expected    map[string]interface{}
+	}{
+		{
+			name:        "nil secret returns empty map",
+			secret:      nil,
+			expectError: false,
+			expected:    map[string]interface{}{},
+		},
+		{
+			name: "secret with nil Data returns empty map",
+			secret: &v1.Secret{
+				ObjectMeta: metav1.ObjectMeta{Name: "test-secret"},
+				Data:       nil,
+			},
+			expectError: false,
+			expected:    map[string]interface{}{},
+		},
+		{
+			name: "secret without conjur-map key returns empty map",
+			secret: &v1.Secret{
+				ObjectMeta: metav1.ObjectMeta{Name: "test-secret"},
+				Data: map[string][]byte{
+					"other-key": []byte("value"),
+				},
+			},
+			expectError: false,
+			expected:    map[string]interface{}{},
+		},
+		{
+			name: "secret with empty conjur-map returns empty map",
+			secret: &v1.Secret{
+				ObjectMeta: metav1.ObjectMeta{Name: "test-secret"},
+				Data: map[string][]byte{
+					config.ConjurMapKey: []byte(""),
+				},
+			},
+			expectError: false,
+			expected:    map[string]interface{}{},
+		},
+		{
+			name: "valid YAML conjur-map with string values",
+			secret: &v1.Secret{
+				ObjectMeta: metav1.ObjectMeta{Name: "test-secret"},
+				Data: map[string][]byte{
+					config.ConjurMapKey: []byte("secret1: conjur/var/path1\nsecret2: conjur/var/path2"),
+				},
+			},
+			expectError: false,
+			expected: map[string]interface{}{
+				"secret1": "conjur/var/path1",
+				"secret2": "conjur/var/path2",
+			},
+		},
+		{
+			name: "valid YAML conjur-map with map values containing id and content-type",
+			secret: &v1.Secret{
+				ObjectMeta: metav1.ObjectMeta{Name: "test-secret"},
+				Data: map[string][]byte{
+					config.ConjurMapKey: []byte("secret1:\n  id: conjur/var/path1\n  content-type: base64\nsecret2: conjur/var/path2"),
+				},
+			},
+			expectError: false,
+			expected: map[string]interface{}{
+				"secret1": map[interface{}]interface{}{
+					"id":           "conjur/var/path1",
+					"content-type": "base64",
+				},
+				"secret2": "conjur/var/path2",
+			},
+		},
+		{
+			name: "malformed YAML returns empty map (YAML unmarshal error is ignored)",
+			secret: &v1.Secret{
+				ObjectMeta: metav1.ObjectMeta{Name: "test-secret"},
+				Data: map[string][]byte{
+					config.ConjurMapKey: []byte("invalid: yaml: content: with: too: many: colons:"),
+				},
+			},
+			expectError: false,
+			expected:    map[string]interface{}{},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			result := parseConjurMap(tc.secret)
+			assert.Equal(t, tc.expected, result, "parseConjurMap should return expected map")
+		})
+	}
+}
+
+func TestDiffConjurMapKeys(t *testing.T) {
+	testCases := []struct {
+		name     string
+		oldMap   map[string]interface{}
+		newMap   map[string]interface{}
+		expected []string
+	}{
+		{
+			name:     "both empty maps",
+			oldMap:   map[string]interface{}{},
+			newMap:   map[string]interface{}{},
+			expected: []string{},
+		},
+		{
+			name:     "old map empty, new map has keys - no removed keys",
+			oldMap:   map[string]interface{}{},
+			newMap:   map[string]interface{}{"key1": "value1", "key2": "value2"},
+			expected: []string{},
+		},
+		{
+			name:     "old map has keys, new map empty - all keys removed",
+			oldMap:   map[string]interface{}{"key1": "value1", "key2": "value2"},
+			newMap:   map[string]interface{}{},
+			expected: []string{"key1", "key2"},
+		},
+		{
+			name:     "same keys in both maps - no removed keys",
+			oldMap:   map[string]interface{}{"key1": "value1", "key2": "value2"},
+			newMap:   map[string]interface{}{"key1": "new-value1", "key2": "new-value2"},
+			expected: []string{},
+		},
+		{
+			name:     "one key removed from old map",
+			oldMap:   map[string]interface{}{"key1": "value1", "key2": "value2", "key3": "value3"},
+			newMap:   map[string]interface{}{"key1": "value1", "key3": "value3"},
+			expected: []string{"key2"},
+		},
+		{
+			name:     "multiple keys removed from old map",
+			oldMap:   map[string]interface{}{"secret1": "path1", "secret2": "path2", "secret3": "path3", "secret4": "path4"},
+			newMap:   map[string]interface{}{"secret1": "path1", "secret4": "path4"},
+			expected: []string{"secret2", "secret3"},
+		},
+		{
+			name:     "removed keys can have different value types",
+			oldMap:   map[string]interface{}{"str_key": "string_value", "map_key": map[string]interface{}{"nested": "value"}},
+			newMap:   map[string]interface{}{"str_key": "string_value"},
+			expected: []string{"map_key"},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			result := diffConjurMapKeys(tc.oldMap, tc.newMap)
+			assertSliceContainsElements(t, result, tc.expected)
+		})
+	}
+}
+
+// TestGetRemovedKeys tests the GetRemovedKeys function
+func TestGetRemovedKeys(t *testing.T) {
+	testCases := []struct {
+		name        string
+		oldSecret   *v1.Secret
+		newSecret   *v1.Secret
+		expected    map[string][]string
+		description string
+	}{
+		{
+			name:      "both secrets are nil",
+			oldSecret: nil,
+			newSecret: nil,
+			expected:  map[string][]string{},
+		},
+		{
+			name:      "old secret is nil",
+			oldSecret: nil,
+			newSecret: &v1.Secret{
+				ObjectMeta: metav1.ObjectMeta{Name: "new-secret"},
+				Data: map[string][]byte{
+					config.ConjurMapKey: []byte("secret1: conjur/var/path1"),
+				},
+			},
+			expected: map[string][]string{},
+		},
+		{
+			name: "new secret is nil",
+			oldSecret: &v1.Secret{
+				ObjectMeta: metav1.ObjectMeta{Name: "old-secret"},
+				Data: map[string][]byte{
+					config.ConjurMapKey: []byte("secret1: conjur/var/path1"),
+				},
+			},
+			newSecret: nil,
+			expected:  map[string][]string{},
+		},
+		{
+			name: "no keys removed - same secrets",
+			oldSecret: &v1.Secret{
+				ObjectMeta: metav1.ObjectMeta{Name: "my-secret"},
+				Data: map[string][]byte{
+					config.ConjurMapKey: []byte("secret1: conjur/var/path1\nsecret2: conjur/var/path2"),
+				},
+			},
+			newSecret: &v1.Secret{
+				ObjectMeta: metav1.ObjectMeta{Name: "my-secret"},
+				Data: map[string][]byte{
+					config.ConjurMapKey: []byte("secret1: conjur/var/path1\nsecret2: conjur/var/path2"),
+				},
+			},
+			expected: map[string][]string{},
+		},
+		{
+			name: "one key removed from conjur-map",
+			oldSecret: &v1.Secret{
+				ObjectMeta: metav1.ObjectMeta{Name: "my-secret"},
+				Data: map[string][]byte{
+					config.ConjurMapKey: []byte("secret1: conjur/var/path1\nsecret2: conjur/var/path2\nsecret3: conjur/var/path3"),
+				},
+			},
+			newSecret: &v1.Secret{
+				ObjectMeta: metav1.ObjectMeta{Name: "my-secret"},
+				Data: map[string][]byte{
+					config.ConjurMapKey: []byte("secret1: conjur/var/path1\nsecret3: conjur/var/path3"),
+				},
+			},
+			expected: map[string][]string{"my-secret": {"secret2"}},
+		},
+		{
+			name: "multiple keys removed from conjur-map",
+			oldSecret: &v1.Secret{
+				ObjectMeta: metav1.ObjectMeta{Name: "app-secret"},
+				Data: map[string][]byte{
+					config.ConjurMapKey: []byte("secret1: conjur/var/path1\nsecret2: conjur/var/path2\nsecret3: conjur/var/path3\nsecret4: conjur/var/path4"),
+				},
+			},
+			newSecret: &v1.Secret{
+				ObjectMeta: metav1.ObjectMeta{Name: "app-secret"},
+				Data: map[string][]byte{
+					config.ConjurMapKey: []byte("secret1: conjur/var/path1\nsecret4: conjur/var/path4"),
+				},
+			},
+			expected: map[string][]string{"app-secret": {"secret2", "secret3"}},
+		},
+		{
+			name: "conjur-map removed entirely from new secret",
+			oldSecret: &v1.Secret{
+				ObjectMeta: metav1.ObjectMeta{Name: "db-secret"},
+				Data: map[string][]byte{
+					config.ConjurMapKey: []byte("username: conjur/db/user\ndatabase: conjur/db/name"),
+				},
+			},
+			newSecret: &v1.Secret{
+				ObjectMeta: metav1.ObjectMeta{Name: "db-secret"},
+				Data: map[string][]byte{
+					"other-key": []byte("other-value"),
+				},
+			},
+			expected: map[string][]string{"db-secret": {"username", "database"}},
+		},
+		{
+			name: "conjur-map with map values (id and content-type)",
+			oldSecret: &v1.Secret{
+				ObjectMeta: metav1.ObjectMeta{Name: "encoded-secret"},
+				Data: map[string][]byte{
+					config.ConjurMapKey: []byte("secret1:\n  id: conjur/var/path1\n  content-type: base64\nsecret2: conjur/var/path2"),
+				},
+			},
+			newSecret: &v1.Secret{
+				ObjectMeta: metav1.ObjectMeta{Name: "encoded-secret"},
+				Data: map[string][]byte{
+					config.ConjurMapKey: []byte("secret1:\n  id: conjur/var/path1\n  content-type: base64"),
+				},
+			},
+			expected: map[string][]string{"encoded-secret": {"secret2"}},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			result := GetRemovedKeys(tc.oldSecret, tc.newSecret)
+			// Verify the result map structure
+			assert.Equal(t, len(tc.expected), len(result), "GetRemovedKeys should return correct number of secrets")
+			// For each expected secret, verify the removed keys
+			for secretName, expectedKeys := range tc.expected {
+				actualKeys, exists := result[secretName]
+				assert.True(t, exists, "GetRemovedKeys should include secret '%s'", secretName)
+				assertSliceContainsElements(t, actualKeys, expectedKeys)
+			}
+		})
+	}
+}
+
+// assertSliceContainsElements checks if the actual slice contains all expected elements, regardless of order.
+func assertSliceContainsElements(t *testing.T, actual []string, expected []string) {
+	if len(actual) != len(expected) {
+		t.Errorf("slice length mismatch: expected %d elements, got %d. Expected: %v, Actual: %v", len(expected), len(actual), expected, actual)
+		return
+	}
+
+	// Create a map to track found elements
+	found := make(map[string]bool)
+	for _, elem := range actual {
+		found[elem] = true
+	}
+
+	// Verify all expected elements are present
+	for _, expectedElem := range expected {
+		if !found[expectedElem] {
+			t.Errorf("expected element '%s' not found in actual slice: %v", expectedElem, actual)
+		}
+	}
 }

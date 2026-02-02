@@ -6,11 +6,12 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
-## [1.8.0] - 2026-01-13
+## [1.8.0] - 2026-01-30
 
 ### Added
 - Event-driven detection of new/updated labeled Kubernetes secrets. (CNJR-12568)
 - Support for onboarding labeled Kubernetes secrets. (CNJR-12567)
+- Remove stale secrets for labeled Kubernetes secrets. (CNJR-12714)
 
 ## [1.7.8] - 2025-12-23
 

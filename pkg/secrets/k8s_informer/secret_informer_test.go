@@ -123,47 +123,6 @@ func TestSecretInformerUpdateEvents(t *testing.T) {
 		description    string
 	}{
 		{
-			name: "conjur-map change triggers updated event",
-			initialSecret: &v1.Secret{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "managed-secret",
-					Namespace: "test-namespace",
-					Labels: map[string]string{
-						config.ManagedByProviderKey: "true",
-					},
-				},
-				Data: map[string][]byte{
-					config.ConjurMapKey: []byte("SECRET: secrets/test_secret"),
-				},
-			},
-			updateSecret: func(s *v1.Secret) {
-				s.Data[config.ConjurMapKey] = []byte("SECRET: secrets/new_secret")
-			},
-			expectedEvents: []string{"added", "updated"},
-			description:    "Changing conjur-map should trigger UPDATE event",
-		},
-		{
-			name: "data-only update does not trigger event",
-			initialSecret: &v1.Secret{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "managed-secret",
-					Namespace: "test-namespace",
-					Labels: map[string]string{
-						config.ManagedByProviderKey: "true",
-					},
-				},
-				Data: map[string][]byte{
-					config.ConjurMapKey: []byte("SECRET: secrets/test_secret"),
-					"SECRET":            []byte("original-value"),
-				},
-			},
-			updateSecret: func(s *v1.Secret) {
-				s.Data["SECRET"] = []byte("updated-value")
-			},
-			expectedEvents: []string{"added"},
-			description:    "Data-only updates should be ignored to prevent circular updates",
-		},
-		{
 			name: "label added triggers updated event",
 			initialSecret: &v1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
@@ -183,7 +142,7 @@ func TestSecretInformerUpdateEvents(t *testing.T) {
 			description:    "Adding the managed-by-provider label should trigger UPDATE event",
 		},
 		{
-			name: "label removed triggers updated event",
+			name: "label removed does not trigger updated event",
 			initialSecret: &v1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "managed-secret",
@@ -199,8 +158,28 @@ func TestSecretInformerUpdateEvents(t *testing.T) {
 			updateSecret: func(s *v1.Secret) {
 				s.Labels = nil
 			},
-			expectedEvents: []string{"added", "updated"},
-			description:    "Removing the managed-by-provider label should trigger UPDATE event",
+			expectedEvents: []string{"added"},
+			description:    "Removing the managed-by-provider label should not trigger UPDATE event",
+		},
+		{
+			name: "label set to false does not trigger updated event",
+			initialSecret: &v1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "managed-secret",
+					Namespace: "test-namespace",
+					Labels: map[string]string{
+						config.ManagedByProviderKey: "true",
+					},
+				},
+				Data: map[string][]byte{
+					config.ConjurMapKey: []byte("SECRET: secrets/test_secret"),
+				},
+			},
+			updateSecret: func(s *v1.Secret) {
+				s.Labels[config.ManagedByProviderKey] = "false"
+			},
+			expectedEvents: []string{"added"},
+			description:    "Set the managed-by-provider label to false should not trigger UPDATE event",
 		},
 		{
 			name: "conjur-map added triggers updated event",
@@ -241,21 +220,82 @@ func TestSecretInformerUpdateEvents(t *testing.T) {
 			description:    "Removing conjur-map should trigger UPDATE event",
 		},
 		{
-			name: "update without label does not trigger event",
+			name: "update conjur-map without label does not trigger event",
 			initialSecret: &v1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "unmanaged-secret",
 					Namespace: "test-namespace",
 				},
 				Data: map[string][]byte{
-					"password": []byte("original-value"),
+					config.ConjurMapKey: []byte("SECRET: secrets/test_secret"),
 				},
 			},
 			updateSecret: func(s *v1.Secret) {
-				s.Data["password"] = []byte("updated-value")
+				s.Data[config.ConjurMapKey] = []byte("SECRET: secrets/new_secret")
 			},
 			expectedEvents: []string{},
-			description:    "Updates to secrets without the label should not trigger events",
+			description:    "Updates to conjur_map without label should not trigger events",
+		},
+		{
+			name: "update conjur-map with label set to false does not trigger event",
+			initialSecret: &v1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "unmanaged-secret",
+					Namespace: "test-namespace",
+					Labels: map[string]string{
+						config.ManagedByProviderKey: "false",
+					},
+				},
+				Data: map[string][]byte{
+					config.ConjurMapKey: []byte("SECRET: secrets/test_secret"),
+				},
+			},
+			updateSecret: func(s *v1.Secret) {
+				s.Data[config.ConjurMapKey] = []byte("SECRET: secrets/new_secret")
+			},
+			expectedEvents: []string{},
+			description:    "Updates to conjur_map with the label set to false should not trigger events",
+		},
+		{
+			name: "conjur-map change triggers updated event",
+			initialSecret: &v1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "managed-secret",
+					Namespace: "test-namespace",
+					Labels: map[string]string{
+						config.ManagedByProviderKey: "true",
+					},
+				},
+				Data: map[string][]byte{
+					config.ConjurMapKey: []byte("SECRET: secrets/test_secret"),
+				},
+			},
+			updateSecret: func(s *v1.Secret) {
+				s.Data[config.ConjurMapKey] = []byte("SECRET: secrets/new_secret")
+			},
+			expectedEvents: []string{"added", "updated"},
+			description:    "Changing conjur-map should trigger UPDATE event",
+		},
+		{
+			name: "data-only update does not trigger event",
+			initialSecret: &v1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "managed-secret",
+					Namespace: "test-namespace",
+					Labels: map[string]string{
+						config.ManagedByProviderKey: "true",
+					},
+				},
+				Data: map[string][]byte{
+					config.ConjurMapKey: []byte("SECRET: secrets/test_secret"),
+					"SECRET":            []byte("original-value"),
+				},
+			},
+			updateSecret: func(s *v1.Secret) {
+				s.Data["SECRET"] = []byte("updated-value")
+			},
+			expectedEvents: []string{"added"},
+			description:    "Data-only updates should be ignored to prevent circular updates",
 		},
 	}
 

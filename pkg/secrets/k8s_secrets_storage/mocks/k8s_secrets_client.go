@@ -35,6 +35,9 @@ type KubeSecretsClient struct {
 	database      map[string]map[string][]byte
 	ErrOnRetrieve error
 	ErrOnUpdate   error
+	// Captures the last UpdateSecret call for assertions in tests.
+	LastUpdateSecretName     string
+	LastUpdateOriginalSecret *v1.Secret
 }
 
 // NewKubeSecretsClient creates an instance of a KubeSecretsClient
@@ -96,6 +99,13 @@ func (c *KubeSecretsClient) UpdateSecret(
 
 	if c.ErrOnUpdate != nil {
 		return c.ErrOnUpdate
+	}
+
+	c.LastUpdateSecretName = secretName
+	if originalK8sSecret != nil {
+		c.LastUpdateOriginalSecret = originalK8sSecret.DeepCopy()
+	} else {
+		c.LastUpdateOriginalSecret = nil
 	}
 
 	secretToUpdate := c.database[secretName]
