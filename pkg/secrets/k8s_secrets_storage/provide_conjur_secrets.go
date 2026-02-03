@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+	"sync"
 
 	"github.com/cyberark/conjur-authn-k8s-client/pkg/log"
 	"go.opentelemetry.io/otel"
@@ -89,6 +90,10 @@ type K8sProvider struct {
 	// corresponding secret content. This is used to detect changes in
 	// secret content.
 	prevSecretsChecksums map[string]utils.Checksum
+	// mu protects concurrent access to Provide/ProvideWithCleanup.
+	// When both periodic refresh and informer events trigger simultaneously,
+	// one goroutine will acquire the lock while the other waits.
+	mu sync.Mutex
 }
 
 // K8sProviderConfig provides config specific to Kubernetes Secrets provider
@@ -160,6 +165,9 @@ func (p *K8sProvider) Provide() (bool, error) {
 // ProvideWithCleanup removes specified keys from K8s secrets before updating them with Conjur values.
 // keysToRemove maps a K8s Secret name to specific keys that should be removed from a secret.
 func (p *K8sProvider) ProvideWithCleanup(keysToRemove map[string][]string) (bool, error) {
+	// Acquire lock to prevent concurrent execution.
+	// If another goroutine is executing, this will block until it completes.
+	p.mu.Lock()
 	defer func() {
 		// Always clear the secrets' state from memory. This prevents leakage of the secret values
 		// in `originalK8sSecrets` and prevents `updateDestinations` from growing each time
@@ -168,6 +176,8 @@ func (p *K8sProvider) ProvideWithCleanup(keysToRemove map[string][]string) (bool
 			originalK8sSecrets: map[string]*v1.Secret{},
 			updateDestinations: map[string][]updateDestination{},
 		}
+		// Release lock after all cleanup is done
+		p.mu.Unlock()
 	}()
 
 	// Use the global TracerProvider
