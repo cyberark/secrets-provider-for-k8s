@@ -3,6 +3,9 @@ package secrets
 import (
 	"context"
 	"fmt"
+	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/cenkalti/backoff"
@@ -185,15 +188,16 @@ func RunSecretsProvider(
 
 	// Wait here for a signal to quit providing secrets or an error
 	// from the periodicSecretProvider() or informerTriggeredProvider() function
-	select {
-	case <-config.ProviderQuit:
-		break
-	case err = <-periodicError:
-		break
-	}
-
-	// Allow the background goroutines to gracefully shut down
 	if config.SecretRefreshInterval > 0 || config.InformerEvents != nil {
+		// Wait on both quit signal and error channel if goroutines are running
+		select {
+		case <-config.ProviderQuit:
+			break
+		case err = <-periodicError:
+			break
+		}
+
+		// Allow the background goroutines to gracefully shut down
 		// Kill the ticker if running
 		if ticker != nil {
 			ticker.Stop()
@@ -202,6 +206,20 @@ func RunSecretsProvider(
 		close(periodicQuit)
 		// Let the goroutines exit
 		time.Sleep(secretProviderGracePeriod)
+	} else {
+		// If no goroutines are running (no periodic refresh, no informer),
+		// wait for OS termination signal to keep the sidecar container running
+		log.Debug(messages.CSPFK012D)
+		sigChan := make(chan os.Signal, 1)
+		signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+		defer signal.Stop(sigChan)
+		select {
+		case <-config.ProviderQuit:
+			break
+		case sig := <-sigChan:
+			log.Debug(fmt.Sprintf("Received signal %v, shutting down gracefully", sig))
+			break
+		}
 	}
 	return err
 }
