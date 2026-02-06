@@ -11,3 +11,6 @@ const CSPFK009D string = "CSPFK009D Processing '%s' data entry value of Kubernet
 const CSPFK010D string = "CSPFK010D Listed %d secrets from Conjur"
 const CSPFK011D string = "CSPFK011D Failed to list labeled Kubernetes Secrets. Reason: %s"
 const CSPFK012D string = "CSPFK012D No periodic refresh or informer configured; sleeping indefinitely to keep sidecar running"
+const CSPFK013D string = "CSPFK013D Kubernetes Secret '%s' has no '%s' annotation defined"
+const CSPFK014D string = "CSPFK014D Found %d secret group templates for Kubernetes secret %s"
+const CSPFK015D string = "CSPFK015D No secrets to update"

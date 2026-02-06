@@ -2,6 +2,7 @@ package k8sinformer
 
 import (
 	"fmt"
+	"strings"
 	"sync"
 
 	"github.com/cyberark/conjur-authn-k8s-client/pkg/log"
@@ -13,6 +14,7 @@ import (
 
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/log/messages"
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/config"
+	"github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/file_templates"
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/utils"
 )
 
@@ -192,6 +194,54 @@ func (si *SecretInformer) labelsChanged(oldSecret, newSecret *v1.Secret) bool {
 	return oldHasLabel != newHasLabel
 }
 
+// relevantAnnotationsChanged checks if any relevant annotations changed
+// Relevant annotations are those used for secret groups:
+// - conjur.org/conjur-secrets.*
+// - conjur.org/secret-file-template.*
+func (si *SecretInformer) relevantAnnotationsChanged(oldSecret, newSecret *v1.Secret) bool {
+	oldAnnotations := oldSecret.Annotations
+	newAnnotations := newSecret.Annotations
+
+	// Handle nil Annotations as an empty map
+	if oldAnnotations == nil && newAnnotations == nil {
+		return false
+	}
+	if oldAnnotations == nil {
+		oldAnnotations = make(map[string]string)
+	}
+	if newAnnotations == nil {
+		newAnnotations = make(map[string]string)
+	}
+
+	// Collect all relevant annotation keys from both old and new secret objects
+	relevantKeys := make(map[string]bool)
+	for key := range oldAnnotations {
+		if si.isRelevantAnnotation(key) {
+			relevantKeys[key] = true
+		}
+	}
+	for key := range newAnnotations {
+		if si.isRelevantAnnotation(key) {
+			relevantKeys[key] = true
+		}
+	}
+
+	// Check if any relevant annotation changed
+	for key := range relevantKeys {
+		if oldAnnotations[key] != newAnnotations[key] {
+			return true
+		}
+	}
+
+	return false
+}
+
+// isRelevantAnnotation checks if an annotation key is relevant for secret groups
+func (si *SecretInformer) isRelevantAnnotation(key string) bool {
+	return strings.HasPrefix(key, filetemplates.SecretGroupPrefix) ||
+		strings.HasPrefix(key, filetemplates.SecretGroupFileTemplatePrefix)
+}
+
 // onUpdate is called when an existing secret is updated
 func (si *SecretInformer) onUpdate(oldObj, newObj interface{}) {
 	// Skip events during initial sync or if informer not set
@@ -215,11 +265,10 @@ func (si *SecretInformer) onUpdate(oldObj, newObj interface{}) {
 	// 1. The new secret has the managed-by-provider label and set to true
 	// 2. AND either
 	//   - the conjur-map changed (more or less secret key-value pairs) OR
-	//   - the label changed from not set/false to true
-	// This prevents circular updates: when the secrets provider updates secret values (Data field),
-	// it doesn't change conjur-map or labels, so we ignore those updates.
+	//   - the label changed from not set/false to true OR
+	//   - any relevant annotations changed (conjur.org/conjur-secrets.* or conjur.org/secret-file-template.*)
 	// Note: if the new Secret has the label removed or set to false, we also ignore the update event,
-	//       because the customer might no longer want the secret update/rotation to occur.
+	//       because the user might no longer want the secret update/rotation to occur.
 	if !si.hasManagedByProviderLabel(newSecret) {
 		if si.hasManagedByProviderLabel(oldSecret) {
 			log.Warn(messages.CSPFK086E, newSecret.Name, config.ManagedByProviderKey)
@@ -227,7 +276,7 @@ func (si *SecretInformer) onUpdate(oldObj, newObj interface{}) {
 		return
 	}
 
-	if si.conjurMapChanged(oldSecret, newSecret) || si.labelsChanged(oldSecret, newSecret) {
+	if si.conjurMapChanged(oldSecret, newSecret) || si.labelsChanged(oldSecret, newSecret) || si.relevantAnnotationsChanged(oldSecret, newSecret) {
 		// Add event to queue for asynchronous processing
 		event := SecretEvent{
 			Secret:    newSecret.DeepCopy(),

@@ -6,16 +6,12 @@ import (
 	"fmt"
 	"slices"
 
+	"github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/file_templates"
+
 	"github.com/cyberark/conjur-authn-k8s-client/pkg/log"
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/log/messages"
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/clients/conjur"
 )
-
-// Secret describes how Conjur secrets are represented in the Push-to-File context.
-type Secret struct {
-	Alias string
-	Value string
-}
 
 // FetchSecretsForGroups fetches the secrets for all the groups and returns
 // map of [group name] to [a slice of secrets for the group]. Callers of this
@@ -24,9 +20,9 @@ func FetchSecretsForGroups(
 	depRetrieveSecrets conjur.RetrieveSecretsFunc,
 	secretGroups []*SecretGroup,
 	traceContext context.Context,
-) (map[string][]*Secret, error) {
+) (map[string][]*filetemplates.Secret, error) {
 	var err error
-	secretsByGroup := map[string][]*Secret{}
+	secretsByGroup := map[string][]*filetemplates.Secret{}
 
 	secretPaths := getAllPaths(secretGroups)
 	secretValueById, err := depRetrieveSecrets(secretPaths, traceContext)
@@ -76,7 +72,7 @@ func FetchSecretsForGroups(
 	return secretsByGroup, err
 }
 
-func getSecretValueByID(secretValuesByID map[string][]byte, spec SecretSpec, path string) (*Secret, error) {
+func getSecretValueByID(secretValuesByID map[string][]byte, spec filetemplates.SecretSpec, path string) (*filetemplates.Secret, error) {
 	alias := spec.Alias
 	if alias == "" || alias == "*" {
 		alias = path
@@ -95,7 +91,7 @@ func getSecretValueByID(secretValuesByID map[string][]byte, spec SecretSpec, pat
 	// Decode the secret value if it's base64 encoded
 	sValue = decodeIfNeeded(spec, alias, sValue)
 
-	secret := &Secret{
+	secret := &filetemplates.Secret{
 		Alias: alias,
 		Value: string(sValue),
 	}
@@ -104,7 +100,7 @@ func getSecretValueByID(secretValuesByID map[string][]byte, spec SecretSpec, pat
 
 // Decodes a secret from Base64 if the SecretSpec specifies that it is encoded.
 // If the secret is not encoded, the original secret value is returned.
-func decodeIfNeeded(spec SecretSpec, alias string, sValue []byte) []byte {
+func decodeIfNeeded(spec filetemplates.SecretSpec, alias string, sValue []byte) []byte {
 	if spec.ContentType != "base64" {
 		return sValue
 	}

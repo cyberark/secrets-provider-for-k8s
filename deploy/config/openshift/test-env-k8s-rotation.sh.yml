@@ -30,6 +30,7 @@ spec:
           - test-k8s-secret
           - test-k8s-secret-fetch-all
           - test-k8s-secret-fetch-all-base64
+          - test-k8s-secret-with-templates
         conjur.org/log-level: "debug"
     spec:
       serviceAccountName: ${APP_NAMESPACE_NAME}-sa

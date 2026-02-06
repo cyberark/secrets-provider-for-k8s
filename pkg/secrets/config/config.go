@@ -239,19 +239,7 @@ func NewConfig(settings map[string]string) *Config {
 
 	k8sSecretsArr := []string{}
 	if storeType != "file" {
-		k8sSecretsStr := settings[k8sSecretsKey]
-		if k8sSecretsStr != "" {
-			k8sSecretsStr := strings.ReplaceAll(k8sSecretsStr, "- ", "")
-			k8sSecretsArr = strings.Split(k8sSecretsStr, "\n")
-			k8sSecretsArr = k8sSecretsArr[:len(k8sSecretsArr)-1]
-		} else {
-			k8sSecretsStr = settings["K8S_SECRETS"]
-			k8sSecretsStr = strings.ReplaceAll(k8sSecretsStr, " ", "")
-			// Only split if the string is not empty to avoid creating a slice with one empty element
-			if k8sSecretsStr != "" {
-				k8sSecretsArr = strings.Split(k8sSecretsStr, ",")
-			}
-		}
+		k8sSecretsArr = parseK8sSecretsList(settings)
 	}
 
 	retryCountLimitStr := settings[retryCountLimitKey]
@@ -422,4 +410,31 @@ func validRefreshInterval(intervalStr string, enableStr string, envAndAnnots map
 		}
 	}
 	return err
+}
+
+// parseK8sSecretsList parses Kubernetes secrets from either annotation format (YAML list)
+// or environment variable format (comma-separated), and filters out empty strings.
+func parseK8sSecretsList(settings map[string]string) []string {
+	var k8sSecretsArr []string
+	k8sSecretsStr := settings[k8sSecretsKey]
+	if k8sSecretsStr != "" {
+		// Parse YAML list format: "- secret-1\n- secret-2\n"
+		k8sSecretsStr = strings.ReplaceAll(k8sSecretsStr, "- ", "")
+		k8sSecretsArr = strings.Split(k8sSecretsStr, "\n")
+	} else {
+		// Parse comma-separated format: "secret-1,secret-2,secret-3"
+		k8sSecretsStr = settings["K8S_SECRETS"]
+		k8sSecretsStr = strings.ReplaceAll(k8sSecretsStr, " ", "")
+		k8sSecretsArr = strings.Split(k8sSecretsStr, ",")
+	}
+
+	// Filter out empty strings in-place
+	writeIndex := 0
+	for _, str := range k8sSecretsArr {
+		if str != "" {
+			k8sSecretsArr[writeIndex] = str
+			writeIndex++
+		}
+	}
+	return k8sSecretsArr[:writeIndex]
 }

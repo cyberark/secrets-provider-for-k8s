@@ -1,4 +1,4 @@
-package pushtofile
+package filetemplates
 
 import (
 	"fmt"
@@ -70,7 +70,7 @@ another-password: dev/openshift/password
 `,
 		assert: func(t *testing.T, result []SecretSpec, err error) {
 			assert.Contains(t, err.Error(), "cannot unmarshal")
-			assert.Contains(t, err.Error(), "into []pushtofile.SecretSpec")
+			assert.Contains(t, err.Error(), "into []filetemplates.SecretSpec")
 		},
 	},
 	{
@@ -179,7 +179,7 @@ func TestNewSecretSpecs(t *testing.T) {
 }
 
 func TestValidateSecretSpecPaths(t *testing.T) {
-	maxLenConjurVarName := strings.Repeat("a", maxConjurVarNameLen)
+	maxLenConjurVarName := strings.Repeat("a", MaxConjurVarNameLen)
 
 	type assertFunc func(*testing.T, []error, string)
 
@@ -229,7 +229,7 @@ func TestValidateSecretSpecPaths(t *testing.T) {
 			validConjurPath1 + "/" + maxLenConjurVarName + "a",
 			validConjurPath2,
 			assertErrorsContain(fmt.Sprintf(
-				"is longer than %d characters", maxConjurVarNameLen)),
+				"is longer than %d characters", MaxConjurVarNameLen)),
 		}, {
 			"Two Conjur paths with trailing '/'",
 			validConjurPath1 + "/",
@@ -246,7 +246,7 @@ func TestValidateSecretSpecPaths(t *testing.T) {
 		}
 
 		// Run test case
-		err := validateSecretPaths(secretSpecs, "some-group-name")
+		err := ValidateSecretPaths(secretSpecs, "some-group-name")
 
 		// Check result
 		tc.assert(t, err, tc.description)
@@ -312,7 +312,7 @@ func TestValidateSecretSpecContents(t *testing.T) {
 		}
 
 		// Run test case
-		err := validateSecretContents(secretSpecs, "some-group-name")
+		err := ValidateSecretContents(secretSpecs, "some-group-name")
 
 		// Check result
 		tc.assert(t, err, tc.description)

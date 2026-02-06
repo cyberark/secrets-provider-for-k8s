@@ -35,17 +35,10 @@ $cli_with_timeout "delete clusterrole secrets-access-${UNIQUE_TEST_ID} --ignore-
 
 $cli_with_timeout "delete role another-secrets-provider-role --ignore-not-found=true"
 
-$cli_with_timeout "delete secret test-k8s-secret --ignore-not-found=true"
-
-$cli_with_timeout "delete secret test-k8s-secret-fetch-all --ignore-not-found=true"
-
-$cli_with_timeout "delete secret test-k8s-secret-fetch-all-base64 --ignore-not-found=true"
-
-$cli_with_timeout "delete secret another-test-k8s-secret --ignore-not-found=true"
-
-$cli_with_timeout "delete secret non-labeled-k8s-secret --ignore-not-found=true"
-
-$cli_with_timeout "delete secret false-labeled-k8s-secret --ignore-not-found=true"
+secrets_to_delete=$($cli_with_timeout get secrets -o name | (grep -E "test-k8s-secret" || true) | cut -d/ -f2)
+if [[ -n "$secrets_to_delete" ]]; then
+  $cli_with_timeout delete secret $secrets_to_delete --ignore-not-found=true
+fi
 
 $cli_with_timeout "delete serviceaccount ${APP_NAMESPACE_NAME}-sa --ignore-not-found=true"
 
