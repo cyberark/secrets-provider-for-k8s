@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"os"
+	"syscall"
 	"testing"
 	"time"
 
@@ -343,6 +345,70 @@ func TestRunSecretsProvider(t *testing.T) {
 				assert.Contains(t, err.Error(), "Failed to Provide")
 			}
 		})
+	}
+}
+
+// TestRunSecretsProviderSidecarWithSignalHandling tests the signal handling code path
+// for sidecar mode with no periodic refresh and no informer.
+//
+// NOTE: This test cannot fully validate the deadlock fix because:
+// - Go's deadlock detector only triggers when ALL goroutines in the program are blocked
+// - In unit tests, the test runner goroutine remains active, preventing deadlock detection
+// - The actual deadlock was only reproducible in production where RunSecretsProvider
+//   runs as the only active goroutine in main()
+//
+// This test validates:
+// - The signal handler is properly registered and responds to OS signals
+// - The container stays running (blocks) until signaled
+// - Graceful shutdown occurs when receiving SIGTERM/SIGINT
+func TestRunSecretsProviderSidecarWithSignalHandling(t *testing.T) {
+	provider := goodProvider()
+	updater, err := newTestStatusUpdater(injectErrs{})
+	require.NoError(t, err)
+	defer updater.cleanup()
+
+	providerQuit := make(chan struct{})
+	refreshConfig := ProviderRefreshConfig{
+		Mode:                  "sidecar",
+		SecretRefreshInterval: time.Duration(0), // No periodic refresh
+		ProviderQuit:          providerQuit,
+		InformerEvents:        nil, // No informer - triggers signal handler code path
+	}
+
+	// Run the secrets provider in a goroutine
+	done := make(chan error, 1)
+	go func() {
+		done <- RunSecretsProvider(refreshConfig, provider.provide, updater.fileUpdater)
+	}()
+
+	// Give it time to complete initial provision and reach the signal handling block
+	time.Sleep(200 * time.Millisecond)
+
+	// Verify the provider is still running (blocking on signal handler)
+	select {
+	case <-done:
+		t.Fatal("RunSecretsProvider exited unexpectedly - should be blocking on signal handler")
+	case <-time.After(100 * time.Millisecond):
+		// Good - it's blocking as expected
+	}
+
+	// Verify initial provision completed
+	assert.Equal(t, 1, provider.count(), "Provider should be called once initially")
+	assert.FileExists(t, updater.fileUpdater.providedFile)
+
+	// Send SIGTERM to trigger graceful shutdown
+	// Note: We send to current process; the signal handler in the goroutine will receive it
+	proc, err := os.FindProcess(os.Getpid())
+	require.NoError(t, err)
+	err = proc.Signal(syscall.SIGTERM)
+	require.NoError(t, err)
+
+	// Wait for graceful shutdown
+	select {
+	case err := <-done:
+		assert.NoError(t, err, "Should shut down gracefully without error")
+	case <-time.After(2 * time.Second):
+		t.Fatal("RunSecretsProvider did not respond to SIGTERM within timeout")
 	}
 }
 

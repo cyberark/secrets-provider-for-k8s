@@ -5,6 +5,7 @@ export KEY_VALUE_NOT_EXIST=" "
 mkdir -p output
 
 export PLATFORM="${PLATFORM:-kubernetes}"
+export KIND="${KIND:-false}"
 
 if [ "${PLATFORM}" = "kubernetes" ]; then
     cli_with_timeout="wait_for_it 300 kubectl"
