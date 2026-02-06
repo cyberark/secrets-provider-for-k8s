@@ -42,7 +42,14 @@ type k8sSecretsState struct {
 	// Maps a Conjur variable ID (policy path) to all the updateDestination
 	// targets which will need to be updated with the corresponding Conjur
 	// secret value after it has been retrieved.
-	updateDestinations map[string][]updateDestination
+	updateDestinations      map[string][]updateDestination
+	updateDestinationLookup map[string]map[destinationKey]struct{} // fast dedupe index
+
+}
+
+type destinationKey struct {
+	k8sSecretName string
+	secretName    string
 }
 
 type k8sAccessDeps struct {
@@ -152,8 +159,9 @@ func newProvider(
 		requiredK8sSecrets: config.RequiredK8sSecrets,
 		sanitizeEnabled:    sanitizeEnabled,
 		secretsState: k8sSecretsState{
-			originalK8sSecrets: map[string]*v1.Secret{},
-			updateDestinations: map[string][]updateDestination{},
+			originalK8sSecrets:      map[string]*v1.Secret{},
+			updateDestinations:      map[string][]updateDestination{},
+			updateDestinationLookup: map[string]map[destinationKey]struct{}{},
 		},
 		traceContext:         traceContext,
 		prevSecretsChecksums: map[string]utils.Checksum{},
@@ -177,9 +185,12 @@ func (p *K8sProvider) ProvideWithCleanup(keysToRemove map[string][]string) (bool
 		// in `originalK8sSecrets` and prevents `updateDestinations` from growing each time
 		// the provider is run (e.g. during rotation).
 		p.secretsState = k8sSecretsState{
-			originalK8sSecrets: map[string]*v1.Secret{},
-			updateDestinations: map[string][]updateDestination{},
+			originalK8sSecrets:      map[string]*v1.Secret{},
+			updateDestinations:      map[string][]updateDestination{},
+			updateDestinationLookup: map[string]map[destinationKey]struct{}{},
 		}
+		// Also clear secretsGroups to prevent memory growth during rotation
+		p.secretsGroups = map[string][]*filetemplates.SecretGroup{}
 		// Release lock after all cleanup is done
 		p.mu.Unlock()
 	}()
@@ -306,61 +317,24 @@ func (p *K8sProvider) retrieveRequiredK8sSecret(k8sSecret *v1.Secret) error {
 	// Record the K8s Secret API object
 	p.secretsState.originalK8sSecrets[k8sSecret.Name] = k8sSecret
 
-	// Read the value of the "conjur-map" entry in the K8s Secret's Data
-	// field, if it exists. If the entry does not exist or has a null
-	// value, log debug messages.
-	conjurMapKey := config.ConjurMapKey
-	k8sSecretName := k8sSecret.Name
-	conjurSecretsYAML, conjurMapExists := k8sSecret.Data[conjurMapKey]
-	var hasValidConjurMap bool
-
-	if !conjurMapExists {
-		p.log.debug(messages.CSPFK008D, k8sSecretName, conjurMapKey)
-	} else if len(conjurSecretsYAML) == 0 {
-		p.log.debug(messages.CSPFK006D, k8sSecretName, conjurMapKey)
-	}
-
-	var secretGroups []*filetemplates.SecretGroup
-	//look for "conjur.org/conjur-secrets.*" annotations
-	for annotationName, annotationValue := range k8sSecret.Annotations {
-		if strings.HasPrefix(annotationName, filetemplates.SecretGroupPrefix) {
-			groupName := strings.TrimPrefix(annotationName, filetemplates.SecretGroupPrefix)
-			//now for given group look for its template annotation "conjur.org/secret-file-template.*"
-			if _, tplExists := k8sSecret.Annotations[filetemplates.SecretGroupFileTemplatePrefix+groupName]; tplExists {
-				secretSpecs, err := filetemplates.NewSecretSpecs([]byte(annotationValue))
-				if err != nil {
-					err = fmt.Errorf(`unable to create secret specs from annotation "%s": %s`, filetemplates.SecretGroupFileTemplatePrefix+groupName, err)
-					return err
-				}
-				secretGroup := &filetemplates.SecretGroup{
-					Name:        groupName,
-					SecretSpecs: secretSpecs,
-				}
-				secretGroups = append(secretGroups, secretGroup)
-			} else {
-				p.log.warn(messages.CSPFK013D, k8sSecretName, filetemplates.SecretGroupFileTemplatePrefix+groupName)
-			}
-	} 
-
 	// Look for "conjur.org/conjur-secrets.*" annotations and process secret groups
 	err := p.processSecretGroupAnnotations(k8sSecret)
 	if err != nil {
 		return err
 	}
 
-	// At least one of "conjur-map" field or "conjur.org/conjur-secrets.*" annotation must be defined.
-	// If it is not, error is returned
-	if !hasValidConjurMap && len(p.secretsGroups) == 0 {
-		p.log.logError("At least one of %s data entry or %s annotations must be defined", conjurMapKey, "conjur.org/conjur-secrets.* & conjur.org/secret-file-template.*")
-		return p.log.recordedError(messages.CSPFK028E, k8sSecretName)
+	// Parse and process the conjur-map entry if it exists.
+	hasValidConjurMap, err := p.parseConjurSecretsYAML(k8sSecret)
+	if err != nil {
+		return err
 	}
 
-	// Parse the YAML-formatted Conjur secrets mapping that has been
-	// retrieved from this K8s Secret (only if conjur-map exists and has content).
-	// If we have valid secret groups, we can skip parsing empty conjur-map.
-	if conjurMapExists && hasValidConjurMap {
-		p.log.debug(messages.CSPFK009D, conjurMapKey, k8sSecret.Name)
-		return p.parseConjurSecretsYAML(conjurSecretsYAML, k8sSecret.Name)
+	// At least one of "conjur-map" field or "conjur.org/conjur-secrets.*" annotation must be defined.
+	// If neither is provided/valid, return an error.
+	if !hasValidConjurMap && len(p.secretsGroups) == 0 {
+		conjurMapKey := config.ConjurMapKey
+		p.log.logError("At least one of %s data entry or %s annotations must be defined", conjurMapKey, "conjur.org/conjur-secrets.* & conjur.org/secret-file-template.*")
+		return p.log.recordedError(messages.CSPFK028E, k8sSecret.Name)
 	}
 
 	return nil
@@ -414,20 +388,51 @@ func (p *K8sProvider) processSecretGroupAnnotations(k8sSecret *v1.Secret) error 
 }
 
 // parseConjurSecretsYAML parses the YAML-formatted Conjur secrets mapping
-// that has been retrieved from a K8s Secret.
-func (p *K8sProvider) parseConjurSecretsYAML(secretsYAML []byte, k8sSecretName string) error {
-	conjurMap := map[string]interface{}{}
-	if len(secretsYAML) > 0 {
-		if err := yaml.Unmarshal(secretsYAML, &conjurMap); err != nil {
-			p.log.debug(messages.CSPFK007D, k8sSecretName, config.ConjurMapKey, err.Error())
-			return p.log.recordedError(messages.CSPFK028E, k8sSecretName)
-		}
-		if len(conjurMap) == 0 {
-			p.log.debug(messages.CSPFK007D, k8sSecretName, config.ConjurMapKey, "value is empty")
-			return p.log.recordedError(messages.CSPFK028E, k8sSecretName)
-		}
+// from a K8s Secret's Data conjur-map field.
+// Returns (hasValidConjurMap, error) where:
+//   - hasValidConjurMap: true if a valid (non-empty) conjur-map was found and processed
+//   - error: only returned if parsing fails and there are no secret groups to fall back on
+func (p *K8sProvider) parseConjurSecretsYAML(k8sSecret *v1.Secret) (bool, error) {
+	conjurMapKey := config.ConjurMapKey
+	k8sSecretName := k8sSecret.Name
+	conjurSecretsYAML, conjurMapExists := k8sSecret.Data[conjurMapKey]
+
+	// Log debug messages if conjur-map doesn't exist or is empty
+	if !conjurMapExists {
+		p.log.debug(messages.CSPFK008D, k8sSecretName, conjurMapKey)
+		return false, nil
 	}
-	return p.refreshUpdateDestinations(conjurMap, k8sSecretName)
+	if len(conjurSecretsYAML) == 0 {
+		p.log.debug(messages.CSPFK006D, k8sSecretName, conjurMapKey)
+		return false, nil
+	}
+
+	// Parse the YAML-formatted Conjur secrets mapping.
+	// An empty map {} serializes to non-empty YAML bytes, so we need to parse it
+	// to determine if it's actually empty.
+	var conjurMap map[string]interface{}
+	if err := yaml.Unmarshal(conjurSecretsYAML, &conjurMap); err != nil {
+		p.log.debug(messages.CSPFK007D, k8sSecretName, conjurMapKey, err.Error())
+		// If secret groups exist, allow invalid conjur-map (return no error)
+		if len(p.secretsGroups) > 0 {
+			return false, nil
+		}
+		return false, p.log.recordedError(messages.CSPFK028E, k8sSecretName)
+	}
+
+	// Check if the parsed map is empty
+	if len(conjurMap) == 0 {
+		p.log.debug(messages.CSPFK007D, k8sSecretName, conjurMapKey, "value is empty")
+		return false, nil
+	}
+
+	// Process the valid conjur-map
+	p.log.debug(messages.CSPFK009D, conjurMapKey, k8sSecretName)
+	if err := p.refreshUpdateDestinations(conjurMap, k8sSecretName); err != nil {
+		return false, err
+	}
+
+	return true, nil
 }
 
 // refreshUpdateDestinations populates the Provider's updateDestinations
@@ -440,7 +445,7 @@ func (p *K8sProvider) refreshUpdateDestinations(conjurMap map[string]interface{}
 		switch value := contents.(type) {
 		case string: //in that case contents is varID
 			dest := updateDestination{k8sSecretName, secretName, "text"}
-			p.secretsState.updateDestinations[value] = appendDestination(p.secretsState.updateDestinations[value], dest)
+			p.appendDestination(value, dest)
 		case map[interface{}]interface{}:
 			varId, ok := value["id"].(string)
 			if !ok || varId == "" {
@@ -449,13 +454,14 @@ func (p *K8sProvider) refreshUpdateDestinations(conjurMap map[string]interface{}
 
 			contentType, ok := value["content-type"].(string)
 			if ok && contentType == "base64" {
-				dest := updateDestination{k8sSecretName, secretName, "base64"}
-				p.secretsState.updateDestinations[varId] = appendDestination(p.secretsState.updateDestinations[varId], dest)
 				p.log.info(messages.CSPFK022I, secretName, k8sSecretName)
 			} else {
-				dest := updateDestination{k8sSecretName, secretName, "text"}
-				p.secretsState.updateDestinations[varId] = appendDestination(p.secretsState.updateDestinations[varId], dest)
+				contentType = "text"
 			}
+
+			dest := updateDestination{k8sSecretName, secretName, contentType}
+			p.appendDestination(varId, dest)
+
 		default:
 			return p.log.recordedError(messages.CSPFK028E, k8sSecretName)
 		}
@@ -466,14 +472,26 @@ func (p *K8sProvider) refreshUpdateDestinations(conjurMap map[string]interface{}
 // appendDestination appends a destination to the slice if it doesn't already exist.
 // A destination is considered a duplicate if both k8sSecretName and secretName match.
 // This prevents duplicate destinations when the same K8s Secret is processed multiple times
-// or when the same secret name maps to the same Conjur variable ID.
-func appendDestination(dests []updateDestination, dest updateDestination) []updateDestination {
-	for _, existing := range dests {
-		if existing.k8sSecretName == dest.k8sSecretName && existing.secretName == dest.secretName {
-			return dests
-		}
+// or when the same secret name maps to the same Conjur variable ID. We use an internal
+// index to identify duplicates while avoiding O(n) linear search.
+func (p *K8sProvider) appendDestination(varID string, dest updateDestination) {
+	destLookup := p.secretsState.updateDestinationLookup
+
+	if destLookup[varID] == nil {
+		destLookup[varID] = make(map[destinationKey]struct{})
 	}
-	return append(dests, dest)
+
+	key := destinationKey{
+		k8sSecretName: dest.k8sSecretName,
+		secretName:    dest.secretName,
+	}
+
+	if _, exists := destLookup[varID][key]; exists {
+		return
+	}
+
+	destLookup[varID][key] = struct{}{}
+	p.secretsState.updateDestinations[varID] = append(p.secretsState.updateDestinations[varID], dest)
 }
 
 func (p *K8sProvider) listConjurSecretsToFetch() ([]string, error) {
@@ -554,7 +572,7 @@ func (p *K8sProvider) updateRequiredK8sSecretsWithCleanup(
 	defer span.End()
 
 	newSecretsDataMap := p.createSecretData(conjurSecrets)
-	newSecretsDataMap = p.createGroupTemplateSecretData(conjurSecrets, newSecretsDataMap)
+	p.populateGroupTemplateSecretData(conjurSecrets, newSecretsDataMap)
 
 	// Update K8s Secrets with the retrieved Conjur secrets
 	for k8sSecretName, secretData := range newSecretsDataMap {
@@ -749,12 +767,15 @@ func diffConjurMapKeys(oldMap, newMap map[string]interface{}) []string {
 		}
 	}
 	return removed
-// createGroupTemplateSecretData creates a map of entries to be added to the 'Data' fields
+}
+
+// populateGroupTemplateSecretData creates a map of entries to be added to the 'Data' fields
 // of each K8s Secret. Data fields are created from group secret variables and rendered corresponding group
 // template filled with secret values retrieved from Conjur.
 // If a secret has a 'base64' content type, the resulting secret value will be decoded.
-func (p *K8sProvider) createGroupTemplateSecretData(conjurSecrets map[string][]byte,
-	newSecretsDataMap map[string]map[string][]byte) map[string]map[string][]byte {
+// This method allows partial success - groups that can be successfully processed will be updated even if other groups fail
+func (p *K8sProvider) populateGroupTemplateSecretData(conjurSecrets map[string][]byte,
+	newSecretsDataMap map[string]map[string][]byte) error {
 
 	for k8sSecretName, secretGroups := range p.secretsGroups {
 		secretsByGroup := map[string][]*filetemplates.Secret{}
@@ -765,7 +786,7 @@ func (p *K8sProvider) createGroupTemplateSecretData(conjurSecrets map[string][]b
 				// If not, log an error and set the value to an empty string
 				bValue, ok := conjurSecrets[secSpec.Path]
 				if !ok {
-					p.log.logError(messages.CSPFK085E, secretGroup.Name, secSpec.Alias)
+					p.log.logError(messages.CSPFK087E, secretGroup.Name, secSpec.Alias)
 					bValue = []byte{}
 				}
 
@@ -794,7 +815,7 @@ func (p *K8sProvider) createGroupTemplateSecretData(conjurSecrets map[string][]b
 			groupTemplate := originalSecret.Annotations[filetemplates.SecretGroupFileTemplatePrefix+groupName]
 			tpl, err := filetemplates.GetTemplate(groupName, secretsMap).Parse(groupTemplate)
 			if err != nil {
-				p.log.logError(messages.CSPFK086E, groupName, k8sSecretName, err.Error())
+				p.log.logError(messages.CSPFK088E, groupName, k8sSecretName, err.Error())
 				continue
 			}
 
@@ -805,7 +826,7 @@ func (p *K8sProvider) createGroupTemplateSecretData(conjurSecrets map[string][]b
 			}
 			fileContent, err := filetemplates.RenderFile(tpl, tplData)
 			if err != nil {
-				p.log.logError(messages.CSPFK087E, groupName, k8sSecretName, err.Error())
+				p.log.logError(messages.CSPFK089E, groupName, k8sSecretName, err.Error())
 				continue
 			}
 
@@ -816,7 +837,7 @@ func (p *K8sProvider) createGroupTemplateSecretData(conjurSecrets map[string][]b
 			newSecretsDataMap[k8sSecretName][groupName] = fileContent.Bytes()
 		}
 	}
-	return newSecretsDataMap
+	return nil
 }
 
 func normalizeK8sSecretName(name string) string {

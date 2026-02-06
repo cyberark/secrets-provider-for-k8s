@@ -1658,7 +1658,7 @@ func TestUpdateRequiredK8sSecretsWithCleanupRemovesKeys(t *testing.T) {
 	mocks := newTestMocks()
 
 	// Prepare K8s Secret with stale key
-	mocks.kubeClient.AddSecret("k8s-secret1", k8sStorageMocks.K8sSecrets{
+	mocks.kubeClient.AddSecret("k8s-secret1", map[string]string{}, k8sStorageMocks.K8sSecrets{
 		"k8s-secret1": {
 			"conjur-map": map[string]interface{}{"secret1": "conjur/var/path1"},
 			"secret1":    map[string]interface{}{"value": "old-value1"},
@@ -1821,7 +1821,6 @@ func TestParseConjurMap(t *testing.T) {
 		})
 	}
 }
-
 func TestCreateGroupTemplateSecretData(t *testing.T) {
 	testCases := []struct {
 		name               string
@@ -1896,7 +1895,7 @@ func TestCreateGroupTemplateSecretData(t *testing.T) {
 					"group1": []byte("secret-value1-"),
 				},
 			},
-			expectedErrors: []string{"CSPFK085E"},
+			expectedErrors: []string{"CSPFK087E"},
 		},
 		{
 			name: "handles invalid template parse error gracefully",
@@ -1924,7 +1923,7 @@ func TestCreateGroupTemplateSecretData(t *testing.T) {
 			},
 			initialDataMap: make(map[string]map[string][]byte),
 			expectedResult: map[string]map[string][]byte{},
-			expectedErrors: []string{"CSPFK086E"},
+			expectedErrors: []string{"CSPFK088E"},
 		},
 		{
 			name: "handles multiple groups in same secret",
@@ -2003,10 +2002,40 @@ func TestCreateGroupTemplateSecretData(t *testing.T) {
 			},
 		},
 	}
+
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			result := createGroupTemplateSecretData(tc.secretsGroups, tc.originalK8sSecrets, tc.conjurSecrets, tc.initialDataMap)
-			assert.Equal(t, tc.expectedResult, result)
+			mocks := newTestMocks()
+			provider := mocks.newProvider([]string{})
+
+			provider.secretsGroups = tc.secretsGroups
+			provider.secretsState.originalK8sSecrets = tc.originalK8sSecrets
+
+			// Create a copy of initialDataMap to avoid modifying the test case
+			newSecretsDataMap := make(map[string]map[string][]byte)
+			for k, v := range tc.initialDataMap {
+				newSecretsDataMap[k] = make(map[string][]byte)
+				for k2, v2 := range v {
+					newSecretsDataMap[k][k2] = v2
+				}
+			}
+
+			err := provider.populateGroupTemplateSecretData(tc.conjurSecrets, newSecretsDataMap)
+			assert.NoError(t, err)
+
+			// Verify results
+			assert.Equal(t, len(tc.expectedResult), len(newSecretsDataMap), "result map should have expected number of secrets")
+			for secretName, expectedData := range tc.expectedResult {
+				assert.NotNil(t, newSecretsDataMap[secretName], "secret %s should exist in result", secretName)
+				for key, expectedValue := range expectedData {
+					assert.Equal(t, expectedValue, newSecretsDataMap[secretName][key], "value for %s.%s should match", secretName, key)
+				}
+			}
+
+			// Verify error logging
+			for _, errCode := range tc.expectedErrors {
+				assert.True(t, mocks.logger.ErrorWasLogged(errCode), "should log error %s", errCode)
+			}
 		})
 	}
 }
@@ -2065,7 +2094,7 @@ func TestDiffConjurMapKeys(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			result := diffConjurMapKeys(tc.oldMap, tc.newMap)
-			assert.Contains(t, result, tc.expected)
+			assert.ElementsMatch(t, tc.expected, result)
 		})
 	}
 }
@@ -2198,7 +2227,7 @@ func TestGetRemovedKeys(t *testing.T) {
 			for secretName, expectedKeys := range tc.expected {
 				actualKeys, exists := result[secretName]
 				assert.True(t, exists, "GetRemovedKeys should include secret '%s'", secretName)
-				assert.Contains(t, actualKeys, expectedKeys)
+				assert.ElementsMatch(t, expectedKeys, actualKeys)
 			}
 		})
 	}

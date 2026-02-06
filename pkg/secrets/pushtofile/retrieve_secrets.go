@@ -4,19 +4,14 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
-	"github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/file_templates"
 	"slices"
+
+	"github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/file_templates"
 
 	"github.com/cyberark/conjur-authn-k8s-client/pkg/log"
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/log/messages"
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/clients/conjur"
 )
-
-// Secret describes how Conjur secrets are represented in the Push-to-File context.
-/*type Secret struct {
-	Alias string
-	Value string
-}*/
 
 // FetchSecretsForGroups fetches the secrets for all the groups and returns
 // map of [group name] to [a slice of secrets for the group]. Callers of this

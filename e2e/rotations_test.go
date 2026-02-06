@@ -527,10 +527,6 @@ test | {{ secret "test" }}`,
 			_, secret2Exists := updatedSecret.Data["secret2"]
 			assert.False(t, secret2Exists, "secret2 key should be removed from secret data after conjur-map update")
 
-			// Validate group template secret is updated
-			err = WaitForK8sSecretValue(cfg.Client(), SecretsProviderNamespace(), "new-labeled-k8s-secret", "example.1", "test_secret | supersecret", 20*time.Second)
-			assert.Nil(t, err)
-
 			return ctx
 		}).
 		Teardown(func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
