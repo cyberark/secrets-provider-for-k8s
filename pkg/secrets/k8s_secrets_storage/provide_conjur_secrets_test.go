@@ -1301,7 +1301,7 @@ func TestSecretsContentChanges(t *testing.T) {
 	}
 	provider := mocks.newProvider(requiredSecrets)
 	update, err := provider.Provide()
-	assert.False(t, mocks.logger.InfoWasLogged(messages.CSPFK020I))
+	assert.False(t, mocks.logger.InfoWasLogged("CSPFK020I"))
 	assertSecretsUpdated(
 		expectedK8sSecrets{
 			"k8s-secret1": {"secret1": "secret-value1"},
@@ -1315,7 +1315,7 @@ func TestSecretsContentChanges(t *testing.T) {
 	mocks.setPermissions(denyConjurRetrieve, denyK8sRetrieve, denyK8sUpdate)
 	update, err = provider.Provide()
 	assert.NoError(t, err)
-	assert.True(t, mocks.logger.InfoWasLogged(messages.CSPFK020I))
+	assert.True(t, mocks.logger.InfoWasLogged("CSPFK020I"))
 	// verify the same secret still exists
 	assertSecretsUpdated(
 		expectedK8sSecrets{
@@ -1340,13 +1340,13 @@ func TestSecretsContentChanges(t *testing.T) {
 			"k8s-secret1": {"secret2": "secret-value2"},
 		},
 		expectedMissingValues{}, false)(t, mocks, update, err, desc)
-	assert.False(t, mocks.logger.InfoWasLogged(messages.CSPFK020I))
+	assert.False(t, mocks.logger.InfoWasLogged("CSPFK020I"))
 
 	// call again with no changes
 	desc = "Verify again secrets are not updated when there are no changes"
 	update, err = provider.Provide()
 	assert.NoError(t, err)
-	assert.True(t, mocks.logger.InfoWasLogged(messages.CSPFK020I))
+	assert.True(t, mocks.logger.InfoWasLogged("CSPFK020I"))
 
 	// verify a new k8s secret is written when the Conjur secret changes
 	desc = "Verify new secrets are written when there are changes to the k8s secret"
@@ -1360,7 +1360,7 @@ func TestSecretsContentChanges(t *testing.T) {
 	}
 	mocks.conjurClient.AddSecrets(updateConjurSecrets)
 	update, err = provider.Provide()
-	assert.False(t, mocks.logger.InfoWasLogged(messages.CSPFK020I))
+	assert.False(t, mocks.logger.InfoWasLogged("CSPFK020I"))
 	assertSecretsUpdated(
 		expectedK8sSecrets{
 			"k8s-secret1": {"secret2": "new-secret-value2"},

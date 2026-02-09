@@ -631,7 +631,7 @@ func (p *K8sProvider) updateRequiredK8sSecretsWithCleanup(
 			p.prevSecretsChecksums[k8sSecretName] = checksum
 			updated = true
 		} else {
-			p.log.info(messages.CSPFK020I)
+			p.log.info(messages.CSPFK020I, k8sSecretName)
 		}
 	}
 

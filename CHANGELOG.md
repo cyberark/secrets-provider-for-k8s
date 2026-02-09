@@ -6,7 +6,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
-## [1.8.0] - 2026-02-17
+## [1.8.0] - 2026-02-18
+
+### Changed
+- Rapid K8s Secret additions/updates are batched to reduce the number of calls to Secrets Manager. (CNJR-12713)
 
 ### Added
 - Support group templates for K8s Secrets. (CNJR-12574)

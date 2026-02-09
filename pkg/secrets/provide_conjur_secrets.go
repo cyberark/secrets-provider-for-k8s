@@ -22,6 +22,7 @@ import (
 
 const (
 	secretProviderGracePeriod = time.Duration(10 * time.Millisecond)
+	informerDebounceDelay     = time.Duration(200 * time.Millisecond)
 )
 
 // CommonProviderConfig provides config that is common to all providers
@@ -270,24 +271,63 @@ func informerTriggeredProvider(
 	config informerConfig,
 	status StatusUpdater,
 ) {
+	var debounceTimer *time.Timer
+	var timerChan <-chan time.Time
+	var eventCount int
+
 	for {
 		select {
 		case <-config.periodicQuit:
+			// Stop timer if it exists when the provider is shutting down
+			if debounceTimer != nil {
+				debounceTimer.Stop()
+			}
 			return
 		case event := <-config.informerEvents:
 			log.Info(messages.CSPFK028I, event.EventType, event.Secret.Namespace, event.Secret.Name)
 
 			// The informer has already filtered to only send events for secrets with managed-by-provider=true label.
 			// Get all the keys to be removed based on changes to the conjur-map configuration.
-			keysToRemove := K8sProviderInstance.GetRemovedKeys(event.OldSecret, event.Secret)
+			if event.EventType == k8sinformer.SecretEventTypeUpdate {
+				keysToRemove := K8sProviderInstance.GetRemovedKeys(event.OldSecret, event.Secret)
+				if len(keysToRemove) > 0 {
+					updated, err := K8sProviderInstance.ProvideWithCleanup(keysToRemove)
+					if err == nil && updated {
+						err = status.SetSecretsUpdated()
+					}
+					if err != nil {
+						config.periodicError <- err
+					}
+					break
+				}
+			}
 
-			updated, err := K8sProviderInstance.ProvideWithCleanup(keysToRemove)
+			// If it is an add event, or update where no keys were removed from the conjur-map, we can process the event
+			// in a batch with a debounce timer.
+			eventCount++
+			if debounceTimer != nil {
+				debounceTimer.Stop()
+			}
+			// Create a timer channel for debounce period
+			debounceTimer = time.NewTimer(informerDebounceDelay)
+			timerChan = debounceTimer.C
+		case <-timerChan:
+			// No additional events received during debounce period - trigger provideSecrets()
+			if eventCount > 1 {
+				log.Info(messages.CSPFK031I, eventCount)
+			}
+
+			updated, err := provideSecrets()
 			if err == nil && updated {
 				err = status.SetSecretsUpdated()
 			}
 			if err != nil {
 				config.periodicError <- err
 			}
+			// Reset timer and counter for next batch
+			debounceTimer = nil
+			timerChan = nil
+			eventCount = 0
 		}
 	}
 }

@@ -11,10 +11,14 @@ import (
 	"time"
 
 	logger "github.com/cyberark/conjur-authn-k8s-client/pkg/log"
+	"github.com/cyberark/secrets-provider-for-k8s/pkg/log/messages"
+	k8sinformer "github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/k8s_informer"
 	k8sSecretsStorage "github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/k8s_secrets_storage"
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/pushtofile"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 const (
@@ -361,10 +365,10 @@ func TestRunSecretsProvider(t *testing.T) {
 // for sidecar mode with no periodic refresh and no informer.
 //
 // NOTE: This test cannot fully validate the deadlock fix because:
-// - Go's deadlock detector only triggers when ALL goroutines in the program are blocked
-// - In unit tests, the test runner goroutine remains active, preventing deadlock detection
-// - The actual deadlock was only reproducible in production where RunSecretsProvider
-//   runs as the only active goroutine in main()
+//   - Go's deadlock detector only triggers when ALL goroutines in the program are blocked
+//   - In unit tests, the test runner goroutine remains active, preventing deadlock detection
+//   - The actual deadlock was only reproducible in production where RunSecretsProvider
+//     runs as the only active goroutine in main()
 //
 // This test validates:
 // - The signal handler is properly registered and responds to OS signals
@@ -453,4 +457,109 @@ func TestNewProviderForType(t *testing.T) {
 		require.Nil(t, err)
 		assert.NotNil(t, provider)
 	})
+}
+
+func TestInformerTriggeredProviderBatching(t *testing.T) {
+	tests := []struct {
+		name                string
+		batches             []int // Batch sizes - each batch is a series of rapid events, then we wait before triggering the next batch
+		expectedCallCount   int
+		expectedBatchCounts []int // Expected batch counts logged (nil means no batch logs expected)
+	}{
+		{
+			name:                "single event triggers one call and no batch log",
+			batches:             []int{1},
+			expectedCallCount:   1,
+			expectedBatchCounts: nil,
+		},
+		{
+			name:                "multiple rapid events batched into one call",
+			batches:             []int{5},
+			expectedCallCount:   1,
+			expectedBatchCounts: []int{5},
+		},
+		{
+			name:                "many rapid events batched into one call",
+			batches:             []int{100},
+			expectedCallCount:   1,
+			expectedBatchCounts: []int{100},
+		},
+		{
+			name:                "events spaced apart trigger separate calls and no batch logs",
+			batches:             []int{1, 1, 1},
+			expectedCallCount:   3,
+			expectedBatchCounts: nil,
+		},
+		{
+			name:                "multiple batches with multiple events each",
+			batches:             []int{5, 5, 5},
+			expectedCallCount:   3,
+			expectedBatchCounts: []int{5, 5, 5},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var logBuffer bytes.Buffer
+			logger.InfoLogger = log.New(&logBuffer, "", 0)
+
+			mockProv := goodProvider()
+			updater, err := newTestStatusUpdater(injectErrs{})
+			require.NoError(t, err)
+			defer updater.cleanup()
+
+			// Setup informer
+			eventsChan := make(chan k8sinformer.SecretEvent, 100)
+			periodicQuit := make(chan struct{})
+			periodicError := make(chan error, 1)
+			config := informerConfig{
+				informerEvents: eventsChan,
+				periodicQuit:   periodicQuit,
+				periodicError:  periodicError,
+			}
+
+			go informerTriggeredProvider(mockProv.provide, config, updater.fileUpdater)
+
+			eventIndex := 0
+			for batchIdx, batchSize := range tt.batches {
+				// Send all events in this batch rapidly
+				for i := 0; i < batchSize; i++ {
+					eventsChan <- k8sinformer.SecretEvent{
+						Secret: &v1.Secret{
+							ObjectMeta: metav1.ObjectMeta{
+								Name:      fmt.Sprintf("secret-%d", eventIndex),
+								Namespace: "test-namespace",
+							},
+						},
+						EventType: k8sinformer.SecretEventTypeAdd,
+					}
+					eventIndex++
+					time.Sleep(1 * time.Millisecond)
+				}
+
+				// Wait before sending next batch (except after the last batch)
+				if batchIdx < len(tt.batches)-1 {
+					time.Sleep(informerDebounceDelay + (20 * time.Millisecond))
+				}
+			}
+
+			// Wait for final debounce period
+			time.Sleep(informerDebounceDelay + (20 * time.Millisecond))
+
+			// Cleanup
+			close(periodicQuit)
+
+			// Verify results
+			assert.Equal(t, tt.expectedCallCount, mockProv.count())
+			logMessages := logBuffer.String()
+			if len(tt.expectedBatchCounts) == 0 {
+				assert.NotContains(t, logMessages, "CSPFK031I", "Batch log should not be present")
+			} else {
+				for _, expectedBatchCount := range tt.expectedBatchCounts {
+					expectedLog := fmt.Sprintf(messages.CSPFK031I, expectedBatchCount)
+					assert.Contains(t, logMessages, expectedLog, "Batch count log should be present")
+				}
+			}
+		})
+	}
 }

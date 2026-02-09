@@ -2,6 +2,7 @@ package k8sinformer
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -15,7 +16,6 @@ import (
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/log/messages"
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/config"
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/file_templates"
-	"github.com/cyberark/secrets-provider-for-k8s/pkg/utils"
 )
 
 const (
@@ -134,7 +134,8 @@ func (si *SecretInformer) hasManagedByProviderLabel(secret *v1.Secret) bool {
 	if secret == nil || secret.Labels == nil {
 		return false
 	}
-	return utils.IsTrue(secret.Labels[config.ManagedByProviderKey])
+	boolVal, err := strconv.ParseBool(secret.Labels[config.ManagedByProviderKey])
+	return err == nil && boolVal
 }
 
 // onAdd is called when a new secret is added
