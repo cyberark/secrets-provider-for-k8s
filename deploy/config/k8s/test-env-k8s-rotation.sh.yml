@@ -4,6 +4,7 @@ set -euo pipefail
 CONJUR_AUTHN_LOGIN=${CONJUR_AUTHN_LOGIN:-"host/conjur/authn-k8s/${AUTHENTICATOR_ID}/apps/${APP_NAMESPACE_NAME}/*/*"}
 LABELED_SECRETS=${LABELED_SECRETS:-"false"}
 SECRETS_REFRESH_INTERVAL=${SECRETS_REFRESH_INTERVAL:-"10s"}
+REMOVE_DELETED_SECRETS=${REMOVE_DELETED_SECRETS:-"true"}
 
 cat << EOL
 ---
@@ -28,6 +29,7 @@ spec:
         conjur.org/secrets-refresh-enabled: "true"
         conjur.org/secrets-refresh-interval: "${SECRETS_REFRESH_INTERVAL}"
         conjur.org/secrets-destination: k8s_secrets
+        conjur.org/remove-deleted-secrets-enabled: "${REMOVE_DELETED_SECRETS}"
 EOL
 
 if [ "${LABELED_SECRETS}" = "false" ]; then

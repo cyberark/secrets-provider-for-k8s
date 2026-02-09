@@ -159,6 +159,35 @@ When using label-based secrets, if the Secrets Provider is running continuously
 namespace, it will detect when a labeled Kubernetes secret is added or updated
 and immediately provision the secret.
 
+### Sanitization Behavior in Label-based Mode
+
+The Secrets Provider's behavior when keys are removed from the `conjur-map` depends
+on the `conjur.org/remove-deleted-secrets-enabled` annotation (or `REMOVE_DELETED_SECRETS`
+environment variable), which defaults to `true`.
+
+**When sanitization is enabled (`true`, default):**
+- If a key is removed from the `conjur-map`, the corresponding application secret
+  will be deleted from the Kubernetes Secret's data.
+- If the entire `conjur-map` is cleared or removed, all Conjur-managed application
+  secrets will be deleted from the Kubernetes Secret.
+
+**When sanitization is disabled (`false`):**
+- Keys removed from the `conjur-map` will remain in the Kubernetes Secret's data.
+- The Secrets Provider will not automatically clean up stale secrets.
+
+> **Warning:** When using label-based mode with sanitization enabled, if you move a
+> secret from the `conjur-map` to the Kubernetes Secret's `data` field directly, the
+> application secret will be removed on the first update after the key is removed from
+> the `conjur-map`. This occurs because the Secrets Provider treats it as a stale
+> Conjur-managed secret. This behavior only happens during the first update after the
+> key is removed from the `conjur-map`.
+>
+> **To avoid this:**
+> - Set `conjur.org/remove-deleted-secrets-enabled: "false"` before removing the key
+>   from the `conjur-map`, or
+> - If the secret has already been removed, reapply the Kubernetes Secret with the
+>   correct data to restore the value.
+
 
 ## Enabling Tracing
 

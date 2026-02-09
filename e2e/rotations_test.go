@@ -479,18 +479,35 @@ test | {{ secret "test" }}`,
 				},
 				StringData: map[string]string{
 					"conjur-map": "secret1: data/secrets/another_test_secret\nsecret2: data/secrets/password",
+					"NEW_SECRET": "some-secret",
 				},
 				Type: "Opaque",
 			}
 			err := cfg.Client().Resources(SecretsProviderNamespace()).Update(context.TODO(), &secret)
 			require.Nil(t, err, "Failed to update labeled K8s secret")
 
-			// Wait for both keys to be populated in the secret data
+			// Wait for secret1 to be re-populated (confirming informer processed the update)
 			err = WaitForK8sSecretValue(cfg.Client(), SecretsProviderNamespace(), "labeled-k8s-secret", "secret1", "some-secret", 20*time.Second)
-			assert.Nil(t, err, "secret1 should be populated")
+			assert.Nil(t, err, "secret1 key should be populated in secret data after update")
 
-			err = WaitForK8sSecretValue(cfg.Client(), SecretsProviderNamespace(), "labeled-k8s-secret", "secret2", "7H1SiSmYp@5Sw0rd", 20*time.Second)
-			assert.Nil(t, err, "secret2 should be populated")
+			// Wait for NEW_SECRET to be deleted (confirming informer processed the update)
+			err = WaitForK8sSecretValueToDelete(cfg.Client(), SecretsProviderNamespace(), "labeled-k8s-secret", "NEW_SECRET", 20*time.Second)
+			assert.Nil(t, err, "NEW_SECRET key should be removed from secret data after update")
+
+			// Verify that NEW_SECRET key has been removed from the secret data (since sanitizeEnabled=true by default)
+			updatedSecret, err := GetSecret(cfg.Client(), "labeled-k8s-secret")
+			require.Nil(t, err, "Should be able to retrieve the updated secret")
+
+			secret1Value, secret1Exists := updatedSecret.Data["secret1"]
+			assert.True(t, secret1Exists, "secret1 key should be populated")
+			assert.Equal(t, "some-secret", string(secret1Value), "secret1 value should be correctly set in secret data")
+
+			secret2Value, secret2Exists := updatedSecret.Data["secret2"]
+			assert.True(t, secret2Exists, "secret2 key should be populated")
+			assert.Equal(t, "7H1SiSmYp@5Sw0rd", string(secret2Value), "secret2 value should be correctly set in secret data")
+
+			_, newSecretExists := updatedSecret.Data["NEW_SECRET"]
+			assert.False(t, newSecretExists, "NEW_SECRET key should be removed from secret data when removed from conjur-map")
 
 			return ctx
 		}).
@@ -510,22 +527,221 @@ test | {{ secret "test" }}`,
 				},
 				StringData: map[string]string{
 					"conjur-map": "secret1: data/secrets/another_test_secret",
+					"secret1":    "some-secret",
+					"secret2":    "7H1SiSmYp@5Sw0rd",
 				},
 				Type: "Opaque",
 			}
 			err := cfg.Client().Resources(SecretsProviderNamespace()).Update(context.TODO(), &secret)
 			require.Nil(t, err, "Failed to update cleanup test secret")
 
-			// Wait for secret1 to be re-populated (confirming informer processed the update)
-			err = WaitForK8sSecretValue(cfg.Client(), SecretsProviderNamespace(), "labeled-k8s-secret", "secret1", "some-secret", 20*time.Second)
-			assert.Nil(t, err, "secret1 should still exist with correct value after update")
+			// Wait for secret2 to be deleted (confirming informer processed the update)
+			err = WaitForK8sSecretValueToDelete(cfg.Client(), SecretsProviderNamespace(), "labeled-k8s-secret", "secret2", 20*time.Second)
+			assert.Nil(t, err, "secret2 key should be removed from secret data after update")
 
 			// Verify that secret2 key has been removed from the secret data
 			updatedSecret, err := GetSecret(cfg.Client(), "labeled-k8s-secret")
 			require.Nil(t, err, "Should be able to retrieve the updated secret")
 
+			_, secret1Exists := updatedSecret.Data["secret1"]
+			assert.True(t, secret1Exists, "secret1 key should still exist in secret data after conjur-map update")
+
 			_, secret2Exists := updatedSecret.Data["secret2"]
 			assert.False(t, secret2Exists, "secret2 key should be removed from secret data after conjur-map update")
+
+			return ctx
+		}).
+		Assess("remove entire conjur-map and verify all keys are cleaned up", func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
+			// Update the secret to remove conjur-map entirely
+			secret := corev1.Secret{
+				TypeMeta: metav1.TypeMeta{
+					APIVersion: "v1",
+					Kind:       "Secret",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "labeled-k8s-secret",
+					Namespace: SecretsProviderNamespace(),
+					Labels: map[string]string{
+						"conjur.org/managed-by-provider": "true",
+					},
+				},
+				StringData: map[string]string{
+					"conjur-map": "",
+					"secret1":    "some-secret",
+				},
+				Type: "Opaque",
+			}
+			err := cfg.Client().Resources(SecretsProviderNamespace()).Update(context.TODO(), &secret)
+			require.Nil(t, err, "Failed to update secret with empty conjur-map")
+
+			// Wait for secret1 to be deleted (confirming informer processed the update)
+			err = WaitForK8sSecretValueToDelete(cfg.Client(), SecretsProviderNamespace(), "labeled-k8s-secret", "secret1", 20*time.Second)
+			assert.Nil(t, err, "secret1 key should be removed from secret data after update")
+
+			// Verify that all secret keys have been removed
+			updatedSecret, err := GetSecret(cfg.Client(), "labeled-k8s-secret")
+			require.Nil(t, err, "Should be able to retrieve the updated secret")
+
+			// Verify conjur-map field exists but empty
+			conjurMapValue, conjurMapExists := updatedSecret.Data["conjur-map"]
+			assert.True(t, conjurMapExists, "conjur-map field should exist in secret")
+			assert.Empty(t, string(conjurMapValue), "conjur-map should be empty")
+
+			// Verify all secret keys but conjur-map have been removed
+			assert.Equal(t, 1, len(updatedSecret.Data), "only conjur-map field should exist in secret data")
+
+			return ctx
+		}).
+		Teardown(func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
+			err := DeleteSecret(cfg.Client(), "labeled-k8s-secret")
+			assert.Nil(t, err)
+
+			return ctx
+		})
+
+	testenv.Test(t, f.Feature())
+}
+
+func TestLabeledK8sSecretsRotationViaInformerWithoutSanitize(t *testing.T) {
+	f := features.New("informer-based k8s secrets rotation with labeled secrets (sanitizeEnabled=false)").
+		Setup(func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
+			// Disable sanitization so removed keys are NOT deleted from K8s Secret
+			t.Setenv("REMOVE_DELETED_SECRETS", "false")
+
+			// set secrets mode to K8s Rotation
+			t.Setenv("SECRETS_MODE", "k8s-rotation")
+			t.Setenv("LABELED_SECRETS", "true")
+			// Set a long interval so we can test informer-triggered updates
+			t.Setenv("SECRETS_REFRESH_INTERVAL", "999m")
+
+			// reload testing environment with K8s rotation secrets
+			err := ReloadWithTemplate(cfg.Client(), K8sRotationTemplate)
+			assert.Nil(t, err)
+
+			// delete any initial 'generated' and 'policy' directories
+			err = DeleteTestingDirectories(cfg.Client())
+			assert.Nil(t, err)
+
+			// create temporary 'generated' and 'policy' directories for testing
+			err = CreateTestingDirectories(cfg.Client())
+			assert.Nil(t, err)
+
+			return ctx
+		}).
+		Assess("new labeled secret is processed", func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
+			// Create a new K8s secret with the proper label and conjur-map
+			secret := corev1.Secret{
+				TypeMeta: metav1.TypeMeta{
+					APIVersion: "v1",
+					Kind:       "Secret",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "labeled-k8s-secret",
+					Namespace: SecretsProviderNamespace(),
+					Labels: map[string]string{
+						"conjur.org/managed-by-provider": "true",
+					},
+				},
+				StringData: map[string]string{
+					"conjur-map": "secret1: data/secrets/another_test_secret\nsecret2: data/secrets/password",
+				},
+				Type: "Opaque",
+			}
+			err := cfg.Client().Resources(SecretsProviderNamespace()).Create(context.TODO(), &secret)
+			require.Nil(t, err, "Failed to create new labeled K8s secret")
+
+			// Wait for both secrets to be populated
+			err = WaitForK8sSecretValue(cfg.Client(), SecretsProviderNamespace(), "labeled-k8s-secret", "secret1", "some-secret", 20*time.Second)
+			assert.Nil(t, err, "secret1 should be populated")
+
+			err = WaitForK8sSecretValue(cfg.Client(), SecretsProviderNamespace(), "labeled-k8s-secret", "secret2", "7H1SiSmYp@5Sw0rd", 20*time.Second)
+			assert.Nil(t, err, "secret2 should be populated")
+
+			return ctx
+		}).
+		Assess("remove one key from conjur-map and verify key is NOT cleaned up (sanitize disabled)", func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
+			// Update the secret to remove secret2 from conjur-map
+			secret := corev1.Secret{
+				TypeMeta: metav1.TypeMeta{
+					APIVersion: "v1",
+					Kind:       "Secret",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "labeled-k8s-secret",
+					Namespace: SecretsProviderNamespace(),
+					Labels: map[string]string{
+						"conjur.org/managed-by-provider": "true",
+					},
+				},
+				StringData: map[string]string{
+					"conjur-map": "secret1: data/secrets/another_test_secret",
+					"secret1":    "some-secret",
+					"secret2":    "7H1SiSmYp@5Sw0rd",
+				},
+				Type: "Opaque",
+			}
+			err := cfg.Client().Resources(SecretsProviderNamespace()).Update(context.TODO(), &secret)
+			require.Nil(t, err, "Failed to update cleanup test secret")
+
+			// Wait for secret2 to be deleted (confirming informer processed the update but did not delete the key since sanitize is disabled)
+			err = WaitForK8sSecretValueToDelete(cfg.Client(), SecretsProviderNamespace(), "labeled-k8s-secret", "secret2", 20*time.Second)
+			assert.NotNil(t, err)
+
+			// Verify that secret2 key is NOT removed from the secret data (sanitize is disabled)
+			updatedSecret, err := GetSecret(cfg.Client(), "labeled-k8s-secret")
+			require.Nil(t, err, "Should be able to retrieve the updated secret")
+
+			_, secret1Exists := updatedSecret.Data["secret1"]
+			assert.True(t, secret1Exists, "secret1 key should NOT be removed from secret data when sanitize is disabled")
+
+			_, secret2Exists := updatedSecret.Data["secret2"]
+			assert.True(t, secret2Exists, "secret2 key should NOT be removed from secret data when sanitize is disabled")
+
+			return ctx
+		}).
+		Assess("remove entire conjur-map and verify all keys are NOT cleaned up (sanitize disabled)", func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
+			// Update the secret to remove conjur-map entirely
+			secret := corev1.Secret{
+				TypeMeta: metav1.TypeMeta{
+					APIVersion: "v1",
+					Kind:       "Secret",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "labeled-k8s-secret",
+					Namespace: SecretsProviderNamespace(),
+					Labels: map[string]string{
+						"conjur.org/managed-by-provider": "true",
+					},
+				},
+				StringData: map[string]string{
+					"conjur-map": "",
+					"secret1":    "some-secret",
+					"secret2":    "7H1SiSmYp@5Sw0rd",
+				},
+				Type: "Opaque",
+			}
+			err := cfg.Client().Resources(SecretsProviderNamespace()).Update(context.TODO(), &secret)
+			require.Nil(t, err, "Failed to update secret with empty conjur-map")
+
+			// Wait for secret1 to be deleted (confirming informer processed the update but did not delete the key since sanitize is disabled)
+			err = WaitForK8sSecretValueToDelete(cfg.Client(), SecretsProviderNamespace(), "labeled-k8s-secret", "secret1", 20*time.Second)
+			assert.NotNil(t, err)
+
+			// Verify that secret keys are NOT removed when sanitize is disabled
+			updatedSecret, err := GetSecret(cfg.Client(), "labeled-k8s-secret")
+			require.Nil(t, err, "Should be able to retrieve the updated secret")
+
+			// Verify conjur-map field exists but is empty
+			conjurMapValue, conjurMapExists := updatedSecret.Data["conjur-map"]
+			assert.True(t, conjurMapExists, "conjur-map field should exist in secret")
+			assert.Empty(t, string(conjurMapValue), "conjur-map should be empty")
+
+			// Verify secret1 and secret2 are NOT removed (sanitize disabled)
+			_, secret1Exists := updatedSecret.Data["secret1"]
+			assert.True(t, secret1Exists, "secret1 key should NOT be removed when conjur-map is cleared (sanitize disabled)")
+
+			_, secret2Exists := updatedSecret.Data["secret2"]
+			assert.True(t, secret2Exists, "secret2 key should NOT be removed when conjur-map is cleared (sanitize disabled)")
 
 			return ctx
 		}).

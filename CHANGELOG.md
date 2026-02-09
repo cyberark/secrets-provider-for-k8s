@@ -6,13 +6,14 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
-## [1.8.0] - 2026-01-30
+## [1.8.0] - 2026-02-17
 
 ### Added
 - Support group templates for K8s Secrets. (CNJR-12574)
 - Event-driven detection of new/updated labeled Kubernetes secrets. (CNJR-12568)
 - Support for onboarding labeled Kubernetes secrets. (CNJR-12567)
 - Remove stale secrets for labeled Kubernetes secrets. (CNJR-12714)
+- Remove all Conjur managed secrets if conjur-map is missing or empty. (CNJR-12857)
 
 ### Fixed
 - Fix deadlock when using sidecar without refresh. (CNJR-12825)
