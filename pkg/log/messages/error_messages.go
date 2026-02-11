@@ -58,6 +58,7 @@ const CSPFK037E string = "CSPFK037E Failed to parse DAP/Conjur variable ID for s
 // General
 const CSPFK038E string = "CSPFK038E Retransmission backoff exhausted"
 const CSPFK039E string = "CSPFK039E Secrets Provider for Kubernetes failed to update secrets in %s mode. Reason: %s"
+const CSPFK040E string = "CSPFK040E Retrying in %v (attempt %d of %s). Reason: %v"
 
 // Annotations
 const CSPFK041E string = "CSPFK041E Failed to open annotations file '%s'. Reason: %s"

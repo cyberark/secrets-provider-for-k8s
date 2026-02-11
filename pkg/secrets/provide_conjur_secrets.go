@@ -106,18 +106,26 @@ func RetryableSecretProvider(
 		var updated bool
 		var retErr error
 
-		err := backoff.Retry(func() error {
-			if limitedBackOff.RetryCount() > 0 {
-				log.Info(fmt.Sprintf(messages.CSPFK010I, limitedBackOff.RetryCount(), limitedBackOff.RetryLimit))
-			}
+		op := func() error {
 			updated, retErr = provideSecrets()
 			return retErr
-		}, limitedBackOff)
+		}
 
+		notify := func(err error, next time.Duration) {
+			retries := limitedBackOff.RetryCount()
+			limit := "unlimited"
+			if limitedBackOff.RetryLimit >= 0 {
+				limit = fmt.Sprintf("%d", limitedBackOff.RetryLimit)
+			}
+			log.Warn(fmt.Sprintf(messages.CSPFK040E, next, retries, limit, err))
+		}
+
+		err := backoff.RetryNotify(op, limitedBackOff, notify)
 		if err != nil {
 			log.Error(messages.CSPFK038E, err)
+			return updated, err
 		}
-		return updated, err
+		return updated, nil
 	}
 }
 

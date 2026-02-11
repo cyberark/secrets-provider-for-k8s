@@ -478,6 +478,25 @@ var newConfigTestCases = []newConfigTestCase{
 		}),
 	},
 	{
+		description: "RetryCountLimit can be set to -1 (retry indefinitely)",
+		settings: map[string]string{
+			"MY_POD_NAMESPACE":       "test-namespace",
+			"SECRETS_DESTINATION":    "k8s_secrets",
+			"K8S_SECRETS":            "secret-1",
+			"RETRY_COUNT_LIMIT":      "-1",
+			"RETRY_INTERVAL_SEC":     "1",
+			"REMOVE_DELETED_SECRETS": "false",
+		},
+		assert: assertGoodConfig(&Config{
+			PodNamespace:       "test-namespace",
+			StoreType:          "k8s_secrets",
+			RequiredK8sSecrets: []string{"secret-1"},
+			RetryCountLimit:    -1,
+			RetryIntervalSec:   1,
+			SanitizeEnabled:    false,
+		}),
+	},
+	{
 		description: "settings configured with both annotations and envVars defer to the annotation value",
 		settings: map[string]string{
 			"MY_POD_NAMESPACE":       "test-namespace",

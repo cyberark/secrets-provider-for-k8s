@@ -120,6 +120,13 @@ func TestRetryableSecretProvider(t *testing.T) {
 			provider:    badProvider(),
 			assertOn:    "interval",
 		},
+		{
+			description: "the ProviderFunc retries indefinitely until it succeeds when retry limit is -1",
+			interval:    time.Duration(10) * time.Millisecond,
+			limit:       -1,
+			provider:    eventualProvider(3),
+			assertOn:    "success",
+		},
 	}
 
 	for _, tc := range TestCases {
@@ -140,7 +147,9 @@ func TestRetryableSecretProvider(t *testing.T) {
 			case "count":
 				assert.NotNil(t, err)
 				assert.Contains(t, logMessages,
-					fmt.Sprintf("CSPFK010I Updating Kubernetes Secrets: %d retries out of %d", tc.limit, tc.limit))
+					fmt.Sprintf("CSPFK040E Retrying"))
+				assert.Contains(t, logMessages,
+					fmt.Sprintf("(attempt %d of %d)", tc.limit, tc.limit))
 			case "interval":
 				assert.NotNil(t, err)
 				maxDuration := (time.Duration(tc.limit) * time.Millisecond * tc.interval) + (time.Duration(1) * time.Millisecond)

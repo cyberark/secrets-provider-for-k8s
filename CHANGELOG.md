@@ -17,6 +17,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ### Fixed
 - Fix deadlock when using sidecar without refresh. (CNJR-12825)
 
+### Changed
+- Configured secrets-provider to retry indefinitely. (CNJR-5311)
+
 ## [1.7.8] - 2025-12-23
 
 ### Changed

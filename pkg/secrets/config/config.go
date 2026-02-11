@@ -19,7 +19,8 @@ const (
 	ConjurMapKey              = "conjur-map"
 	DefaultRetryCountLimit    = 5
 	DefaultRetryIntervalSec   = 1
-	MinRetryValue             = 0
+	MinRetryCountLimit        = -1
+	MinRetryIntervalSec       = 0
 	MinRefreshInterval        = time.Second
 	DefaultRefreshIntervalStr = "5m"
 	DefaultSanitizeEnabled    = true
@@ -246,13 +247,13 @@ func NewConfig(settings map[string]string) *Config {
 	if retryCountLimitStr == "" {
 		retryCountLimitStr = settings["RETRY_COUNT_LIMIT"]
 	}
-	retryCountLimit := parseIntFromStringOrDefault(retryCountLimitStr, DefaultRetryCountLimit, MinRetryValue)
+	retryCountLimit := parseIntFromStringOrDefault(retryCountLimitStr, DefaultRetryCountLimit, MinRetryCountLimit)
 
 	retryIntervalSecStr := settings[retryIntervalSecKey]
 	if retryIntervalSecStr == "" {
 		retryIntervalSecStr = settings["RETRY_INTERVAL_SEC"]
 	}
-	retryIntervalSec := parseIntFromStringOrDefault(retryIntervalSecStr, DefaultRetryIntervalSec, MinRetryValue)
+	retryIntervalSec := parseIntFromStringOrDefault(retryIntervalSecStr, DefaultRetryIntervalSec, MinRetryIntervalSec)
 
 	refreshIntervalStr := settings[SecretsRefreshIntervalKey]
 	refreshEnableStr := settings[SecretsRefreshEnabledKey]
