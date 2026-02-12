@@ -5,7 +5,11 @@ set -xeuo pipefail
 printenv > /tmp/printenv_local.debug
 
 main() {
-  deployConjur
+  if [ "$CONJUR_DEPLOYMENT" != "cloud" ]; then
+    deployConjur
+  elif [[ "${DEV}" = "true" ]]; then
+    cloud_login
+  fi
   ./run_with_summon.sh
 }
 

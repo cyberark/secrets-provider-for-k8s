@@ -112,12 +112,12 @@ spec:
             valueFrom:
               secretKeyRef:
                 name: test-k8s-secret-fetch-all
-                key: secrets.test_secret
+                key: data.secrets.test_secret
           - name: FETCH_ALL_BASE64
             valueFrom:
               secretKeyRef:
                 name: test-k8s-secret-fetch-all-base64
-                key: secrets.encoded
+                key: data.secrets.encoded
       initContainers:
       - image: '${SECRETS_PROVIDER_IMAGE}'
         imagePullPolicy: ${IMAGE_PULL_POLICY}

@@ -1,7 +1,6 @@
 #!/bin/bash
 set -euo pipefail
 
-CONJUR_AUTHN_LOGIN=${CONJUR_AUTHN_LOGIN:-"host/conjur/authn-k8s/${AUTHENTICATOR_ID}/apps/${APP_NAMESPACE_NAME}/*/*"}
 LABELED_SECRETS=${LABELED_SECRETS:-"false"}
 SECRETS_REFRESH_INTERVAL=${SECRETS_REFRESH_INTERVAL:-"10s"}
 
@@ -23,13 +22,16 @@ spec:
       labels:
         app: test-env
       annotations:
-        conjur.org/authn-identity: '$CONJUR_AUTHN_LOGIN'
         conjur.org/container-mode: "sidecar"
         conjur.org/secrets-refresh-enabled: "true"
         conjur.org/secrets-refresh-interval: "${SECRETS_REFRESH_INTERVAL}"
         conjur.org/secrets-destination: k8s_secrets
 EOL
-
+if [ -n "${CONJUR_AUTHN_LOGIN:-}" ]; then
+cat << EOL
+        conjur.org/authn-identity: ${CONJUR_AUTHN_LOGIN}
+EOL
+fi
 if [ "${LABELED_SECRETS}" = "false" ]; then
 cat << EOL
         conjur.org/k8s-secrets: |
@@ -113,12 +115,12 @@ cat << EOL
             valueFrom:
               secretKeyRef:
                 name: test-k8s-secret-fetch-all
-                key: secrets.test_secret
+                key: data.secrets.test_secret
           - name: FETCH_ALL_BASE64
             valueFrom:
               secretKeyRef:
                 name: test-k8s-secret-fetch-all-base64
-                key: secrets.encoded
+                key: data.secrets.encoded
           - name: VARIABLE_FROM_TEMPLATE
             valueFrom:
               secretKeyRef:

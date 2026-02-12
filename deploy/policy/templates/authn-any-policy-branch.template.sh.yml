@@ -47,7 +47,7 @@ cat << EOL
 
 # Allow the host to retrieve the required secrets
 - !grant
-  role: !layer secrets/users
+  role: !layer data/secrets/users
   members: !layer some-apps
 
 # Inherit test-app's permissions

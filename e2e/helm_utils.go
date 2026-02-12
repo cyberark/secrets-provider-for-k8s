@@ -371,7 +371,7 @@ func CreateK8sSecretForHelmDeployment(client klient.Client) error {
 			Namespace: SecretsProviderNamespace(),
 		},
 		StringData: map[string]string{
-			"conjur-map": "secret: secrets/another_test_secret",
+			"conjur-map": "secret: data/secrets/another_test_secret",
 		},
 		Type: "Opaque",
 	}

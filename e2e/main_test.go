@@ -49,20 +49,17 @@ func TestMain(m *testing.M) {
 			return ctx, nil
 		},
 	)
-	testenv.Finish(
-	// TODO - Delete the namespaces after all tests run
-	// For dev purposes it is helpful to leave the configured cluster up
 
-	// envfuncs.DeleteNamespace(SecretsProviderNamespace()),
-	// envfuncs.DeleteNamespace(ConjurNamespace()),
-	)
 	testenv.AfterEachTest(
 		func(ctx context.Context, _ *envconf.Config, t *testing.T) (context.Context, error) {
-			// TODO - Delete the secrets provider namespace after each test so we can reconfigure as needed
+			DumpSecretsProviderLogsOnFailure(t)
 
-			// envfuncs.DeleteNamespace(SecretsProviderNamespace()),
 			return ctx, nil
 		},
+	)
+
+	testenv.Finish(
+	// Teardown is orchestrated by individual tests so we may not need this
 	)
 
 	os.Exit(testenv.Run(m))

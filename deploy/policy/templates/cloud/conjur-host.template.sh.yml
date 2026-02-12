@@ -1,0 +1,18 @@
+#!/bin/bash
+
+set -euo pipefail
+cat << EOL
+---
+- !host
+  id: system:serviceaccount:${APP_NAMESPACE_NAME}:${APP_NAMESPACE_NAME}-sa
+  annotations:
+    authn-jwt/${AUTHENTICATOR_ID}/kubernetes.io/namespace: ${APP_NAMESPACE_NAME}
+    authn-jwt/${AUTHENTICATOR_ID}/kubernetes.io/serviceaccount/name: ${APP_NAMESPACE_NAME}-sa
+
+- !host
+  id: system:serviceaccount:${APP_NAMESPACE_NAME}:default
+  annotations:
+    authn-jwt/${AUTHENTICATOR_ID}/kubernetes.io/namespace: ${APP_NAMESPACE_NAME}
+    authn-jwt/${AUTHENTICATOR_ID}/kubernetes.io/serviceaccount/name: default
+
+EOL

@@ -81,7 +81,7 @@ func TestMultipleHelmJobsMultipleSecret(t *testing.T) {
 			err := CreateK8sSecretForHelmDeployment(cfg.Client())
 			assert.Nil(t, err)
 
-			err = SetConjurSecret(cfg.Client(), "secrets/another_test_secret", "another-some-secret-value")
+			err = SetConjurSecret(cfg.Client(), "data/secrets/another_test_secret", "another-some-secret-value")
 			assert.Nil(t, err)
 
 			// set up first Secrets Provider job and deploy first test app
@@ -154,7 +154,7 @@ func TestMultipleHelmJobsMultipleSecret(t *testing.T) {
 			assert.Nil(t, err)
 
 			// reset secret value
-			err = SetConjurSecret(cfg.Client(), "secrets/another_test_secret", "some-secret")
+			err = SetConjurSecret(cfg.Client(), "data/secrets/another_test_secret", "some-secret")
 			assert.Nil(t, err)
 
 			return ctx

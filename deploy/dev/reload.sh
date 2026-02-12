@@ -3,6 +3,8 @@ set -xeuo pipefail
 
 . utils.sh
 
+source "../bootstrap.env"
+
 main() {
   export DEV_HELM=${DEV_HELM:-"false"}
 
@@ -28,17 +30,10 @@ main() {
 
     deploy_helm_app
   else
-    selector="role=follower"
-    cert_location="/opt/conjur/etc/ssl/conjur.pem"
-    if [ "$CONJUR_DEPLOYMENT" = "oss" ]; then
-      selector="app=conjur-cli"
-      cert_location="/home/cli/conjur-server.pem"
+    fetch_ssl_from_conjur
+    if [[ "$CONJUR_DEPLOYMENT" = "cloud" ]]; then
+      cloud_login
     fi
-
-    conjur_pod_name="$(get_pod_name "$CONJUR_NAMESPACE_NAME" "$selector")"
-    ssl_cert=$($cli_with_timeout "exec ${conjur_pod_name} --namespace $CONJUR_NAMESPACE_NAME -- cat $cert_location")
-
-    export CONJUR_SSL_CERTIFICATE=$ssl_cert
 
     set_config_directory_path
 

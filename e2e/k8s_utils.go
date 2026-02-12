@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"testing"
 	"time"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -441,4 +442,27 @@ func WaitForFileDeleted(client klient.Client, labelSelector string, container st
 			}
 		}
 	}
+}
+
+// DumpSecretsProviderLogsOnFailure writes the last 50 lines of the Secrets Provider container logs to t.
+// Call this when a test fails to aid debugging.
+func DumpSecretsProviderLogsOnFailure(t *testing.T) {
+	if !t.Failed() {
+		return
+	}
+
+	namespace := SecretsProviderNamespace()
+	cmd := exec.Command("kubectl", "logs",
+		"-l", SPLabelSelector,
+		"-c", LogsContainer,
+		"--tail", "50",
+		"-n", namespace,
+	)
+	cmd.Env = os.Environ()
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Logf("Failed to dump Secrets Provider logs: %v\nOutput: %s", err, string(out))
+		return
+	}
+	t.Logf("Secrets Provider container logs (last 50 lines):\n%s", string(out))
 }
