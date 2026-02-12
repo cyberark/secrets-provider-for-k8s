@@ -39,19 +39,39 @@ func ReloadWithTemplate(client klient.Client, template string) error {
 	}
 
 	fmt.Println("Waiting for secrets provider pod to be ready...")
-	pod, err := FetchPodWithLabelSelector(client, SecretsProviderNamespace(), SPLabelSelector)
-	if err != nil {
-		fmt.Println("Error locating Secrets Provider pod after redeploy. Stdout:\n" + string(out))
-		return err
-	}
-
-	err = wait.For(conditions.New(client.Resources()).PodReady(k8s.Object(&pod)), wait.WithTimeout(time.Minute*1))
+	err = WaitForPodReady(client, SecretsProviderNamespace(), SPLabelSelector, 2*time.Minute)
 	if err != nil {
 		fmt.Println("Error waiting for Secrets Provider pod to be 'Ready' after redeploy. Stdout:\n" + string(out))
 		return err
 	}
 
 	return nil
+}
+
+// WaitForPodReady polls until a pod matching the label selector is ready. This avoids race
+// conditions where a specific pod may be replaced (e.g. during rollout) before becoming ready.
+func WaitForPodReady(client klient.Client, namespace, labelSelector string, timeout time.Duration) error {
+	condition := func(ctx context.Context) (bool, error) {
+		pods, err := GetPods(client, namespace, labelSelector)
+		if err != nil || len(pods.Items) == 0 {
+			return false, nil
+		}
+		resources := client.Resources(namespace)
+		for i := range pods.Items {
+			pod := &pods.Items[i]
+			var current corev1.Pod
+			if err := resources.Get(ctx, pod.Name, pod.Namespace, &current); err != nil {
+				continue // pod may have been replaced, skip and retry
+			}
+			for _, cond := range current.Status.Conditions {
+				if cond.Type == corev1.PodReady && cond.Status == corev1.ConditionTrue {
+					return true, nil
+				}
+			}
+		}
+		return false, nil
+	}
+	return wait.For(condition, wait.WithTimeout(timeout), wait.WithInterval(2*time.Second))
 }
 
 func ScaleDeployment(client klient.Client, deploymentName string, namespace string, labelSelector string, replicas int32) error {
