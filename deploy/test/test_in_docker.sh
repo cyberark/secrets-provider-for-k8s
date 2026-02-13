@@ -122,8 +122,13 @@ finish() {
       echo "KinD cluster $(kind_cluster_name) not found; skipping ./stop cleanup"
     else
       SKIP_KIND_CREATE=true KIND_FORCE_CLEAN=false runDockerCommand "
-        ./stop && cd kubernetes-conjur-deploy-$UNIQUE_TEST_ID && DEV=true ./stop
+        ./stop
       "
+      if [[ "${CONJUR_DEPLOYMENT}" != "cloud" ]]; then
+        SKIP_KIND_CREATE=true KIND_FORCE_CLEAN=false runDockerCommand "
+          cd kubernetes-conjur-deploy-$UNIQUE_TEST_ID && DEV=true ./stop
+        "
+      fi
     fi
 
     # Ensure we don't leak kind containers / network
@@ -146,8 +151,10 @@ main() {
 
   buildTestRunnerImage
 
-  deployConjur
-  
+  if [[ "${CONJUR_DEPLOYMENT}" != "cloud" ]]; then
+    deployConjur
+  fi
+
   # After Conjur is deployed, prevent subsequent commands from recreating the cluster
   if [[ "${KIND}" = "true" ]]; then
     export KIND_FORCE_CLEAN=false

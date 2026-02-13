@@ -1,0 +1,51 @@
+#!/bin/bash
+
+set -euo pipefail
+cat << EOL
+---
+# This policy defines a layer of whitelisted identities permitted to authenticate to the authn-jwt endpoint.
+- !policy
+  id: ${AUTHENTICATOR_ID}
+  annotations:
+    description: Identities permitted to authenticate via authn-jwt
+  body:
+      - !webservice
+
+      - !variable public-keys
+      - !variable identity-path
+      - !variable token-app-property
+      - !variable issuer
+      # - !variable audience
+        
+      # Group of applications that can authenticate using this JWT Authenticator
+      - !group apps
+    
+      - !permit
+        role: !group apps
+        privilege: [ read, authenticate ]
+        resource: !webservice
+      
+      # Webservice for checking the status of the authenticator
+      - !webservice status
+
+      # Group for managing the authenticator and checking its status
+      - !group operators
+
+      # Permissions for the operators group to check the authenticator's status
+      - !permit
+        role: !group operators
+        privilege: [ read ]
+        resource: !webservice status
+
+      # Permissions for the operators group to view and manage the authenticator
+      - !permit
+          role: !group operators
+          privilege: [ read, update ]
+          resource: !webservice
+
+      - !grant
+        role: !group apps
+        members:
+          - !host /data/system:serviceaccount:${APP_NAMESPACE_NAME}:${APP_NAMESPACE_NAME}-sa
+          - !host /data/system:serviceaccount:${APP_NAMESPACE_NAME}:default
+EOL

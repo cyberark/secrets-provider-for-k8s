@@ -34,7 +34,7 @@ func RestoreTestSecret(client klient.Client) error {
 		return err
 	}
 	// Restore the default value
-	err = SetConjurSecret(client, "secrets/test_secret", "supersecret")
+	err = SetConjurSecret(client, "data/secrets/test_secret", "supersecret")
 	if err != nil {
 		return err
 	}

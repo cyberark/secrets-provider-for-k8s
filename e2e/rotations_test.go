@@ -79,7 +79,7 @@ func TestPushToFileSecretsRotation(t *testing.T) {
 	f := features.New("push to file secrets rotation").
 		Setup(func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
 			// set conjur secret
-			err := SetConjurSecret(cfg.Client(), "secrets/test_secret", "secret1")
+			err := SetConjurSecret(cfg.Client(), "data/secrets/test_secret", "secret1")
 			assert.Nil(t, err)
 
 			// set secrets mode to P2F rotation
@@ -108,11 +108,11 @@ func TestPushToFileSecretsRotation(t *testing.T) {
 		// Replaces TEST_ID_28_push_to_file_secrets_rotation
 		Assess("p2f rotation", func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
 			// change a conjur variable
-			err := SetConjurSecret(cfg.Client(), "secrets/test_secret", "secret2")
+			err := SetConjurSecret(cfg.Client(), "data/secrets/test_secret", "secret2")
 			assert.Nil(t, err)
 
 			encodedStr := base64.StdEncoding.EncodeToString([]byte("secret-value2"))
-			err = SetConjurSecret(cfg.Client(), "secrets/encoded", encodedStr)
+			err = SetConjurSecret(cfg.Client(), "data/secrets/encoded", encodedStr)
 			assert.Nil(t, err)
 
 			// wait for secrets to be rotated and files to be updated
@@ -143,17 +143,17 @@ func TestPushToFileSecretsRotation(t *testing.T) {
 				"group5.template": "username | some-user\n" +
 					"password | 7H1SiSmYp@5Sw0rd\n" +
 					"test | secret2\n",
-				"group6.yaml": `"secrets/another_test_secret": "some-secret"
-"secrets/encoded": "` + encodedStr + `"
-"secrets/json_object_secret": "\"{\"auths\":{\"someurl\":{\"auth\":\"sometoken=\"}}}\""
-"secrets/password": "7H1SiSmYp@5Sw0rd"
-"secrets/ssh_key": "\"ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEA879BJGYlPTLIuc9/R5MYiN4yc/YiCLcdBpSdzgK9Dt0Bkfe3rSz5cPm4wmehdE7GkVFXrBJ2YHqPLuM1yx1AUxIebpwlIl9f/aUHOts9eVnVh4NztPy0iSU/Sv0b2ODQQvcy2vYcujlorscl8JjAgfWsO3W4iGEe6QwBpVomcME8IU35v5VbylM9ORQa6wvZMVrPECBvwItTY8cPWH3MGZiK/74eHbSLKA4PY3gM4GHI450Nie16yggEg2aTQfWA1rry9JYWEoHS9pJ1dnLqZU3k/8OWgqJrilwSoC5rGjgp93iu0H8T6+mEHGRQe84Nk1y5lESSWIbn6P636Bl3uQ== your@email.com\""
-"secrets/test_secret": "secret2"
-"secrets/umlaut": "ÄäÖöÜü"
-"secrets/url": "postgresql://test-app-backend.app-test.svc.cluster.local:5432"
-"secrets/username": "some-user"
-"secrets/var with spaces": "some-secret"
-"secrets/var+with+pluses": "some-secret"`,
+				"group6.yaml": `"data/secrets/another_test_secret": "some-secret"
+"data/secrets/encoded": "` + encodedStr + `"
+"data/secrets/json_object_secret": "\"{\"auths\":{\"someurl\":{\"auth\":\"sometoken=\"}}}\""
+"data/secrets/password": "7H1SiSmYp@5Sw0rd"
+"data/secrets/ssh_key": "\"ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEA879BJGYlPTLIuc9/R5MYiN4yc/YiCLcdBpSdzgK9Dt0Bkfe3rSz5cPm4wmehdE7GkVFXrBJ2YHqPLuM1yx1AUxIebpwlIl9f/aUHOts9eVnVh4NztPy0iSU/Sv0b2ODQQvcy2vYcujlorscl8JjAgfWsO3W4iGEe6QwBpVomcME8IU35v5VbylM9ORQa6wvZMVrPECBvwItTY8cPWH3MGZiK/74eHbSLKA4PY3gM4GHI450Nie16yggEg2aTQfWA1rry9JYWEoHS9pJ1dnLqZU3k/8OWgqJrilwSoC5rGjgp93iu0H8T6+mEHGRQe84Nk1y5lESSWIbn6P636Bl3uQ== your@email.com\""
+"data/secrets/test_secret": "secret2"
+"data/secrets/umlaut": "ÄäÖöÜü"
+"data/secrets/url": "postgresql://test-app-backend.app-test.svc.cluster.local:5432"
+"data/secrets/username": "some-user"
+"data/secrets/var with spaces": "some-secret"
+"data/secrets/var+with+pluses": "some-secret"`,
 			}
 
 			// check file contents match container output
@@ -195,7 +195,7 @@ func TestPushToFileSecretsRotation(t *testing.T) {
 			assert.Nil(t, err)
 
 			encodedStr := base64.StdEncoding.EncodeToString([]byte("secret-value"))
-			err = SetConjurSecret(cfg.Client(), "secrets/encoded", encodedStr)
+			err = SetConjurSecret(cfg.Client(), "data/secrets/encoded", encodedStr)
 			assert.Nil(t, err)
 
 			// delete temporary 'generated' and 'policy' directories
@@ -237,21 +237,21 @@ func TestK8sSecretsRotation(t *testing.T) {
 			err = WaitForK8sSecretValue(cfg.Client(), SecretsProviderNamespace(), "test-k8s-secret", "var_with_base64", "secret-value", 20*time.Second)
 			assert.Nil(t, err)
 
-			err = WaitForK8sSecretValue(cfg.Client(), SecretsProviderNamespace(), "test-k8s-secret-fetch-all", "secrets.test_secret", "supersecret", 20*time.Second)
+			err = WaitForK8sSecretValue(cfg.Client(), SecretsProviderNamespace(), "test-k8s-secret-fetch-all", "data.secrets.test_secret", "supersecret", 20*time.Second)
 			assert.Nil(t, err)
 
-			err = WaitForK8sSecretValue(cfg.Client(), SecretsProviderNamespace(), "test-k8s-secret-fetch-all-base64", "secrets.encoded", "secret-value", 20*time.Second)
+			err = WaitForK8sSecretValue(cfg.Client(), SecretsProviderNamespace(), "test-k8s-secret-fetch-all-base64", "data.secrets.encoded", "secret-value", 20*time.Second)
 			assert.Nil(t, err)
 
 			return ctx
 		}).
 		Assess("values are updated correctly", func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
 			// change conjur secrets
-			err := SetConjurSecret(cfg.Client(), "secrets/test_secret", "secret2")
+			err := SetConjurSecret(cfg.Client(), "data/secrets/test_secret", "secret2")
 			assert.Nil(t, err)
 
 			encodedStr := base64.StdEncoding.EncodeToString([]byte("secret-value2"))
-			err = SetConjurSecret(cfg.Client(), "secrets/encoded", encodedStr)
+			err = SetConjurSecret(cfg.Client(), "data/secrets/encoded", encodedStr)
 			assert.Nil(t, err)
 
 			// wait for K8s secrets to be rotated
@@ -263,11 +263,11 @@ func TestK8sSecretsRotation(t *testing.T) {
 			assert.Nil(t, err)
 
 			// verify FETCH_ALL_TEST_SECRET updated
-			err = WaitForK8sSecretValue(cfg.Client(), SecretsProviderNamespace(), "test-k8s-secret-fetch-all", "secrets.test_secret", "secret2", 20*time.Second)
+			err = WaitForK8sSecretValue(cfg.Client(), SecretsProviderNamespace(), "test-k8s-secret-fetch-all", "data.secrets.test_secret", "secret2", 20*time.Second)
 			assert.Nil(t, err)
 
 			// verify FETCH_ALL_BASE64 updated
-			err = WaitForK8sSecretValue(cfg.Client(), SecretsProviderNamespace(), "test-k8s-secret-fetch-all-base64", "secrets.encoded", "secret-value2", 20*time.Second)
+			err = WaitForK8sSecretValue(cfg.Client(), SecretsProviderNamespace(), "test-k8s-secret-fetch-all-base64", "data.secrets.encoded", "secret-value2", 20*time.Second)
 			assert.Nil(t, err)
 
 			return ctx
@@ -283,7 +283,7 @@ func TestK8sSecretsRotation(t *testing.T) {
 			assert.Nil(t, err)
 
 			// Verify FETCH_ALL_BASE64 still contains secret-value2
-			err = WaitForK8sSecretValue(cfg.Client(), SecretsProviderNamespace(), "test-k8s-secret-fetch-all-base64", "secrets.encoded", "secret-value2", 20*time.Second)
+			err = WaitForK8sSecretValue(cfg.Client(), SecretsProviderNamespace(), "test-k8s-secret-fetch-all-base64", "data.secrets.encoded", "secret-value2", 20*time.Second)
 			assert.Nil(t, err)
 
 			return ctx
@@ -294,7 +294,7 @@ func TestK8sSecretsRotation(t *testing.T) {
 			assert.Nil(t, err)
 
 			encodedStr := base64.StdEncoding.EncodeToString([]byte("secret-value"))
-			err = SetConjurSecret(cfg.Client(), "secrets/encoded", encodedStr)
+			err = SetConjurSecret(cfg.Client(), "data/secrets/encoded", encodedStr)
 			assert.Nil(t, err)
 
 			return ctx
@@ -333,21 +333,21 @@ func TestLabeledK8sSecretsRotation(t *testing.T) {
 			err = WaitForK8sSecretValue(cfg.Client(), SecretsProviderNamespace(), "test-k8s-secret", "var_with_base64", "secret-value", 20*time.Second)
 			assert.Nil(t, err)
 
-			err = WaitForK8sSecretValue(cfg.Client(), SecretsProviderNamespace(), "test-k8s-secret-fetch-all", "secrets.test_secret", "supersecret", 20*time.Second)
+			err = WaitForK8sSecretValue(cfg.Client(), SecretsProviderNamespace(), "test-k8s-secret-fetch-all", "data.secrets.test_secret", "supersecret", 20*time.Second)
 			assert.Nil(t, err)
 
-			err = WaitForK8sSecretValue(cfg.Client(), SecretsProviderNamespace(), "test-k8s-secret-fetch-all-base64", "secrets.encoded", "secret-value", 20*time.Second)
+			err = WaitForK8sSecretValue(cfg.Client(), SecretsProviderNamespace(), "test-k8s-secret-fetch-all-base64", "data.secrets.encoded", "secret-value", 20*time.Second)
 			assert.Nil(t, err)
 
 			return ctx
 		}).
 		Assess("values are updated correctly", func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
 			// change conjur secrets
-			err := SetConjurSecret(cfg.Client(), "secrets/test_secret", "secret2")
+			err := SetConjurSecret(cfg.Client(), "data/secrets/test_secret", "secret2")
 			assert.Nil(t, err)
 
 			encodedStr := base64.StdEncoding.EncodeToString([]byte("secret-value2"))
-			err = SetConjurSecret(cfg.Client(), "secrets/encoded", encodedStr)
+			err = SetConjurSecret(cfg.Client(), "data/secrets/encoded", encodedStr)
 			assert.Nil(t, err)
 
 			// verify VARIABLE_WITH_BASE64_SECRET updated
@@ -355,11 +355,11 @@ func TestLabeledK8sSecretsRotation(t *testing.T) {
 			assert.Nil(t, err)
 
 			// verify FETCH_ALL_TEST_SECRET updated
-			err = WaitForK8sSecretValue(cfg.Client(), SecretsProviderNamespace(), "test-k8s-secret-fetch-all", "secrets.test_secret", "secret2", 20*time.Second)
+			err = WaitForK8sSecretValue(cfg.Client(), SecretsProviderNamespace(), "test-k8s-secret-fetch-all", "data.secrets.test_secret", "secret2", 20*time.Second)
 			assert.Nil(t, err)
 
 			// verify FETCH_ALL_BASE64 updated
-			err = WaitForK8sSecretValue(cfg.Client(), SecretsProviderNamespace(), "test-k8s-secret-fetch-all-base64", "secrets.encoded", "secret-value2", 20*time.Second)
+			err = WaitForK8sSecretValue(cfg.Client(), SecretsProviderNamespace(), "test-k8s-secret-fetch-all-base64", "data.secrets.encoded", "secret-value2", 20*time.Second)
 			assert.Nil(t, err)
 
 			return ctx
@@ -374,11 +374,11 @@ func TestLabeledK8sSecretsRotation(t *testing.T) {
 			assert.Nil(t, err)
 
 			// Verify secret value is removed from fetch all secret
-			err = WaitForK8sSecretValue(cfg.Client(), SecretsProviderNamespace(), "test-k8s-secret-fetch-all", "secrets.test_secret", "", 20*time.Second)
+			err = WaitForK8sSecretValue(cfg.Client(), SecretsProviderNamespace(), "test-k8s-secret-fetch-all", "data.secrets.test_secret", "", 20*time.Second)
 			assert.Nil(t, err)
 
 			// Verify FETCH_ALL_BASE64 still contains secret-value2
-			err = WaitForK8sSecretValue(cfg.Client(), SecretsProviderNamespace(), "test-k8s-secret-fetch-all-base64", "secrets.encoded", "secret-value2", 20*time.Second)
+			err = WaitForK8sSecretValue(cfg.Client(), SecretsProviderNamespace(), "test-k8s-secret-fetch-all-base64", "data.secrets.encoded", "secret-value2", 20*time.Second)
 			assert.Nil(t, err)
 
 			return ctx
@@ -389,7 +389,7 @@ func TestLabeledK8sSecretsRotation(t *testing.T) {
 			assert.Nil(t, err)
 
 			encodedStr := base64.StdEncoding.EncodeToString([]byte("secret-value"))
-			err = SetConjurSecret(cfg.Client(), "secrets/encoded", encodedStr)
+			err = SetConjurSecret(cfg.Client(), "data/secrets/encoded", encodedStr)
 			assert.Nil(t, err)
 
 			return ctx
@@ -435,16 +435,16 @@ func TestLabeledK8sSecretsRotationViaInformer(t *testing.T) {
 						"conjur.org/managed-by-provider": "true",
 					},
 					Annotations: map[string]string{
-						"conjur.org/conjur-secrets.example.1": `- username: secrets/username
-- password: secrets/password
-- test: secrets/test_secret`,
+						"conjur.org/conjur-secrets.example.1": `- username: data/secrets/username
+- password: data/secrets/password
+- test: data/secrets/test_secret`,
 						"conjur.org/secret-file-template.example.1": `username | {{ secret "username" }}
 password | {{ secret "password" }}
 test | {{ secret "test" }}`,
 					},
 				},
 				StringData: map[string]string{
-					"conjur-map": "NEW_SECRET: secrets/another_test_secret",
+					"conjur-map": "NEW_SECRET: data/secrets/another_test_secret",
 				},
 				Type: "Opaque",
 			}
@@ -473,12 +473,12 @@ test | {{ secret "test" }}`,
 						"conjur.org/managed-by-provider": "true",
 					},
 					Annotations: map[string]string{
-						"conjur.org/conjur-secrets.example.1":       `- test_secret: secrets/test_secret`,
+						"conjur.org/conjur-secrets.example.1":       `- test_secret: data/secrets/test_secret`,
 						"conjur.org/secret-file-template.example.1": `test_secret | {{ secret "test_secret" }}`,
 					},
 				},
 				StringData: map[string]string{
-					"conjur-map": "secret1: secrets/another_test_secret\nsecret2: secrets/password",
+					"conjur-map": "secret1: data/secrets/another_test_secret\nsecret2: data/secrets/password",
 				},
 				Type: "Opaque",
 			}
@@ -509,7 +509,7 @@ test | {{ secret "test" }}`,
 					},
 				},
 				StringData: map[string]string{
-					"conjur-map": "secret1: secrets/another_test_secret",
+					"conjur-map": "secret1: data/secrets/another_test_secret",
 				},
 				Type: "Opaque",
 			}

@@ -5,10 +5,12 @@ set -euxo pipefail
 
 announce "Teardown resources"
 # Restore secret to original value
-set_namespace $CONJUR_NAMESPACE_NAME
+if [[ "$CONJUR_DEPLOYMENT" != "cloud" ]]; then
+  set_namespace $CONJUR_NAMESPACE_NAME
 
-configure_cli_pod
+  configure_cli_pod
 
+fi
 helm_ci_path="../helm/secrets-provider/ci"
 if [[ "${DEV}" = "false" || "${RUN_IN_DOCKER}" = "true" ]]; then
   helm_ci_path="../../../helm/secrets-provider/ci"
@@ -23,11 +25,13 @@ if [ "$(helm ls -q | wc -l | tr -d ' ')" != 0 ]; then
   helm delete $(helm ls -q)
 fi
 
-set_namespace $CONJUR_NAMESPACE_NAME
+if [[ "$CONJUR_DEPLOYMENT" != "cloud" ]]; then
+  set_namespace $CONJUR_NAMESPACE_NAME
 
-$cli_with_timeout "exec $(get_conjur_cli_pod_name) -- conjur variable set -i secrets/test_secret -v \"supersecret\""
+  $cli_with_timeout "exec $(get_conjur_cli_pod_name) -- conjur variable set -i data/secrets/test_secret -v \"supersecret\""
 
-set_namespace $APP_NAMESPACE_NAME
+  set_namespace $APP_NAMESPACE_NAME
+fi
 
 $cli_with_timeout "delete secret dockerpullsecret --ignore-not-found=true"
 

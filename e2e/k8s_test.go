@@ -148,7 +148,7 @@ func TestLargeDecodedVariableSecretProvidedK8s(t *testing.T) {
 			encodedStr := base64.StdEncoding.EncodeToString(str)
 
 			// set encoded value in conjur and reload template
-			err := SetConjurSecret(cfg.Client(), "secrets/encoded", encodedStr)
+			err := SetConjurSecret(cfg.Client(), "data/secrets/encoded", encodedStr)
 			require.Nil(t, err)
 
 			err = ReloadWithTemplate(cfg.Client(), K8sTemplate)
@@ -171,7 +171,7 @@ func TestLargeDecodedVariableSecretProvidedK8s(t *testing.T) {
 		Teardown(func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
 			// reset the secret value in Conjur
 			encodedStr := base64.StdEncoding.EncodeToString([]byte("secret-value"))
-			err := SetConjurSecret(cfg.Client(), "secrets/encoded", encodedStr)
+			err := SetConjurSecret(cfg.Client(), "data/secrets/encoded", encodedStr)
 			require.Nil(t, err)
 
 			return ctx
@@ -192,7 +192,7 @@ func TestMultiplePodsChangingPwdInbetweenSecretProvidedK8s(t *testing.T) {
 			assert.Contains(t, stdout.String(), "supersecret")
 
 			// scale and set secret to secret2
-			err := SetConjurSecret(cfg.Client(), "secrets/test_secret", "secret2")
+			err := SetConjurSecret(cfg.Client(), "data/secrets/test_secret", "secret2")
 			require.Nil(t, err)
 
 			err = ScaleDeployment(cfg.Client(), "test-env", SecretsProviderNamespace(), SPLabelSelector, 0)
@@ -208,7 +208,7 @@ func TestMultiplePodsChangingPwdInbetweenSecretProvidedK8s(t *testing.T) {
 			assert.Contains(t, stdout.String(), "secret2")
 
 			// scale and set secret to secret3
-			err = SetConjurSecret(cfg.Client(), "secrets/test_secret", "secret3")
+			err = SetConjurSecret(cfg.Client(), "data/secrets/test_secret", "secret3")
 			require.Nil(t, err)
 
 			err = ScaleDeployment(cfg.Client(), "test-env", SecretsProviderNamespace(), SPLabelSelector, 0)
@@ -230,7 +230,7 @@ func TestMultiplePodsChangingPwdInbetweenSecretProvidedK8s(t *testing.T) {
 			return ctx
 		}).
 		Teardown(func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
-			err := SetConjurSecret(cfg.Client(), "secrets/test_secret", "supersecret")
+			err := SetConjurSecret(cfg.Client(), "data/secrets/test_secret", "supersecret")
 			require.Nil(t, err)
 
 			err = ScaleDeployment(cfg.Client(), "test-env", SecretsProviderNamespace(), SPLabelSelector, 0)

@@ -1,8 +1,6 @@
 #!/bin/bash
 set -euo pipefail
 
-CONJUR_AUTHN_LOGIN=${CONJUR_AUTHN_LOGIN:-"host/conjur/authn-k8s/${AUTHENTICATOR_ID}/apps/${APP_NAMESPACE_NAME}/*/*"}
-
 cat << EOL
 ---
 apiVersion: apps/v1
@@ -21,57 +19,69 @@ spec:
       labels:
         app: test-env
       annotations:
-        conjur.org/authn-identity: '$CONJUR_AUTHN_LOGIN'
-        conjur.org/container-mode: "sidecar"
-        conjur.org/secrets-refresh-enabled: "true"
-        conjur.org/secrets-refresh-interval: "10s"
+EOL
+if [ -n "${CONJUR_AUTHN_LOGIN:-}" ]; then
+cat << EOL
+        conjur.org/authn-identity: ${CONJUR_AUTHN_LOGIN}
+EOL
+fi
+cat << EOL
+        conjur.org/container-mode: init
         conjur.org/secrets-destination: file
         conjur.org/log-level: "debug"
         conjur.org/retry-count-limit: "6"
         conjur.org/retry-interval-sec: "2"
         conjur.org/conjur-secrets.group1: |
-          - url: secrets/url
-          - username: secrets/username
-          - password: secrets/password
-          - test: secrets/test_secret
-          - encoded: secrets/encoded
+          - url: data/secrets/url
+          - username: data/secrets/username
+          - password: data/secrets/password
+          - encoded: data/secrets/encoded
             content-type: base64
-        conjur.org/conjur-secrets-policy-path.group2: secrets
+        conjur.org/conjur-secrets-policy-path.group2: data/secrets
         conjur.org/conjur-secrets.group2: |
           - url: url
           - username: username
           - password: password
-          - test: test_secret
           - still_encoded: encoded
             content-type: text
         conjur.org/secret-file-format.group2: json
-        conjur.org/conjur-secrets-policy-path.group3: secrets
+        conjur.org/conjur-secrets-policy-path.group3: data/secrets
         conjur.org/secret-file-path.group3: some-dotenv.env
         conjur.org/conjur-secrets.group3: |
           - url: url
           - username: username
           - password: password
-          - test: test_secret
         conjur.org/secret-file-format.group3: dotenv
         conjur.org/conjur-secrets.group4: |
-          - url: secrets/url
-          - username: secrets/username
-          - password: secrets/password
-          - test: secrets/test_secret
+          - url: data/secrets/url
+          - username: data/secrets/username
+          - password: data/secrets/password
         conjur.org/secret-file-format.group4: bash
         conjur.org/secret-file-path.group5: group5.template
         conjur.org/conjur-secrets.group5: |
-          - username: secrets/username
-          - password: secrets/password
-          - test: secrets/test_secret
+          - username: data/secrets/username
+          - password: data/secrets/password
         conjur.org/secret-file-template.group5: |
           username | {{ secret "username" }}
           password | {{ secret "password" }}
-          test | {{ secret "test" }}
         conjur.org/secret-file-format.group5: template
+        # Group 6 is a simple example of fetching all secrets available to the host.
         conjur.org/conjur-secrets.group6: "*"
-        conjur.org/secret-file-format.group6: yaml
-        conjur.org/remove-deleted-secrets-enabled: "true"
+        conjur.org/secret-file-format.group6: json
+        # For group 7, fetch all using "*" in the YAML list format.
+        # We use a template that encodes the secret values to base64.
+        conjur.org/conjur-secrets.group7: |
+          - "*"
+        conjur.org/secret-file-template.group7: |
+          {{range .SecretsArray}}{{ .Alias }}: {{ .Value | b64enc }}{{ "\n" }}{{end}}
+        conjur.org/secret-file-format.group7: template
+        conjur.org/secret-file-path.group7: group7.template
+        # For Group 8, we fetch all secrets using "*" in the YAML list format but with
+        # base64 encoding. This should decode any base64 encoded secrets.
+        conjur.org/conjur-secrets.group8: |
+          - "*": "*"
+            content-type: base64
+        conjur.org/secret-file-format.group8: yaml
         # If using Jaeger for tracing, uncomment the following line
         # conjur.org/jaeger-collector-url: http://jaeger-collector.jaeger.svc.cluster.local:14268/api/traces
     spec:
@@ -84,6 +94,7 @@ spec:
           - mountPath: /opt/secrets/conjur
             name: conjur-secrets
             readOnly: true
+      initContainers:
       - image: 'secrets-provider-for-k8s:latest'
         imagePullPolicy: Never
         name: cyberark-secrets-provider-for-k8s

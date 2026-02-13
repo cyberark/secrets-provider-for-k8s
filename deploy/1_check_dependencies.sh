@@ -31,3 +31,16 @@ if [[ "${DEV}" = "false" && "${KIND}" != "true" ]]; then
     check_env_var "GCLOUD_PROJECT_NAME"
   fi
 fi
+
+if [[ "$CONJUR_DEPLOYMENT" = "cloud" ]]; then
+  if [[ "${DEV}" = "false" ]]; then
+    check_env_var "INFRAPOOL_CONJUR_AUTHN_TOKEN"
+    check_env_var "INFRAPOOL_CONJUR_APPLIANCE_URL"
+    check_env_var "INFRAPOOL_CONJUR_AUTHN_LOGIN"
+  else
+    check_env_var "TENANT_ID"
+    check_env_var "TENANT_NAME"
+    check_env_var "TENANT_USER"
+    check_env_var "TENANT_PASSWORD"
+  fi
+fi

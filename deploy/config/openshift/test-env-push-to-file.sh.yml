@@ -28,12 +28,12 @@ spec:
         conjur.org/retry-count-limit: "6"
         conjur.org/retry-interval-sec: "2"
         conjur.org/conjur-secrets.group1: |
-          - url: secrets/url
-          - username: secrets/username
-          - password: secrets/password
-          - encoded: secrets/encoded
+          - url: data/secrets/url
+          - username: data/secrets/username
+          - password: data/secrets/password
+          - encoded: data/secrets/encoded
             content-type: base64
-        conjur.org/conjur-secrets-policy-path.group2: secrets
+        conjur.org/conjur-secrets-policy-path.group2: data/secrets
         conjur.org/conjur-secrets.group2: |
           - url: url
           - username: username
@@ -41,7 +41,7 @@ spec:
           - still_encoded: encoded
             content-type: text
         conjur.org/secret-file-format.group2: json
-        conjur.org/conjur-secrets-policy-path.group3: secrets
+        conjur.org/conjur-secrets-policy-path.group3: data/secrets
         conjur.org/secret-file-path.group3: some-dotenv.env
         conjur.org/conjur-secrets.group3: |
           - url: url
@@ -49,14 +49,14 @@ spec:
           - password: password
         conjur.org/secret-file-format.group3: dotenv
         conjur.org/conjur-secrets.group4: |
-          - url: secrets/url
-          - username: secrets/username
-          - password: secrets/password
+          - url: data/secrets/url
+          - username: data/secrets/username
+          - password: data/secrets/password
         conjur.org/secret-file-format.group4: bash
         conjur.org/secret-file-path.group5: group5.template
         conjur.org/conjur-secrets.group5: |
-          - username: secrets/username
-          - password: secrets/password
+          - username: data/secrets/username
+          - password: data/secrets/password
         conjur.org/secret-file-template.group5: |
           username | {{ secret "username" }}
           password | {{ secret "password" }}
