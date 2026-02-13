@@ -70,14 +70,8 @@ if [[ "${DEPLOY_MASTER_CLUSTER}" == "true" ]]; then
   else
     # For Conjur Cloud, run load_policies.sh directly (no pod needed)
     announce "Loading policies for Conjur Cloud"
-    export CONJUR_DEPLOYMENT
-    export APP_NAMESPACE_NAME
-    export AUTHENTICATOR_ID
-    export JWKS_URI
     export PUBLIC_KEYS
     export ISSUER
-    export CONJUR_APPLIANCE_URL="${INFRAPOOL_CONJUR_APPLIANCE_URL}/api"
-    export INFRAPOOL_CONJUR_AUTHN_TOKEN
     ./policy/load_policies.sh
   fi
 
