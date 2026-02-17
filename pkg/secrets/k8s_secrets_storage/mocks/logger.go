@@ -48,6 +48,11 @@ func (l *Logger) ClearInfo() {
 	l.infos = nil
 }
 
+// ClearDebug clears the debug messages
+func (l *Logger) ClearDebug() {
+	l.debugs = nil
+}
+
 // Debug logs a debug message.
 func (l *Logger) Debug(msg string, args ...interface{}) {
 	l.debugs = append(l.debugs, fmt.Sprintf(msg, args...))

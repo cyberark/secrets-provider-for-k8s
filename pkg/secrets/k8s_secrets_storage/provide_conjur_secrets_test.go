@@ -1301,7 +1301,7 @@ func TestSecretsContentChanges(t *testing.T) {
 	}
 	provider := mocks.newProvider(requiredSecrets)
 	update, err := provider.Provide()
-	assert.False(t, mocks.logger.InfoWasLogged("CSPFK020I"))
+	assert.False(t, mocks.logger.DebugWasLogged("CSPFK020I"))
 	assertSecretsUpdated(
 		expectedK8sSecrets{
 			"k8s-secret1": {"secret1": "secret-value1"},
@@ -1315,7 +1315,7 @@ func TestSecretsContentChanges(t *testing.T) {
 	mocks.setPermissions(denyConjurRetrieve, denyK8sRetrieve, denyK8sUpdate)
 	update, err = provider.Provide()
 	assert.NoError(t, err)
-	assert.True(t, mocks.logger.InfoWasLogged("CSPFK020I"))
+	assert.True(t, mocks.logger.DebugWasLogged("CSPFK020I"))
 	// verify the same secret still exists
 	assertSecretsUpdated(
 		expectedK8sSecrets{
@@ -1326,6 +1326,7 @@ func TestSecretsContentChanges(t *testing.T) {
 	// Change the k8s secret and verify a new secret is written
 	desc = "Verify new secrets are written when there are changes to the Conjur secret"
 	mocks.logger.ClearInfo()
+	mocks.logger.ClearDebug()
 	secrets, _ := mocks.kubeClient.RetrieveSecret("", "k8s-secret1")
 	var newMap = map[string][]byte{
 		"conjur-map": []byte("secret2: conjur/var/path2"),
@@ -1340,17 +1341,18 @@ func TestSecretsContentChanges(t *testing.T) {
 			"k8s-secret1": {"secret2": "secret-value2"},
 		},
 		expectedMissingValues{}, false)(t, mocks, update, err, desc)
-	assert.False(t, mocks.logger.InfoWasLogged("CSPFK020I"))
+	assert.False(t, mocks.logger.DebugWasLogged("CSPFK020I"))
 
 	// call again with no changes
 	desc = "Verify again secrets are not updated when there are no changes"
 	update, err = provider.Provide()
 	assert.NoError(t, err)
-	assert.True(t, mocks.logger.InfoWasLogged("CSPFK020I"))
+	assert.True(t, mocks.logger.DebugWasLogged("CSPFK020I"))
 
 	// verify a new k8s secret is written when the Conjur secret changes
 	desc = "Verify new secrets are written when there are changes to the k8s secret"
 	mocks.logger.ClearInfo()
+	mocks.logger.ClearDebug()
 	var updateConjurSecrets = map[string]string{
 		"conjur/var/path1":        "new-secret-value1",
 		"conjur/var/path2":        "new-secret-value2",
@@ -1360,7 +1362,7 @@ func TestSecretsContentChanges(t *testing.T) {
 	}
 	mocks.conjurClient.AddSecrets(updateConjurSecrets)
 	update, err = provider.Provide()
-	assert.False(t, mocks.logger.InfoWasLogged("CSPFK020I"))
+	assert.False(t, mocks.logger.DebugWasLogged("CSPFK020I"))
 	assertSecretsUpdated(
 		expectedK8sSecrets{
 			"k8s-secret1": {"secret2": "new-secret-value2"},
