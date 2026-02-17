@@ -10,7 +10,7 @@ import (
 	"sync"
 
 	"github.com/cyberark/conjur-authn-k8s-client/pkg/log"
-	"github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/file_templates"
+	filetemplates "github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/file_templates"
 	"go.opentelemetry.io/otel"
 	"gopkg.in/yaml.v2"
 	v1 "k8s.io/api/core/v1"
@@ -203,8 +203,7 @@ func (p *K8sProvider) ProvideWithCleanup(keysToRemove map[string][]string) (bool
 	}
 
 	// In label-based mode with no updateable secrets discovered, return gracefully.
-	// Todo: consider if we should handle the case where a labeled k8s secret has no conjur-map entry.
-	if len(p.secretsState.updateDestinations) == 0 && len(p.secretsGroups) == 0 {
+	if len(p.secretsState.updateDestinations) == 0 && len(p.secretsGroups) == 0 && len(keysToRemove) == 0 {
 		p.log.warn(messages.CSPFK070E)
 		return false, nil
 	}
@@ -273,7 +272,7 @@ func (p *K8sProvider) retrieveRequiredK8sSecrets(tracer trace.Tracer) error {
 				span.RecordErrorAndSetStatus(err)
 				return p.log.recordedError(messages.CSPFK020E)
 			}
-			if err := p.retrieveRequiredK8sSecret(k8sSecret); err != nil {
+			if err := p.retrieveRequiredK8sSecret(k8sSecret, false); err != nil {
 				childSpan.RecordErrorAndSetStatus(err)
 				span.RecordErrorAndSetStatus(err)
 				return err
@@ -289,21 +288,19 @@ func (p *K8sProvider) retrieveRequiredK8sSecrets(tracer trace.Tracer) error {
 			return p.log.recordedError(messages.CSPFK024E)
 		}
 
-		if k8sSecrets.Items != nil {
-			for _, k8sSecret := range k8sSecrets.Items {
-				_, childSpan := tracer.Start(spanCtx, "Process K8s Secret")
-				defer childSpan.End()
-				if err := p.retrieveRequiredK8sSecret(&k8sSecret); err != nil {
-					// In label-based mode, skip invalid secrets and continue processing others
-					// instead of failing the entire operation. This makes the provider more
-					// resilient to misconfigured secrets.
-					childSpan.RecordErrorAndSetStatus(err)
-					span.RecordErrorAndSetStatus(err)
-					p.log.warn(messages.CSPFK073E, k8sSecret.Name, err.Error())
-					// Remove the secret from originalK8sSecrets since we're skipping it
-					delete(p.secretsState.originalK8sSecrets, k8sSecret.Name)
-					continue
-				}
+		for _, k8sSecret := range k8sSecrets.Items {
+			_, childSpan := tracer.Start(spanCtx, "Process K8s Secret")
+			defer childSpan.End()
+			if err := p.retrieveRequiredK8sSecret(&k8sSecret, true); err != nil {
+				// In label-based mode, skip invalid secrets and continue processing others
+				// instead of failing the entire operation. This makes the provider more
+				// resilient to misconfigured secrets.
+				childSpan.RecordErrorAndSetStatus(err)
+				span.RecordErrorAndSetStatus(err)
+				p.log.warn(messages.CSPFK073E, k8sSecret.Name, err.Error())
+				// Remove the secret from originalK8sSecrets since we're skipping it
+				delete(p.secretsState.originalK8sSecrets, k8sSecret.Name)
+				continue
 			}
 		}
 	}
@@ -312,8 +309,12 @@ func (p *K8sProvider) retrieveRequiredK8sSecrets(tracer trace.Tracer) error {
 
 // retrieveRequiredK8sSecret retrieves an individual K8s Secrets that needs
 // to be managed/updated by the Secrets Provider.
-func (p *K8sProvider) retrieveRequiredK8sSecret(k8sSecret *v1.Secret) error {
-
+//
+// Note: allowEmptyConjurMap indicates whether to allow K8s Secrets with
+// an empty or missing "conjur-map" entry in their Data field. In label-based
+// mode, we allow this so that the provider can process the new labeled secrets
+// without conjur-map to remove stale secrets.
+func (p *K8sProvider) retrieveRequiredK8sSecret(k8sSecret *v1.Secret, allowEmptyConjurMap bool) error {
 	// Record the K8s Secret API object
 	p.secretsState.originalK8sSecrets[k8sSecret.Name] = k8sSecret
 
@@ -332,9 +333,13 @@ func (p *K8sProvider) retrieveRequiredK8sSecret(k8sSecret *v1.Secret) error {
 	// At least one of "conjur-map" field or "conjur.org/conjur-secrets.*" annotation must be defined.
 	// If neither is provided/valid, return an error.
 	if !hasValidConjurMap && len(p.secretsGroups) == 0 {
-		conjurMapKey := config.ConjurMapKey
-		p.log.logError("At least one of %s data entry or %s annotations must be defined", conjurMapKey, "conjur.org/conjur-secrets.* & conjur.org/secret-file-template.*")
-		return p.log.recordedError(messages.CSPFK028E, k8sSecret.Name)
+		if allowEmptyConjurMap {
+			p.log.info(messages.CSPFK034I, k8sSecret.Name)
+		} else {
+			conjurMapKey := config.ConjurMapKey
+			p.log.logError("At least one of %s data entry or %s annotations must be defined", conjurMapKey, "conjur.org/conjur-secrets.* & conjur.org/secret-file-template.*")
+			return p.log.recordedError(messages.CSPFK028E, k8sSecret.Name)
+		}
 	}
 
 	return nil
@@ -574,6 +579,18 @@ func (p *K8sProvider) updateRequiredK8sSecretsWithCleanup(
 	newSecretsDataMap := p.createSecretData(conjurSecrets)
 	p.populateGroupTemplateSecretData(conjurSecrets, newSecretsDataMap)
 
+	// Add K8s Secrets that don't have conjur-map (not in newSecretData) to ensure they are processed
+	// This handles secrets that were retrieved in retrieveRequiredK8sSecrets but have no conjur-map entries
+	// Note: we only need to deal with the ones that need keys removed based on conjur-map changes
+	if len(keysToRemove) > 0 {
+		for k8sSecretName := range p.secretsState.originalK8sSecrets {
+			if newSecretsDataMap[k8sSecretName] == nil && keysToRemove[k8sSecretName] != nil {
+				// Secret has entries to be removed but not in newSecretData, add an empty entry so it will be processed
+				newSecretsDataMap[k8sSecretName] = map[string][]byte{}
+			}
+		}
+	}
+
 	// Update K8s Secrets with the retrieved Conjur secrets
 	for k8sSecretName, secretData := range newSecretsDataMap {
 		_, childSpan := tracer.Start(spanCtx, "Update K8s Secret")
@@ -723,8 +740,13 @@ func (p *K8sProvider) createSecretData(conjurSecrets map[string][]byte) map[stri
 // In this case, we cannot remove the keys that are not in the new conjur-map any more since we
 // won't be able to tell if any key was configured by the user.
 // The unexpected keys will be removed the next time the conjur-map is updated while the flag is enabled.
-func GetRemovedKeys(oldSecret, newSecret *v1.Secret) map[string][]string {
+func (p *K8sProvider) GetRemovedKeys(oldSecret, newSecret *v1.Secret) map[string][]string {
 	keysToRemove := make(map[string][]string)
+
+	// If sanitization is not enabled, no need to remove any stale secrets
+	if !p.sanitizeEnabled {
+		return keysToRemove
+	}
 
 	if oldSecret == nil || newSecret == nil {
 		return keysToRemove

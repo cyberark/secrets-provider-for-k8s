@@ -779,32 +779,6 @@ func TestProvide(t *testing.T) {
 			},
 		},
 		{
-			desc: "Labeled K8s secret has no 'conjur-map' entry (label-based mode)",
-			k8sSecrets: k8sStorageMocks.K8sSecrets{
-				"k8s-labeled-secret1": {
-					"foobar": {"foo": "bar"},
-				},
-			},
-			requiredSecrets: []string{}, // Empty list triggers label-based mode
-			asserts: []assertFunc{
-				assertLogged(true, "warn", "k8s-labeled-secret1"),
-				assertLogged(true, "warn", "CSPFK073E"),
-			},
-		},
-		{
-			desc: "Labeled K8s secret has an empty 'conjur-map' entry (label-based mode)",
-			k8sSecrets: k8sStorageMocks.K8sSecrets{
-				"k8s-labeled-secret1": {
-					"conjur-map": {},
-				},
-			},
-			requiredSecrets: []string{}, // Empty list triggers label-based mode
-			asserts: []assertFunc{
-				assertLogged(true, "warn", "k8s-labeled-secret1"),
-				assertLogged(true, "warn", "CSPFK073E"),
-			},
-		},
-		{
 			desc: "Access to Conjur secrets is not authorized",
 			k8sSecrets: k8sStorageMocks.K8sSecrets{
 				"k8s-secret1": {
@@ -1627,6 +1601,189 @@ func TestProvideSanitization(t *testing.T) {
 	}
 }
 
+func TestProvideWithCleanup(t *testing.T) {
+	testCases := []struct {
+		desc            string
+		sanitizeEnabled bool
+		k8sSecrets      k8sStorageMocks.K8sSecrets
+		keysToRemove    map[string][]string
+		asserts         []assertFunc
+	}{
+		{
+			desc: "Informer scenario: Remove keys from conjur-map",
+			k8sSecrets: k8sStorageMocks.K8sSecrets{
+				"k8s-labeled-secret1": {
+					"conjur-map": {
+						"secret1": "conjur/var/path1",
+					},
+					"secret1": {"value": "old-value1"},
+					"secret2": {"value": "stale-value2"},
+				},
+			},
+			keysToRemove: map[string][]string{
+				"k8s-labeled-secret1": {"secret2"}, // Informer detected secret2 was removed
+			},
+			asserts: []assertFunc{
+				assertSecretsUpdated(
+					expectedK8sSecrets{
+						"k8s-labeled-secret1": {
+							"secret1": "secret-value1",
+						},
+					},
+					expectedMissingValues{
+						"k8s-labeled-secret1": {"secret-value2"},
+					},
+					false,
+				),
+			},
+		},
+		{
+			desc: "Informer scenario: Remove multiple keys from one secret",
+			k8sSecrets: k8sStorageMocks.K8sSecrets{
+				"k8s-labeled-secret1": {
+					"conjur-map": {
+						"secret1": "conjur/var/path1",
+					},
+					"secret1": {"value": "old-value1"},
+					"secret2": {"value": "stale-value2"},
+					"secret3": {"value": "stale-value3"},
+				},
+			},
+			keysToRemove: map[string][]string{
+				"k8s-labeled-secret1": {"secret2", "secret3"},
+			},
+			asserts: []assertFunc{
+				assertSecretsUpdated(
+					expectedK8sSecrets{
+						"k8s-labeled-secret1": {
+							"secret1": "secret-value1",
+						},
+					},
+					expectedMissingValues{
+						"k8s-labeled-secret1": {"secret-value2", "secret-value3"},
+					},
+					false,
+				),
+			},
+		},
+		{
+			desc: "Informer scenario: Remove keys from multiple secrets",
+			k8sSecrets: k8sStorageMocks.K8sSecrets{
+				"k8s-labeled-secret1": {
+					"conjur-map": {
+						"secret1": "conjur/var/path1",
+					},
+					"secret1": {"value": "old-value1"},
+					"secret2": {"value": "stale-value2"},
+				},
+				"k8s-labeled-secret2": {
+					"conjur-map": {
+						"secret3": "conjur/var/path3",
+					},
+					"secret3": {"value": "old-value3"},
+					"secret4": {"value": "stale-value4"},
+				},
+			},
+			keysToRemove: map[string][]string{
+				"k8s-labeled-secret1": {"secret2"},
+				"k8s-labeled-secret2": {"secret4"},
+			},
+			asserts: []assertFunc{
+				assertSecretsUpdated(
+					expectedK8sSecrets{
+						"k8s-labeled-secret1": {
+							"secret1": "secret-value1",
+						},
+						"k8s-labeled-secret2": {
+							"secret3": "secret-value3",
+						},
+					},
+					expectedMissingValues{
+						"k8s-labeled-secret1": {"secret-value2", "secret-value3"},
+						"k8s-labeled-secret2": {"secret-value1", "secret-value4"},
+					},
+					false,
+				),
+			},
+		},
+		{
+			desc: "Informer scenario: Empty keysToRemove - no cleanup",
+			k8sSecrets: k8sStorageMocks.K8sSecrets{
+				"k8s-labeled-secret1": {
+					"conjur-map": {
+						"secret1": "conjur/var/path1",
+						"secret2": "conjur/var/path2",
+					},
+					"secret1": {"value": "old-value1"},
+					"secret2": {"value": "old-value2"},
+				},
+			},
+			keysToRemove: map[string][]string{},
+			asserts: []assertFunc{
+				assertSecretsUpdated(
+					expectedK8sSecrets{
+						"k8s-labeled-secret1": {
+							"secret1": "secret-value1",
+							"secret2": "secret-value2",
+						},
+					},
+					expectedMissingValues{
+						"k8s-labeled-secret1": {"old-value1", "old-value2"},
+					},
+					false,
+				),
+			},
+		},
+		{
+			desc: "Informer scenario: conjur-map cleared entirely",
+			k8sSecrets: k8sStorageMocks.K8sSecrets{
+				"k8s-labeled-secret1": {
+					"conjur-map": {},
+					"secret1":    {"value": "stale-value1"},
+					"secret2":    {"value": "stale-value2"},
+				},
+			},
+			keysToRemove: map[string][]string{
+				"k8s-labeled-secret1": {"secret1", "secret2"},
+			},
+			asserts: []assertFunc{
+				assertSecretsUpdated(
+					expectedK8sSecrets{
+						"k8s-labeled-secret1": {},
+					},
+					expectedMissingValues{
+						"k8s-labeled-secret1": {"secret1", "secret2"},
+					},
+					false,
+				),
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.desc, func(t *testing.T) {
+			// Set up test case
+			mocks := newTestMocks()
+			mocks.setPermissions(false, false, false)
+
+			for secretName, secretData := range tc.k8sSecrets {
+				mocks.kubeClient.AddSecret(secretName, map[string]string{}, secretData)
+			}
+
+			// Label-based mode: requiredSecrets must be empty for informer to work
+			provider := mocks.newProvider([]string{})
+
+			// Run test case with cleanup (simulating informer trigger)
+			updated, err := provider.ProvideWithCleanup(tc.keysToRemove)
+
+			// Confirm results
+			for _, assert := range tc.asserts {
+				assert(t, mocks, updated, err, tc.desc)
+			}
+		})
+	}
+}
+
 func TestBase64PKCS12SecretPreservesTrailingNull(t *testing.T) {
 	original := []byte{0xde, 0xad, 0xbe, 0xef, 0x00}
 	encoded := make([]byte, base64.StdEncoding.EncodedLen(len(original)))
@@ -2220,7 +2377,8 @@ func TestGetRemovedKeys(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			result := GetRemovedKeys(tc.oldSecret, tc.newSecret)
+			provider := &K8sProvider{sanitizeEnabled: true}
+			result := provider.GetRemovedKeys(tc.oldSecret, tc.newSecret)
 			// Verify the result map structure
 			assert.Equal(t, len(tc.expected), len(result), "GetRemovedKeys should return correct number of secrets")
 			// For each expected secret, verify the removed keys

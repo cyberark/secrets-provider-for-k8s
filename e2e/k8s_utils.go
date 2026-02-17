@@ -416,6 +416,40 @@ func WaitForK8sSecretValue(client klient.Client, namespace string, secretName st
 	}
 }
 
+// WaitForK8sSecretValueToDelete polls the K8s secret to check if it does not contain the expected key
+// Returns nil when the expected value is not found, or an error if timeout is reached
+func WaitForK8sSecretValueToDelete(client klient.Client, namespace string, secretName string, key string, timeout time.Duration) error {
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	ticker := time.NewTicker(2 * time.Second)
+	defer ticker.Stop()
+
+	var lastErr error
+	var lastActualValue string
+	for {
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("timeout waiting for secret %s/%s key %s to be deleted. Last value: %q. Last error: %v", namespace, secretName, key, lastActualValue, lastErr)
+		case <-ticker.C:
+			var secret corev1.Secret
+			err := client.Resources(namespace).Get(context.TODO(), secretName, namespace, &secret)
+			if err != nil {
+				lastErr = err
+				continue
+			}
+
+			// Check if the key exists
+			if secretData, exists := secret.Data[key]; exists {
+				lastActualValue = string(secretData)
+				// If the key still exists, keep waiting for it to be deleted
+				continue
+			}
+			return nil
+		}
+	}
+}
+
 // WaitForFileContent polls the pod to check if a file contains the expected content
 // Returns nil when the expected content is found, or an error if timeout is reached
 func WaitForFileContent(client klient.Client, labelSelector string, container string, filePath string, expectedContent string, timeout time.Duration) error {

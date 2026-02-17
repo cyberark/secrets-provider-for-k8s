@@ -2,6 +2,7 @@ package mocks
 
 import (
 	"errors"
+
 	"gopkg.in/yaml.v3"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -110,6 +111,10 @@ func (c *KubeSecretsClient) UpdateSecret(
 		return c.ErrOnUpdate
 	}
 
+	for key, value := range stringDataEntriesMap {
+		originalK8sSecret.Data[key] = value
+	}
+
 	c.LastUpdateSecretName = secretName
 	if originalK8sSecret != nil {
 		c.LastUpdateOriginalSecret = originalK8sSecret.DeepCopy()
@@ -117,10 +122,9 @@ func (c *KubeSecretsClient) UpdateSecret(
 		c.LastUpdateOriginalSecret = nil
 	}
 
-	secretToUpdate := c.database[secretName]
-	for key, value := range stringDataEntriesMap {
-		secretToUpdate.data[key] = value
-	}
+	content := c.database[secretName]
+	content.data = originalK8sSecret.Data
+	c.database[secretName] = content
 
 	return nil
 }

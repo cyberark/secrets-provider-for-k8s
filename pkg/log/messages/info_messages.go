@@ -40,3 +40,4 @@ const CSPFK029I string = "CSPFK029I Secret informer event queue worker started f
 const CSPFK030I string = "CSPFK030I Secret informer event queue worker stopped for namespace: %s"
 const CSPFK032I string = "CSPFK032I Detected removed keys from conjur-map in secret '%s': %v"
 const CSPFK033I string = "CSPFK033I Removing key '%s' from Kubernetes secret '%s' as it was removed from conjur-map"
+const CSPFK034I string = "CSPFK034I Allow secret '%s' without conjur-map, continue..."
