@@ -319,9 +319,13 @@ func informerTriggeredProvider(
 				firstEventTime = time.Now()
 			}
 
-			// If it is an update event and keys were removed from the conjur-map, accumulate them
-			// for batch cleanup on the next run
+			// If it is an update event, update the cumulative keys to remove
 			if event.EventType == k8sinformer.SecretEventTypeUpdate {
+				// Merge re-added keys: if a key was removed then re-added before the debounce
+				// fires, it should not be in the cleanup list
+				keysToRemoveCumulative = K8sProviderInstance.MergeReAddedKeys(keysToRemoveCumulative, event.OldSecret, event.Secret)
+
+				// Accumulate keys that were removed from the conjur-map for batch cleanup
 				keysToRemove := K8sProviderInstance.GetRemovedKeys(event.OldSecret, event.Secret)
 				for secretName, keys := range keysToRemove {
 					keysToRemoveCumulative[secretName] = append(keysToRemoveCumulative[secretName], keys...)
@@ -333,7 +337,7 @@ func informerTriggeredProvider(
 			}
 			// Run immediately if we've already exceeded the max delay
 			if time.Since(firstEventTime) >= informerDebounceMaxDelay {
-				log.Info("Exceeded max delay, running immediately (eventCount: %d)", eventCount)
+				log.Info(messages.CSPFK035I, eventCount)
 				runProvideSecrets()
 				continue
 			}

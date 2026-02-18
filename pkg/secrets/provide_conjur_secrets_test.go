@@ -534,7 +534,6 @@ func TestInformerTriggeredProviderBatching(t *testing.T) {
 						EventType: k8sinformer.SecretEventTypeAdd,
 					}
 					eventIndex++
-					time.Sleep(1 * time.Millisecond)
 				}
 
 				// Wait before sending next batch (except after the last batch)
