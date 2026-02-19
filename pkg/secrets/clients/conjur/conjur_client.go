@@ -32,5 +32,11 @@ func NewConjurClient(tokenData []byte) (ConjurClient, error) {
 		return nil, log.RecordedError(messages.CSPFK032E, err.Error())
 	}
 
-	return client, nil
+	// Wrap the client to provide API V2 with V1 fallback
+	wrapper := &conjurClientWrapper{
+		client: client,
+		useV2:  true,
+	}
+
+	return wrapper, nil
 }

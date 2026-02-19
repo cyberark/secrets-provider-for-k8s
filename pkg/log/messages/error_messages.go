@@ -93,6 +93,9 @@ const CSPFK065E string = "CSPFK065E Secret group %s: the content-type of %s is i
 
 // Fetch All
 const CSPFK066E string = "CSPFK066E Stopped fetching additional secrets after %d secrets were fetched"
+const CSPFK090E string = "CSPFK090E V2 batch retrieval not available, falling back to V1: %s"
+const CSPFK091E string = "CSPFK091E Some secrets failed to retrieve in V2 batch request: %s"
+const CSPFK092E string = "CSPFK092E No secrets were successfully retrieved"
 const CSPFK068E string = "CSPFK068E Retrieved secrets did not include secret '%s' requested by secret group '%s'"
 
 // URL Parsing
