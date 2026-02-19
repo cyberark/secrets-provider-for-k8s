@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - Support for onboarding labeled Kubernetes secrets. (CNJR-12567)
 - Remove stale secrets for labeled Kubernetes secrets. (CNJR-12714)
 - Remove all Conjur managed secrets if conjur-map is missing or empty. (CNJR-12857)
+- V2 batch retrieval as the default method to fetch secrets with automatic fallback to V1 for backwards compatibility. (CNJR-12572)
 
 ### Fixed
 - Fix deadlock when using sidecar without refresh. (CNJR-12825)

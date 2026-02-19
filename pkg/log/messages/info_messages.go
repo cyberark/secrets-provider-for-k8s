@@ -42,3 +42,4 @@ const CSPFK032I string = "CSPFK032I Detected removed keys from conjur-map in sec
 const CSPFK033I string = "CSPFK033I Removing key '%s' from Kubernetes secret '%s' as it was removed from conjur-map"
 const CSPFK034I string = "CSPFK034I Allow secret '%s' without conjur-map, continue..."
 const CSPFK035I string = "CSPFK035I Exceeded max debounce delay, providing secrets (eventCount: %d)"
+const CSPFK036I string = "CSPFK036I V2 batch retrieval succeeded: retrieved %d secrets"
