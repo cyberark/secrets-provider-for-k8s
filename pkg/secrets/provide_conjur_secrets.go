@@ -22,6 +22,8 @@ import (
 
 const (
 	secretProviderGracePeriod = time.Duration(10 * time.Millisecond)
+	informerDebounceDelay     = time.Duration(200 * time.Millisecond)
+	informerDebounceMaxDelay  = time.Duration(10 * time.Second)
 )
 
 // CommonProviderConfig provides config that is common to all providers
@@ -270,24 +272,82 @@ func informerTriggeredProvider(
 	config informerConfig,
 	status StatusUpdater,
 ) {
+	var debounceTimer *time.Timer
+	var timerChan <-chan time.Time
+	var eventCount int
+	var firstEventTime time.Time
+	// Accumulate keys to remove across multiple UPDATE events
+	keysToRemoveCumulative := make(map[string][]string)
+
+	runProvideSecrets := func() {
+		if eventCount > 1 {
+			log.Info(messages.CSPFK031I, eventCount)
+		}
+
+		var updated bool
+		var err error
+		// ProvideWithCleanup is not wrapped with retry logic in the way the provideSecrets func is, so it will only
+		// attempt once if keys need removing
+		if len(keysToRemoveCumulative) > 0 {
+			updated, err = K8sProviderInstance.ProvideWithCleanup(keysToRemoveCumulative)
+			keysToRemoveCumulative = make(map[string][]string)
+		} else {
+			updated, err = provideSecrets()
+		}
+		if err == nil && updated {
+			err = status.SetSecretsUpdated()
+		}
+		if err != nil {
+			config.periodicError <- err
+		}
+		debounceTimer = nil
+		timerChan = nil
+		eventCount = 0
+	}
+
 	for {
 		select {
 		case <-config.periodicQuit:
+			if debounceTimer != nil {
+				debounceTimer.Stop()
+			}
 			return
 		case event := <-config.informerEvents:
 			log.Info(messages.CSPFK028I, event.EventType, event.Secret.Namespace, event.Secret.Name)
-
-			// The informer has already filtered to only send events for secrets with managed-by-provider=true label.
-			// Get all the keys to be removed based on changes to the conjur-map configuration.
-			keysToRemove := K8sProviderInstance.GetRemovedKeys(event.OldSecret, event.Secret)
-
-			updated, err := K8sProviderInstance.ProvideWithCleanup(keysToRemove)
-			if err == nil && updated {
-				err = status.SetSecretsUpdated()
+			eventCount++
+			if eventCount == 1 {
+				firstEventTime = time.Now()
 			}
-			if err != nil {
-				config.periodicError <- err
+
+			// If it is an update event, update the cumulative keys to remove
+			if event.EventType == k8sinformer.SecretEventTypeUpdate {
+				// Merge re-added keys: if a key was removed then re-added before the debounce
+				// fires, it should not be in the cleanup list
+				keysToRemoveCumulative = K8sProviderInstance.MergeReAddedKeys(keysToRemoveCumulative, event.OldSecret, event.Secret)
+
+				// Accumulate keys that were removed from the conjur-map for batch cleanup
+				keysToRemove := K8sProviderInstance.GetRemovedKeys(event.OldSecret, event.Secret)
+				for secretName, keys := range keysToRemove {
+					keysToRemoveCumulative[secretName] = append(keysToRemoveCumulative[secretName], keys...)
+				}
 			}
+
+			if debounceTimer != nil {
+				debounceTimer.Stop()
+			}
+			// Run immediately if we've already exceeded the max delay
+			if time.Since(firstEventTime) >= informerDebounceMaxDelay {
+				log.Info(messages.CSPFK035I, eventCount)
+				runProvideSecrets()
+				continue
+			}
+			debounceTimer = time.NewTimer(informerDebounceDelay)
+			timerChan = debounceTimer.C
+		case <-timerChan:
+			if debounceTimer != nil {
+				debounceTimer.Stop()
+			}
+			runProvideSecrets()
 		}
 	}
 }

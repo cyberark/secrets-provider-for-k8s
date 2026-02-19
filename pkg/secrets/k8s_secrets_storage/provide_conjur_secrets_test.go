@@ -9,6 +9,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"go.opentelemetry.io/otel"
+	"gopkg.in/yaml.v2"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -16,7 +17,7 @@ import (
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/log/messages"
 	conjurMocks "github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/clients/conjur/mocks"
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/config"
-	"github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/file_templates"
+	filetemplates "github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/file_templates"
 	k8sStorageMocks "github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/k8s_secrets_storage/mocks"
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/utils"
 )
@@ -1301,7 +1302,7 @@ func TestSecretsContentChanges(t *testing.T) {
 	}
 	provider := mocks.newProvider(requiredSecrets)
 	update, err := provider.Provide()
-	assert.False(t, mocks.logger.InfoWasLogged(messages.CSPFK020I))
+	assert.False(t, mocks.logger.DebugWasLogged("CSPFK016D"))
 	assertSecretsUpdated(
 		expectedK8sSecrets{
 			"k8s-secret1": {"secret1": "secret-value1"},
@@ -1315,7 +1316,7 @@ func TestSecretsContentChanges(t *testing.T) {
 	mocks.setPermissions(denyConjurRetrieve, denyK8sRetrieve, denyK8sUpdate)
 	update, err = provider.Provide()
 	assert.NoError(t, err)
-	assert.True(t, mocks.logger.InfoWasLogged(messages.CSPFK020I))
+	assert.True(t, mocks.logger.DebugWasLogged("CSPFK016D"))
 	// verify the same secret still exists
 	assertSecretsUpdated(
 		expectedK8sSecrets{
@@ -1326,6 +1327,7 @@ func TestSecretsContentChanges(t *testing.T) {
 	// Change the k8s secret and verify a new secret is written
 	desc = "Verify new secrets are written when there are changes to the Conjur secret"
 	mocks.logger.ClearInfo()
+	mocks.logger.ClearDebug()
 	secrets, _ := mocks.kubeClient.RetrieveSecret("", "k8s-secret1")
 	var newMap = map[string][]byte{
 		"conjur-map": []byte("secret2: conjur/var/path2"),
@@ -1340,17 +1342,18 @@ func TestSecretsContentChanges(t *testing.T) {
 			"k8s-secret1": {"secret2": "secret-value2"},
 		},
 		expectedMissingValues{}, false)(t, mocks, update, err, desc)
-	assert.False(t, mocks.logger.InfoWasLogged(messages.CSPFK020I))
+	assert.False(t, mocks.logger.DebugWasLogged("CSPFK016D"))
 
 	// call again with no changes
 	desc = "Verify again secrets are not updated when there are no changes"
 	update, err = provider.Provide()
 	assert.NoError(t, err)
-	assert.True(t, mocks.logger.InfoWasLogged(messages.CSPFK020I))
+	assert.True(t, mocks.logger.DebugWasLogged("CSPFK016D"))
 
 	// verify a new k8s secret is written when the Conjur secret changes
 	desc = "Verify new secrets are written when there are changes to the k8s secret"
 	mocks.logger.ClearInfo()
+	mocks.logger.ClearDebug()
 	var updateConjurSecrets = map[string]string{
 		"conjur/var/path1":        "new-secret-value1",
 		"conjur/var/path2":        "new-secret-value2",
@@ -1360,7 +1363,7 @@ func TestSecretsContentChanges(t *testing.T) {
 	}
 	mocks.conjurClient.AddSecrets(updateConjurSecrets)
 	update, err = provider.Provide()
-	assert.False(t, mocks.logger.InfoWasLogged(messages.CSPFK020I))
+	assert.False(t, mocks.logger.DebugWasLogged("CSPFK016D"))
 	assertSecretsUpdated(
 		expectedK8sSecrets{
 			"k8s-secret1": {"secret2": "new-secret-value2"},
@@ -2197,61 +2200,115 @@ func TestCreateGroupTemplateSecretData(t *testing.T) {
 	}
 }
 
-func TestDiffConjurMapKeys(t *testing.T) {
-	testCases := []struct {
-		name     string
-		oldMap   map[string]interface{}
-		newMap   map[string]interface{}
-		expected []string
-	}{
-		{
-			name:     "both empty maps",
-			oldMap:   map[string]interface{}{},
-			newMap:   map[string]interface{}{},
-			expected: []string{},
-		},
-		{
-			name:     "old map empty, new map has keys - no removed keys",
-			oldMap:   map[string]interface{}{},
-			newMap:   map[string]interface{}{"key1": "value1", "key2": "value2"},
-			expected: []string{},
-		},
-		{
-			name:     "old map has keys, new map empty - all keys removed",
-			oldMap:   map[string]interface{}{"key1": "value1", "key2": "value2"},
-			newMap:   map[string]interface{}{},
-			expected: []string{"key1", "key2"},
-		},
-		{
-			name:     "same keys in both maps - no removed keys",
-			oldMap:   map[string]interface{}{"key1": "value1", "key2": "value2"},
-			newMap:   map[string]interface{}{"key1": "new-value1", "key2": "new-value2"},
-			expected: []string{},
-		},
-		{
-			name:     "one key removed from old map",
-			oldMap:   map[string]interface{}{"key1": "value1", "key2": "value2", "key3": "value3"},
-			newMap:   map[string]interface{}{"key1": "value1", "key3": "value3"},
-			expected: []string{"key2"},
-		},
-		{
-			name:     "multiple keys removed from old map",
-			oldMap:   map[string]interface{}{"secret1": "path1", "secret2": "path2", "secret3": "path3", "secret4": "path4"},
-			newMap:   map[string]interface{}{"secret1": "path1", "secret4": "path4"},
-			expected: []string{"secret2", "secret3"},
-		},
-		{
-			name:     "removed keys can have different value types",
-			oldMap:   map[string]interface{}{"str_key": "string_value", "map_key": map[string]interface{}{"nested": "value"}},
-			newMap:   map[string]interface{}{"str_key": "string_value"},
-			expected: []string{"map_key"},
+func secretFromConjurMap(name string, m map[string]interface{}) *v1.Secret {
+	if m == nil {
+		return nil
+	}
+	var data []byte
+	if len(m) > 0 {
+		data, _ = yaml.Marshal(m)
+	}
+	return &v1.Secret{
+		ObjectMeta: metav1.ObjectMeta{Name: name},
+		Data: map[string][]byte{
+			config.ConjurMapKey: data,
 		},
 	}
+}
 
-	for _, tc := range testCases {
+var getRemovedAndAddedConjurMapKeysTestCases = []struct {
+	name            string
+	oldSecret       *v1.Secret
+	newSecret       *v1.Secret
+	expectedRemoved []string
+	expectedAdded   []string
+}{
+	{
+		name:            "both empty maps",
+		oldSecret:       secretFromConjurMap("secret", map[string]interface{}{}),
+		newSecret:       secretFromConjurMap("secret", map[string]interface{}{}),
+		expectedRemoved: []string{},
+		expectedAdded:   []string{},
+	},
+	{
+		name:            "old map empty, new map has keys - no removed keys",
+		oldSecret:       secretFromConjurMap("secret", map[string]interface{}{}),
+		newSecret:       secretFromConjurMap("secret", map[string]interface{}{"key1": "value1", "key2": "value2"}),
+		expectedRemoved: []string{},
+		expectedAdded:   []string{"key1", "key2"},
+	},
+	{
+		name:            "old map has keys, new map empty - all keys removed",
+		oldSecret:       secretFromConjurMap("secret", map[string]interface{}{"key1": "value1", "key2": "value2"}),
+		newSecret:       secretFromConjurMap("secret", map[string]interface{}{}),
+		expectedRemoved: []string{"key1", "key2"},
+		expectedAdded:   []string{},
+	},
+	{
+		name:            "same keys in both maps - no removed keys",
+		oldSecret:       secretFromConjurMap("secret", map[string]interface{}{"key1": "value1", "key2": "value2"}),
+		newSecret:       secretFromConjurMap("secret", map[string]interface{}{"key1": "new-value1", "key2": "new-value2"}),
+		expectedRemoved: []string{},
+		expectedAdded:   []string{},
+	},
+	{
+		name:            "one key removed from old map",
+		oldSecret:       secretFromConjurMap("secret", map[string]interface{}{"key1": "value1", "key2": "value2", "key3": "value3"}),
+		newSecret:       secretFromConjurMap("secret", map[string]interface{}{"key1": "value1", "key3": "value3"}),
+		expectedRemoved: []string{"key2"},
+		expectedAdded:   []string{},
+	},
+	{
+		name:            "multiple keys removed from old map",
+		oldSecret:       secretFromConjurMap("secret", map[string]interface{}{"secret1": "path1", "secret2": "path2", "secret3": "path3", "secret4": "path4"}),
+		newSecret:       secretFromConjurMap("secret", map[string]interface{}{"secret1": "path1", "secret4": "path4"}),
+		expectedRemoved: []string{"secret2", "secret3"},
+		expectedAdded:   []string{},
+	},
+	{
+		name:            "removed keys can have different value types",
+		oldSecret:       secretFromConjurMap("secret", map[string]interface{}{"str_key": "string_value", "map_key": map[string]interface{}{"nested": "value"}}),
+		newSecret:       secretFromConjurMap("secret", map[string]interface{}{"str_key": "string_value"}),
+		expectedRemoved: []string{"map_key"},
+		expectedAdded:   []string{},
+	},
+	{
+		name:            "keys both removed and added",
+		oldSecret:       secretFromConjurMap("secret", map[string]interface{}{"key1": "v1", "key2": "v2"}),
+		newSecret:       secretFromConjurMap("secret", map[string]interface{}{"key2": "v2", "key3": "v3"}),
+		expectedRemoved: []string{"key1"},
+		expectedAdded:   []string{"key3"},
+	},
+	{
+		name:            "old secret is nil",
+		oldSecret:       nil,
+		newSecret:       secretFromConjurMap("secret", map[string]interface{}{"key1": "value1"}),
+		expectedRemoved: []string{},
+		expectedAdded:   []string{"key1"},
+	},
+	{
+		name:            "new secret is nil",
+		oldSecret:       secretFromConjurMap("secret", map[string]interface{}{"key1": "value1"}),
+		newSecret:       nil,
+		expectedRemoved: []string{"key1"},
+		expectedAdded:   []string{},
+	},
+}
+
+func TestGetRemovedConjurMapKeys(t *testing.T) {
+	for _, tc := range getRemovedAndAddedConjurMapKeysTestCases {
 		t.Run(tc.name, func(t *testing.T) {
-			result := diffConjurMapKeys(tc.oldMap, tc.newMap)
-			assert.ElementsMatch(t, tc.expected, result)
+			removed := getRemovedConjurMapKeys(tc.oldSecret, tc.newSecret)
+			assert.ElementsMatch(t, tc.expectedRemoved, removed)
+		})
+	}
+}
+
+func TestGetAddedConjurMapKeys(t *testing.T) {
+	for _, tc := range getRemovedAndAddedConjurMapKeysTestCases {
+		t.Run(tc.name, func(t *testing.T) {
+			added := getAddedConjurMapKeys(tc.oldSecret, tc.newSecret)
+			assert.ElementsMatch(t, tc.expectedAdded, added)
 		})
 	}
 }
@@ -2389,4 +2446,135 @@ func TestGetRemovedKeys(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestMergeReAddedKeys(t *testing.T) {
+	provider := &K8sProvider{}
+
+	t.Run("re-added key is filtered out", func(t *testing.T) {
+		// Event A removed secret2; Event B re-added it before debounce fired
+		cumulative := map[string][]string{"my-secret": {"secret2"}}
+		oldSecret := &v1.Secret{
+			ObjectMeta: metav1.ObjectMeta{Name: "my-secret"},
+			Data: map[string][]byte{
+				config.ConjurMapKey: []byte("secret1: conjur/var/path1"),
+			},
+		}
+		newSecret := &v1.Secret{
+			ObjectMeta: metav1.ObjectMeta{Name: "my-secret"},
+			Data: map[string][]byte{
+				config.ConjurMapKey: []byte("secret1: conjur/var/path1\nsecret2: conjur/var/path2"),
+			},
+		}
+		result := provider.MergeReAddedKeys(cumulative, oldSecret, newSecret)
+		assert.Empty(t, result["my-secret"], "re-added key should be filtered out")
+	})
+
+	t.Run("non-re-added keys remain", func(t *testing.T) {
+		cumulative := map[string][]string{"my-secret": {"secret2", "secret3"}}
+		oldSecret := &v1.Secret{
+			ObjectMeta: metav1.ObjectMeta{Name: "my-secret"},
+			Data: map[string][]byte{
+				config.ConjurMapKey: []byte("secret1: conjur/var/path1"),
+			},
+		}
+		newSecret := &v1.Secret{
+			ObjectMeta: metav1.ObjectMeta{Name: "my-secret"},
+			Data: map[string][]byte{
+				config.ConjurMapKey: []byte("secret1: conjur/var/path1\nsecret2: conjur/var/path2"),
+			},
+		}
+		result := provider.MergeReAddedKeys(cumulative, oldSecret, newSecret)
+		assert.ElementsMatch(t, []string{"secret3"}, result["my-secret"], "only re-added key should be filtered")
+	})
+
+	t.Run("no re-added keys leaves cumulative unchanged", func(t *testing.T) {
+		cumulative := map[string][]string{"my-secret": {"secret2", "secret3"}}
+		oldSecret := &v1.Secret{
+			ObjectMeta: metav1.ObjectMeta{Name: "my-secret"},
+			Data: map[string][]byte{
+				config.ConjurMapKey: []byte("secret1: conjur/var/path1"),
+			},
+		}
+		newSecret := &v1.Secret{
+			ObjectMeta: metav1.ObjectMeta{Name: "my-secret"},
+			Data: map[string][]byte{
+				config.ConjurMapKey: []byte("secret1: conjur/var/path1"),
+			},
+		}
+		result := provider.MergeReAddedKeys(cumulative, oldSecret, newSecret)
+		assert.ElementsMatch(t, []string{"secret2", "secret3"}, result["my-secret"])
+	})
+
+	t.Run("empty cumulative is no-op", func(t *testing.T) {
+		cumulative := map[string][]string{}
+		oldSecret := &v1.Secret{
+			ObjectMeta: metav1.ObjectMeta{Name: "my-secret"},
+			Data: map[string][]byte{
+				config.ConjurMapKey: []byte("secret1: conjur/var/path1\nsecret2: conjur/var/path2"),
+			},
+		}
+		newSecret := &v1.Secret{
+			ObjectMeta: metav1.ObjectMeta{Name: "my-secret"},
+			Data: map[string][]byte{
+				config.ConjurMapKey: []byte("secret1: conjur/var/path1\nsecret2: conjur/var/path2"),
+			},
+		}
+		result := provider.MergeReAddedKeys(cumulative, oldSecret, newSecret)
+		assert.Empty(t, result)
+	})
+
+	t.Run("nil secrets returns cumulative unchanged", func(t *testing.T) {
+		cumulative := map[string][]string{"my-secret": {"secret2"}}
+		result := provider.MergeReAddedKeys(cumulative, nil, nil)
+		assert.ElementsMatch(t, []string{"secret2"}, result["my-secret"])
+	})
+
+	t.Run("oldSecret nil and newSecret non-nil - keys in new conjur-map are filtered out", func(t *testing.T) {
+		cumulative := map[string][]string{"my-secret": {"secret1", "secret2", "secret3"}}
+		newSecret := &v1.Secret{
+			ObjectMeta: metav1.ObjectMeta{Name: "my-secret"},
+			Data: map[string][]byte{
+				config.ConjurMapKey: []byte("secret1: conjur/var/path1\nsecret2: conjur/var/path2"),
+			},
+		}
+		result := provider.MergeReAddedKeys(cumulative, nil, newSecret)
+		// secret1, secret2 are in new conjur-map - filtered out (they stay)
+		// secret3 is not in new conjur-map - remains in cumulative (will be removed)
+		assert.ElementsMatch(t, []string{"secret3"}, result["my-secret"])
+	})
+
+	t.Run("oldSecret nil and newSecret non-nil - all keys in new conjur-map means cumulative cleared", func(t *testing.T) {
+		cumulative := map[string][]string{"my-secret": {"secret1", "secret2"}}
+		newSecret := &v1.Secret{
+			ObjectMeta: metav1.ObjectMeta{Name: "my-secret"},
+			Data: map[string][]byte{
+				config.ConjurMapKey: []byte("secret1: conjur/var/path1\nsecret2: conjur/var/path2"),
+			},
+		}
+		result := provider.MergeReAddedKeys(cumulative, nil, newSecret)
+		assert.Empty(t, result["my-secret"], "all keys in new conjur-map should stay")
+	})
+
+	t.Run("only filters secret matching event", func(t *testing.T) {
+		cumulative := map[string][]string{
+			"secret-a": {"key1"},
+			"secret-b": {"key2"},
+		}
+		oldSecret := &v1.Secret{
+			ObjectMeta: metav1.ObjectMeta{Name: "secret-b"},
+			Data: map[string][]byte{
+				config.ConjurMapKey: []byte("key2: conjur/var/path2"),
+			},
+		}
+		newSecret := &v1.Secret{
+			ObjectMeta: metav1.ObjectMeta{Name: "secret-b"},
+			Data: map[string][]byte{
+				config.ConjurMapKey: []byte("key2: conjur/var/path2"),
+			},
+		}
+		result := provider.MergeReAddedKeys(cumulative, oldSecret, newSecret)
+		assert.ElementsMatch(t, []string{"key1"}, result["secret-a"], "secret-a should be unchanged")
+		assert.ElementsMatch(t, []string{"key2"}, result["secret-b"], "secret-b has no re-adds")
+	})
 }

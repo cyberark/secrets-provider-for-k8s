@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"regexp"
+	"slices"
 	"strings"
 	"sync"
 
@@ -631,7 +632,7 @@ func (p *K8sProvider) updateRequiredK8sSecretsWithCleanup(
 			p.prevSecretsChecksums[k8sSecretName] = checksum
 			updated = true
 		} else {
-			p.log.info(messages.CSPFK020I)
+			p.log.debug(messages.CSPFK016D, k8sSecretName)
 		}
 	}
 
@@ -752,10 +753,7 @@ func (p *K8sProvider) GetRemovedKeys(oldSecret, newSecret *v1.Secret) map[string
 		return keysToRemove
 	}
 
-	// Parse the conjur-map from both old and new secrets to detect removed keys
-	oldMap := parseConjurMap(oldSecret)
-	newMap := parseConjurMap(newSecret)
-	removedKeys := diffConjurMapKeys(oldMap, newMap)
+	removedKeys := getRemovedConjurMapKeys(oldSecret, newSecret)
 
 	// If any keys were removed from the conjur-map, add them to the cleanup map
 	if len(removedKeys) > 0 {
@@ -781,14 +779,55 @@ func parseConjurMap(secret *v1.Secret) map[string]interface{} {
 	return result
 }
 
-func diffConjurMapKeys(oldMap, newMap map[string]interface{}) []string {
-	var removed []string
+func getRemovedConjurMapKeys(oldSecret, newSecret *v1.Secret) (removed []string) {
+	oldMap := parseConjurMap(oldSecret)
+	newMap := parseConjurMap(newSecret)
 	for key := range oldMap {
 		if _, exists := newMap[key]; !exists {
 			removed = append(removed, key)
 		}
 	}
 	return removed
+}
+
+func getAddedConjurMapKeys(oldSecret, newSecret *v1.Secret) (added []string) {
+	oldMap := parseConjurMap(oldSecret)
+	newMap := parseConjurMap(newSecret)
+	for key := range newMap {
+		if _, exists := oldMap[key]; !exists {
+			added = append(added, key)
+		}
+	}
+	return added
+}
+
+// MergeReAddedKeys handles the scenario where a conjur-map key may have been removed, then re-added before the debounced run executes.
+// It filters out re-added keys from the cumulative keys to remove.
+func (p *K8sProvider) MergeReAddedKeys(keysToRemoveCumulative map[string][]string, oldSecret, newSecret *v1.Secret) map[string][]string {
+	if newSecret == nil {
+		return keysToRemoveCumulative
+	}
+
+	addedKeys := getAddedConjurMapKeys(oldSecret, newSecret)
+	if len(addedKeys) > 0 {
+		secretName := newSecret.Name
+		if cumulative := keysToRemoveCumulative[secretName]; len(cumulative) > 0 {
+			keysToRemoveCumulative[secretName] = removeKeys(cumulative, addedKeys)
+		}
+	}
+	return keysToRemoveCumulative
+}
+
+// removeKeys returns keys with any key in keysToRemove removed.
+func removeKeys(keys, keysToRemove []string) []string {
+	if len(keysToRemove) == 0 {
+		return keys
+	}
+	set := make(map[string]struct{}, len(keysToRemove))
+	for _, k := range keysToRemove {
+		set[k] = struct{}{}
+	}
+	return slices.DeleteFunc(keys, func(k string) bool { _, ok := set[k]; return ok })
 }
 
 // populateGroupTemplateSecretData creates a map of entries to be added to the 'Data' fields
