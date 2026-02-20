@@ -72,6 +72,7 @@ const CSPFK047E string = "CSPFK047E Secrets Provider in Push-to-File mode can on
 const CSPFK049E string = "CSPFK049E Failed to validate Pod annotations"
 const CSPFK050E string = "CSPFK050E Invalid secrets refresh interval annotation: %s %s"
 const CSPFK051E string = "CSPFK051E Invalid secrets refresh configuration: %s %s"
+const CSPFK052E string = "CSPFK052E %s must be provided for standalone mode"
 
 // Push to File
 const CSPFK053E string = "CSPFK053E Unable to initialize Secrets Provider: unable to create secret group collection"
@@ -122,6 +123,9 @@ const CSPFK086E string = "CSPFK086E Secret %s has removed the label '%s' and wil
 
 // Secrets event notifier
 const CSPFK084I string = "CSPFK084I Secret informer notifier has nil events channel, skip sending event"
+
+// Standalone mode
+const CSPFK091E string = "CSPFK091E %s must not be configured in standalone mode"
 
 // Group templates
 const CSPFK087E string = "CSPFK087E Value for '%s' group alias '%s' not fetched from Conjur"

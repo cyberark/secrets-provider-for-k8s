@@ -233,7 +233,7 @@ func (p *K8sProvider) ProvideWithCleanup(keysToRemove map[string][]string) (bool
 
 		if p.isRepeatable {
 			p.log.logError(messages.CSPFK034E, err.Error())
-			// continue processing
+			// Avoid returning an error here, which would result in the provider container being stopped
 		} else {
 			return updated, p.log.recordedError(messages.CSPFK034E, err.Error())
 		}
@@ -242,21 +242,12 @@ func (p *K8sProvider) ProvideWithCleanup(keysToRemove map[string][]string) (bool
 	// Update all K8s Secrets with the retrieved Conjur secrets.
 	updated, err = p.updateRequiredK8sSecretsWithCleanup(retrievedConjurSecrets, tr, keysToRemove)
 	if err != nil {
-
 		if p.isRepeatable {
 			p.log.logError(messages.CSPFK023E, err.Error())
-			// continue processing
+			// Avoid returning an error here, which would result in the provider container being stopped
 		} else {
 			return updated, p.log.recordedError(messages.CSPFK023E)
 		}
-	}
-
-	// Clear the secrets' state from memory. This prevents leakage of the secret values
-	// in `originalK8sSecrets` and prevents `updateDestinations` from growing each time
-	// the provider is run (e.g. during rotation).
-	p.secretsState = k8sSecretsState{
-		originalK8sSecrets: map[string]*v1.Secret{},
-		updateDestinations: map[string][]updateDestination{},
 	}
 
 	if updated {
@@ -575,7 +566,6 @@ func (p *K8sProvider) listConjurSecretsToFetch() ([]string, error) {
 }
 
 func (p *K8sProvider) retrieveConjurSecrets(tracer trace.Tracer) (map[string][]byte, error) {
-
 	spanCtx, span := tracer.Start(p.traceContext, "Fetch Conjur Secrets")
 	defer span.End()
 
@@ -589,6 +579,7 @@ func (p *K8sProvider) retrieveConjurSecrets(tracer trace.Tracer) (map[string][]b
 		span.RecordErrorAndSetStatus(err)
 		if p.isRepeatable {
 			p.log.logError(messages.CSPFK034E, err.Error())
+			// Avoid returning an error here, which would result in the provider container being stopped
 		} else {
 			return retrievedConjurSecrets, p.log.recordedError(messages.CSPFK034E, err.Error())
 		}

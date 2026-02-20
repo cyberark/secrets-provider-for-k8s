@@ -184,6 +184,25 @@ var gatherSecretsProviderSettingsTestCases = []gatherSecretsProviderSettingsTest
 			"RETRY_COUNT_LIMIT":         "5",
 		}),
 	},
+	{
+		description: "namespace allowlist annotation and env var are gathered for standalone mode",
+		annotations: map[string]string{
+			SecretsDestinationKey:    "file",
+			ContainerModeKey:         "standalone",
+			NamespaceAllowlistKey:    "ns1,ns2",
+		},
+		env: map[string]string{
+			"MY_POD_NAMESPACE":     "test-namespace",
+			"NAMESPACE_ALLOWLIST": "ns1,ns2",
+		},
+		assert: assertGoodMap(map[string]string{
+			SecretsDestinationKey:       "file",
+			ContainerModeKey:            "standalone",
+			NamespaceAllowlistKey:       "ns1,ns2",
+			"MY_POD_NAMESPACE":          "test-namespace",
+			"NAMESPACE_ALLOWLIST":       "ns1,ns2",
+		}),
+	},
 }
 
 type validateSecretsProviderSettingsTestCase struct {
@@ -356,9 +375,10 @@ var validateSecretsProviderSettingsTestCases = []validateSecretsProviderSettings
 		description: "if refresh enable is true and interval not set in standalone mode, no errors are returned",
 		envAndAnnots: map[string]string{
 			"MY_POD_NAMESPACE":       "test-namespace",
-			SecretsDestinationKey:    "file",
+			SecretsDestinationKey:    "k8s_secrets",
 			SecretsRefreshEnabledKey: "true",
 			ContainerModeKey:         "standalone",
+			NamespaceAllowlistKey:    "ns1,ns2",
 		},
 		assert: assertEmptyErrorList(),
 	},
@@ -386,9 +406,10 @@ var validateSecretsProviderSettingsTestCases = []validateSecretsProviderSettings
 		description: "if refresh enable is false and interval not set in standalone mode, no errors are returned",
 		envAndAnnots: map[string]string{
 			"MY_POD_NAMESPACE":       "test-namespace",
-			SecretsDestinationKey:    "file",
+			SecretsDestinationKey:    "k8s_secrets",
 			SecretsRefreshEnabledKey: "false",
 			ContainerModeKey:         "standalone",
+			NamespaceAllowlistKey:    "ns1,ns2",
 		},
 		assert: assertEmptyErrorList(),
 	},
@@ -449,6 +470,67 @@ var validateSecretsProviderSettingsTestCases = []validateSecretsProviderSettings
 			"K8S_SECRETS":             "another-secret-1,another-secret-2",
 		},
 		assert: assertEmptyErrorList(),
+	},
+	{
+		description: "standalone mode with namespace allowlist via annotation is valid",
+		envAndAnnots: map[string]string{
+			"MY_POD_NAMESPACE":    "test-namespace",
+			SecretsDestinationKey: "k8s_secrets",
+			ContainerModeKey:      "standalone",
+			NamespaceAllowlistKey: "ns1,ns2,ns3",
+		},
+		assert: assertEmptyErrorList(),
+	},
+	{
+		description: "standalone mode with namespace allowlist via env var is valid",
+		envAndAnnots: map[string]string{
+			"MY_POD_NAMESPACE":    "test-namespace",
+			SecretsDestinationKey: "k8s_secrets",
+			"CONTAINER_MODE":      "standalone",
+			"NAMESPACE_ALLOWLIST": "ns1,ns2",
+		},
+		assert: assertEmptyErrorList(),
+	},
+	{
+		description: "standalone mode without namespace allowlist returns error",
+		envAndAnnots: map[string]string{
+			"MY_POD_NAMESPACE":    "test-namespace",
+			SecretsDestinationKey: "k8s_secrets",
+			ContainerModeKey:      "standalone",
+		},
+		assert: assertErrorInList(fmt.Errorf(messages.CSPFK052E, "Namespace allowlist")),
+	},
+	{
+		description: "standalone mode with file store type returns error",
+		envAndAnnots: map[string]string{
+			"MY_POD_NAMESPACE":    "test-namespace",
+			SecretsDestinationKey: "file",
+			ContainerModeKey:      "standalone",
+			NamespaceAllowlistKey: "ns1,ns2",
+		},
+		assert: assertErrorInList(fmt.Errorf(messages.CSPFK091E, "File store type")),
+	},
+	{
+		description: "standalone mode with K8s secrets annotation returns error",
+		envAndAnnots: map[string]string{
+			"MY_POD_NAMESPACE":    "test-namespace",
+			SecretsDestinationKey: "k8s_secrets",
+			ContainerModeKey:      "standalone",
+			NamespaceAllowlistKey: "ns1,ns2",
+			k8sSecretsKey:         "- secret-1\n- secret-2\n",
+		},
+		assert: assertErrorInList(fmt.Errorf(messages.CSPFK091E, "Required K8s secrets")),
+	},
+	{
+		description: "standalone mode with K8S_SECRETS env var returns error",
+		envAndAnnots: map[string]string{
+			"MY_POD_NAMESPACE":    "test-namespace",
+			SecretsDestinationKey: "k8s_secrets",
+			ContainerModeKey:      "standalone",
+			NamespaceAllowlistKey: "ns1,ns2",
+			"K8S_SECRETS":         "secret-1,secret-2",
+		},
+		assert: assertErrorInList(fmt.Errorf(messages.CSPFK091E, "Required K8s secrets")),
 	},
 }
 
@@ -618,6 +700,44 @@ var newConfigTestCases = []newConfigTestCase{
 			RetryCountLimit:    DefaultRetryCountLimit,
 			RetryIntervalSec:   DefaultRetryIntervalSec,
 			SanitizeEnabled:    DefaultSanitizeEnabled,
+		}),
+	},
+	{
+		description: "standalone mode config with namespace allowlist from annotation",
+		settings: map[string]string{
+			"MY_POD_NAMESPACE":    "test-namespace",
+			SecretsDestinationKey: "file",
+			ContainerModeKey:      "standalone",
+			NamespaceAllowlistKey: "ns1,ns2,ns3",
+		},
+		assert: assertGoodConfig(&Config{
+			PodNamespace:       "test-namespace",
+			StoreType:          "file",
+			RequiredK8sSecrets: []string{},
+			RetryCountLimit:    DefaultRetryCountLimit,
+			RetryIntervalSec:   DefaultRetryIntervalSec,
+			SanitizeEnabled:    DefaultSanitizeEnabled,
+			ContainerMode:      "standalone",
+			NamespaceAllowlist: "ns1,ns2,ns3",
+		}),
+	},
+	{
+		description: "standalone mode config with namespace allowlist from env var",
+		settings: map[string]string{
+			"MY_POD_NAMESPACE":     "test-namespace",
+			SecretsDestinationKey: "file",
+			"CONTAINER_MODE":       "standalone",
+			"NAMESPACE_ALLOWLIST":  "default,prod",
+		},
+		assert: assertGoodConfig(&Config{
+			PodNamespace:       "test-namespace",
+			StoreType:          "file",
+			RequiredK8sSecrets: []string{},
+			RetryCountLimit:    DefaultRetryCountLimit,
+			RetryIntervalSec:   DefaultRetryIntervalSec,
+			SanitizeEnabled:    DefaultSanitizeEnabled,
+			ContainerMode:      "standalone",
+			NamespaceAllowlist: "default,prod",
 		}),
 	},
 }

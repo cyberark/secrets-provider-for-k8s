@@ -43,3 +43,4 @@ const CSPFK033I string = "CSPFK033I Removing key '%s' from Kubernetes secret '%s
 const CSPFK034I string = "CSPFK034I Allow secret '%s' without conjur-map, continue..."
 const CSPFK035I string = "CSPFK035I Exceeded max debounce delay, providing secrets (eventCount: %d)"
 const CSPFK036I string = "CSPFK036I V2 batch retrieval succeeded: retrieved %d secrets"
+const CSPFK037I string = "CSPFK037I Namespace allowlist set to '*' (all namespaces)"
