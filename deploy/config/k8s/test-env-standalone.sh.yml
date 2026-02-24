@@ -1,0 +1,103 @@
+#!/bin/bash
+set -euo pipefail
+
+CONJUR_AUTHN_LOGIN=${CONJUR_AUTHN_LOGIN:-"host/conjur/authn-k8s/${AUTHENTICATOR_ID}/apps/${APP_NAMESPACE_NAME}/*/*"}
+NAMESPACE_ALLOWLIST=${NAMESPACE_ALLOWLIST:-"*"}
+SECRETS_REFRESH_INTERVAL=${SECRETS_REFRESH_INTERVAL:-"10s"}
+REMOVE_DELETED_SECRETS=${REMOVE_DELETED_SECRETS:-"true"}
+
+cat << EOL
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: test-env
+  name: test-env
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: test-env
+  template:
+    metadata:
+      labels:
+        app: test-env
+      annotations:
+        conjur.org/authn-identity: '$CONJUR_AUTHN_LOGIN'
+        conjur.org/container-mode: "standalone"
+        conjur.org/namespace-allowlist: "${NAMESPACE_ALLOWLIST}"
+        conjur.org/secrets-refresh-enabled: "true"
+        conjur.org/secrets-refresh-interval: "${SECRETS_REFRESH_INTERVAL}"
+        conjur.org/secrets-destination: k8s_secrets
+        conjur.org/remove-deleted-secrets-enabled: "${REMOVE_DELETED_SECRETS}"
+        conjur.org/log-level: "debug"
+    spec:
+      serviceAccountName: ${APP_NAMESPACE_NAME}-sa
+      containers:
+      - image: '${PULL_DOCKER_REGISTRY_PATH}/${APP_NAMESPACE_NAME}/secrets-provider:latest'
+        imagePullPolicy: Always
+        name: cyberark-secrets-provider-for-k8s
+        volumeMounts:
+          - mountPath: /conjur/podinfo
+            name: podinfo
+        env:
+          - name: MY_POD_NAME
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.name
+
+          - name: MY_POD_NAMESPACE
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.namespace
+
+          - name: CONTAINER_MODE
+            value: "standalone"
+
+          - name: NAMESPACE_ALLOWLIST
+            value: "${NAMESPACE_ALLOWLIST}"
+
+          - name: CONJUR_APPLIANCE_URL
+            value: ${CONJUR_APPLIANCE_URL}
+
+          - name: CONJUR_AUTHN_URL
+            value: ${CONJUR_AUTHN_URL}
+
+          - name: CONJUR_ACCOUNT
+            value: ${CONJUR_ACCOUNT}
+
+          - name: CONJUR_SSL_CERTIFICATE
+            valueFrom:
+              configMapKeyRef:
+                name: conjur-master-ca-env
+                key: ssl-certificate
+
+          - name: CONJUR_AUTHN_LOGIN
+            value: ${CONJUR_AUTHN_LOGIN}
+
+      imagePullSecrets:
+        - name: dockerpullsecret
+
+      volumes:
+      - downwardAPI:
+          defaultMode: 420
+          items:
+          - fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.annotations
+            path: annotations
+        name: podinfo
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: conjur-master-ca-env
+  labels:
+    app: secrets-provider-standalone
+data:
+  ssl-certificate: |
+$(echo "${CONJUR_SSL_CERTIFICATE}" | while read line; do printf "%20s%s\n" "" "$line"; done)
+EOL

@@ -202,8 +202,31 @@ func TestRunSecretsProvider(t *testing.T) {
 			assertOn:       "success",
 		},
 		{
+			description:    "standalone container, happy path, no targets updated",
+			mode:           "standalone",
+			interval:       time.Duration(100) * time.Millisecond,
+			testTime:       time.Duration(650+atomicWriteDelayMsecs) * time.Millisecond,
+			expectedCount:  7,
+			expectProvided: true,
+			expectUpdated:  false,
+			provider:       goodProvider(),
+			assertOn:       "success",
+		},
+		{
 			description:    "sidecar container, happy path, targets updated",
 			mode:           "sidecar",
+			interval:       time.Duration(100) * time.Millisecond,
+			testTime:       time.Duration(650+atomicWriteDelayMsecs) * time.Millisecond,
+			expectedCount:  7,
+			expectProvided: true,
+			expectUpdated:  true,
+			provider:       goodProviderTargetsUpdated(),
+			assertOn:       "success",
+			targetsUpdated: true,
+		},
+		{
+			description:    "standalone container, happy path, targets updated",
+			mode:           "standalone",
 			interval:       time.Duration(100) * time.Millisecond,
 			testTime:       time.Duration(650+atomicWriteDelayMsecs) * time.Millisecond,
 			expectedCount:  7,
@@ -287,6 +310,17 @@ func TestRunSecretsProvider(t *testing.T) {
 			assertOn:       "fail",
 		},
 		{
+			description:    "badProvider for standalone container",
+			mode:           "standalone",
+			interval:       time.Duration(100) * time.Millisecond,
+			testTime:       time.Duration(250) * time.Millisecond,
+			expectedCount:  1,
+			expectProvided: false,
+			expectUpdated:  false,
+			provider:       badProvider(),
+			assertOn:       "fail",
+		},
+		{
 			description:    "goodAtFirstThenBadProvider for sidecar",
 			mode:           "sidecar",
 			interval:       time.Duration(100) * time.Millisecond,
@@ -313,6 +347,7 @@ func TestRunSecretsProvider(t *testing.T) {
 			var providerQuit = make(chan struct{})
 			refreshConfig := ProviderRefreshConfig{
 				Mode:                  tc.mode,
+				RunOnce:               tc.mode != "sidecar" && tc.mode != "standalone",
 				SecretRefreshInterval: tc.interval,
 				ProviderQuit:          providerQuit,
 			}
@@ -383,6 +418,7 @@ func TestRunSecretsProviderSidecarWithSignalHandling(t *testing.T) {
 	providerQuit := make(chan struct{})
 	refreshConfig := ProviderRefreshConfig{
 		Mode:                  "sidecar",
+		RunOnce:               false,
 		SecretRefreshInterval: time.Duration(0), // No periodic refresh
 		ProviderQuit:          providerQuit,
 		InformerEvents:        nil, // No informer - triggers signal handler code path

@@ -47,6 +47,7 @@ var envAnnotationsConversion = map[string]string{
 	"LOG_TRACES":             "conjur.org/log-traces",
 	"JWT_TOKEN_PATH":         "conjur.org/jwt-token-path",
 	"REMOVE_DELETED_SECRETS": "conjur.org/remove-deleted-secrets-enabled",
+	"NAMESPACE_ALLOWLIST":    "conjur.org/namespace-allowlist",
 }
 
 func StartSecretsProvider() {
@@ -122,16 +123,17 @@ func startSecretsProviderWithDeps(
 		provideSecrets,
 	)
 
+	containerMode := getContainerMode()
+	runOnce := containerMode != "sidecar" && containerMode != "standalone"
+
 	// Create channel for informer events only when using labeled secrets mode
 	var informerEventsChan chan k8sinformer.SecretEvent
 
 	// Start the K8s Secret informer ONLY when the following conditions are met:
-	// - Container mode is sidecar
+	// - Container mode is sidecar or standalone
 	// - Store type is k8s_secrets
 	// - There are no pre-configured secrets on the SP container config (using labeled secrets)
-	if getContainerMode() == "sidecar" &&
-		secretsConfig.StoreType == "k8s_secrets" &&
-		len(secretsConfig.RequiredK8sSecrets) == 0 {
+	if !runOnce && secretsConfig.StoreType == "k8s_secrets" && len(secretsConfig.RequiredK8sSecrets) == 0 {
 		// Create channel for informer events
 		informerEventsChan = make(chan k8sinformer.SecretEvent, 10)
 
@@ -146,7 +148,6 @@ func startSecretsProviderWithDeps(
 			// will refresh secrets on each time-based interval assuming we rebuild the list on each run in this mode
 			if err := informer.Start(); err != nil {
 				log.Error(messages.CSPFK072E, err)
-				// Stop the informer to clean up background resources and goroutines if any
 				informer.Stop()
 			}
 		}
@@ -154,7 +155,8 @@ func startSecretsProviderWithDeps(
 
 	if err = secrets.RunSecretsProvider(
 		secrets.ProviderRefreshConfig{
-			Mode:                  getContainerMode(),
+			Mode:                  containerMode,
+			RunOnce:               runOnce,
 			SecretRefreshInterval: secretsConfig.SecretsRefreshInterval,
 			// Create a channel to send a quit signal to the periodic secret provider.
 			// TODO: Currently, this is just used for testing, but in the future we
@@ -246,6 +248,7 @@ func secretsProvider(
 		K8sProviderConfig: k8sSecretsStorage.K8sProviderConfig{
 			PodNamespace:       secretsConfig.PodNamespace,
 			RequiredK8sSecrets: secretsConfig.RequiredK8sSecrets,
+			IsRepeatableMode:   secretsConfig.ContainerMode == "standalone",
 		},
 		P2FProviderConfig: pushtofile.P2FProviderConfig{
 			SecretFileBasePath:   secretsBasePath,
@@ -316,7 +319,7 @@ func getContainerMode() string {
 	containerMode := "init"
 	if mode, exists := annotationsMap[secretsConfigProvider.ContainerModeKey]; exists {
 		containerMode = mode
-	} else if mode = os.Getenv("CONTAINER_MODE"); mode == "sidecar" || mode == "application" {
+	} else if mode = os.Getenv("CONTAINER_MODE"); mode == "sidecar" || mode == "application" || mode == "standalone" {
 		containerMode = mode
 	}
 	return containerMode

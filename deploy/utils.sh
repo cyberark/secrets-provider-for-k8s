@@ -645,8 +645,11 @@ deploy_env() {
     "p2f-rotation")
       yaml_template_name="test-env-p2f-rotation"
       ;;
+    "standalone")
+      yaml_template_name="test-env-standalone"
+      ;;
     *)
-      echo "Invalid or missing SECRETS_MODE variable. Allowed values are: k8s, k8s-rotation, p2f, p2f-rotation."
+      echo "Invalid or missing SECRETS_MODE variable. Allowed values are: k8s, k8s-rotation, p2f, p2f-rotation, standalone."
       echo "Deploying with default config (k8s)."
       ;;
   esac

@@ -135,6 +135,7 @@ func RetryableSecretProvider(
 // for a repeatable secret provider.
 type ProviderRefreshConfig struct {
 	Mode                  string
+	RunOnce               bool // true for init/application: run once, return on errors
 	SecretRefreshInterval time.Duration
 	ProviderQuit          chan struct{}
 	InformerEvents        <-chan k8sinformer.SecretEvent
@@ -159,20 +160,24 @@ func RunSecretsProvider(
 	if err = status.CopyScripts(); err != nil {
 		return err
 	}
-	if _, err = provideSecrets(); err != nil {
-		// Return immediately upon error, regardless of operating mode
+	if _, err = provideSecrets(); err != nil && config.RunOnce {
+		// Return immediately upon error, except when running in sidecar/standalone mode
+		// In these modes the error may fixable without a container restart
 		return err
 	}
-	err = status.SetSecretsProvided()
-	if err != nil {
-		return err
+	if err == nil {
+		err = status.SetSecretsProvided()
+		// In sidecar or standalone mode provider should keep running
+		if err != nil && config.RunOnce {
+			return err
+		}
 	}
 	switch {
-	case config.Mode != "sidecar":
-		// Run once and return if not in sidecar mode
+	case config.RunOnce:
+		// Run once and return if not in sidecar/standalone mode
 		return nil
 	default:
-		// In sidecar mode, we can run both informer and periodic refresh simultaneously
+		// In sidecar and standalone mode, we can run both informer and periodic refresh simultaneously
 		// Start informer-triggered provider if informer events channel is provided
 		if config.InformerEvents != nil {
 			informerCfg := informerConfig{
@@ -204,7 +209,12 @@ func RunSecretsProvider(
 		case <-config.ProviderQuit:
 			break
 		case err = <-periodicError:
-			break
+			// Periodic provider in standalone mode should keep working. Errors may be
+			// fixable without a container restart, and stopping the contiainer could effect
+			// many workloads if it's a transient error.
+			if config.Mode != "standalone" {
+				break
+			}
 		}
 
 		// Allow the background goroutines to gracefully shut down

@@ -105,12 +105,17 @@ type K8sProvider struct {
 	mu sync.Mutex
 	// Maps template groups to corresponding K8S Secret
 	secretsGroups map[string][]*filetemplates.SecretGroup
+	//whether provider runs in repeatable mode or not.
+	//In some cases no hard errors are returned but logs to make provider
+	//running endlessly
+	isRepeatable bool
 }
 
 // K8sProviderConfig provides config specific to Kubernetes Secrets provider
 type K8sProviderConfig struct {
 	PodNamespace       string
 	RequiredK8sSecrets []string
+	IsRepeatableMode   bool
 }
 
 // NewProvider creates a new secret provider for K8s Secrets mode.
@@ -167,6 +172,7 @@ func newProvider(
 		traceContext:         traceContext,
 		prevSecretsChecksums: map[string]utils.Checksum{},
 		secretsGroups:        map[string][]*filetemplates.SecretGroup{},
+		isRepeatable:         config.IsRepeatableMode,
 	}
 }
 
@@ -225,16 +231,28 @@ func (p *K8sProvider) ProvideWithCleanup(keysToRemove map[string][]string) (bool
 			}
 		}
 
-		return updated, p.log.recordedError(messages.CSPFK034E, err.Error())
+		if p.isRepeatable {
+			p.log.logError(messages.CSPFK034E, err.Error())
+			// Avoid returning an error here, which would result in the provider container being stopped
+		} else {
+			return updated, p.log.recordedError(messages.CSPFK034E, err.Error())
+		}
 	}
 
 	// Update all K8s Secrets with the retrieved Conjur secrets.
 	updated, err = p.updateRequiredK8sSecretsWithCleanup(retrievedConjurSecrets, tr, keysToRemove)
 	if err != nil {
-		return updated, p.log.recordedError(messages.CSPFK023E)
+		if p.isRepeatable {
+			p.log.logError(messages.CSPFK023E, err.Error())
+			// Avoid returning an error here, which would result in the provider container being stopped
+		} else {
+			return updated, p.log.recordedError(messages.CSPFK023E)
+		}
 	}
 
-	p.log.info(messages.CSPFK009I)
+	if updated {
+		p.log.info(messages.CSPFK009I)
+	}
 	return updated, nil
 }
 
@@ -559,7 +577,12 @@ func (p *K8sProvider) retrieveConjurSecrets(tracer trace.Tracer) (map[string][]b
 	retrievedConjurSecrets, err := p.conjur.retrieveSecrets(variableIDs, spanCtx)
 	if err != nil {
 		span.RecordErrorAndSetStatus(err)
-		return nil, p.log.recordedError(messages.CSPFK034E, err.Error())
+		if p.isRepeatable {
+			p.log.logError(messages.CSPFK034E, err.Error())
+			// Avoid returning an error here, which would result in the provider container being stopped
+		} else {
+			return retrievedConjurSecrets, p.log.recordedError(messages.CSPFK034E, err.Error())
+		}
 	}
 	return retrievedConjurSecrets, nil
 }

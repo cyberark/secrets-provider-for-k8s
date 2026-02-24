@@ -38,6 +38,8 @@ type Config struct {
 	StoreType              string
 	SecretsRefreshInterval time.Duration
 	SanitizeEnabled        bool
+	ContainerMode          string
+	NamespaceAllowlist     string
 }
 
 type annotationType int
@@ -59,6 +61,7 @@ const (
 	AuthnIdentityKey      = "conjur.org/authn-identity"
 	JwtTokenPath          = "conjur.org/jwt-token-path"
 	ContainerModeKey      = "conjur.org/container-mode"
+	NamespaceAllowlistKey = "conjur.org/namespace-allowlist"
 	SecretsDestinationKey = "conjur.org/secrets-destination"
 	k8sSecretsKey         = "conjur.org/k8s-secrets"
 	retryCountLimitKey    = "conjur.org/retry-count-limit"
@@ -82,7 +85,8 @@ const (
 var secretsProviderAnnotations = map[string]annotationRestraints{
 	AuthnIdentityKey:          {TYPESTRING, []string{}},
 	JwtTokenPath:              {TYPESTRING, []string{}},
-	ContainerModeKey:          {TYPESTRING, []string{"init", "application", "sidecar"}},
+	ContainerModeKey:          {TYPESTRING, []string{"init", "application", "sidecar", "standalone"}},
+	NamespaceAllowlistKey:     {TYPESTRING, []string{}},
 	SecretsDestinationKey:     {TYPESTRING, []string{"file", "k8s_secrets"}},
 	k8sSecretsKey:             {TYPESTRING, []string{}},
 	retryCountLimitKey:        {TYPEINT, []string{}},
@@ -119,6 +123,7 @@ var validEnvVars = []string{
 	"JWT_TOKEN_PATH",
 	"REMOVE_DELETED_SECRETS",
 	"CONTAINER_MODE",
+	"NAMESPACE_ALLOWLIST",
 }
 
 // ValidateAnnotations confirms that the provided annotations are properly
@@ -225,6 +230,40 @@ func ValidateSecretsProviderSettings(envAndAnnots map[string]string) ([]error, [
 	if err != nil {
 		errorList = append(errorList, err)
 	}
+
+	// Resolve container mode (annotation takes precedence over env)
+	annotContainerMode := envAndAnnots[ContainerModeKey]
+	envContainerMode := envAndAnnots["CONTAINER_MODE"]
+	containerMode := annotContainerMode
+	if containerMode == "" {
+		containerMode = envContainerMode
+	}
+	if annotContainerMode != "" && envContainerMode != "" {
+		infoList = append(infoList, fmt.Errorf(messages.CSPFK012I, "ContainerMode", "CONTAINER_MODE", ContainerModeKey))
+	}
+
+	// Validate standalone mode:
+	// - must have a namespace allowlist (annotation or env var)
+	// - should warn if namespace allowlist is set to '*'
+	// - must not have required K8s secrets (standalone uses label-based mode only)
+	// - must not be file store type
+	if containerMode == "standalone" {
+		namespaceAllowlist := envAndAnnots[NamespaceAllowlistKey]
+		if namespaceAllowlist == "" {
+			namespaceAllowlist = envAndAnnots["NAMESPACE_ALLOWLIST"]
+		}
+		if strings.TrimSpace(namespaceAllowlist) == "" {
+			errorList = append(errorList, fmt.Errorf(messages.CSPFK052E, "Namespace allowlist"))
+		} else if strings.TrimSpace(namespaceAllowlist) == "*" {
+			infoList = append(infoList, fmt.Errorf(messages.CSPFK037I))
+		}
+		if strings.TrimSpace(envAndAnnots[k8sSecretsKey]) != "" || strings.TrimSpace(envAndAnnots["K8S_SECRETS"]) != "" {
+			errorList = append(errorList, fmt.Errorf(messages.CSPFK093E, "Required K8s secrets"))
+		}
+		if storeType == "file" {
+			errorList = append(errorList, fmt.Errorf(messages.CSPFK093E, "File store type"))
+		}
+	}
 	return errorList, infoList
 }
 
@@ -270,6 +309,17 @@ func NewConfig(settings map[string]string) *Config {
 	}
 	sanitizeEnable := parseBoolFromStringOrDefault(sanitizeEnableStr, DefaultSanitizeEnabled)
 
+	containerMode := settings[ContainerModeKey]
+	envContainerMode := settings["CONTAINER_MODE"]
+	if containerMode == "" {
+		containerMode = envContainerMode
+	}
+
+	namespaceAllowlist := settings[NamespaceAllowlistKey]
+	if namespaceAllowlist == "" {
+		namespaceAllowlist = settings["NAMESPACE_ALLOWLIST"]
+	}
+
 	return &Config{
 		PodNamespace:           podNamespace,
 		RequiredK8sSecrets:     k8sSecretsArr,
@@ -278,6 +328,8 @@ func NewConfig(settings map[string]string) *Config {
 		StoreType:              storeType,
 		SecretsRefreshInterval: refreshInterval,
 		SanitizeEnabled:        sanitizeEnable,
+		ContainerMode:          containerMode,
+		NamespaceAllowlist:     namespaceAllowlist,
 	}
 }
 
@@ -390,7 +442,7 @@ func validRefreshInterval(intervalStr string, enableStr string, envAndAnnots map
 	}
 
 	if intervalStr != "" || enableStr != "" {
-		if containerMode != "sidecar" {
+		if containerMode != "sidecar" && containerMode != "standalone" {
 			return fmt.Errorf(messages.CSPFK051E, "Secrets refresh is enabled while container mode is set to", containerMode)
 		}
 		enabled, _ := strconv.ParseBool(enableStr)
