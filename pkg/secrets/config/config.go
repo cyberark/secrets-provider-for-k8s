@@ -258,10 +258,10 @@ func ValidateSecretsProviderSettings(envAndAnnots map[string]string) ([]error, [
 			infoList = append(infoList, fmt.Errorf(messages.CSPFK037I))
 		}
 		if strings.TrimSpace(envAndAnnots[k8sSecretsKey]) != "" || strings.TrimSpace(envAndAnnots["K8S_SECRETS"]) != "" {
-			errorList = append(errorList, fmt.Errorf(messages.CSPFK091E, "Required K8s secrets"))
+			errorList = append(errorList, fmt.Errorf(messages.CSPFK093E, "Required K8s secrets"))
 		}
 		if storeType == "file" {
-			errorList = append(errorList, fmt.Errorf(messages.CSPFK091E, "File store type"))
+			errorList = append(errorList, fmt.Errorf(messages.CSPFK093E, "File store type"))
 		}
 	}
 	return errorList, infoList

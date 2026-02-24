@@ -35,7 +35,6 @@ func (w *conjurClientWrapper) RetrieveBatchSecretsSafe(variableIDs []string) (ma
 		}
 	}
 
-	log.Debug(messages.CSPFK017D, "Using V1 batch retrieval")
 	return w.client.RetrieveBatchSecretsSafe(variableIDs)
 }
 

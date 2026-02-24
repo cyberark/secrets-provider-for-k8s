@@ -125,7 +125,7 @@ const CSPFK086E string = "CSPFK086E Secret %s has removed the label '%s' and wil
 const CSPFK084I string = "CSPFK084I Secret informer notifier has nil events channel, skip sending event"
 
 // Standalone mode
-const CSPFK091E string = "CSPFK091E %s must not be configured in standalone mode"
+const CSPFK093E string = "CSPFK093E %s must not be configured in standalone mode"
 
 // Group templates
 const CSPFK087E string = "CSPFK087E Value for '%s' group alias '%s' not fetched from Conjur"

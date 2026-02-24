@@ -187,20 +187,20 @@ var gatherSecretsProviderSettingsTestCases = []gatherSecretsProviderSettingsTest
 	{
 		description: "namespace allowlist annotation and env var are gathered for standalone mode",
 		annotations: map[string]string{
-			SecretsDestinationKey:    "file",
-			ContainerModeKey:         "standalone",
-			NamespaceAllowlistKey:    "ns1,ns2",
+			SecretsDestinationKey: "file",
+			ContainerModeKey:      "standalone",
+			NamespaceAllowlistKey: "ns1,ns2",
 		},
 		env: map[string]string{
-			"MY_POD_NAMESPACE":     "test-namespace",
+			"MY_POD_NAMESPACE":    "test-namespace",
 			"NAMESPACE_ALLOWLIST": "ns1,ns2",
 		},
 		assert: assertGoodMap(map[string]string{
-			SecretsDestinationKey:       "file",
-			ContainerModeKey:            "standalone",
-			NamespaceAllowlistKey:       "ns1,ns2",
-			"MY_POD_NAMESPACE":          "test-namespace",
-			"NAMESPACE_ALLOWLIST":       "ns1,ns2",
+			SecretsDestinationKey: "file",
+			ContainerModeKey:      "standalone",
+			NamespaceAllowlistKey: "ns1,ns2",
+			"MY_POD_NAMESPACE":    "test-namespace",
+			"NAMESPACE_ALLOWLIST": "ns1,ns2",
 		}),
 	},
 }
@@ -508,7 +508,7 @@ var validateSecretsProviderSettingsTestCases = []validateSecretsProviderSettings
 			ContainerModeKey:      "standalone",
 			NamespaceAllowlistKey: "ns1,ns2",
 		},
-		assert: assertErrorInList(fmt.Errorf(messages.CSPFK091E, "File store type")),
+		assert: assertErrorInList(fmt.Errorf(messages.CSPFK093E, "File store type")),
 	},
 	{
 		description: "standalone mode with K8s secrets annotation returns error",
@@ -519,7 +519,7 @@ var validateSecretsProviderSettingsTestCases = []validateSecretsProviderSettings
 			NamespaceAllowlistKey: "ns1,ns2",
 			k8sSecretsKey:         "- secret-1\n- secret-2\n",
 		},
-		assert: assertErrorInList(fmt.Errorf(messages.CSPFK091E, "Required K8s secrets")),
+		assert: assertErrorInList(fmt.Errorf(messages.CSPFK093E, "Required K8s secrets")),
 	},
 	{
 		description: "standalone mode with K8S_SECRETS env var returns error",
@@ -530,7 +530,7 @@ var validateSecretsProviderSettingsTestCases = []validateSecretsProviderSettings
 			NamespaceAllowlistKey: "ns1,ns2",
 			"K8S_SECRETS":         "secret-1,secret-2",
 		},
-		assert: assertErrorInList(fmt.Errorf(messages.CSPFK091E, "Required K8s secrets")),
+		assert: assertErrorInList(fmt.Errorf(messages.CSPFK093E, "Required K8s secrets")),
 	},
 }
 
@@ -724,10 +724,10 @@ var newConfigTestCases = []newConfigTestCase{
 	{
 		description: "standalone mode config with namespace allowlist from env var",
 		settings: map[string]string{
-			"MY_POD_NAMESPACE":     "test-namespace",
+			"MY_POD_NAMESPACE":    "test-namespace",
 			SecretsDestinationKey: "file",
-			"CONTAINER_MODE":       "standalone",
-			"NAMESPACE_ALLOWLIST":  "default,prod",
+			"CONTAINER_MODE":      "standalone",
+			"NAMESPACE_ALLOWLIST": "default,prod",
 		},
 		assert: assertGoodConfig(&Config{
 			PodNamespace:       "test-namespace",

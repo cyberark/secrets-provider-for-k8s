@@ -123,6 +123,9 @@ func startSecretsProviderWithDeps(
 		provideSecrets,
 	)
 
+	containerMode := getContainerMode()
+	runOnce := containerMode != "sidecar" && containerMode != "standalone"
+
 	// Create channel for informer events only when using labeled secrets mode
 	var informerEventsChan chan k8sinformer.SecretEvent
 
@@ -130,9 +133,7 @@ func startSecretsProviderWithDeps(
 	// - Container mode is sidecar or standalone
 	// - Store type is k8s_secrets
 	// - There are no pre-configured secrets on the SP container config (using labeled secrets)
-	if getContainerMode() == "sidecar" || getContainerMode() == "standalone" &&
-		secretsConfig.StoreType == "k8s_secrets" &&
-		len(secretsConfig.RequiredK8sSecrets) == 0 {
+	if !runOnce && secretsConfig.StoreType == "k8s_secrets" && len(secretsConfig.RequiredK8sSecrets) == 0 {
 		// Create channel for informer events
 		informerEventsChan = make(chan k8sinformer.SecretEvent, 10)
 
@@ -152,11 +153,10 @@ func startSecretsProviderWithDeps(
 		}
 	}
 
-	containerMode := getContainerMode()
 	if err = secrets.RunSecretsProvider(
 		secrets.ProviderRefreshConfig{
 			Mode:                  containerMode,
-			RunOnce:               containerMode != "sidecar" && containerMode != "standalone",
+			RunOnce:               runOnce,
 			SecretRefreshInterval: secretsConfig.SecretsRefreshInterval,
 			// Create a channel to send a quit signal to the periodic secret provider.
 			// TODO: Currently, this is just used for testing, but in the future we
