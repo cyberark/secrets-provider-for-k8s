@@ -40,6 +40,7 @@ type Config struct {
 	SanitizeEnabled        bool
 	ContainerMode          string
 	NamespaceAllowlist     string
+	ServerAddress          string
 }
 
 type annotationType int
@@ -79,6 +80,7 @@ const (
 	logTracesKey            = "conjur.org/log-traces"
 	jaegerCollectorUrl      = "conjur.org/jaeger-collector-url"
 	ManagedByProviderKey    = "conjur.org/managed-by-provider"
+	ServerAddressKey        = "conjur.org/server-address"
 )
 
 // Define supported annotation keys for Secrets Provider config, as well as value restraints for each
@@ -98,6 +100,7 @@ var secretsProviderAnnotations = map[string]annotationRestraints{
 	logLevelKey:               {TYPESTRING, []string{"debug", "info", "warn", "error"}},
 	logTracesKey:              {TYPEBOOL, []string{}},
 	jaegerCollectorUrl:        {TYPESTRING, []string{}},
+	ServerAddressKey:          {TYPESTRING, []string{}},
 }
 
 // Define supported annotation key prefixes for Push to File config, as well as value restraints for each.
@@ -124,6 +127,7 @@ var validEnvVars = []string{
 	"REMOVE_DELETED_SECRETS",
 	"CONTAINER_MODE",
 	"NAMESPACE_ALLOWLIST",
+	"SERVER_ADDRESS",
 }
 
 // ValidateAnnotations confirms that the provided annotations are properly
@@ -310,14 +314,18 @@ func NewConfig(settings map[string]string) *Config {
 	sanitizeEnable := parseBoolFromStringOrDefault(sanitizeEnableStr, DefaultSanitizeEnabled)
 
 	containerMode := settings[ContainerModeKey]
-	envContainerMode := settings["CONTAINER_MODE"]
 	if containerMode == "" {
-		containerMode = envContainerMode
+		containerMode = settings["CONTAINER_MODE"]
 	}
 
 	namespaceAllowlist := settings[NamespaceAllowlistKey]
 	if namespaceAllowlist == "" {
 		namespaceAllowlist = settings["NAMESPACE_ALLOWLIST"]
+	}
+
+	serverAddress := settings[ServerAddressKey]
+	if serverAddress == "" {
+		serverAddress = settings["SERVER_ADDRESS"]
 	}
 
 	return &Config{
@@ -330,6 +338,7 @@ func NewConfig(settings map[string]string) *Config {
 		SanitizeEnabled:        sanitizeEnable,
 		ContainerMode:          containerMode,
 		NamespaceAllowlist:     namespaceAllowlist,
+		ServerAddress:          serverAddress,
 	}
 }
 

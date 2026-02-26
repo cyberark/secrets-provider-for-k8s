@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -17,6 +18,7 @@ import (
 	k8sinformer "github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/k8s_informer"
 	k8sSecretsStorage "github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/k8s_secrets_storage"
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/pushtofile"
+	"github.com/cyberark/secrets-provider-for-k8s/pkg/server"
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/utils"
 )
 
@@ -150,28 +152,51 @@ func RunSecretsProvider(
 	config ProviderRefreshConfig,
 	provideSecrets ProviderFunc,
 	status StatusUpdater,
+	httpServer *server.Server,
 ) error {
-
 	var periodicQuit = make(chan struct{})
 	var periodicError = make(chan error)
 	var ticker *time.Ticker
 	var err error
+	var readyFailures atomic.Int32
+
+	setReady := func(err error) {
+		if httpServer == nil {
+			return
+		}
+
+		// Succeeded on last attempt, reset failure count and set ready
+		if err == nil {
+			readyFailures.Store(0)
+			httpServer.SetReady(true)
+			return
+		}
+
+		httpServer.SetReady(false)
+	}
 
 	if err = status.CopyScripts(); err != nil {
 		return err
 	}
+
 	if _, err = provideSecrets(); err != nil && config.RunOnce {
 		// Return immediately upon error, except when running in sidecar/standalone mode
 		// In these modes the error may fixable without a container restart
 		return err
 	}
+	// Update ready status only based on core secrets provisioning result
+	setReady(err)
+
+	// SetSecretsProvided only runs if initial provisioning succeeded
 	if err == nil {
 		err = status.SetSecretsProvided()
-		// In sidecar or standalone mode provider should keep running
+		// In sidecar or standalone mode provider should keep running even if this fails
+		// Note: httpServer is typically nil in RunOnce mode, so setReady is a no-op above
 		if err != nil && config.RunOnce {
 			return err
 		}
 	}
+
 	switch {
 	case config.RunOnce:
 		// Run once and return if not in sidecar/standalone mode
@@ -184,9 +209,11 @@ func RunSecretsProvider(
 				informerEvents: config.InformerEvents,
 				periodicQuit:   periodicQuit,
 				periodicError:  periodicError,
+				onSetReady:     setReady,
 			}
 			go informerTriggeredProvider(provideSecrets, informerCfg, status)
 		}
+
 		// Start periodic refresh if interval is set
 		if config.SecretRefreshInterval > 0 {
 			ticker = time.NewTicker(config.SecretRefreshInterval)
@@ -194,6 +221,7 @@ func RunSecretsProvider(
 				ticker:        ticker,
 				periodicQuit:  periodicQuit,
 				periodicError: periodicError,
+				onSetReady:    setReady,
 			}
 			go periodicSecretProvider(provideSecrets, periodicCfg, status)
 		}
@@ -201,6 +229,7 @@ func RunSecretsProvider(
 		// fall through to sleep forever
 	}
 
+	err = nil
 	// Wait here for a signal to quit providing secrets or an error
 	// from the periodicSecretProvider() or informerTriggeredProvider() function
 	if config.SecretRefreshInterval > 0 || config.InformerEvents != nil {
@@ -210,11 +239,12 @@ func RunSecretsProvider(
 			break
 		case err = <-periodicError:
 			// Periodic provider in standalone mode should keep working. Errors may be
-			// fixable without a container restart, and stopping the contiainer could effect
+			// fixable without a container restart, and stopping the container could affect
 			// many workloads if it's a transient error.
 			if config.Mode != "standalone" {
 				break
 			}
+			err = nil // reset error to keep running
 		}
 
 		// Allow the background goroutines to gracefully shut down
@@ -248,6 +278,7 @@ type periodicConfig struct {
 	ticker        *time.Ticker
 	periodicQuit  <-chan struct{}
 	periodicError chan<- error
+	onSetReady    func(error)
 }
 
 func periodicSecretProvider(
@@ -261,6 +292,8 @@ func periodicSecretProvider(
 			return
 		case <-config.ticker.C:
 			updated, err := provideSecrets()
+			config.onSetReady(err)
+
 			if err == nil && updated {
 				err = status.SetSecretsUpdated()
 			}
@@ -275,6 +308,7 @@ type informerConfig struct {
 	informerEvents <-chan k8sinformer.SecretEvent
 	periodicQuit   <-chan struct{}
 	periodicError  chan<- error
+	onSetReady     func(error)
 }
 
 func informerTriggeredProvider(
@@ -304,6 +338,8 @@ func informerTriggeredProvider(
 		} else {
 			updated, err = provideSecrets()
 		}
+		config.onSetReady(err)
+
 		if err == nil && updated {
 			err = status.SetSecretsUpdated()
 		}

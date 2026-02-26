@@ -131,3 +131,6 @@ const CSPFK093E string = "CSPFK093E %s must not be configured in standalone mode
 const CSPFK087E string = "CSPFK087E Value for '%s' group alias '%s' not fetched from Conjur"
 const CSPFK088E string = "CSPFK088E Unable to get template for %s group in %s secret: %s"
 const CSPFK089E string = "CSPFK089E Failed to render template for %s group in %s secret: %s"
+
+// Http server
+const CSPFK094E string = "CSPFK094E Failed to create HTTP server: %v"

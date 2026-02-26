@@ -2,9 +2,11 @@ package secrets
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"log"
+	"net/http"
 	"os"
 	"syscall"
 	"testing"
@@ -15,6 +17,7 @@ import (
 	k8sinformer "github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/k8s_informer"
 	k8sSecretsStorage "github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/k8s_secrets_storage"
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/pushtofile"
+	"github.com/cyberark/secrets-provider-for-k8s/pkg/server"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	v1 "k8s.io/api/core/v1"
@@ -314,11 +317,11 @@ func TestRunSecretsProvider(t *testing.T) {
 			mode:           "standalone",
 			interval:       time.Duration(100) * time.Millisecond,
 			testTime:       time.Duration(250) * time.Millisecond,
-			expectedCount:  1,
+			expectedCount:  2, // In standalone mode, the provider is called once at the beginning and once more after the first failure when it retries, then it fails
 			expectProvided: false,
 			expectUpdated:  false,
 			provider:       badProvider(),
-			assertOn:       "fail",
+			assertOn:       "success", // The error will be reset to nil in standalone mode so that the provider continues to be retried
 		},
 		{
 			description:    "goodAtFirstThenBadProvider for sidecar",
@@ -352,10 +355,24 @@ func TestRunSecretsProvider(t *testing.T) {
 				ProviderQuit:          providerQuit,
 			}
 
+			// Create HTTP server for standalone mode
+			var httpServer *server.Server
+			if tc.mode == "standalone" {
+				var err2 error
+				httpServer, err2 = server.NewServer("127.0.0.1:0")
+				assert.NoError(t, err2)
+				httpServer.Start()
+				defer func() {
+					ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+					defer cancel()
+					_ = httpServer.Shutdown(ctx)
+				}()
+			}
+
 			// Run the secrets provider
 			testError := make(chan error)
 			go func() {
-				err := RunSecretsProvider(refreshConfig, tc.provider.provide, fileUpdater)
+				err := RunSecretsProvider(refreshConfig, tc.provider.provide, fileUpdater, httpServer)
 				testError <- err
 			}()
 			select {
@@ -427,7 +444,7 @@ func TestRunSecretsProviderSidecarWithSignalHandling(t *testing.T) {
 	// Run the secrets provider in a goroutine
 	done := make(chan error, 1)
 	go func() {
-		done <- RunSecretsProvider(refreshConfig, provider.provide, updater.fileUpdater)
+		done <- RunSecretsProvider(refreshConfig, provider.provide, updater.fileUpdater, nil)
 	}()
 
 	// Give it time to complete initial provision and reach the signal handling block
@@ -458,6 +475,139 @@ func TestRunSecretsProviderSidecarWithSignalHandling(t *testing.T) {
 		assert.NoError(t, err, "Should shut down gracefully without error")
 	case <-time.After(2 * time.Second):
 		t.Fatal("RunSecretsProvider did not respond to SIGTERM within timeout")
+	}
+}
+
+func TestRunSecretsProviderStandaloneHealthEndpoints(t *testing.T) {
+	provider := goodProvider()
+	updater, err := newTestStatusUpdater(injectErrs{})
+	require.NoError(t, err)
+	defer updater.cleanup()
+
+	// Create HTTP server
+	httpServer, err := server.NewServer("127.0.0.1:0")
+	require.NoError(t, err)
+	httpServer.Start()
+	defer func() {
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+		defer cancel()
+		_ = httpServer.Shutdown(ctx)
+	}()
+
+	serverAddress := httpServer.Address()
+
+	providerQuit := make(chan struct{})
+	refreshConfig := ProviderRefreshConfig{
+		Mode:                  "standalone",
+		SecretRefreshInterval: 0,
+		ProviderQuit:          providerQuit,
+	}
+
+	done := make(chan error, 1)
+	go func() {
+		done <- RunSecretsProvider(refreshConfig, provider.provide, updater.fileUpdater, httpServer)
+	}()
+
+	baseURL := "http://" + serverAddress
+	client := &http.Client{Timeout: 200 * time.Millisecond}
+
+	assert.Eventually(t, func() bool {
+		resp, reqErr := client.Get(baseURL + "/healthz")
+		if reqErr != nil {
+			return false
+		}
+		defer resp.Body.Close()
+		return resp.StatusCode == http.StatusOK
+	}, 2*time.Second, 20*time.Millisecond)
+
+	assert.Eventually(t, func() bool {
+		resp, reqErr := client.Get(baseURL + "/readyz")
+		if reqErr != nil {
+			return false
+		}
+		defer resp.Body.Close()
+		return resp.StatusCode == http.StatusOK
+	}, 2*time.Second, 20*time.Millisecond)
+
+	providerQuit <- struct{}{}
+	select {
+	case runErr := <-done:
+		assert.NoError(t, runErr)
+	case <-time.After(2 * time.Second):
+		t.Fatal("RunSecretsProvider did not stop within timeout")
+	}
+}
+
+func TestRunSecretsProviderStandaloneReadinessRecoversAfterInitialFailure(t *testing.T) {
+	providerCallCount := 0
+	provider := func() (bool, error) {
+		providerCallCount++
+		if providerCallCount == 1 {
+			return false, errors.New("Failed to Provide")
+		}
+		return true, nil
+	}
+
+	updater, err := newTestStatusUpdater(injectErrs{})
+	require.NoError(t, err)
+	defer updater.cleanup()
+
+	httpServer, err := server.NewServer("127.0.0.1:0")
+	require.NoError(t, err)
+	httpServer.Start()
+	defer func() {
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+		defer cancel()
+		_ = httpServer.Shutdown(ctx)
+	}()
+
+	providerQuit := make(chan struct{})
+	refreshConfig := ProviderRefreshConfig{
+		Mode:                  "standalone",
+		SecretRefreshInterval: 300 * time.Millisecond,
+		ProviderQuit:          providerQuit,
+	}
+
+	done := make(chan error, 1)
+	go func() {
+		done <- RunSecretsProvider(refreshConfig, provider, updater.fileUpdater, httpServer)
+	}()
+
+	baseURL := "http://" + httpServer.Address()
+	client := &http.Client{Timeout: 200 * time.Millisecond}
+
+	// Wait for initial provision to complete (which will fail)
+	time.Sleep(100 * time.Millisecond)
+
+	// Verify readyz returns 503 after first failure
+	assert.Eventually(t, func() bool {
+		resp, reqErr := client.Get(baseURL + "/readyz")
+		if reqErr != nil {
+			return false
+		}
+		defer resp.Body.Close()
+		return resp.StatusCode == http.StatusServiceUnavailable
+	}, 500*time.Millisecond, 50*time.Millisecond, "readyz should return 503 after initial failure")
+
+	// Wait for next refresh cycle (which will succeed)
+	time.Sleep(400 * time.Millisecond)
+
+	// Verify readyz recovers to 200 after successful provision
+	assert.Eventually(t, func() bool {
+		resp, reqErr := client.Get(baseURL + "/readyz")
+		if reqErr != nil {
+			return false
+		}
+		defer resp.Body.Close()
+		return resp.StatusCode == http.StatusOK
+	}, 1*time.Second, 50*time.Millisecond, "readyz should return 200 after recovery")
+
+	providerQuit <- struct{}{}
+	select {
+	case runErr := <-done:
+		assert.NoError(t, runErr)
+	case <-time.After(3 * time.Second):
+		t.Fatal("RunSecretsProvider did not stop within timeout")
 	}
 }
 
@@ -552,8 +702,8 @@ func TestInformerTriggeredProviderBatching(t *testing.T) {
 				informerEvents: eventsChan,
 				periodicQuit:   periodicQuit,
 				periodicError:  periodicError,
+				onSetReady:     func(error) {},
 			}
-
 			go informerTriggeredProvider(mockProv.provide, config, updater.fileUpdater)
 
 			eventIndex := 0
