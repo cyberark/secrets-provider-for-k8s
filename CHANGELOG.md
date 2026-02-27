@@ -6,10 +6,11 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
-## [1.9.0] - 2026-02-20
+## [1.9.0] - 2026-02-27
 
 ### Added
 - Support for standalone mode (CNJR-12577)
+- Add Health probe endpoint for standalone mode (CNJR-12579)
 
 ## [1.8.0] - 2026-02-18
 

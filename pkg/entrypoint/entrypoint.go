@@ -14,10 +14,12 @@ import (
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/secrets"
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/annotations"
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/clients/conjur"
+	"github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/config"
 	secretsConfigProvider "github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/config"
 	k8sinformer "github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/k8s_informer"
 	k8sSecretsStorage "github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/k8s_secrets_storage"
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/pushtofile"
+	"github.com/cyberark/secrets-provider-for-k8s/pkg/server"
 	"go.opentelemetry.io/otel/attribute"
 )
 
@@ -48,6 +50,7 @@ var envAnnotationsConversion = map[string]string{
 	"JWT_TOKEN_PATH":         "conjur.org/jwt-token-path",
 	"REMOVE_DELETED_SECRETS": "conjur.org/remove-deleted-secrets-enabled",
 	"NAMESPACE_ALLOWLIST":    "conjur.org/namespace-allowlist",
+	"SERVER_ADDRESS":         "conjur.org/server-address",
 }
 
 func StartSecretsProvider() {
@@ -126,14 +129,35 @@ func startSecretsProviderWithDeps(
 	containerMode := getContainerMode()
 	runOnce := containerMode != "sidecar" && containerMode != "standalone"
 
+	// Create HTTP server for standalone mode (supports both k8s_secrets and push-to-file)
+	var httpServer *server.Server
+	if containerMode == "standalone" {
+		var err error
+		httpServer, err = server.NewServer(secretsConfig.ServerAddress)
+		if err != nil {
+			log.Error(messages.CSPFK094E, err)
+			return
+		}
+
+		httpServer.Start()
+	}
+	defer func() {
+		if httpServer != nil {
+			shutdownCtx, cancel := context.WithTimeout(ctx, time.Second)
+			defer cancel()
+			_ = httpServer.Shutdown(shutdownCtx)
+		}
+	}()
+
 	// Create channel for informer events only when using labeled secrets mode
 	var informerEventsChan chan k8sinformer.SecretEvent
+	var informer *k8sinformer.SecretInformer
 
 	// Start the K8s Secret informer ONLY when the following conditions are met:
 	// - Container mode is sidecar or standalone
 	// - Store type is k8s_secrets
 	// - There are no pre-configured secrets on the SP container config (using labeled secrets)
-	if !runOnce && secretsConfig.StoreType == "k8s_secrets" && len(secretsConfig.RequiredK8sSecrets) == 0 {
+	if !runOnce && secretsConfig.StoreType == config.K8s && len(secretsConfig.RequiredK8sSecrets) == 0 {
 		// Create channel for informer events
 		informerEventsChan = make(chan k8sinformer.SecretEvent, 10)
 
@@ -142,7 +166,7 @@ func startSecretsProviderWithDeps(
 			log.Warn(messages.CSPFK071E, err)
 		} else {
 			notifier := k8sinformer.NewChannelNotifier(informerEventsChan)
-			informer := k8sinformer.NewSecretInformer(k8sClientset, secretsConfig.PodNamespace, notifier)
+			informer = k8sinformer.NewSecretInformer(k8sClientset, secretsConfig.PodNamespace, notifier)
 
 			// Log an error and continue running the Secrets Provider even if the informer fails to start since it
 			// will refresh secrets on each time-based interval assuming we rebuild the list on each run in this mode
@@ -152,6 +176,13 @@ func startSecretsProviderWithDeps(
 			}
 		}
 	}
+
+	defer func() {
+		// Clean up informer if it was started
+		if informer != nil {
+			informer.Stop()
+		}
+	}()
 
 	if err = secrets.RunSecretsProvider(
 		secrets.ProviderRefreshConfig{
@@ -168,6 +199,7 @@ func startSecretsProviderWithDeps(
 		},
 		provideSecrets,
 		statusUpdaterFactory(),
+		httpServer,
 	); err != nil {
 		logError(err.Error())
 	}

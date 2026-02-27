@@ -44,3 +44,6 @@ const CSPFK034I string = "CSPFK034I Allow secret '%s' without conjur-map, contin
 const CSPFK035I string = "CSPFK035I Exceeded max debounce delay, providing secrets (eventCount: %d)"
 const CSPFK036I string = "CSPFK036I V2 batch retrieval succeeded: retrieved %d secrets"
 const CSPFK037I string = "CSPFK037I Namespace allowlist set to '*' (all namespaces)"
+const CSPFK038I string = "CSPFK038I HTTP server start listening at %s"
+const CSPFK039I string = "CSPFK039I Secrets Provider healthy status changed to %t"
+const CSPFK040I string = "CSPFK040I Secrets Provider ready status changed to %t"

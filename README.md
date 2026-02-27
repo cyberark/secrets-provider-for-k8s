@@ -5,6 +5,7 @@
   - [Supported services](#supported-services)
   - [Using This Project With Conjur Open Source](#using-secrets-provider-for-k8s-with-conjur-open-source)
   - [Methods for Configuring Secrets Provider](#methods-for-configuring-cyberark-secrets-provider)
+  - [Configuring Kubernetes Probes](#configuring-kubernetes-probes)
   - [Enabling Tracing](#enabling-tracing)
 - [Releases](#releases)
   - [Stable release definition](#stable-release-definition)
@@ -126,6 +127,62 @@ By default, the Secrets Provider will retry failed Conjur retrieval attempts up 
 - To configure via Helm, set `environment.conjur.retryCountLimit` in the chart values.
 
 Note: set the retry count to `-1` to indicate "unlimited" retries. Retries will continue indefinitely until success or process termination.
+
+## Configuring Kubernetes Probes
+
+The Secrets Provider exposes the following probe endpoints:
+
+- `GET /healthz` (liveness)
+- `GET /readyz` (readiness)
+
+### When probe endpoints are enabled
+
+Probe endpoints are created only when the Secrets Provider runs in **standalone** mode.
+Both `k8s_secrets` and `push-to-file` store types are supported.
+
+In other modes (init, application, or sidecar), probe endpoints are not started.
+
+### Configure server bind address
+
+To let Kubernetes reach the probe endpoints from outside the container process,
+set `SERVER_ADDRESS` (or annotation `conjur.org/server-address`) to a bindable
+address such as `:8080` or `0.0.0.0:8080`.
+
+> Avoid `127.0.0.1:8080` for Kubernetes probes, because kubelet probes the Pod
+> IP and may not be able to reach a localhost-only bind.
+
+### Pod spec example
+
+```yaml
+containers:
+  - name: cyberark-secrets-provider-for-k8s
+    image: cyberark/secrets-provider-for-k8s:latest
+    env:
+      - name: CONTAINER_MODE
+        value: "standalone"
+      - name: SECRETS_DESTINATION
+        value: "k8s_secrets"
+      - name: SERVER_ADDRESS
+        value: ":8080"
+    ports:
+      - name: probes
+        containerPort: 8080
+    livenessProbe:
+      httpGet:
+        path: /healthz
+        port: probes
+      initialDelaySeconds: 5
+      periodSeconds: 10
+    readinessProbe:
+      httpGet:
+        path: /readyz
+        port: probes
+      initialDelaySeconds: 5
+      periodSeconds: 10
+```
+
+`/healthz` reports process health. `/readyz` reports provider readiness based on
+the latest secret provisioning results.
 
 
 ## Label-based Secret Management
