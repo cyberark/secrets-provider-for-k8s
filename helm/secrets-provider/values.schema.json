@@ -227,6 +227,177 @@
           "enum": ["debug", "info", "warn", "error"]
         }
       }
+    },
+    "autoReload": {
+      "type": "object",
+      "description": "Controls whether the Reloader sub-chart is deployed",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Set to true to install Reloader as a sub-chart"
+        }
+      }
+    },
+    "reloader": {
+      "type": "object",
+      "description": "Reloader subchart configuration for automatic application restart on secret rotation",
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "reloader": {
+                "properties": {
+                  "deployment": {
+                    "properties": {
+                      "replicas": {
+                        "minimum": 2
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "reloader": {
+                "properties": {
+                  "enableHA": {
+                    "enum": [true]
+                  }
+                }
+              }
+            }
+          }
+        }
+      ],
+      "properties": {
+        "image": {
+          "type": "object",
+          "properties": {
+            "repository": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Reloader container image repository"
+            },
+            "tag": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Reloader container image tag"
+            },
+            "pullPolicy": {
+              "type": "string",
+              "enum": ["Always", "IfNotPresent", "Never"],
+              "description": "Container image pull policy"
+            }
+          }
+        },
+        "reloader": {
+          "type": "object",
+          "description": "Reloader-specific configuration (maps to subchart's reloader.* values)",
+          "properties": {
+            "deployment": {
+              "type": "object",
+              "properties": {
+                "replicas": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "description": "Number of Reloader replicas"
+                }
+              }
+            },
+            "enableHA": {
+              "type": "boolean",
+              "description": "Enable leadership election for running multiple replicas"
+            },
+            "reloadStrategy": {
+              "type": "string",
+              "enum": ["annotations", "env-vars", "default"],
+              "description": "Strategy Reloader uses to trigger rolling restarts"
+            },
+            "ignoreConfigMaps": {
+              "type": "boolean",
+              "description": "Ignore ConfigMap changes (Secrets Provider does not manage ConfigMaps)"
+            },
+            "ignoreJobs": {
+              "type": "boolean",
+              "description": "Ignore Job workloads (out of scope for rotation-triggered restarts)"
+            },
+            "ignoreCronJobs": {
+              "type": "boolean",
+              "description": "Ignore CronJob workloads (out of scope for rotation-triggered restarts)"
+            },
+            "custom_annotations": {
+              "type": "object",
+              "description": "Aliases Stakater annotations to the conjur.org namespace",
+              "properties": {
+                "secret_auto": {
+                  "type": "string",
+                  "description": "Alias for secret.reloader.stakater.com/auto (e.g. conjur.org/automatic-restart)"
+                },
+                "secret": {
+                  "type": "string",
+                  "description": "Alias for secret.reloader.stakater.com/reload (e.g. conjur.org/restart-secrets)"
+                }
+              }
+            }
+          }
+        },
+        "resources": {
+          "type": "object",
+          "properties": {
+            "limits": {
+              "type": "object",
+              "properties": {
+                "cpu": {
+                  "type": "string",
+                  "description": "CPU limit"
+                },
+                "memory": {
+                  "type": "string",
+                  "description": "Memory limit"
+                }
+              }
+            },
+            "requests": {
+              "type": "object",
+              "properties": {
+                "cpu": {
+                  "type": "string",
+                  "description": "CPU request"
+                },
+                "memory": {
+                  "type": "string",
+                  "description": "Memory request"
+                }
+              }
+            }
+          }
+        },
+        "rbac": {
+          "type": "object",
+          "properties": {
+            "create": {
+              "type": "boolean",
+              "description": "Create RBAC resources for Reloader"
+            }
+          }
+        },
+        "serviceAccount": {
+          "type": "object",
+          "properties": {
+            "create": {
+              "type": "boolean",
+              "description": "Create service account for Reloader"
+            },
+            "name": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Name of service account for Reloader"
+            }
+          }
+        }
+      }
     }
   }
 }

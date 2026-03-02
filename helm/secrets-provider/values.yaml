@@ -111,3 +111,83 @@ environment:
       projectedFilename: jwt
       audience: conjur
       expiration: 86400 # This is one day in seconds
+
+# OPTIONAL: Set to true to install Reloader as a sub-chart for automatic
+# application restart on secret rotation.
+#
+# Reloader watches Kubernetes Secrets and triggers rolling restarts of
+# Deployments/StatefulSets when those resources change. This enables
+# applications to automatically pick up rotated secrets without manual
+# intervention.
+#
+# For more info: https://github.com/stakater/Reloader
+autoReload:
+  enabled: false
+
+# OPTIONAL: Reloader subchart configuration.
+# Only deployed if autoReload.enabled is set to true.
+reloader:
+  # Reloader container image configuration
+  image:
+    repository: stakater/reloader
+    # Version mapping: chart v2.2.8 ships reloader v1.4.13.
+    # Keep this aligned with the reloader subchart CLI flags (for example
+    # --ignored-workload-types used by chart v2.2.8). Bump both the chart
+    # dependency version in Chart.yaml and this tag together.
+    tag: v1.4.13
+    pullPolicy: IfNotPresent
+
+  # Reloader-specific configuration (maps to subchart's reloader.* values)
+  reloader:
+    # Reloader deployment configuration
+    deployment:
+      # Number of Reloader replicas. Should typically be 1 or 2 for HA.
+      # IMPORTANT: If replicas > 1, you MUST set enableHA to true.
+      # WARNING: The Reloader subchart silently caps replicas to 1 when
+      # enableHA is false, even if a higher value is specified here.
+      replicas: 1
+
+    # Set to true to enable leadership election allowing you to run multiple replicas.
+    # This MUST be true if deployment.replicas > 1.
+    enableHA: false
+
+    # Use 'annotations' strategy: Reloader updates a reloader.stakater.com/last-reloaded-from
+    # annotation on the workload to trigger a rolling restart.
+    reloadStrategy: annotations
+
+    # Secrets Provider does not manage ConfigMaps, so ignore them.
+    ignoreConfigMaps: true
+
+    # Jobs and CronJobs are out of scope for rotation-triggered restarts.
+    ignoreJobs: true
+    ignoreCronJobs: true
+
+    # Alias Stakater's default annotations to Secrets Provider's annotation namespace.
+    # Use conjur.org/automatic-restart: "true" on a workload to restart on any
+    # referenced secret change (alias for secret.reloader.stakater.com/auto).
+    # Use conjur.org/restart-secrets: "my-secret" to restart only when a specific
+    # named secret changes (alias for secret.reloader.stakater.com/reload).
+    custom_annotations:
+      secret_auto: conjur.org/automatic-restart
+      # kics-scan ignore-line
+      secret: conjur.org/restart-secrets
+
+  # Resource limits and requests for Reloader
+  resources:
+    limits:
+      cpu: 100m
+      memory: 128Mi
+    requests:
+      cpu: 50m
+      memory: 64Mi
+
+  # RBAC configuration for Reloader
+  rbac:
+    # Whether to create RBAC resources for Reloader
+    # Set to true if your cluster has RBAC enabled (most modern clusters do)
+    create: true
+
+  # Service account configuration
+  serviceAccount:
+    create: true
+    name: reloader
