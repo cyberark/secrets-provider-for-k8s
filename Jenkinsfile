@@ -287,7 +287,16 @@ pipeline {
                 INFRAPOOL_EXECUTORV2_AGENT_0.agentStash name: 'coverage', includes: '*.xml'
                 unstash 'coverage'
                 junit 'junit.xml'
-                cobertura autoUpdateHealth: false, autoUpdateStability: false, coberturaReportFile: 'coverage.xml', conditionalCoverageTargets: '70, 0, 0', failUnhealthy: false, failUnstable: false, maxNumberOfBuilds: 0, lineCoverageTargets: '70, 0, 0', methodCoverageTargets: '70, 0, 0', onlyStable: false, sourceEncoding: 'ASCII', zoomCoverageChart: false
+                recordCoverage(
+                  tools: [[parser: 'COBERTURA', pattern: 'coverage.xml']],
+                  sourceCodeEncoding: 'ASCII',
+                  qualityGates: [
+                      [threshold: 70.0, metric: 'LINE', baseline: 'PROJECT', unstable: true],
+                      [threshold: 70.0, metric: 'BRANCH', baseline: 'PROJECT', unstable: true],
+                      [threshold: 70.0, metric: 'METHOD', baseline: 'PROJECT', unstable: true]
+                  ],
+                  skipPublishingChecks: false
+                )
                 codacy action: 'reportCoverage', filePath: "coverage.xml"
               }
             }
