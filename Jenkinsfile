@@ -332,7 +332,7 @@ pipeline {
           post {
             always {
               script {
-                INFRAPOOL_EXECUTORV2_AGENT_0.agentStash name: 'logs-dap-gke-ocp', includes: 'deploy/output/*.txt'
+                INFRAPOOL_EXECUTORV2_AGENT_0.agentStash name: 'logs-dap-gke-ocp', includes: 'deploy/output/**/*.txt,deploy/output/**/*.log,deploy/output/**/*.json'
               }
             }
           }
@@ -368,10 +368,10 @@ pipeline {
             always {
               script {
                 if (params.TEST_KIND_AUTHN_IAM) {
-                  INFRAPOOL_EXECUTORV2_AGENT_0.agentStash name: 'logs-kind-iam', includes: 'deploy/output/*.txt'
+                  INFRAPOOL_EXECUTORV2_AGENT_0.agentStash name: 'logs-kind-iam', includes: 'deploy/output/**/*.txt,deploy/output/**/*.log,deploy/output/**/*.json'
                 }
                 if (params.TEST_KIND_AUTHN_AZURE) {
-                  INFRAPOOL_AZURE_EXECUTORV2_AGENT_0.agentStash name: 'logs-kind-azure', includes: 'deploy/output/*.txt'
+                  INFRAPOOL_AZURE_EXECUTORV2_AGENT_0.agentStash name: 'logs-kind-azure', includes: 'deploy/output/**/*.txt,deploy/output/**/*.log,deploy/output/**/*.json'
                 }
               }
             }
@@ -398,7 +398,7 @@ pipeline {
           post {
             always {
               script {
-                INFRAPOOL_EXECUTORV2_AGENT_0.agentStash name: 'logs-ocp-oldest-next', includes: 'deploy/output/*.txt'
+                INFRAPOOL_EXECUTORV2_AGENT_0.agentStash name: 'logs-ocp-oldest-next', includes: 'deploy/output/**/*.txt,deploy/output/**/*.log,deploy/output/**/*.json'
               }
             }
           }
@@ -424,7 +424,7 @@ pipeline {
           post {
             always {
               script {
-                INFRAPOOL_EXECUTORV2_AGENT_0.agentStash name: 'logs-oss-gke', includes: 'deploy/output/*.txt'
+                INFRAPOOL_EXECUTORV2_AGENT_0.agentStash name: 'logs-oss-gke', includes: 'deploy/output/**/*.txt,deploy/output/**/*.log,deploy/output/**/*.json'
               }
             }
           }
@@ -481,7 +481,17 @@ pipeline {
         try {
           unstash 'logs-kind-azure'
         } catch (e) {}
-        archiveArtifacts artifacts: "deploy/output/*.txt", fingerprint: false, allowEmptyArchive: true
+        sh '''
+          set +e
+          for summary in deploy/output/**/e2e-analysis-summary.txt deploy/output/e2e-analysis-summary.txt; do
+            if [ -f "$summary" ]; then
+              echo "=== E2E analysis summary: $summary ==="
+              cat "$summary"
+              echo ""
+            fi
+          done
+        '''
+        archiveArtifacts artifacts: "deploy/output/**/*.txt,deploy/output/**/*.log,deploy/output/**/*.json", fingerprint: false, allowEmptyArchive: true
         releaseInfraPoolAgent(".infrapool/release_agents")
 
         // Resolve ownership issue before running infra post hook

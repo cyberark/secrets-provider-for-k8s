@@ -65,6 +65,9 @@ capture_kind_diagnostics() {
   echo "Capturing KinD diagnostics into ${out_dir}/ (id=${id}, ns=${ns})"
 
   # Run diagnostics from inside the existing cluster (SKIP_KIND_CREATE to avoid creating new cluster)
+  # shellcheck disable=SC2027,SC2086
+  # (SC2027/SC2086: intentional mixed quoting in nested shell - outer shell expands ${ns}/${app_ns},
+  #  inner shell expands \${prefix}; namespace values are guaranteed to have no spaces)
   SKIP_KIND_CREATE=true runDockerCommand "
     set +e
     ts=\$(date -u +%Y%m%dT%H%M%SZ)
@@ -82,6 +85,9 @@ capture_kind_diagnostics() {
     kubectl get namespaces > \${prefix}.namespaces.txt 2>&1 || true
     kubectl get pods -A -o wide > \${prefix}.pods-all.txt 2>&1 || true
     kubectl get events -A --sort-by='.lastTimestamp' > \${prefix}.events-all.txt 2>&1 || true
+    kubectl get events -A --sort-by='.lastTimestamp' \
+      | grep -E 'Warning|BackOff|CrashLoopBackOff|Failed|Evicted|Error|deadline|timeout' \
+      > \${prefix}.events-all-warnings.txt 2>&1 || true
 
     if [[ -n "${ns}" ]]; then
       kubectl -n "${ns}" get pods -o wide > \${prefix}.pods.txt 2>&1 || true
@@ -95,10 +101,27 @@ capture_kind_diagnostics() {
 
     if [[ -n "${app_ns}" ]] && kubectl get namespace "${app_ns}" >/dev/null 2>&1; then
       kubectl -n "${app_ns}" get pods -o wide > \${prefix}.app-pods.txt 2>&1 || true
+      kubectl -n "${app_ns}" get pod -o custom-columns=NAME:.metadata.name,PHASE:.status.phase,RESTARTS:.status.containerStatuses[*].restartCount,READY:.status.containerStatuses[*].ready,STATE:.status.containerStatuses[*].state.waiting.reason,NODE:.spec.nodeName > \${prefix}.app-pod-statuses.txt 2>&1 || true
+      kubectl -n "${app_ns}" get deploy,rs,job -o wide > \${prefix}.app-workloads.txt 2>&1 || true
       kubectl -n "${app_ns}" get events --sort-by='.lastTimestamp' > \${prefix}.app-events.txt 2>&1 || true
+      kubectl -n "${app_ns}" get events --sort-by='.lastTimestamp' \
+        | grep -E 'Warning|BackOff|CrashLoopBackOff|Failed|Evicted|Error|deadline|timeout' \
+        > \${prefix}.app-events-warnings.txt 2>&1 || true
       kubectl -n "${app_ns}" describe pods > \${prefix}.app-pods-describe.txt 2>&1 || true
+      kubectl -n "${app_ns}" describe deployment secrets-provider-reloader > \${prefix}.reloader-deploy-describe.txt 2>&1 || true
+      kubectl -n "${app_ns}" describe rs -l app.kubernetes.io/name=reloader > \${prefix}.reloader-rs-describe.txt 2>&1 || true
+      kubectl -n "${app_ns}" describe pod -l app.kubernetes.io/name=reloader > \${prefix}.reloader-pods-describe.txt 2>&1 || true
+      kubectl -n "${app_ns}" get secrets -o name > \${prefix}.app-secrets.txt 2>&1 || true
+      kubectl -n "${app_ns}" get secret test-k8s-secret -o yaml > \${prefix}.test-k8s-secret.yaml 2>&1 || true
+      kubectl -n "${app_ns}" get secret test-k8s-secret-fetch-all -o yaml > \${prefix}.test-k8s-secret-fetch-all.yaml 2>&1 || true
+      kubectl -n "${app_ns}" get secret test-k8s-secret-fetch-all-base64 -o yaml > \${prefix}.test-k8s-secret-fetch-all-base64.yaml 2>&1 || true
+      kubectl -n "${app_ns}" get secret test-k8s-secret-with-templates -o yaml > \${prefix}.test-k8s-secret-with-templates.yaml 2>&1 || true
+      kubectl -n "${app_ns}" get secret labeled-k8s-secret -o yaml > \${prefix}.labeled-k8s-secret.yaml 2>&1 || true
       kubectl -n "${app_ns}" logs -l app=secrets-provider --all-containers --tail=2000 > \${prefix}.secrets-provider.logs.txt 2>&1 || true
+      kubectl -n "${app_ns}" logs -l app=secrets-provider --all-containers --previous --tail=2000 > \${prefix}.secrets-provider.previous.logs.txt 2>&1 || true
       kubectl -n "${app_ns}" logs -l app=test-env --all-containers --tail=2000 > \${prefix}.test-env.logs.txt 2>&1 || true
+      kubectl -n "${app_ns}" logs -l app.kubernetes.io/name=reloader --all-containers --tail=2000 > \${prefix}.reloader.logs.txt 2>&1 || true
+      kubectl -n "${app_ns}" logs -l app.kubernetes.io/name=reloader --all-containers --previous --tail=2000 > \${prefix}.reloader.previous.logs.txt 2>&1 || true
     fi
   " || true
 }
@@ -165,7 +188,7 @@ main() {
 
 buildTestRunnerImage() {
   pushd ..
-  docker build --tag ${TEST_RUNNER_IMAGE}:${CONJUR_NAMESPACE_NAME} \
+  docker build --tag "${TEST_RUNNER_IMAGE}:${CONJUR_NAMESPACE_NAME}" \
     --file Dockerfile.e2e \
     --build-arg OPENSHIFT_CLI_URL="${OPENSHIFT_CLI_URL:-}" \
     --build-arg KUBECTL_CLI_URL="${KUBECTL_CLI_URL:-}" \
@@ -206,12 +229,12 @@ deployConjur() {
   # This is done outside of the container to avoid authentication errors when pulling from the internal registry
   # from inside the container
   if [[ "${CONJUR_DEPLOYMENT}" != "oss" && -n "${CONJUR_APPLIANCE_IMAGE:-}" ]]; then
-    docker pull $CONJUR_APPLIANCE_IMAGE
+    docker pull "${CONJUR_APPLIANCE_IMAGE}"
   fi
 
   git clone --single-branch --branch master \
       https://github.com/cyberark/kubernetes-conjur-deploy.git \
-      kubernetes-conjur-deploy-$UNIQUE_TEST_ID
+      "kubernetes-conjur-deploy-${UNIQUE_TEST_ID}"
 
   # Build deployment command
   local deploy_cmd="./start"

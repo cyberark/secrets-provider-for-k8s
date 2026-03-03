@@ -5,7 +5,6 @@ package e2e
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"testing"
 	"time"
@@ -33,16 +32,13 @@ func TestMain(m *testing.M) {
 
 	testenv.Setup(
 		func(ctx context.Context, cfg *envconf.Config) (context.Context, error) {
-			fmt.Println("Fetching the secrets provider pod in namespace " + SecretsProviderNamespace())
 			spPod, err := FetchPodWithLabelSelector(k8sClient, SecretsProviderNamespace(), SPLabelSelector)
 			if err != nil {
 				return ctx, err
 			}
 
-			fmt.Printf("Verifying the secrets provider pod (%s) is ready before running tests\n", spPod.Name)
 			err = wait.For(conditions.New(k8sClient.Resources(SecretsProviderNamespace())).PodReady(k8s.Object(&spPod)), wait.WithTimeout(time.Minute*2))
 			if err != nil {
-				fmt.Println("Setup error: " + err.Error())
 				return ctx, err
 			}
 
@@ -52,7 +48,7 @@ func TestMain(m *testing.M) {
 
 	testenv.AfterEachTest(
 		func(ctx context.Context, _ *envconf.Config, t *testing.T) (context.Context, error) {
-			DumpSecretsProviderLogsOnFailure(t)
+			DumpFailureDiagnosticsOnFailure(t)
 
 			return ctx, nil
 		},
