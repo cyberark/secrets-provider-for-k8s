@@ -478,7 +478,19 @@ pipeline {
 
         // Resolve ownership issue before running infra post hook
         sh 'git config --global --add safe.directory ${PWD}'
-        infraPostHook()
+
+        // TODO: Remove try-catch once the Slack plugin is fixed on the Jenkins
+        // controller. The Slack plugin currently crashes with:
+        //   java.lang.ClassNotFoundException: net.sf.json.groovy.JsonSlurper
+        // because it depends on json-lib which is no longer on the classpath
+        // after a recent plugin upgrade. Wrapping here prevents the Slack
+        // plugin bug from masking real build failures.
+        // See: CNJR-13102
+        try {
+          infraPostHook()
+        } catch (Throwable err) {
+          echo "WARNING: infraPostHook() failed — likely a Slack plugin issue: ${err}"
+        }
       }
     }
   }
