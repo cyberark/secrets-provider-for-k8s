@@ -287,7 +287,16 @@ pipeline {
                 INFRAPOOL_EXECUTORV2_AGENT_0.agentStash name: 'coverage', includes: '*.xml'
                 unstash 'coverage'
                 junit 'junit.xml'
-                cobertura autoUpdateHealth: false, autoUpdateStability: false, coberturaReportFile: 'coverage.xml', conditionalCoverageTargets: '70, 0, 0', failUnhealthy: false, failUnstable: false, maxNumberOfBuilds: 0, lineCoverageTargets: '70, 0, 0', methodCoverageTargets: '70, 0, 0', onlyStable: false, sourceEncoding: 'ASCII', zoomCoverageChart: false
+                recordCoverage(
+                  tools: [[parser: 'COBERTURA', pattern: 'coverage.xml']],
+                  sourceCodeEncoding: 'ASCII',
+                  qualityGates: [
+                      [threshold: 70.0, metric: 'LINE', baseline: 'PROJECT', unstable: true],
+                      [threshold: 70.0, metric: 'BRANCH', baseline: 'PROJECT', unstable: true],
+                      [threshold: 70.0, metric: 'METHOD', baseline: 'PROJECT', unstable: true]
+                  ],
+                  skipPublishingChecks: false
+                )
                 codacy action: 'reportCoverage', filePath: "coverage.xml"
               }
             }
@@ -469,7 +478,19 @@ pipeline {
 
         // Resolve ownership issue before running infra post hook
         sh 'git config --global --add safe.directory ${PWD}'
-        infraPostHook()
+
+        // TODO: Remove try-catch once the Slack plugin is fixed on the Jenkins
+        // controller. The Slack plugin currently crashes with:
+        //   java.lang.ClassNotFoundException: net.sf.json.groovy.JsonSlurper
+        // because it depends on json-lib which is no longer on the classpath
+        // after a recent plugin upgrade. Wrapping here prevents the Slack
+        // plugin bug from masking real build failures.
+        // See: CNJR-13102
+        try {
+          infraPostHook()
+        } catch (Throwable err) {
+          echo "WARNING: infraPostHook() failed — likely a Slack plugin issue: ${err}"
+        }
       }
     }
   }
