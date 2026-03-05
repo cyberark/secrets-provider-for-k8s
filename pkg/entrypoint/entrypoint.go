@@ -14,6 +14,7 @@ import (
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/secrets"
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/annotations"
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/clients/conjur"
+	k8sClient "github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/clients/k8s"
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/config"
 	secretsConfigProvider "github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/config"
 	k8sinformer "github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/k8s_informer"
@@ -107,7 +108,7 @@ func startSecretsProviderWithDeps(
 		return
 	}
 
-	provideSecrets, secretsConfig, err := secretsProvider(
+	provideSecrets, secretsConfig, resolvedNamespaceAllowlist, err := secretsProvider(
 		ctx,
 		tracer,
 		secretsBasePath,
@@ -160,7 +161,7 @@ func startSecretsProviderWithDeps(
 			log.Warn(messages.CSPFK071E, err)
 		} else {
 			notifier := k8sinformer.NewChannelNotifier(informerEventsChan)
-			informer = k8sinformer.NewSecretInformer(k8sClientset, secretsConfig.PodNamespace, notifier)
+			informer = k8sinformer.NewSecretInformer(k8sClientset, secretsConfig.PodNamespace, resolvedNamespaceAllowlist, notifier)
 
 			// Log an error and continue running the Secrets Provider even if the informer fails to start since it
 			// will refresh secrets on each time-based interval assuming we rebuild the list on each run in this mode
@@ -188,9 +189,9 @@ func startSecretsProviderWithDeps(
 			// may want to create a SIGTERM or SIGHUP handler to catch a signal from
 			// a user / external entity, and then send an (empty struct) quit signal
 			// on this channel to trigger a graceful shut down of the Secrets Provider.
-			ProviderQuit:   make(chan struct{}),
-			InformerEvents: informerEventsChan,
-			RetryInterval:  time.Duration(secretsConfig.RetryIntervalSec) * time.Second,
+			ProviderQuit:    make(chan struct{}),
+			InformerEvents:  informerEventsChan,
+			RetryInterval:   time.Duration(secretsConfig.RetryIntervalSec) * time.Second,
 			RetryCountLimit: secretsConfig.RetryCountLimit,
 		},
 		provideSecrets,
@@ -257,7 +258,7 @@ func secretsProvider(
 	templatesBasePath string,
 	secretRetriever conjur.RetrieveSecretsFunc,
 	providerFactory secrets.ProviderFactory,
-) (secrets.ProviderFunc, *secretsConfigProvider.Config, error) {
+) (secrets.ProviderFunc, *secretsConfigProvider.Config, []string, error) {
 	_, span := tracer.Start(ctx, "Create single-use secrets provider")
 	defer span.End()
 
@@ -266,8 +267,21 @@ func secretsProvider(
 	if err != nil {
 		log.Error(err.Error())
 		span.RecordErrorAndSetStatus(err)
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
+
+	// Resolve namespace allowlist for standalone mode
+	var namespaceAllowlist []string
+	parsedAllowlist := config.ParseNamespaceAllowlist(secretsConfig.NamespaceAllowlist)
+	if secretsConfig.ContainerMode == "standalone" && len(parsedAllowlist) > 0 {
+		namespaceAllowlist, err = k8sClient.ResolveNamespaceAllowlist(parsedAllowlist)
+		if err != nil {
+			log.Error(messages.CSPFK071E, err)
+			span.RecordErrorAndSetStatus(err)
+			return nil, nil, nil, err
+		}
+	}
+
 	providerConfig := &secrets.ProviderConfig{
 		CommonProviderConfig: secrets.CommonProviderConfig{
 			StoreType:       secretsConfig.StoreType,
@@ -276,6 +290,7 @@ func secretsProvider(
 		K8sProviderConfig: k8sSecretsStorage.K8sProviderConfig{
 			PodNamespace:       secretsConfig.PodNamespace,
 			RequiredK8sSecrets: secretsConfig.RequiredK8sSecrets,
+			NamespaceAllowlist: namespaceAllowlist,
 		},
 		P2FProviderConfig: pushtofile.P2FProviderConfig{
 			SecretFileBasePath:   secretsBasePath,
@@ -293,10 +308,10 @@ func secretsProvider(
 	if err := logErrorsAndInfos(errs, nil); err != nil {
 		log.Error(messages.CSPFK053E)
 		span.RecordErrorAndSetStatus(errors.New(messages.CSPFK053E))
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 
-	return provideSecrets, secretsConfig, nil
+	return provideSecrets, secretsConfig, namespaceAllowlist, nil
 }
 
 func customEnv(key string) string {

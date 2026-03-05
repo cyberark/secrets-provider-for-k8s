@@ -38,30 +38,58 @@ type SecretEventNotifier interface {
 
 // SecretInformer wraps a Kubernetes Secret informer and notifies on secret events
 type SecretInformer struct {
-	clientset kubernetes.Interface
-	namespace string
-	factory   informers.SharedInformerFactory
-	informer  cache.SharedIndexInformer
-	stopCh    chan struct{}
-	notifier  SecretEventNotifier
-	queue     workqueue.TypedInterface[SecretEvent]
-	stopOnce  sync.Once
-	workerWg  sync.WaitGroup
+	clientset          kubernetes.Interface
+	namespace          string
+	namespaceAllowlist []string // When non-empty, watch cluster-wide and filter by these namespaces
+	factory            informers.SharedInformerFactory
+	informer           cache.SharedIndexInformer
+	stopCh             chan struct{}
+	notifier           SecretEventNotifier
+	queue              workqueue.TypedInterface[SecretEvent]
+	stopOnce           sync.Once
+	workerWg           sync.WaitGroup
 }
 
-// NewSecretInformer creates a new SecretInformer for the given namespace
+// NewSecretInformer creates a new SecretInformer for the given namespace.
+// When namespaceAllowlist is non-empty (standalone mode), the informer watches
+// cluster-wide and filters events to only those namespaces.
 func NewSecretInformer(
 	clientset kubernetes.Interface,
 	namespace string,
+	namespaceAllowlist []string,
 	notifier SecretEventNotifier,
 ) *SecretInformer {
 	return &SecretInformer{
-		clientset: clientset,
-		namespace: namespace,
-		stopCh:    make(chan struct{}),
-		notifier:  notifier,
-		queue:     workqueue.NewTyped[SecretEvent](),
+		clientset:          clientset,
+		namespace:          namespace,
+		namespaceAllowlist: namespaceAllowlist,
+		stopCh:             make(chan struct{}),
+		notifier:           notifier,
+		queue:              workqueue.NewTyped[SecretEvent](),
 	}
+}
+
+// namespaceToWatch returns the namespace to pass to the informer factory.
+// Empty string means cluster-wide (all namespaces).
+func (si *SecretInformer) namespaceToWatch() string {
+	if len(si.namespaceAllowlist) > 0 {
+		return "" // Cluster-wide watch; filter in event handlers
+	}
+	return si.namespace
+}
+
+// isNamespaceAllowed returns true if the secret's namespace is in the allowlist.
+// When allowlist is empty, only the pod namespace is allowed.
+func (si *SecretInformer) isNamespaceAllowed(secretNamespace string) bool {
+	if len(si.namespaceAllowlist) == 0 {
+		return secretNamespace == si.namespace
+	}
+	for _, ns := range si.namespaceAllowlist {
+		if ns == secretNamespace {
+			return true
+		}
+	}
+	return false
 }
 
 // Start initializes and starts the secret informer
@@ -70,11 +98,11 @@ func (si *SecretInformer) Start() error {
 		return fmt.Errorf(messages.CSPFK076E)
 	}
 
-	// Create a factory for the given namespace
+	// Create a factory for the given namespace (or cluster-wide when using allowlist)
 	si.factory = informers.NewSharedInformerFactoryWithOptions(
 		si.clientset,
 		0, // Default resync period
-		informers.WithNamespace(si.namespace),
+		informers.WithNamespace(si.namespaceToWatch()),
 	)
 
 	// Get the secret informer
@@ -108,7 +136,11 @@ func (si *SecretInformer) Start() error {
 	si.workerWg.Add(1)
 	go si.runWorker()
 
-	log.Info(messages.CSPFK026I, si.namespace)
+	if len(si.namespaceAllowlist) > 0 {
+		log.Info(messages.CSPFK026I, strings.Join(si.namespaceAllowlist, ","))
+	} else {
+		log.Info(messages.CSPFK026I, si.namespace)
+	}
 	return nil
 }
 
@@ -148,6 +180,10 @@ func (si *SecretInformer) onAdd(obj interface{}) {
 	secret, ok := obj.(*v1.Secret)
 	if !ok {
 		log.Warn(messages.CSPFK085E)
+		return
+	}
+
+	if !si.isNamespaceAllowed(secret.Namespace) {
 		return
 	}
 
@@ -262,6 +298,10 @@ func (si *SecretInformer) onUpdate(oldObj, newObj interface{}) {
 		return
 	}
 
+	if !si.isNamespaceAllowed(newSecret.Namespace) {
+		return
+	}
+
 	// Only process updates if:
 	// 1. The new secret has the managed-by-provider label and set to true
 	// 2. AND either
@@ -295,10 +335,10 @@ func (si *SecretInformer) runWorker() {
 		if r := recover(); r != nil {
 			log.Error(messages.CSPFK083E, r)
 		}
-		log.Info(messages.CSPFK030I)
+		log.Info(messages.CSPFK030I, si.namespace)
 	}()
 
-	log.Info(messages.CSPFK029I)
+	log.Info(messages.CSPFK029I, si.namespace)
 	for {
 		// processNextItem returns false only when queue is shut down
 		// or stopCh is closed (after queue.ShutDown in Stop())

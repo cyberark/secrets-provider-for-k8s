@@ -479,6 +479,36 @@ func validRefreshInterval(intervalStr string, enableStr string, envAndAnnots map
 	return err
 }
 
+// IsSystemNamespace returns true if the namespace is a Kubernetes system namespace
+// that should be excluded when resolving "*" to all namespaces.
+func IsSystemNamespace(name string) bool {
+	switch name {
+	case "kube-system", "kube-public", "kube-node-lease":
+		return true
+	}
+	return false
+}
+
+// ParseNamespaceAllowlist parses the namespace allowlist string into a slice.
+// Returns nil if empty, ["*"] if wildcard, or ["ns1","ns2",...] for comma-separated list.
+func ParseNamespaceAllowlist(allowlist string) []string {
+	trimmed := strings.TrimSpace(allowlist)
+	if trimmed == "" {
+		return nil
+	}
+	if trimmed == "*" {
+		return []string{"*"}
+	}
+	parts := strings.Split(trimmed, ",")
+	result := make([]string, 0, len(parts))
+	for _, p := range parts {
+		if ns := strings.TrimSpace(p); ns != "" {
+			result = append(result, ns)
+		}
+	}
+	return result
+}
+
 // parseK8sSecretsList parses Kubernetes secrets from either annotation format (YAML list)
 // or environment variable format (comma-separated), and filters out empty strings.
 func parseK8sSecretsList(settings map[string]string) []string {

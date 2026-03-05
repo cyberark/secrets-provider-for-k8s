@@ -711,14 +711,14 @@ var newConfigTestCases = []newConfigTestCase{
 			NamespaceAllowlistKey: "ns1,ns2,ns3",
 		},
 		assert: assertGoodConfig(&Config{
-			PodNamespace:       "test-namespace",
-			StoreType:          "file",
-			RequiredK8sSecrets: []string{},
-			RetryCountLimit:    DefaultRetryCountLimitStandalone,
-			RetryIntervalSec:   DefaultRetryIntervalSec,
-			SanitizeEnabled:    DefaultSanitizeEnabled,
-			ContainerMode:      "standalone",
-			NamespaceAllowlist: "ns1,ns2,ns3",
+			PodNamespace:             "test-namespace",
+			StoreType:                "file",
+			RequiredK8sSecrets:       []string{},
+			RetryCountLimit:          DefaultRetryCountLimitStandalone,
+			RetryIntervalSec:         DefaultRetryIntervalSec,
+			SanitizeEnabled:          DefaultSanitizeEnabled,
+			ContainerMode:            "standalone",
+			NamespaceAllowlist:       "ns1,ns2,ns3",
 		}),
 	},
 	{
@@ -730,14 +730,14 @@ var newConfigTestCases = []newConfigTestCase{
 			"NAMESPACE_ALLOWLIST": "default,prod",
 		},
 		assert: assertGoodConfig(&Config{
-			PodNamespace:       "test-namespace",
-			StoreType:          "file",
-			RequiredK8sSecrets: []string{},
-			RetryCountLimit:    DefaultRetryCountLimitStandalone,
-			RetryIntervalSec:   DefaultRetryIntervalSec,
-			SanitizeEnabled:    DefaultSanitizeEnabled,
-			ContainerMode:      "standalone",
-			NamespaceAllowlist: "default,prod",
+			PodNamespace:             "test-namespace",
+			StoreType:                "file",
+			RequiredK8sSecrets:       []string{},
+			RetryCountLimit:          DefaultRetryCountLimitStandalone,
+			RetryIntervalSec:         DefaultRetryIntervalSec,
+			SanitizeEnabled:          DefaultSanitizeEnabled,
+			ContainerMode:            "standalone",
+			NamespaceAllowlist:       "default,prod",
 		}),
 	},
 	{
@@ -815,4 +815,34 @@ func TestNewConfig(t *testing.T) {
 			tc.assert(t, config)
 		})
 	}
+}
+
+func TestParseNamespaceAllowlist(t *testing.T) {
+	tests := []struct {
+		name      string
+		allowlist string
+		expected  []string
+	}{
+		{"empty string", "", nil},
+		{"whitespace only", "   ", nil},
+		{"wildcard", "*", []string{"*"}},
+		{"single namespace", "default", []string{"default"}},
+		{"comma-separated", "ns1,ns2,ns3", []string{"ns1", "ns2", "ns3"}},
+		{"with spaces", " ns1 , ns2 ", []string{"ns1", "ns2"}},
+		{"empty parts filtered", "ns1,,ns2,", []string{"ns1", "ns2"}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := ParseNamespaceAllowlist(tt.allowlist)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+func TestIsSystemNamespace(t *testing.T) {
+	assert.True(t, IsSystemNamespace("kube-system"))
+	assert.True(t, IsSystemNamespace("kube-public"))
+	assert.True(t, IsSystemNamespace("kube-node-lease"))
+	assert.False(t, IsSystemNamespace("default"))
+	assert.False(t, IsSystemNamespace("my-app"))
 }

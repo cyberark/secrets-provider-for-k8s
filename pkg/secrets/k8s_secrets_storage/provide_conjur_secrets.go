@@ -30,14 +30,15 @@ import (
 // represents one destination to which a retrieved Conjur secret value needs
 // to be written when Kubernetes Secrets are updated.
 type updateDestination struct {
+	namespace     string
 	k8sSecretName string
 	secretName    string
 	contentType   string
 }
 
 type k8sSecretsState struct {
-	// Maps a K8s Secret name to the original K8s Secret API object fetched
-	// from K8s.
+	// Maps a namespaced key (namespace/secretName) to the original K8s Secret API object.
+	// In single-namespace mode, key is just secretName for backward compatibility.
 	originalK8sSecrets map[string]*v1.Secret
 
 	// Maps a Conjur variable ID (policy path) to all the updateDestination
@@ -49,6 +50,7 @@ type k8sSecretsState struct {
 }
 
 type destinationKey struct {
+	namespace     string
 	k8sSecretName string
 	secretName    string
 }
@@ -92,6 +94,7 @@ type K8sProvider struct {
 	log                logDeps
 	podNamespace       string
 	requiredK8sSecrets []string
+	namespaceAllowlist []string // When non-empty (standalone), use multi-namespace logic
 	secretsState       k8sSecretsState
 	traceContext       context.Context
 	sanitizeEnabled    bool
@@ -111,6 +114,7 @@ type K8sProvider struct {
 type K8sProviderConfig struct {
 	PodNamespace       string
 	RequiredK8sSecrets []string
+	NamespaceAllowlist []string // Resolved namespace list for standalone mode; nil for single-namespace
 }
 
 // NewProvider creates a new secret provider for K8s Secrets mode.
@@ -158,6 +162,7 @@ func newProvider(
 		log:                providerDeps.log,
 		podNamespace:       config.PodNamespace,
 		requiredK8sSecrets: config.RequiredK8sSecrets,
+		namespaceAllowlist: config.NamespaceAllowlist,
 		sanitizeEnabled:    sanitizeEnabled,
 		secretsState: k8sSecretsState{
 			originalK8sSecrets:      map[string]*v1.Secret{},
@@ -168,6 +173,14 @@ func newProvider(
 		prevSecretsChecksums: map[string]utils.Checksum{},
 		secretsGroups:        map[string][]*filetemplates.SecretGroup{},
 	}
+}
+
+// secretKey returns the map key for a secret. In multi-namespace mode uses "namespace/name".
+func (p *K8sProvider) secretKey(namespace, name string) string {
+	if len(p.namespaceAllowlist) == 0 {
+		return name
+	}
+	return namespace + "/" + name
 }
 
 // Provide implements a ProviderFunc to retrieve and push secrets to K8s secrets.
@@ -284,28 +297,34 @@ func (p *K8sProvider) retrieveRequiredK8sSecrets(tracer trace.Tracer) error {
 			}
 		}
 	} else {
-		_, childSpan := tracer.Start(spanCtx, "List Labeled K8s Secrets")
-		defer childSpan.End()
-		k8sSecrets, err := p.k8s.listLabeledSecrets(p.podNamespace)
-		if err != nil {
-			childSpan.RecordErrorAndSetStatus(err)
-			span.RecordErrorAndSetStatus(err)
-			return p.log.recordedError(messages.CSPFK024E)
+		namespaces := []string{p.podNamespace}
+		if len(p.namespaceAllowlist) > 0 {
+			namespaces = p.namespaceAllowlist
 		}
-
-		for _, k8sSecret := range k8sSecrets.Items {
-			_, childSpan := tracer.Start(spanCtx, "Process K8s Secret")
+		for _, ns := range namespaces {
+			_, childSpan := tracer.Start(spanCtx, "List Labeled K8s Secrets")
 			defer childSpan.End()
-			if err := p.retrieveRequiredK8sSecret(&k8sSecret, true); err != nil {
-				// In label-based mode, skip invalid secrets and continue processing others
-				// instead of failing the entire operation. This makes the provider more
-				// resilient to misconfigured secrets.
+			k8sSecrets, err := p.k8s.listLabeledSecrets(ns)
+			if err != nil {
 				childSpan.RecordErrorAndSetStatus(err)
 				span.RecordErrorAndSetStatus(err)
-				p.log.warn(messages.CSPFK073E, k8sSecret.Name, err.Error())
-				// Remove the secret from originalK8sSecrets since we're skipping it
-				delete(p.secretsState.originalK8sSecrets, k8sSecret.Name)
-				continue
+				return p.log.recordedError(messages.CSPFK024E)
+			}
+
+			for _, k8sSecret := range k8sSecrets.Items {
+				_, childSpan := tracer.Start(spanCtx, "Process K8s Secret")
+				defer childSpan.End()
+				if err := p.retrieveRequiredK8sSecret(&k8sSecret, true); err != nil {
+					// In label-based mode, skip invalid secrets and continue processing others
+					// instead of failing the entire operation. This makes the provider more
+					// resilient to misconfigured secrets.
+					childSpan.RecordErrorAndSetStatus(err)
+					span.RecordErrorAndSetStatus(err)
+					p.log.warn(messages.CSPFK073E, k8sSecret.Name, err.Error())
+					// Remove the secret from originalK8sSecrets since we're skipping it
+					delete(p.secretsState.originalK8sSecrets, p.secretKey(k8sSecret.Namespace, k8sSecret.Name))
+					continue
+				}
 			}
 		}
 	}
@@ -321,7 +340,7 @@ func (p *K8sProvider) retrieveRequiredK8sSecrets(tracer trace.Tracer) error {
 // without conjur-map to remove stale secrets.
 func (p *K8sProvider) retrieveRequiredK8sSecret(k8sSecret *v1.Secret, allowEmptyConjurMap bool) error {
 	// Record the K8s Secret API object
-	p.secretsState.originalK8sSecrets[k8sSecret.Name] = k8sSecret
+	p.secretsState.originalK8sSecrets[p.secretKey(k8sSecret.Namespace, k8sSecret.Name)] = k8sSecret
 
 	// Look for "conjur.org/conjur-secrets.*" annotations and process secret groups
 	err := p.processSecretGroupAnnotations(k8sSecret)
@@ -391,7 +410,7 @@ func (p *K8sProvider) processSecretGroupAnnotations(k8sSecret *v1.Secret) error 
 
 	if len(secretGroups) > 0 {
 		p.log.debug(messages.CSPFK014D, len(secretGroups), k8sSecretName)
-		p.secretsGroups[k8sSecretName] = secretGroups
+		p.secretsGroups[p.secretKey(k8sSecret.Namespace, k8sSecretName)] = secretGroups
 	}
 
 	return nil
@@ -438,7 +457,7 @@ func (p *K8sProvider) parseConjurSecretsYAML(k8sSecret *v1.Secret) (bool, error)
 
 	// Process the valid conjur-map
 	p.log.debug(messages.CSPFK009D, conjurMapKey, k8sSecretName)
-	if err := p.refreshUpdateDestinations(conjurMap, k8sSecretName); err != nil {
+	if err := p.refreshUpdateDestinations(conjurMap, k8sSecret.Namespace, k8sSecretName); err != nil {
 		return false, err
 	}
 
@@ -450,11 +469,11 @@ func (p *K8sProvider) parseConjurSecretsYAML(k8sSecret *v1.Secret) (bool, error)
 // content-type as specified in the Conjur secrets mapping.
 // The key is an application secret name, the value can be either a
 // string (varID) or a map {id: varID (required), content-type: base64 (optional)}.
-func (p *K8sProvider) refreshUpdateDestinations(conjurMap map[string]interface{}, k8sSecretName string) error {
+func (p *K8sProvider) refreshUpdateDestinations(conjurMap map[string]interface{}, namespace, k8sSecretName string) error {
 	for secretName, contents := range conjurMap {
 		switch value := contents.(type) {
 		case string: //in that case contents is varID
-			dest := updateDestination{k8sSecretName, secretName, "text"}
+			dest := updateDestination{namespace, k8sSecretName, secretName, "text"}
 			p.appendDestination(value, dest)
 		case map[interface{}]interface{}:
 			varId, ok := value["id"].(string)
@@ -469,7 +488,7 @@ func (p *K8sProvider) refreshUpdateDestinations(conjurMap map[string]interface{}
 				contentType = "text"
 			}
 
-			dest := updateDestination{k8sSecretName, secretName, contentType}
+			dest := updateDestination{namespace, k8sSecretName, secretName, contentType}
 			p.appendDestination(varId, dest)
 
 		default:
@@ -492,6 +511,7 @@ func (p *K8sProvider) appendDestination(varID string, dest updateDestination) {
 	}
 
 	key := destinationKey{
+		namespace:     dest.namespace,
 		k8sSecretName: dest.k8sSecretName,
 		secretName:    dest.secretName,
 	}
@@ -589,18 +609,25 @@ func (p *K8sProvider) updateRequiredK8sSecretsWithCleanup(
 	// This handles secrets that were retrieved in retrieveRequiredK8sSecrets but have no conjur-map entries
 	// Note: we only need to deal with the ones that need keys removed based on conjur-map changes
 	if len(keysToRemove) > 0 {
-		for k8sSecretName := range p.secretsState.originalK8sSecrets {
-			if newSecretsDataMap[k8sSecretName] == nil && keysToRemove[k8sSecretName] != nil {
+		for secretKey := range p.secretsState.originalK8sSecrets {
+			if newSecretsDataMap[secretKey] == nil && keysToRemove[secretKey] != nil {
 				// Secret has entries to be removed but not in newSecretData, add an empty entry so it will be processed
-				newSecretsDataMap[k8sSecretName] = map[string][]byte{}
+				newSecretsDataMap[secretKey] = map[string][]byte{}
 			}
 		}
 	}
 
 	// Update K8s Secrets with the retrieved Conjur secrets
-	for k8sSecretName, secretData := range newSecretsDataMap {
+	for secretKey, secretData := range newSecretsDataMap {
 		_, childSpan := tracer.Start(spanCtx, "Update K8s Secret")
 		defer childSpan.End()
+		originalSecret := p.secretsState.originalK8sSecrets[secretKey]
+		if originalSecret == nil {
+			continue
+		}
+		namespace := originalSecret.Namespace
+		k8sSecretName := originalSecret.Name
+
 		b := new(bytes.Buffer)
 		_, err := fmt.Fprintf(b, "%v", secretData)
 		if err != nil {
@@ -612,21 +639,21 @@ func (p *K8sProvider) updateRequiredK8sSecretsWithCleanup(
 		// Calculate a sha256 checksum on the content
 		checksum, _ := utils.FileChecksum(b)
 
-		if utils.ContentHasChanged(k8sSecretName, checksum, p.prevSecretsChecksums) {
-			originalSecret := p.secretsState.originalK8sSecrets[k8sSecretName].DeepCopy()
+		if utils.ContentHasChanged(secretKey, checksum, p.prevSecretsChecksums) {
+			originalSecretCopy := originalSecret.DeepCopy()
 
 			// Remove keys those are not in conjur-map anymore
-			if keysToRemove[k8sSecretName] != nil {
-				for _, key := range keysToRemove[k8sSecretName] {
-					delete(originalSecret.Data, key)
+			if keysToRemove[secretKey] != nil {
+				for _, key := range keysToRemove[secretKey] {
+					delete(originalSecretCopy.Data, key)
 					p.log.debug(messages.CSPFK033I, key, k8sSecretName)
 				}
 			}
 
 			err := p.k8s.updateSecret(
-				p.podNamespace,
+				namespace,
 				k8sSecretName,
-				originalSecret,
+				originalSecretCopy,
 				secretData)
 			if err != nil {
 				// Error messages returned from K8s should be printed only in debug mode
@@ -634,10 +661,10 @@ func (p *K8sProvider) updateRequiredK8sSecretsWithCleanup(
 				childSpan.RecordErrorAndSetStatus(err)
 				return false, p.log.recordedError(messages.CSPFK022E)
 			}
-			p.prevSecretsChecksums[k8sSecretName] = checksum
+			p.prevSecretsChecksums[secretKey] = checksum
 			updated = true
 		} else {
-			p.log.debug(messages.CSPFK016D, k8sSecretName)
+			p.log.debug(messages.CSPFK016D, namespace, k8sSecretName)
 		}
 	}
 
@@ -659,12 +686,12 @@ func (p *K8sProvider) createSecretData(conjurSecrets map[string][]byte) map[stri
 			dests = append(dests, p.secretsState.updateDestinations["*"]...)
 		}
 		for _, dest := range dests {
-			k8sSecretName := dest.k8sSecretName
+			secretKey := p.secretKey(dest.namespace, dest.k8sSecretName)
 
 			// If there are no data entries for this K8s Secret yet, initialize
 			// its map of data entries.
-			if secretData[k8sSecretName] == nil {
-				secretData[k8sSecretName] = map[string][]byte{}
+			if secretData[secretKey] == nil {
+				secretData[secretKey] = map[string][]byte{}
 			}
 
 			secretName := dest.secretName
@@ -672,7 +699,7 @@ func (p *K8sProvider) createSecretData(conjurSecrets map[string][]byte) map[stri
 				// In fetch all mode, use the Conjur variable ID as the key.
 				// However, we need to normalize the key to be a valid K8s secret name.
 				secretName = normalizeK8sSecretName(variableID)
-				if secretData[k8sSecretName][secretName] != nil {
+				if secretData[secretKey][secretName] != nil {
 					// The key already exists. Since the order of the secrets is not guaranteed,
 					// this will cause non-deterministic behavior. Log a warning and leave the
 					// first value in place.
@@ -688,12 +715,12 @@ func (p *K8sProvider) createSecretData(conjurSecrets map[string][]byte) map[stri
 				if err != nil {
 					// Log the error as a warning but still provide the original secret value
 					p.log.warn(messages.CSPFK064E, secretName, dest.contentType, err.Error())
-					secretData[k8sSecretName][secretName] = secretValue
+					secretData[secretKey][secretName] = secretValue
 				} else {
-					secretData[k8sSecretName][secretName] = decodedSecretValue[:n]
+					secretData[secretKey][secretName] = decodedSecretValue[:n]
 				}
 			} else {
-				secretData[k8sSecretName][secretName] = secretValue
+				secretData[secretKey][secretName] = secretValue
 			}
 		}
 	}
@@ -705,29 +732,36 @@ func (p *K8sProvider) createSecretData(conjurSecrets map[string][]byte) map[stri
 		// Find updateDestinations that are not in conjurSecrets
 		for varID, dests := range p.secretsState.updateDestinations {
 			for _, dest := range dests {
+				secretKey := p.secretKey(dest.namespace, dest.k8sSecretName)
+				if secretData[secretKey] == nil {
+					secretData[secretKey] = map[string][]byte{}
+				}
 				if dest.secretName == "*" {
 					// This is a fetch all destination. We need to check all keys in the secret
 					// in order to remove any keys that are no longer in Conjur.
-					existingKeys := p.secretsState.originalK8sSecrets[dest.k8sSecretName].Data
-					for key := range existingKeys {
-						if key != config.ConjurMapKey && secretData[dest.k8sSecretName][key] == nil {
-							// If the key is not 'conjur-map' and the key is not in the newly
-							// fetched secrets, set the value to an empty string. This wipes
-							// any old values that are no longer in Conjur. It also has the
-							// side effect of wiping any non-conjur secrets. Therefore, we
-							// cannot allow non-Conjur secrets in fetch all mode with sanitize enabled.
-							secretData[dest.k8sSecretName][key] = []byte("")
+					originalSecret := p.secretsState.originalK8sSecrets[secretKey]
+					if originalSecret != nil && originalSecret.Data != nil {
+						existingKeys := originalSecret.Data
+						for key := range existingKeys {
+							if key != config.ConjurMapKey && secretData[secretKey][key] == nil {
+								// If the key is not 'conjur-map' and the key is not in the newly
+								// fetched secrets, set the value to an empty string. This wipes
+								// any old values that are no longer in Conjur. It also has the
+								// side effect of wiping any non-conjur secrets. Therefore, we
+								// cannot allow non-Conjur secrets in fetch all mode with sanitize enabled.
+								secretData[secretKey][key] = []byte("")
+							}
 						}
 					}
 					continue
 				}
 
-				if conjurSecrets[varID] == nil {
+				if conjurSecrets == nil || conjurSecrets[varID] == nil {
 					// The secret does not exist in conjurSecrets, set the value to an empty string
-					if secretData[dest.k8sSecretName] == nil {
-						secretData[dest.k8sSecretName] = map[string][]byte{}
+					if secretData[secretKey] == nil {
+						secretData[secretKey] = map[string][]byte{}
 					}
-					secretData[dest.k8sSecretName][dest.secretName] = []byte("")
+					secretData[secretKey][dest.secretName] = []byte("")
 				}
 			}
 		}
@@ -762,7 +796,8 @@ func (p *K8sProvider) GetRemovedKeys(oldSecret, newSecret *v1.Secret) map[string
 
 	// If any keys were removed from the conjur-map, add them to the cleanup map
 	if len(removedKeys) > 0 {
-		keysToRemove[newSecret.Name] = removedKeys
+		secretKey := p.secretKey(newSecret.Namespace, newSecret.Name)
+		keysToRemove[secretKey] = removedKeys
 		log.Debug(messages.CSPFK032I, newSecret.Name, removedKeys)
 	}
 
@@ -815,9 +850,9 @@ func (p *K8sProvider) MergeReAddedKeys(keysToRemoveCumulative map[string][]strin
 
 	addedKeys := getAddedConjurMapKeys(oldSecret, newSecret)
 	if len(addedKeys) > 0 {
-		secretName := newSecret.Name
-		if cumulative := keysToRemoveCumulative[secretName]; len(cumulative) > 0 {
-			keysToRemoveCumulative[secretName] = removeKeys(cumulative, addedKeys)
+		secretKey := p.secretKey(newSecret.Namespace, newSecret.Name)
+		if cumulative := keysToRemoveCumulative[secretKey]; len(cumulative) > 0 {
+			keysToRemoveCumulative[secretKey] = removeKeys(cumulative, addedKeys)
 		}
 	}
 	return keysToRemoveCumulative
@@ -843,7 +878,7 @@ func removeKeys(keys, keysToRemove []string) []string {
 func (p *K8sProvider) populateGroupTemplateSecretData(conjurSecrets map[string][]byte,
 	newSecretsDataMap map[string]map[string][]byte) error {
 
-	for k8sSecretName, secretGroups := range p.secretsGroups {
+	for secretKey, secretGroups := range p.secretsGroups {
 		secretsByGroup := map[string][]*filetemplates.Secret{}
 
 		for _, secretGroup := range secretGroups {
@@ -867,7 +902,7 @@ func (p *K8sProvider) populateGroupTemplateSecretData(conjurSecrets map[string][
 		}
 
 		// Render each group template
-		originalSecret := p.secretsState.originalK8sSecrets[k8sSecretName]
+		originalSecret := p.secretsState.originalK8sSecrets[secretKey]
 		if originalSecret == nil {
 			continue
 		}
@@ -881,7 +916,7 @@ func (p *K8sProvider) populateGroupTemplateSecretData(conjurSecrets map[string][
 			groupTemplate := originalSecret.Annotations[filetemplates.SecretGroupFileTemplatePrefix+groupName]
 			tpl, err := filetemplates.GetTemplate(groupName, secretsMap).Parse(groupTemplate)
 			if err != nil {
-				p.log.logError(messages.CSPFK088E, groupName, k8sSecretName, err.Error())
+				p.log.logError(messages.CSPFK088E, groupName, originalSecret.Name, err.Error())
 				continue
 			}
 
@@ -892,15 +927,15 @@ func (p *K8sProvider) populateGroupTemplateSecretData(conjurSecrets map[string][
 			}
 			fileContent, err := filetemplates.RenderFile(tpl, tplData)
 			if err != nil {
-				p.log.logError(messages.CSPFK089E, groupName, k8sSecretName, err.Error())
+				p.log.logError(messages.CSPFK089E, groupName, originalSecret.Name, err.Error())
 				continue
 			}
 
-			if newSecretsDataMap[k8sSecretName] == nil {
-				newSecretsDataMap[k8sSecretName] = map[string][]byte{}
+			if newSecretsDataMap[secretKey] == nil {
+				newSecretsDataMap[secretKey] = map[string][]byte{}
 			}
 			// Use rendered template as the value, groupname as the key for the K8s secret
-			newSecretsDataMap[k8sSecretName][groupName] = fileContent.Bytes()
+			newSecretsDataMap[secretKey][groupName] = fileContent.Bytes()
 		}
 	}
 	return nil
