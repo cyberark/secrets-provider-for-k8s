@@ -126,7 +126,7 @@ func RetryableSecretProvider(
 
 		err := backoff.RetryNotify(op, limitedBackOff, notify)
 		if err != nil {
-			log.Error(messages.CSPFK038E, err)
+			log.Error(messages.CSPFK038E)
 			return updated, err
 		}
 		return updated, nil

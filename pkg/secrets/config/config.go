@@ -14,16 +14,17 @@ import (
 // Constants for Secrets Provider operation modes,
 // and Defaults for some SP settings
 const (
-	K8s                       = "k8s_secrets"
-	File                      = "file"
-	ConjurMapKey              = "conjur-map"
-	DefaultRetryCountLimit    = 5
-	DefaultRetryIntervalSec   = 1
-	MinRetryCountLimit        = -1
-	MinRetryIntervalSec       = 0
-	MinRefreshInterval        = time.Second
-	DefaultRefreshIntervalStr = "5m"
-	DefaultSanitizeEnabled    = true
+	K8s                              = "k8s_secrets"
+	File                             = "file"
+	ConjurMapKey                     = "conjur-map"
+	DefaultRetryCountLimit           = 5
+	DefaultRetryCountLimitStandalone = -1 // default to unlimited retries for standalone mode, readiness probe will indicate errors
+	DefaultRetryIntervalSec          = 1
+	MinRetryCountLimit               = -1
+	MinRetryIntervalSec              = 0
+	MinRefreshInterval               = time.Second
+	DefaultRefreshIntervalStr        = "5m"
+	DefaultSanitizeEnabled           = true
 )
 
 var DefaultRefreshInterval, _ = time.ParseDuration(DefaultRefreshIntervalStr)
@@ -286,11 +287,20 @@ func NewConfig(settings map[string]string) *Config {
 		k8sSecretsArr = parseK8sSecretsList(settings)
 	}
 
+	containerMode := settings[ContainerModeKey]
+	if containerMode == "" {
+		containerMode = settings["CONTAINER_MODE"]
+	}
+
 	retryCountLimitStr := settings[retryCountLimitKey]
 	if retryCountLimitStr == "" {
 		retryCountLimitStr = settings["RETRY_COUNT_LIMIT"]
 	}
-	retryCountLimit := parseIntFromStringOrDefault(retryCountLimitStr, DefaultRetryCountLimit, MinRetryCountLimit)
+	defaultRetryLimit := DefaultRetryCountLimit
+	if retryCountLimitStr == "" && containerMode == "standalone" {
+		defaultRetryLimit = DefaultRetryCountLimitStandalone
+	}
+	retryCountLimit := parseIntFromStringOrDefault(retryCountLimitStr, defaultRetryLimit, MinRetryCountLimit)
 
 	retryIntervalSecStr := settings[retryIntervalSecKey]
 	if retryIntervalSecStr == "" {
@@ -312,11 +322,6 @@ func NewConfig(settings map[string]string) *Config {
 		sanitizeEnableStr = settings["REMOVE_DELETED_SECRETS"]
 	}
 	sanitizeEnable := parseBoolFromStringOrDefault(sanitizeEnableStr, DefaultSanitizeEnabled)
-
-	containerMode := settings[ContainerModeKey]
-	if containerMode == "" {
-		containerMode = settings["CONTAINER_MODE"]
-	}
 
 	namespaceAllowlist := settings[NamespaceAllowlistKey]
 	if namespaceAllowlist == "" {

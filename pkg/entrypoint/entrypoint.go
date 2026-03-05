@@ -280,7 +280,6 @@ func secretsProvider(
 		K8sProviderConfig: k8sSecretsStorage.K8sProviderConfig{
 			PodNamespace:       secretsConfig.PodNamespace,
 			RequiredK8sSecrets: secretsConfig.RequiredK8sSecrets,
-			IsRepeatableMode:   secretsConfig.ContainerMode == "standalone",
 		},
 		P2FProviderConfig: pushtofile.P2FProviderConfig{
 			SecretFileBasePath:   secretsBasePath,

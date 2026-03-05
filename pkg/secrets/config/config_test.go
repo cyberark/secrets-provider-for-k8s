@@ -703,7 +703,7 @@ var newConfigTestCases = []newConfigTestCase{
 		}),
 	},
 	{
-		description: "standalone mode config with namespace allowlist from annotation",
+		description: "standalone mode config with namespace allowlist from annotation uses unlimited retries by default",
 		settings: map[string]string{
 			"MY_POD_NAMESPACE":    "test-namespace",
 			SecretsDestinationKey: "file",
@@ -714,7 +714,7 @@ var newConfigTestCases = []newConfigTestCase{
 			PodNamespace:       "test-namespace",
 			StoreType:          "file",
 			RequiredK8sSecrets: []string{},
-			RetryCountLimit:    DefaultRetryCountLimit,
+			RetryCountLimit:    DefaultRetryCountLimitStandalone,
 			RetryIntervalSec:   DefaultRetryIntervalSec,
 			SanitizeEnabled:    DefaultSanitizeEnabled,
 			ContainerMode:      "standalone",
@@ -722,7 +722,7 @@ var newConfigTestCases = []newConfigTestCase{
 		}),
 	},
 	{
-		description: "standalone mode config with namespace allowlist from env var",
+		description: "standalone mode config with namespace allowlist from env var uses unlimited retries by default",
 		settings: map[string]string{
 			"MY_POD_NAMESPACE":    "test-namespace",
 			SecretsDestinationKey: "file",
@@ -733,11 +733,46 @@ var newConfigTestCases = []newConfigTestCase{
 			PodNamespace:       "test-namespace",
 			StoreType:          "file",
 			RequiredK8sSecrets: []string{},
-			RetryCountLimit:    DefaultRetryCountLimit,
+			RetryCountLimit:    DefaultRetryCountLimitStandalone,
 			RetryIntervalSec:   DefaultRetryIntervalSec,
 			SanitizeEnabled:    DefaultSanitizeEnabled,
 			ContainerMode:      "standalone",
 			NamespaceAllowlist: "default,prod",
+		}),
+	},
+	{
+		description: "standalone mode with explicit retry count uses configured value",
+		settings: map[string]string{
+			"MY_POD_NAMESPACE":    "test-namespace",
+			SecretsDestinationKey: "file",
+			ContainerModeKey:      "standalone",
+			retryCountLimitKey:    "10",
+		},
+		assert: assertGoodConfig(&Config{
+			PodNamespace:       "test-namespace",
+			StoreType:          "file",
+			RequiredK8sSecrets: []string{},
+			RetryCountLimit:    10,
+			RetryIntervalSec:   DefaultRetryIntervalSec,
+			SanitizeEnabled:    DefaultSanitizeEnabled,
+			ContainerMode:      "standalone",
+		}),
+	},
+	{
+		description: "init mode without retry config uses default retry limit of 5",
+		settings: map[string]string{
+			"MY_POD_NAMESPACE":    "test-namespace",
+			SecretsDestinationKey: "file",
+			ContainerModeKey:      "init",
+		},
+		assert: assertGoodConfig(&Config{
+			PodNamespace:       "test-namespace",
+			StoreType:          "file",
+			RequiredK8sSecrets: []string{},
+			RetryCountLimit:    DefaultRetryCountLimit,
+			RetryIntervalSec:   DefaultRetryIntervalSec,
+			SanitizeEnabled:    DefaultSanitizeEnabled,
+			ContainerMode:      "init",
 		}),
 	},
 }
