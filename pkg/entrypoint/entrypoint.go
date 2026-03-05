@@ -120,12 +120,6 @@ func startSecretsProviderWithDeps(
 		return
 	}
 
-	provideSecrets = secrets.RetryableSecretProvider(
-		time.Duration(secretsConfig.RetryIntervalSec)*time.Second,
-		secretsConfig.RetryCountLimit,
-		provideSecrets,
-	)
-
 	containerMode := getContainerMode()
 	runOnce := containerMode != "sidecar" && containerMode != "standalone"
 
@@ -196,6 +190,8 @@ func startSecretsProviderWithDeps(
 			// on this channel to trigger a graceful shut down of the Secrets Provider.
 			ProviderQuit:   make(chan struct{}),
 			InformerEvents: informerEventsChan,
+			RetryInterval:  time.Duration(secretsConfig.RetryIntervalSec) * time.Second,
+			RetryCountLimit: secretsConfig.RetryCountLimit,
 		},
 		provideSecrets,
 		statusUpdaterFactory(),
@@ -280,7 +276,6 @@ func secretsProvider(
 		K8sProviderConfig: k8sSecretsStorage.K8sProviderConfig{
 			PodNamespace:       secretsConfig.PodNamespace,
 			RequiredK8sSecrets: secretsConfig.RequiredK8sSecrets,
-			IsRepeatableMode:   secretsConfig.ContainerMode == "standalone",
 		},
 		P2FProviderConfig: pushtofile.P2FProviderConfig{
 			SecretFileBasePath:   secretsBasePath,

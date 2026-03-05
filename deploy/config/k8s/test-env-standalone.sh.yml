@@ -38,6 +38,21 @@ spec:
       - image: '${PULL_DOCKER_REGISTRY_PATH}/${APP_NAMESPACE_NAME}/secrets-provider:latest'
         imagePullPolicy: Always
         name: cyberark-secrets-provider-for-k8s
+        ports:
+        - name: probes
+          containerPort: 8080
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: probes
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /readyz
+            port: probes
+          initialDelaySeconds: 5
+          periodSeconds: 5
         volumeMounts:
           - mountPath: /conjur/podinfo
             name: podinfo

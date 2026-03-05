@@ -120,7 +120,10 @@ Some notes about the different configuration methods:
 
 ## Retry Behavior
 
-By default, the Secrets Provider will retry failed Conjur retrieval attempts up to a limited number of times. The default retry count is defined in the code as `DefaultRetryCountLimit` (currently `5`).
+The default retry count depends on container mode:
+
+- **Standalone mode**: Unlimited retries (`-1`) by default. The provider keeps retrying until Conjur is available or configuration issues have been resolved. The readiness probe keeps the pod out of service until secrets are successfully provisioned.
+- **Init, application, and sidecar modes**: Limited to 5 retries by default (`DefaultRetryCountLimit`).
 
 - To change the retry behavior via environment variable, set `RETRY_COUNT_LIMIT` to an integer value.
 - To change the retry behavior via Pod annotation, set `conjur.org/retry-count-limit` to an integer value.
