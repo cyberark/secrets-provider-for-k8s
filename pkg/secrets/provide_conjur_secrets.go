@@ -94,12 +94,18 @@ func NewProviderForType(
 	}
 }
 
+// OnRetryFunc is an optional callback invoked on each retry attempt when secret
+// retrieval fails. Used to update readiness status so the pod is marked not ready
+// while retrying (e.g., when RetryLimit is unlimited and the call blocks).
+type OnRetryFunc func(err error)
+
 // RetryableSecretProvider returns a new ProviderFunc, which wraps the provided ProviderFunc
 // in a limitedBackOff-restricted Retry call.
 func RetryableSecretProvider(
 	retryInterval time.Duration,
 	retryCountLimit int,
 	provideSecrets ProviderFunc,
+	onRetry OnRetryFunc,
 ) ProviderFunc {
 	limitedBackOff := utils.NewLimitedBackOff(
 		retryInterval,
@@ -116,6 +122,9 @@ func RetryableSecretProvider(
 		}
 
 		notify := func(err error, next time.Duration) {
+			if onRetry != nil {
+				onRetry(err)
+			}
 			retries := limitedBackOff.RetryCount()
 			limit := "unlimited"
 			if limitedBackOff.RetryLimit >= 0 {
@@ -141,6 +150,8 @@ type ProviderRefreshConfig struct {
 	SecretRefreshInterval time.Duration
 	ProviderQuit          chan struct{}
 	InformerEvents        <-chan k8sinformer.SecretEvent
+	RetryInterval         time.Duration
+	RetryCountLimit       int
 }
 
 // RunSecretsProvider takes a retryable ProviderFunc, and runs it in one of four modes:
@@ -173,6 +184,22 @@ func RunSecretsProvider(
 		}
 
 		httpServer.SetReady(false)
+	}
+
+	// Wrap with retry logic when config specifies it; pass onRetry so readiness
+	// is set to false on each retry (critical when retries are unlimited and the
+	// call blocks—otherwise setReady(err) would never be reached)
+	if config.RetryInterval > 0 {
+		var onRetry OnRetryFunc
+		if httpServer != nil {
+			onRetry = func(err error) { setReady(err) }
+		}
+		provideSecrets = RetryableSecretProvider(
+			config.RetryInterval,
+			config.RetryCountLimit,
+			provideSecrets,
+			onRetry,
+		)
 	}
 
 	if err = status.CopyScripts(); err != nil {

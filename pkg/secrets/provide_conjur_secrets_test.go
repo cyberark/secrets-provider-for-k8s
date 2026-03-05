@@ -142,7 +142,7 @@ func TestRetryableSecretProvider(t *testing.T) {
 			logger.InfoLogger = log.New(&logBuffer, "", 0)
 
 			retryableProvider := RetryableSecretProvider(
-				tc.interval, tc.limit, tc.provider.provide,
+				tc.interval, tc.limit, tc.provider.provide, nil,
 			)
 
 			start := time.Now()
@@ -167,6 +167,76 @@ func TestRetryableSecretProvider(t *testing.T) {
 			assert.Equal(t, tc.expectUpdated, updated)
 		})
 	}
+}
+
+func TestRetryableSecretProviderOnRetry(t *testing.T) {
+	t.Run("onRetry is called on each retry when provider eventually succeeds", func(t *testing.T) {
+		var logBuffer bytes.Buffer
+		logger.InfoLogger = log.New(&logBuffer, "", 0)
+
+		provider := eventualProvider(3) // fails 2 times, succeeds on 3rd
+		var onRetryCalls int
+		var lastOnRetryErr error
+		onRetry := func(err error) {
+			onRetryCalls++
+			lastOnRetryErr = err
+		}
+
+		retryableProvider := RetryableSecretProvider(
+			10*time.Millisecond, 5, provider.provide, onRetry,
+		)
+
+		_, err := retryableProvider()
+		assert.NoError(t, err)
+		assert.Equal(t, 2, onRetryCalls, "onRetry should be called twice (before 2nd and 3rd attempt)")
+		assert.Error(t, lastOnRetryErr)
+		assert.Contains(t, lastOnRetryErr.Error(), "Failed to Provide")
+	})
+
+	t.Run("onRetry is called on each retry when provider exhausts retry limit", func(t *testing.T) {
+		var logBuffer bytes.Buffer
+		logger.InfoLogger = log.New(&logBuffer, "", 0)
+
+		provider := badProvider()
+		var onRetryCalls int
+		onRetry := func(err error) {
+			onRetryCalls++
+		}
+
+		retryableProvider := RetryableSecretProvider(
+			10*time.Millisecond, 3, provider.provide, onRetry,
+		)
+
+		_, err := retryableProvider()
+		assert.Error(t, err)
+		assert.Equal(t, 3, onRetryCalls, "onRetry should be called 3 times (before each retry)")
+	})
+
+	t.Run("onRetry is not called when provider succeeds on first attempt", func(t *testing.T) {
+		provider := goodProvider()
+		var onRetryCalls int
+		onRetry := func(err error) {
+			onRetryCalls++
+		}
+
+		retryableProvider := RetryableSecretProvider(
+			10*time.Millisecond, 3, provider.provide, onRetry,
+		)
+
+		_, err := retryableProvider()
+		assert.NoError(t, err)
+		assert.Equal(t, 0, onRetryCalls, "onRetry should not be called when provider succeeds immediately")
+	})
+
+	t.Run("nil onRetry does not panic", func(t *testing.T) {
+		provider := eventualProvider(2)
+		retryableProvider := RetryableSecretProvider(
+			10*time.Millisecond, 5, provider.provide, nil,
+		)
+
+		_, err := retryableProvider()
+		assert.NoError(t, err)
+	})
 }
 
 func TestRunSecretsProvider(t *testing.T) {
