@@ -134,3 +134,6 @@ const CSPFK089E string = "CSPFK089E Failed to render template for %s group in %s
 
 // Http server
 const CSPFK094E string = "CSPFK094E Failed to create HTTP server: %v"
+
+// Namespace allowlist
+const CSPFK095E string = "CSPFK095E Invalid namespace '%s' in allowlist: must be a valid Kubernetes namespace name (DNS-1123 label)"

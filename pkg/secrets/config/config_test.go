@@ -3,6 +3,7 @@ package config
 import (
 	"errors"
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -501,6 +502,16 @@ var validateSecretsProviderSettingsTestCases = []validateSecretsProviderSettings
 		assert: assertErrorInList(fmt.Errorf(messages.CSPFK052E, "Namespace allowlist")),
 	},
 	{
+		description: "standalone mode with invalid namespace in allowlist returns error",
+		envAndAnnots: map[string]string{
+			"MY_POD_NAMESPACE":    "test-namespace",
+			SecretsDestinationKey: "k8s_secrets",
+			ContainerModeKey:      "standalone",
+			NamespaceAllowlistKey: "ns1,invalid_ns,ns2",
+		},
+		assert: assertErrorInList(fmt.Errorf(messages.CSPFK095E, "invalid_ns")),
+	},
+	{
 		description: "standalone mode with file store type returns error",
 		envAndAnnots: map[string]string{
 			"MY_POD_NAMESPACE":    "test-namespace",
@@ -819,30 +830,71 @@ func TestNewConfig(t *testing.T) {
 
 func TestParseNamespaceAllowlist(t *testing.T) {
 	tests := []struct {
-		name      string
-		allowlist string
-		expected  []string
+		name        string
+		allowlist   string
+		expected    []string // expected namespace keys in the set
+		expectError bool
 	}{
-		{"empty string", "", nil},
-		{"whitespace only", "   ", nil},
-		{"wildcard", "*", []string{"*"}},
-		{"single namespace", "default", []string{"default"}},
-		{"comma-separated", "ns1,ns2,ns3", []string{"ns1", "ns2", "ns3"}},
-		{"with spaces", " ns1 , ns2 ", []string{"ns1", "ns2"}},
-		{"empty parts filtered", "ns1,,ns2,", []string{"ns1", "ns2"}},
+		{"empty string", "", nil, false},
+		{"whitespace only", "   ", nil, false},
+		{"wildcard", "*", []string{"*"}, false},
+		{"single namespace", "default", []string{"default"}, false},
+		{"comma-separated", "ns1,ns2,ns3", []string{"ns1", "ns2", "ns3"}, false},
+		{"with spaces", " ns1 , ns2 ", []string{"ns1", "ns2"}, false},
+		{"empty parts filtered", "ns1,,ns2,", []string{"ns1", "ns2"}, false},
+		{"invalid: uppercase", "InvalidNS", nil, true},
+		{"invalid: underscore", "invalid_ns", nil, true},
+		{"invalid: contains dot", "foo.bar", nil, true},
+		{"invalid: starts with hyphen", "-invalid", nil, true},
+		{"invalid: ends with hyphen", "invalid-", nil, true},
+		{"invalid: empty segment", "ns1,,ns2", []string{"ns1", "ns2"}, false},
+		{"invalid: too long", strings.Repeat("a", 254), nil, true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := ParseNamespaceAllowlist(tt.allowlist)
-			assert.Equal(t, tt.expected, result)
+			result, err := ParseNamespaceAllowlist(tt.allowlist)
+			if tt.expectError {
+				assert.Error(t, err)
+				assert.Nil(t, result)
+			} else {
+				assert.NoError(t, err)
+				if tt.expected == nil {
+					assert.Nil(t, result)
+				} else {
+					assert.Len(t, result, len(tt.expected))
+					for _, ns := range tt.expected {
+						_, ok := result[ns]
+						assert.True(t, ok, "expected namespace %q in result", ns)
+					}
+				}
+			}
 		})
 	}
 }
 
 func TestIsSystemNamespace(t *testing.T) {
+	// Kubernetes core (all platforms)
 	assert.True(t, IsSystemNamespace("kube-system"))
 	assert.True(t, IsSystemNamespace("kube-public"))
 	assert.True(t, IsSystemNamespace("kube-node-lease"))
+	assert.True(t, IsSystemNamespace("kube-something-future"))
+
+	// Red Hat OpenShift
+	assert.True(t, IsSystemNamespace("openshift"))
+	assert.True(t, IsSystemNamespace("openshift-apiserver"))
+	assert.True(t, IsSystemNamespace("openshift-monitoring"))
+
+	// IBM Cloud
+	assert.True(t, IsSystemNamespace("ibm-common-services"))
+
+	// VMware Tanzu / Broadcom (PKS)
+	assert.True(t, IsSystemNamespace("pks-infrastructure"))
+
+	// Azure AKS
+	assert.True(t, IsSystemNamespace("aks-istio-system"))
+
+	// User namespaces
 	assert.False(t, IsSystemNamespace("default"))
 	assert.False(t, IsSystemNamespace("my-app"))
+	assert.False(t, IsSystemNamespace("production"))
 }

@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/log/messages"
+	"k8s.io/apimachinery/pkg/util/validation"
 )
 
 // Constants for Secrets Provider operation modes,
@@ -261,6 +262,8 @@ func ValidateSecretsProviderSettings(envAndAnnots map[string]string) ([]error, [
 			errorList = append(errorList, fmt.Errorf(messages.CSPFK052E, "Namespace allowlist"))
 		} else if strings.TrimSpace(namespaceAllowlist) == "*" {
 			infoList = append(infoList, fmt.Errorf(messages.CSPFK037I))
+		} else if _, err := ParseNamespaceAllowlist(namespaceAllowlist); err != nil {
+			errorList = append(errorList, err)
 		}
 		if strings.TrimSpace(envAndAnnots[k8sSecretsKey]) != "" || strings.TrimSpace(envAndAnnots["K8S_SECRETS"]) != "" {
 			errorList = append(errorList, fmt.Errorf(messages.CSPFK093E, "Required K8s secrets"))
@@ -481,32 +484,54 @@ func validRefreshInterval(intervalStr string, enableStr string, envAndAnnots map
 
 // IsSystemNamespace returns true if the namespace is a Kubernetes system namespace
 // that should be excluded when resolving "*" to all namespaces.
+// Uses prefix-based matching to cover all major platforms:
+//   - kube-*: Kubernetes core (all platforms)
+//   - openshift-*: Red Hat OpenShift
+//   - ibm-*: IBM Cloud
+//   - pks-*: VMware Tanzu / Broadcom (PKS)
+//   - aks-*: Azure AKS
 func IsSystemNamespace(name string) bool {
-	switch name {
-	case "kube-system", "kube-public", "kube-node-lease":
+	switch {
+	case strings.HasPrefix(name, "kube-"):
+		return true
+	case name == "openshift" || strings.HasPrefix(name, "openshift-"):
+		return true
+	case strings.HasPrefix(name, "ibm-"):
+		return true
+	case strings.HasPrefix(name, "pks-"):
+		return true
+	case strings.HasPrefix(name, "aks-"):
 		return true
 	}
 	return false
 }
 
-// ParseNamespaceAllowlist parses the namespace allowlist string into a slice.
-// Returns nil if empty, ["*"] if wildcard, or ["ns1","ns2",...] for comma-separated list.
-func ParseNamespaceAllowlist(allowlist string) []string {
+// NamespaceAllowlistSet is a set of namespace names for O(1) lookup.
+type NamespaceAllowlistSet map[string]struct{}
+
+// ParseNamespaceAllowlist parses the namespace allowlist string into a set.
+// Returns nil if empty, a set containing "*" if wildcard, or a set of namespace names for comma-separated list.
+// Returns an error if any allowlisted namespace name is not a valid Kubernetes namespace (RFC 1123 DNS label)
+// See: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/#namespaces-and-dns
+func ParseNamespaceAllowlist(allowlist string) (NamespaceAllowlistSet, error) {
 	trimmed := strings.TrimSpace(allowlist)
 	if trimmed == "" {
-		return nil
+		return nil, nil
 	}
 	if trimmed == "*" {
-		return []string{"*"}
+		return NamespaceAllowlistSet{"*": {}}, nil
 	}
 	parts := strings.Split(trimmed, ",")
-	result := make([]string, 0, len(parts))
+	result := make(NamespaceAllowlistSet, len(parts))
 	for _, p := range parts {
 		if ns := strings.TrimSpace(p); ns != "" {
-			result = append(result, ns)
+			if errs := validation.IsDNS1123Label(ns); len(errs) > 0 {
+				return nil, fmt.Errorf(messages.CSPFK095E, ns)
+			}
+			result[ns] = struct{}{}
 		}
 	}
-	return result
+	return result, nil
 }
 
 // parseK8sSecretsList parses Kubernetes secrets from either annotation format (YAML list)
