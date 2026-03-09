@@ -267,7 +267,7 @@ func secretsProvider(
 	templatesBasePath string,
 	secretRetriever conjur.RetrieveSecretsFunc,
 	providerFactory secrets.ProviderFactory,
-) (secrets.ProviderFunc, *secretsConfigProvider.Config, []string, error) {
+) (secrets.ProviderFunc, *secretsConfigProvider.Config, config.NamespaceAllowlistSet, error) {
 	_, span := tracer.Start(ctx, "Create single-use secrets provider")
 	defer span.End()
 
@@ -280,14 +280,21 @@ func secretsProvider(
 	}
 
 	// Resolve namespace allowlist for standalone mode
-	var namespaceAllowlist []string
-	parsedAllowlist := config.ParseNamespaceAllowlist(secretsConfig.NamespaceAllowlist)
-	if secretsConfig.ContainerMode == "standalone" && len(parsedAllowlist) > 0 {
-		namespaceAllowlist, err = k8sClient.ResolveNamespaceAllowlist(parsedAllowlist)
+	var namespaceAllowlist config.NamespaceAllowlistSet
+	if secretsConfig.ContainerMode == "standalone" {
+		parsedAllowlist, err := config.ParseNamespaceAllowlist(secretsConfig.NamespaceAllowlist)
 		if err != nil {
-			log.Error(messages.CSPFK071E, err)
+			log.Error(err.Error())
 			span.RecordErrorAndSetStatus(err)
 			return nil, nil, nil, err
+		}
+		if len(parsedAllowlist) > 0 {
+			namespaceAllowlist, err = k8sClient.ResolveNamespaceAllowlist(parsedAllowlist)
+			if err != nil {
+				log.Error(messages.CSPFK071E, err)
+				span.RecordErrorAndSetStatus(err)
+				return nil, nil, nil, err
+			}
 		}
 	}
 

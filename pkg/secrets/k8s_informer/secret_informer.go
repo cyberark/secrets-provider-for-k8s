@@ -2,6 +2,7 @@ package k8sinformer
 
 import (
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -15,7 +16,7 @@ import (
 
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/log/messages"
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/config"
-	"github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/file_templates"
+	filetemplates "github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/file_templates"
 )
 
 const (
@@ -38,16 +39,16 @@ type SecretEventNotifier interface {
 
 // SecretInformer wraps a Kubernetes Secret informer and notifies on secret events
 type SecretInformer struct {
-	clientset          kubernetes.Interface
-	namespace          string
-	namespaceAllowlist []string // When non-empty, watch cluster-wide and filter by these namespaces
-	factory            informers.SharedInformerFactory
-	informer           cache.SharedIndexInformer
-	stopCh             chan struct{}
-	notifier           SecretEventNotifier
-	queue              workqueue.TypedInterface[SecretEvent]
-	stopOnce           sync.Once
-	workerWg           sync.WaitGroup
+	clientset             kubernetes.Interface
+	namespace             string
+	namespaceAllowlistSet map[string]struct{} // When non-empty, watch cluster-wide and filter by these namespaces
+	factory               informers.SharedInformerFactory
+	informer              cache.SharedIndexInformer
+	stopCh                chan struct{}
+	notifier              SecretEventNotifier
+	queue                 workqueue.TypedInterface[SecretEvent]
+	stopOnce              sync.Once
+	workerWg              sync.WaitGroup
 }
 
 // NewSecretInformer creates a new SecretInformer for the given namespace.
@@ -56,23 +57,23 @@ type SecretInformer struct {
 func NewSecretInformer(
 	clientset kubernetes.Interface,
 	namespace string,
-	namespaceAllowlist []string,
+	namespaceAllowlist config.NamespaceAllowlistSet,
 	notifier SecretEventNotifier,
 ) *SecretInformer {
 	return &SecretInformer{
-		clientset:          clientset,
-		namespace:          namespace,
-		namespaceAllowlist: namespaceAllowlist,
-		stopCh:             make(chan struct{}),
-		notifier:           notifier,
-		queue:              workqueue.NewTyped[SecretEvent](),
+		clientset:             clientset,
+		namespace:             namespace,
+		namespaceAllowlistSet: namespaceAllowlist,
+		stopCh:                make(chan struct{}),
+		notifier:              notifier,
+		queue:                 workqueue.NewTyped[SecretEvent](),
 	}
 }
 
 // namespaceToWatch returns the namespace to pass to the informer factory.
 // Empty string means cluster-wide (all namespaces).
 func (si *SecretInformer) namespaceToWatch() string {
-	if len(si.namespaceAllowlist) > 0 {
+	if len(si.namespaceAllowlistSet) > 0 {
 		return "" // Cluster-wide watch; filter in event handlers
 	}
 	return si.namespace
@@ -81,15 +82,21 @@ func (si *SecretInformer) namespaceToWatch() string {
 // isNamespaceAllowed returns true if the secret's namespace is in the allowlist.
 // When allowlist is empty, only the pod namespace is allowed.
 func (si *SecretInformer) isNamespaceAllowed(secretNamespace string) bool {
-	if len(si.namespaceAllowlist) == 0 {
+	if len(si.namespaceAllowlistSet) == 0 {
 		return secretNamespace == si.namespace
 	}
-	for _, ns := range si.namespaceAllowlist {
-		if ns == secretNamespace {
-			return true
-		}
+	_, ok := si.namespaceAllowlistSet[secretNamespace]
+	return ok
+}
+
+// namespaceAllowlistNames returns the allowlist namespaces as a sorted slice for logging.
+func (si *SecretInformer) namespaceAllowlistNames() []string {
+	names := make([]string, 0, len(si.namespaceAllowlistSet))
+	for ns := range si.namespaceAllowlistSet {
+		names = append(names, ns)
 	}
-	return false
+	slices.Sort(names)
+	return names
 }
 
 // Start initializes and starts the secret informer
@@ -136,8 +143,8 @@ func (si *SecretInformer) Start() error {
 	si.workerWg.Add(1)
 	go si.runWorker()
 
-	if len(si.namespaceAllowlist) > 0 {
-		log.Info(messages.CSPFK026I, strings.Join(si.namespaceAllowlist, ","))
+	if len(si.namespaceAllowlistSet) > 0 {
+		log.Info(messages.CSPFK026I, strings.Join(si.namespaceAllowlistNames(), ", "))
 	} else {
 		log.Info(messages.CSPFK026I, si.namespace)
 	}
@@ -155,7 +162,11 @@ func (si *SecretInformer) Stop() {
 		if si.factory != nil {
 			si.factory.Shutdown()
 		}
-		log.Info(messages.CSPFK027I, si.namespace)
+		if len(si.namespaceAllowlistSet) > 0 {
+			log.Info(messages.CSPFK027I, strings.Join(si.namespaceAllowlistNames(), ", "))
+		} else {
+			log.Info(messages.CSPFK027I, si.namespace)
+		}
 	})
 	// Wait for runWorker to fully exit
 	si.workerWg.Wait()
@@ -335,10 +346,8 @@ func (si *SecretInformer) runWorker() {
 		if r := recover(); r != nil {
 			log.Error(messages.CSPFK083E, r)
 		}
-		log.Info(messages.CSPFK030I, si.namespace)
 	}()
 
-	log.Info(messages.CSPFK029I, si.namespace)
 	for {
 		// processNextItem returns false only when queue is shut down
 		// or stopCh is closed (after queue.ShutDown in Stop())

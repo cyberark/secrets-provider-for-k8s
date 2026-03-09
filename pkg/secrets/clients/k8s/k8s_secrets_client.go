@@ -71,19 +71,21 @@ func ListLabeledK8sSecrets(namespace string) (*v1.SecretList, error) {
 }
 
 // ResolveNamespaceAllowlist resolves the parsed allowlist into actual namespace names.
-// If allowlist is nil or empty, returns nil. If allowlist is ["*"], resolves to all
+// If allowlist is nil or empty, returns nil. If allowlist contains only "*", resolves to all
 // accessible namespaces (excluding system namespaces). Otherwise returns the allowlist as-is.
-func ResolveNamespaceAllowlist(parsedAllowlist []string) ([]string, error) {
+func ResolveNamespaceAllowlist(parsedAllowlist config.NamespaceAllowlistSet) (config.NamespaceAllowlistSet, error) {
 	if len(parsedAllowlist) == 0 {
 		return nil, nil
 	}
-	if len(parsedAllowlist) == 1 && parsedAllowlist[0] == "*" {
-		return resolveAllNamespaces()
+	if len(parsedAllowlist) == 1 {
+		if _, ok := parsedAllowlist["*"]; ok {
+			return resolveAllNamespacesAsSet()
+		}
 	}
 	return parsedAllowlist, nil
 }
 
-func resolveAllNamespaces() ([]string, error) {
+func resolveAllNamespacesAsSet() (config.NamespaceAllowlistSet, error) {
 	kubeClient, err := configK8sClient()
 	if err != nil {
 		return nil, err
@@ -92,14 +94,14 @@ func resolveAllNamespaces() ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	names := make([]string, 0, len(list.Items))
+	result := make(config.NamespaceAllowlistSet, len(list.Items))
 	for _, ns := range list.Items {
 		if config.IsSystemNamespace(ns.Name) {
 			continue
 		}
-		names = append(names, ns.Name)
+		result[ns.Name] = struct{}{}
 	}
-	return names, nil
+	return result, nil
 }
 
 func configK8sClient() (*kubernetes.Clientset, error) {

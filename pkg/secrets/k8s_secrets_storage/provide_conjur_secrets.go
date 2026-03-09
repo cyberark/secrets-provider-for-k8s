@@ -94,7 +94,7 @@ type K8sProvider struct {
 	log                logDeps
 	podNamespace       string
 	requiredK8sSecrets []string
-	namespaceAllowlist []string // When non-empty (standalone), use multi-namespace logic
+	namespaceAllowlist config.NamespaceAllowlistSet // When non-empty (standalone), use multi-namespace logic
 	secretsState       k8sSecretsState
 	traceContext       context.Context
 	sanitizeEnabled    bool
@@ -113,8 +113,8 @@ type K8sProvider struct {
 // K8sProviderConfig provides config specific to Kubernetes Secrets provider
 type K8sProviderConfig struct {
 	PodNamespace       string
-	RequiredK8sSecrets []string
-	NamespaceAllowlist []string // Resolved namespace list for standalone mode; nil for single-namespace
+	RequiredK8sSecrets  []string
+	NamespaceAllowlist  config.NamespaceAllowlistSet // Resolved namespace set for standalone mode; nil for single-namespace
 }
 
 // NewProvider creates a new secret provider for K8s Secrets mode.
@@ -297,18 +297,22 @@ func (p *K8sProvider) retrieveRequiredK8sSecrets(tracer trace.Tracer) error {
 			}
 		}
 	} else {
-		namespaces := []string{p.podNamespace}
-		if len(p.namespaceAllowlist) > 0 {
-			namespaces = p.namespaceAllowlist
+		namespaces := p.namespaceAllowlist
+		if len(namespaces) == 0 {
+			namespaces = config.NamespaceAllowlistSet{p.podNamespace: struct{}{}}
 		}
-		for _, ns := range namespaces {
+		for ns := range namespaces {
 			_, childSpan := tracer.Start(spanCtx, "List Labeled K8s Secrets")
 			defer childSpan.End()
 			k8sSecrets, err := p.k8s.listLabeledSecrets(ns)
 			if err != nil {
+				// In label-based mode, skip namespaces that fail to list and continue
+				// processing others instead of failing the entire operation. This makes
+				// the provider more resilient to RBAC or connectivity issues in one namespace.
 				childSpan.RecordErrorAndSetStatus(err)
 				span.RecordErrorAndSetStatus(err)
-				return p.log.recordedError(messages.CSPFK024E)
+				p.log.warn(messages.CSPFK096E, ns, err.Error())
+				continue
 			}
 
 			for _, k8sSecret := range k8sSecrets.Items {

@@ -105,6 +105,7 @@ const CSPFK069E string = "CSPFK069E Invalid URL format: %s"
 // Label-based mode
 const CSPFK070E string = "CSPFK070E No updateable labeled secrets were discovered"
 const CSPFK073E string = "CSPFK073E Skipping invalid labeled Kubernetes Secret '%s': %s"
+const CSPFK096E string = "CSPFK096E Skipping namespace '%s' due to list error: %s"
 
 // Secrets informer
 const CSPFK071E string = "CSPFK071E Could not create K8s client for informer: %v"
