@@ -47,3 +47,4 @@ const CSPFK037I string = "CSPFK037I Namespace allowlist set to '*' (all namespac
 const CSPFK038I string = "CSPFK038I HTTP server start listening at %s"
 const CSPFK039I string = "CSPFK039I Secrets Provider healthy status changed to %t"
 const CSPFK040I string = "CSPFK040I Secrets Provider ready status changed to %t"
+const CSPFK041I string = "CSPFK041I Received signal %v, shutting down gracefully"

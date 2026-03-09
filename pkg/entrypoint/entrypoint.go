@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	authnConfig "github.com/cyberark/conjur-authn-k8s-client/pkg/authenticator/config"
@@ -179,20 +181,27 @@ func startSecretsProviderWithDeps(
 		}
 	}()
 
+	providerQuit := make(chan struct{})
+	if !runOnce {
+		// Handle SIGTERM/SIGINT for graceful shutdown when running as sidecar or standalone
+		sigChan := make(chan os.Signal, 1)
+		signal.Notify(sigChan, syscall.SIGTERM, syscall.SIGINT)
+		go func() {
+			sig := <-sigChan
+			log.Info(messages.CSPFK041I, sig)
+			close(providerQuit)
+		}()
+	}
+
 	if err = secrets.RunSecretsProvider(
 		secrets.ProviderRefreshConfig{
 			Mode:                  containerMode,
 			RunOnce:               runOnce,
 			SecretRefreshInterval: secretsConfig.SecretsRefreshInterval,
-			// Create a channel to send a quit signal to the periodic secret provider.
-			// TODO: Currently, this is just used for testing, but in the future we
-			// may want to create a SIGTERM or SIGHUP handler to catch a signal from
-			// a user / external entity, and then send an (empty struct) quit signal
-			// on this channel to trigger a graceful shut down of the Secrets Provider.
-			ProviderQuit:    make(chan struct{}),
-			InformerEvents:  informerEventsChan,
-			RetryInterval:   time.Duration(secretsConfig.RetryIntervalSec) * time.Second,
-			RetryCountLimit: secretsConfig.RetryCountLimit,
+			ProviderQuit:          providerQuit,
+			InformerEvents:        informerEventsChan,
+			RetryInterval:         time.Duration(secretsConfig.RetryIntervalSec) * time.Second,
+			RetryCountLimit:       secretsConfig.RetryCountLimit,
 		},
 		provideSecrets,
 		statusUpdaterFactory(),
