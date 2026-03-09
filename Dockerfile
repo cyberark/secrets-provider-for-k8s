@@ -64,10 +64,8 @@ RUN go build -a -installsuffix cgo -gcflags="all=-N -l" -o secrets-provider ./cm
 FROM alpine:latest AS secrets-provider-base
 LABEL maintainer="CyberArk Software Ltd."
 
-# Ensure openssl development libraries are always up to date
-RUN apk add --no-cache openssl-dev
-
-RUN apk add -u --no-cache shadow libc6-compat && \
+RUN apk update && apk upgrade --no-cache && \
+    apk add --no-cache openssl-dev shadow libc6-compat && \
     # Add limited user
     groupadd -r secrets-provider \
              -g 777 && \
