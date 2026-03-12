@@ -70,6 +70,40 @@ func ListLabeledK8sSecrets(namespace string) (*v1.SecretList, error) {
 	return secretList, nil
 }
 
+// ResolveNamespaceAllowlist resolves the parsed allowlist into actual namespace names.
+// If allowlist is nil or empty, returns nil. If allowlist contains only "*", resolves to all
+// accessible namespaces (excluding system namespaces). Otherwise returns the allowlist as-is.
+func ResolveNamespaceAllowlist(parsedAllowlist config.NamespaceAllowlistSet) (config.NamespaceAllowlistSet, error) {
+	if len(parsedAllowlist) == 0 {
+		return nil, nil
+	}
+	if len(parsedAllowlist) == 1 {
+		if _, ok := parsedAllowlist["*"]; ok {
+			return resolveAllNamespacesAsSet()
+		}
+	}
+	return parsedAllowlist, nil
+}
+
+func resolveAllNamespacesAsSet() (config.NamespaceAllowlistSet, error) {
+	kubeClient, err := configK8sClient()
+	if err != nil {
+		return nil, err
+	}
+	list, err := kubeClient.CoreV1().Namespaces().List(context.Background(), metav1.ListOptions{})
+	if err != nil {
+		return nil, err
+	}
+	result := make(config.NamespaceAllowlistSet, len(list.Items))
+	for _, ns := range list.Items {
+		if config.IsSystemNamespace(ns.Name) {
+			continue
+		}
+		result[ns.Name] = struct{}{}
+	}
+	return result, nil
+}
+
 func configK8sClient() (*kubernetes.Clientset, error) {
 	// Create the Kubernetes client
 	log.Info(messages.CSPFK004I)

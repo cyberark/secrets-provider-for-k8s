@@ -2,6 +2,7 @@ package k8sinformer
 
 import (
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -15,7 +16,7 @@ import (
 
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/log/messages"
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/config"
-	"github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/file_templates"
+	filetemplates "github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/file_templates"
 )
 
 const (
@@ -38,30 +39,70 @@ type SecretEventNotifier interface {
 
 // SecretInformer wraps a Kubernetes Secret informer and notifies on secret events
 type SecretInformer struct {
-	clientset kubernetes.Interface
-	namespace string
-	factory   informers.SharedInformerFactory
-	informer  cache.SharedIndexInformer
-	stopCh    chan struct{}
-	notifier  SecretEventNotifier
-	queue     workqueue.TypedInterface[SecretEvent]
-	stopOnce  sync.Once
-	workerWg  sync.WaitGroup
+	clientset             kubernetes.Interface
+	namespace             string
+	namespaceAllowlistSet map[string]struct{} // When non-empty, watch these namespaces (single=scoped, multiple/*=cluster-wide)
+	factory               informers.SharedInformerFactory
+	informer              cache.SharedIndexInformer
+	stopCh                chan struct{}
+	notifier              SecretEventNotifier
+	queue                 workqueue.TypedInterface[SecretEvent]
+	stopOnce              sync.Once
+	workerWg              sync.WaitGroup
 }
 
-// NewSecretInformer creates a new SecretInformer for the given namespace
+// NewSecretInformer creates a new SecretInformer for the given namespace.
+// When namespaceAllowlist is non-empty (standalone mode), the informer watches
+// the allowlist namespaces (single=namespace-scoped, multiple/*=cluster-wide).
 func NewSecretInformer(
 	clientset kubernetes.Interface,
 	namespace string,
+	namespaceAllowlist config.NamespaceAllowlistSet,
 	notifier SecretEventNotifier,
 ) *SecretInformer {
 	return &SecretInformer{
-		clientset: clientset,
-		namespace: namespace,
-		stopCh:    make(chan struct{}),
-		notifier:  notifier,
-		queue:     workqueue.NewTyped[SecretEvent](),
+		clientset:             clientset,
+		namespace:             namespace,
+		namespaceAllowlistSet: namespaceAllowlist,
+		stopCh:                make(chan struct{}),
+		notifier:              notifier,
+		queue:                 workqueue.NewTyped[SecretEvent](),
 	}
+}
+
+// namespaceToWatch returns the namespace to pass to the informer factory.
+// Empty string means cluster-wide (all namespaces).
+// When allowlist has exactly one namespace, watch only that namespace (allows Role instead of ClusterRole).
+func (si *SecretInformer) namespaceToWatch() string {
+	switch len(si.namespaceAllowlistSet) {
+	case 0:
+		return si.namespace
+	case 1:
+		for ns := range si.namespaceAllowlistSet {
+			return ns
+		}
+	}
+	return "" // Cluster-wide for multiple namespaces or "*"
+}
+
+// isNamespaceAllowed returns true if the secret's namespace is in the allowlist.
+// When allowlist is empty, only the pod namespace is allowed.
+func (si *SecretInformer) isNamespaceAllowed(secretNamespace string) bool {
+	if len(si.namespaceAllowlistSet) == 0 {
+		return secretNamespace == si.namespace
+	}
+	_, ok := si.namespaceAllowlistSet[secretNamespace]
+	return ok
+}
+
+// namespaceAllowlistNames returns the allowlist namespaces as a sorted slice for logging.
+func (si *SecretInformer) namespaceAllowlistNames() []string {
+	names := make([]string, 0, len(si.namespaceAllowlistSet))
+	for ns := range si.namespaceAllowlistSet {
+		names = append(names, ns)
+	}
+	slices.Sort(names)
+	return names
 }
 
 // Start initializes and starts the secret informer
@@ -70,11 +111,11 @@ func (si *SecretInformer) Start() error {
 		return fmt.Errorf(messages.CSPFK076E)
 	}
 
-	// Create a factory for the given namespace
+	// Create a factory for the given namespace (or cluster-wide when allowlist has multiple namespaces or "*")
 	si.factory = informers.NewSharedInformerFactoryWithOptions(
 		si.clientset,
 		0, // Default resync period
-		informers.WithNamespace(si.namespace),
+		informers.WithNamespace(si.namespaceToWatch()),
 	)
 
 	// Get the secret informer
@@ -108,7 +149,11 @@ func (si *SecretInformer) Start() error {
 	si.workerWg.Add(1)
 	go si.runWorker()
 
-	log.Info(messages.CSPFK026I, si.namespace)
+	if len(si.namespaceAllowlistSet) > 0 {
+		log.Info(messages.CSPFK026I, strings.Join(si.namespaceAllowlistNames(), ", "))
+	} else {
+		log.Info(messages.CSPFK026I, si.namespace)
+	}
 	return nil
 }
 
@@ -123,7 +168,11 @@ func (si *SecretInformer) Stop() {
 		if si.factory != nil {
 			si.factory.Shutdown()
 		}
-		log.Info(messages.CSPFK027I, si.namespace)
+		if len(si.namespaceAllowlistSet) > 0 {
+			log.Info(messages.CSPFK027I, strings.Join(si.namespaceAllowlistNames(), ", "))
+		} else {
+			log.Info(messages.CSPFK027I, si.namespace)
+		}
 	})
 	// Wait for runWorker to fully exit
 	si.workerWg.Wait()
@@ -148,6 +197,10 @@ func (si *SecretInformer) onAdd(obj interface{}) {
 	secret, ok := obj.(*v1.Secret)
 	if !ok {
 		log.Warn(messages.CSPFK085E)
+		return
+	}
+
+	if !si.isNamespaceAllowed(secret.Namespace) {
 		return
 	}
 
@@ -262,6 +315,10 @@ func (si *SecretInformer) onUpdate(oldObj, newObj interface{}) {
 		return
 	}
 
+	if !si.isNamespaceAllowed(newSecret.Namespace) {
+		return
+	}
+
 	// Only process updates if:
 	// 1. The new secret has the managed-by-provider label and set to true
 	// 2. AND either
@@ -295,10 +352,8 @@ func (si *SecretInformer) runWorker() {
 		if r := recover(); r != nil {
 			log.Error(messages.CSPFK083E, r)
 		}
-		log.Info(messages.CSPFK030I)
 	}()
 
-	log.Info(messages.CSPFK029I)
 	for {
 		// processNextItem returns false only when queue is shut down
 		// or stopCh is closed (after queue.ShutDown in Stop())

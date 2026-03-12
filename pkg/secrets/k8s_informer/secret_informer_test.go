@@ -71,7 +71,7 @@ func TestSecretInformerAddEvents(t *testing.T) {
 			clientset := fake.NewSimpleClientset()
 			namespace := "test-namespace"
 			mockNotifier := &MockSecretEventNotifier{}
-			informer := NewSecretInformer(clientset, namespace, mockNotifier)
+			informer := NewSecretInformer(clientset, namespace, nil, mockNotifier)
 
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
@@ -425,7 +425,7 @@ func TestSecretInformerUpdateEvents(t *testing.T) {
 			clientset := fake.NewSimpleClientset()
 			namespace := "test-namespace"
 			mockNotifier := &MockSecretEventNotifier{}
-			informer := NewSecretInformer(clientset, namespace, mockNotifier)
+			informer := NewSecretInformer(clientset, namespace, nil, mockNotifier)
 
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
@@ -513,7 +513,7 @@ func TestSecretInformerEdgeCases(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			clientset := fake.NewSimpleClientset()
 			namespace := "test-namespace"
-			informer := NewSecretInformer(clientset, namespace, tt.notifier)
+			informer := NewSecretInformer(clientset, namespace, nil, tt.notifier)
 
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
@@ -551,7 +551,7 @@ func TestSecretInformerMultipleSecrets(t *testing.T) {
 	clientset := fake.NewSimpleClientset()
 	namespace := "test-namespace"
 	mockNotifier := &MockSecretEventNotifier{}
-	informer := NewSecretInformer(clientset, namespace, mockNotifier)
+	informer := NewSecretInformer(clientset, namespace, nil, mockNotifier)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()

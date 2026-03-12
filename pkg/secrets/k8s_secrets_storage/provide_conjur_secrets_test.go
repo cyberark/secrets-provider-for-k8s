@@ -775,8 +775,10 @@ func TestProvide(t *testing.T) {
 			requiredSecrets: []string{}, // Empty list triggers label-based mode
 			denyK8sRetrieve: true,
 			asserts: []assertFunc{
-				assertErrorLogged(messages.CSPFK024E),
-				assertErrorContains(messages.CSPFK021E, false),
+				assertLogged(true, "warn", messages.CSPFK096E, "someNamespace", "custom error"),
+				func(t *testing.T, _ testMocks, _ bool, err error, desc string) {
+					assert.NoError(t, err, desc+": should skip failed namespace and continue without failing")
+				},
 			},
 		},
 		{
