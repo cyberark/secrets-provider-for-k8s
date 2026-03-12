@@ -1,0 +1,13 @@
+{{- if and .Values.rbac.create (eq (include "conjur.useClusterScopedRBAC" .) "true") }}
+apiVersion: {{ include "conjur.rbac-api" . }}
+kind: ClusterRole
+metadata:
+  name: {{ .Values.rbac.clusterRoleName }}
+rules:
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["get", "update", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["namespaces"]
+    verbs: ["list"]
+{{- end }}

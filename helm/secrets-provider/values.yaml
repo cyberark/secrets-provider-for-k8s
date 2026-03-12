@@ -1,11 +1,29 @@
 # Values for secrets-provider. All missing values need to be supplied by the customer.
 
+# Container mode: "application" (default) or "standalone"
+# When "application", runs as a Job and populates configured Kubernetes secrets on completion.
+# When "standalone", runs as a Deployment and uses label-based secret discovery across namespaces plus secrets rotation.
+containerMode: application
+
+# Standalone mode settings (only apply when containerMode is "standalone")
+standalone:
+  # Namespace allowlist. Optional; when empty, uses the deployment namespace (current namespace).
+  # Use "*" for all namespaces, or comma-separated list (e.g. "ns1,ns2,ns3").
+  # When "*" or multiple namespaces, RBAC requires a ClusterRole for cluster-wide secret access.
+  namespaceAllowlist: ""
+  secretsRefreshEnabled: true
+  secretsRefreshInterval: "5m"
+  removeDeletedSecretsEnabled: true
+
 rbac:
   # Indicates whether the Secrets Provider service account, Role, and RoleBinding should be created. This should be set
-  # to true unless resources with the proper permissions exist in the namespace.
+  # to true unless resources with the proper permissions exist in the namespace/cluster.
   create: true
   roleName: secrets-provider-role
   roleBindingName: secrets-provider-role-binding
+  # ClusterRole/ClusterRoleBinding names (used when standalone.namespaceAllowlist is "*" or includes multiple namespaces)
+  clusterRoleName: secrets-provider-cluster-role
+  clusterRoleBindingName: secrets-provider-cluster-role-binding
   serviceAccount:
     # Name of the service account for the Secrets Provider.
     name: secrets-provider-service-account

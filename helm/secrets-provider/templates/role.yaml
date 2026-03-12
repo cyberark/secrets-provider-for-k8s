@@ -1,4 +1,4 @@
-{{- if .Values.rbac.create -}}
+{{- if and .Values.rbac.create (ne (include "conjur.useClusterScopedRBAC" .) "true") }}
 apiVersion: {{ include "conjur.rbac-api" . }}
 kind: Role
 metadata:
@@ -6,6 +6,10 @@ metadata:
   namespace: {{ .Release.Namespace }}
 rules:
   - apiGroups: [""]
-    resources: [ "secrets" ]
-    verbs: [ "get", "update" ]
-{{- end}}
+    resources: ["secrets"]
+    {{- if eq .Values.containerMode "standalone" }}
+    verbs: ["get", "update", "list", "watch"]
+    {{- else }}
+    verbs: ["get", "update"]
+    {{- end }}
+{{- end }}

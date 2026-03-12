@@ -5,7 +5,48 @@
     "secretsProvider",
     "environment"
   ],
+  "allOf": [
+    {
+      "if": {
+        "properties": { "containerMode": { "const": "standalone" } }
+      },
+      "then": {
+        "properties": {
+          "environment": {
+            "required": ["conjur"]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "not": {
+          "properties": { "containerMode": { "const": "standalone" } }
+        }
+      },
+      "then": {
+        "properties": {
+          "environment": {
+            "required": ["k8sSecrets", "conjur"]
+          }
+        }
+      }
+    }
+  ],
   "properties": {
+    "containerMode": {
+      "type": "string",
+      "enum": ["application", "standalone"]
+    },
+    "standalone": {
+      "type": "object",
+      "properties": {
+        "namespaceAllowlist": { "type": "string" },
+        "secretsRefreshEnabled": { "type": "boolean" },
+        "secretsRefreshInterval": { "type": "string" },
+        "removeDeletedSecretsEnabled": { "type": "boolean" }
+      }
+    },
     "rbac": {
       "properties": {
         "create": {
@@ -57,10 +98,7 @@
       "type": "object"
     },
     "environment": {
-      "required": [
-        "k8sSecrets",
-        "conjur"
-      ],
+      "required": ["conjur"],
       "properties": {
         "k8sSecrets": {
           "type": "array",

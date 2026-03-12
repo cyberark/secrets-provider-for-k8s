@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ## [1.10.0] - 2026-03-10
 
 ### Added
+- Helm chart deployment supports standalone mode. (CNJR-12580)
 - Standalone mode can operate on secrets in multiple namespaces. (CNJR-12578)
 
 ### Security

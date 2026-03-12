@@ -1,4 +1,4 @@
-{{- if .Values.rbac.create -}}
+{{- if and .Values.rbac.create (ne (include "conjur.useClusterScopedRBAC" .) "true") }}
 apiVersion: {{ include "conjur.rbac-api" . }}
 kind: RoleBinding
 metadata:
