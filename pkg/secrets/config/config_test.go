@@ -493,13 +493,13 @@ var validateSecretsProviderSettingsTestCases = []validateSecretsProviderSettings
 		assert: assertEmptyErrorList(),
 	},
 	{
-		description: "standalone mode without namespace allowlist returns error",
+		description: "standalone mode without namespace allowlist is valid (uses pod namespace)",
 		envAndAnnots: map[string]string{
 			"MY_POD_NAMESPACE":    "test-namespace",
 			SecretsDestinationKey: "k8s_secrets",
 			ContainerModeKey:      "standalone",
 		},
-		assert: assertErrorInList(fmt.Errorf(messages.CSPFK052E, "Namespace allowlist")),
+		assert: assertEmptyErrorList(),
 	},
 	{
 		description: "standalone mode with invalid namespace in allowlist returns error",

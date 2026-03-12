@@ -186,6 +186,7 @@ func startSecretsProviderWithDeps(
 		// Handle SIGTERM/SIGINT for graceful shutdown when running as sidecar or standalone
 		sigChan := make(chan os.Signal, 1)
 		signal.Notify(sigChan, syscall.SIGTERM, syscall.SIGINT)
+		defer signal.Stop(sigChan)
 		go func() {
 			sig := <-sigChan
 			log.Info(messages.CSPFK041I, sig)

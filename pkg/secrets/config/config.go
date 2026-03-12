@@ -249,7 +249,7 @@ func ValidateSecretsProviderSettings(envAndAnnots map[string]string) ([]error, [
 	}
 
 	// Validate standalone mode:
-	// - must have a namespace allowlist (annotation or env var)
+	// - namespace allowlist is optional; when empty, uses pod namespace
 	// - should warn if namespace allowlist is set to '*'
 	// - must not have required K8s secrets (standalone uses label-based mode only)
 	// - must not be file store type
@@ -258,12 +258,13 @@ func ValidateSecretsProviderSettings(envAndAnnots map[string]string) ([]error, [
 		if namespaceAllowlist == "" {
 			namespaceAllowlist = envAndAnnots["NAMESPACE_ALLOWLIST"]
 		}
-		if strings.TrimSpace(namespaceAllowlist) == "" {
-			errorList = append(errorList, fmt.Errorf(messages.CSPFK052E, "Namespace allowlist"))
-		} else if strings.TrimSpace(namespaceAllowlist) == "*" {
-			infoList = append(infoList, fmt.Errorf(messages.CSPFK037I))
-		} else if _, err := ParseNamespaceAllowlist(namespaceAllowlist); err != nil {
-			errorList = append(errorList, err)
+		trimmed := strings.TrimSpace(namespaceAllowlist)
+		if trimmed != "" {
+			if trimmed == "*" {
+				infoList = append(infoList, fmt.Errorf(messages.CSPFK037I))
+			} else if _, err := ParseNamespaceAllowlist(namespaceAllowlist); err != nil {
+				errorList = append(errorList, err)
+			}
 		}
 		if strings.TrimSpace(envAndAnnots[k8sSecretsKey]) != "" || strings.TrimSpace(envAndAnnots["K8S_SECRETS"]) != "" {
 			errorList = append(errorList, fmt.Errorf(messages.CSPFK093E, "Required K8s secrets"))

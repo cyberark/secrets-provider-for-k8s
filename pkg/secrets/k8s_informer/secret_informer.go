@@ -41,7 +41,7 @@ type SecretEventNotifier interface {
 type SecretInformer struct {
 	clientset             kubernetes.Interface
 	namespace             string
-	namespaceAllowlistSet map[string]struct{} // When non-empty, watch cluster-wide and filter by these namespaces
+	namespaceAllowlistSet map[string]struct{} // When non-empty, watch these namespaces (single=scoped, multiple/*=cluster-wide)
 	factory               informers.SharedInformerFactory
 	informer              cache.SharedIndexInformer
 	stopCh                chan struct{}
@@ -53,7 +53,7 @@ type SecretInformer struct {
 
 // NewSecretInformer creates a new SecretInformer for the given namespace.
 // When namespaceAllowlist is non-empty (standalone mode), the informer watches
-// cluster-wide and filters events to only those namespaces.
+// the allowlist namespaces (single=namespace-scoped, multiple/*=cluster-wide).
 func NewSecretInformer(
 	clientset kubernetes.Interface,
 	namespace string,
@@ -72,11 +72,17 @@ func NewSecretInformer(
 
 // namespaceToWatch returns the namespace to pass to the informer factory.
 // Empty string means cluster-wide (all namespaces).
+// When allowlist has exactly one namespace, watch only that namespace (allows Role instead of ClusterRole).
 func (si *SecretInformer) namespaceToWatch() string {
-	if len(si.namespaceAllowlistSet) > 0 {
-		return "" // Cluster-wide watch; filter in event handlers
+	switch len(si.namespaceAllowlistSet) {
+	case 0:
+		return si.namespace
+	case 1:
+		for ns := range si.namespaceAllowlistSet {
+			return ns
+		}
 	}
-	return si.namespace
+	return "" // Cluster-wide for multiple namespaces or "*"
 }
 
 // isNamespaceAllowed returns true if the secret's namespace is in the allowlist.
@@ -105,7 +111,7 @@ func (si *SecretInformer) Start() error {
 		return fmt.Errorf(messages.CSPFK076E)
 	}
 
-	// Create a factory for the given namespace (or cluster-wide when using allowlist)
+	// Create a factory for the given namespace (or cluster-wide when allowlist has multiple namespaces or "*")
 	si.factory = informers.NewSharedInformerFactoryWithOptions(
 		si.clientset,
 		0, // Default resync period
