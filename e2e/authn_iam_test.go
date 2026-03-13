@@ -25,9 +25,9 @@ func TestAuthnIAM(t *testing.T) {
 
 	f := features.New("authn-iam").
 		Setup(func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
-			t.Setenv("CONJUR_AUTHN_LOGIN", "host/conjur/authn-iam/"+AuthenticatorId()+"/apps/601277729239/InstanceReadJenkinsExecutorHostFactoryToken")
+			t.Setenv("CONJUR_AUTHN_LOGIN", "host/conjur/authn-iam/"+AuthenticatorID()+"/apps/601277729239/InstanceReadJenkinsExecutorHostFactoryToken")
 			t.Setenv("CONJUR_AUTHN_TYPE", "iam")
-			t.Setenv("CONJUR_AUTHN_URL", ConjurApplianceUrl()+"/authn-iam/"+AuthenticatorId())
+			t.Setenv("CONJUR_AUTHN_URL", ConjurApplianceURL()+"/authn-iam/"+AuthenticatorID())
 
 			err := ReloadWithTemplate(cfg.Client(), K8sTemplate)
 			require.Nil(t, err)
