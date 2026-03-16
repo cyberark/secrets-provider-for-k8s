@@ -8,7 +8,10 @@
   "allOf": [
     {
       "if": {
-        "properties": { "containerMode": { "const": "standalone" } }
+        "allOf": [
+          { "required": ["containerMode"] },
+          { "properties": { "containerMode": { "const": "standalone" } } }
+        ]
       },
       "then": {
         "properties": {
@@ -20,9 +23,7 @@
     },
     {
       "if": {
-        "not": {
-          "properties": { "containerMode": { "const": "standalone" } }
-        }
+        "properties": { "containerMode": { "const": "application" } }
       },
       "then": {
         "properties": {
@@ -88,6 +89,14 @@
         "name": {
           "type": "string",
           "minLength": 1
+        },
+        "workloadName": {
+          "type": ["string", "null"],
+          "description": "Name of the Job (application mode) or Deployment (standalone mode). Defaults to Helm Release."
+        },
+        "jobName": {
+          "type": ["string", "null"],
+          "description": "Deprecated: Use workloadName instead."
         }
       }
     },
