@@ -15,7 +15,8 @@ RUN update-ca-certificates
 
 WORKDIR /secrets-provider-for-k8s
 
-RUN apk add -u --no-cache curl \
+RUN apk update && apk upgrade --no-cache && \
+    apk add -u --no-cache curl \
                           gcc \
                           git \
                           mercurial \

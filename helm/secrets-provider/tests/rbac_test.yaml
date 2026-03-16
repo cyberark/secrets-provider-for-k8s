@@ -1,0 +1,181 @@
+# Helm unit test for RBAC templates (Role vs ClusterRole based on namespace allowlist).
+
+suite: test RBAC (Role vs ClusterRole)
+
+templates:
+  - role.yaml
+  - role-binding.yaml
+  - cluster-role.yaml
+  - cluster-role-binding.yaml
+
+# Defaults for RBAC tests (schema validation requires Conjur params even for RBAC-only tests)
+defaults: &defaultRbac
+  rbac.create: true
+  rbac.serviceAccount.name: secrets-provider-service-account
+  environment.conjur.authnLogin: host/conjur/authn-k8s/my-authn-id/my-conjur-policy/my-host-id
+  environment.conjur.conjurConnConfigMap: conjur-connect
+  environment.k8sSecrets: [k8s-secret1,k8s-secret2]
+
+tests:
+  #=======================================================================
+  - it: renders ClusterRole and ClusterRoleBinding when namespaceAllowlist is "*"
+  #=======================================================================
+    set:
+      <<: *defaultRbac
+      containerMode: standalone
+      standalone.namespaceAllowlist: "*"
+
+    asserts:
+      - hasDocuments:
+          count: 1
+        template: cluster-role.yaml
+      - isKind:
+          of: ClusterRole
+        template: cluster-role.yaml
+      - hasDocuments:
+          count: 1
+        template: cluster-role-binding.yaml
+      - isKind:
+          of: ClusterRoleBinding
+        template: cluster-role-binding.yaml
+      - hasDocuments:
+          count: 0
+        template: role.yaml
+      - hasDocuments:
+          count: 0
+        template: role-binding.yaml
+
+  #=======================================================================
+  - it: renders ClusterRole and ClusterRoleBinding when namespaceAllowlist has multiple namespaces
+  #=======================================================================
+    set:
+      <<: *defaultRbac
+      containerMode: standalone
+      standalone.namespaceAllowlist: "ns1,ns2,ns3"
+
+    asserts:
+      - hasDocuments:
+          count: 1
+        template: cluster-role.yaml
+      - isKind:
+          of: ClusterRole
+        template: cluster-role.yaml
+      - hasDocuments:
+          count: 1
+        template: cluster-role-binding.yaml
+      - isKind:
+          of: ClusterRoleBinding
+        template: cluster-role-binding.yaml
+      - hasDocuments:
+          count: 0
+        template: role.yaml
+      - hasDocuments:
+          count: 0
+        template: role-binding.yaml
+
+  #=======================================================================
+  - it: renders Role and RoleBinding when namespaceAllowlist is single namespace
+  #=======================================================================
+    set:
+      <<: *defaultRbac
+      containerMode: standalone
+      standalone.namespaceAllowlist: "my-namespace"
+
+    asserts:
+      - hasDocuments:
+          count: 1
+        template: role.yaml
+      - isKind:
+          of: Role
+        template: role.yaml
+      - hasDocuments:
+          count: 1
+        template: role-binding.yaml
+      - isKind:
+          of: RoleBinding
+        template: role-binding.yaml
+      - hasDocuments:
+          count: 0
+        template: cluster-role.yaml
+      - hasDocuments:
+          count: 0
+        template: cluster-role-binding.yaml
+
+  #=======================================================================
+  - it: renders Role and RoleBinding when namespaceAllowlist is empty
+  #=======================================================================
+    set:
+      <<: *defaultRbac
+      containerMode: standalone
+      standalone.namespaceAllowlist: ""
+
+    asserts:
+      - hasDocuments:
+          count: 1
+        template: role.yaml
+      - isKind:
+          of: Role
+        template: role.yaml
+      - hasDocuments:
+          count: 1
+        template: role-binding.yaml
+      - isKind:
+          of: RoleBinding
+        template: role-binding.yaml
+      - hasDocuments:
+          count: 0
+        template: cluster-role.yaml
+      - hasDocuments:
+          count: 0
+        template: cluster-role-binding.yaml
+
+  #=======================================================================
+  - it: renders Role when containerMode is application and namespaceAllowlist is non-empty
+  #=======================================================================
+    set:
+      <<: *defaultRbac
+      containerMode: application
+      standalone.namespaceAllowlist: "*"
+
+    asserts:
+      - hasDocuments:
+          count: 1
+        template: role.yaml
+      - isKind:
+          of: Role
+        template: role.yaml
+      - hasDocuments:
+          count: 1
+        template: role-binding.yaml
+      - isKind:
+          of: RoleBinding
+        template: role-binding.yaml
+      - hasDocuments:
+          count: 0
+        template: cluster-role.yaml
+      - hasDocuments:
+          count: 0
+        template: cluster-role-binding.yaml
+
+  #=======================================================================
+  - it: renders no RBAC resources when rbac.create is false
+  #=======================================================================
+    set:
+      <<: *defaultRbac
+      rbac.create: false
+      containerMode: standalone
+      standalone.namespaceAllowlist: "*"
+
+    asserts:
+      - hasDocuments:
+          count: 0
+        template: role.yaml
+      - hasDocuments:
+          count: 0
+        template: role-binding.yaml
+      - hasDocuments:
+          count: 0
+        template: cluster-role.yaml
+      - hasDocuments:
+          count: 0
+        template: cluster-role-binding.yaml

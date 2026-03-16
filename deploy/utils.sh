@@ -304,13 +304,20 @@ fill_helm_chart() {
     helm_path=".."
   fi
 
-  id=${1:-""}
-  rm -rf "$helm_path/helm/secrets-provider/ci/${id}test-values-$UNIQUE_TEST_ID.yaml"
+  rm -rf "$helm_path/helm/secrets-provider/ci/test-values-$UNIQUE_TEST_ID.yaml"
 
   set_image_path
 
+  if [ "${SECRETS_MODE}" = "standalone" ]; then
+    template_file="$helm_path/helm/secrets-provider/ci/test-values-standalone-template.yaml"
+    export NAMESPACE_ALLOWLIST="$APP_NAMESPACE_NAME"
+  else
+    template_file="$helm_path/helm/secrets-provider/ci/test-values-template.yaml"
+    LABELS="${LABELS:-app: test-helm}"
+  fi
+
   i=0
-  while [[ ! -f "$helm_path/helm/secrets-provider/ci/${id}test-values-$UNIQUE_TEST_ID.yaml" && $i -le 5 ]]; do
+  while [[ ! -f "$helm_path/helm/secrets-provider/ci/test-values-$UNIQUE_TEST_ID.yaml" && $i -le 5 ]]; do
     i=$(( $i + 1 ))
     sed -e "s#{{ SECRETS_PROVIDER_ROLE }}#${SECRETS_PROVIDER_ROLE:-"secrets-provider-role"}#g" \
       -e "s#{{ SECRETS_PROVIDER_ROLE_BINDING }}#${SECRETS_PROVIDER_ROLE_BINDING:-"secrets-provider-role-binding"}#g" \
@@ -325,13 +332,17 @@ fill_helm_chart() {
       -e "s#{{ IMAGE_PULL_POLICY }}# ${IMAGE_PULL_POLICY:-"IfNotPresent"}#g" \
       -e "s#{{ IMAGE }}# ${IMAGE:-"$image_path/secrets-provider"}#g" \
       -e "s#{{ TAG }}# ${TAG:-"latest"}#g" \
-      -e "s#{{ LABELS }}# ${LABELS:-"app: test-helm"}#g" \
+      -e "s#{{ LABELS }}# ${LABELS:-""}#g" \
       -e "s#{{ DEBUG }}# ${DEBUG:-"false"}#g" \
       -e "s#{{ LOG_LEVEL }}# ${LOG_LEVEL:-"info"}#g" \
       -e "s#{{ RETRY_COUNT_LIMIT }}# ${RETRY_COUNT_LIMIT:-"5"}#g" \
       -e "s#{{ RETRY_INTERVAL_SEC }}# ${RETRY_INTERVAL_SEC:-"5"}#g" \
       -e "s#{{ IMAGE_PULL_SECRET }}# ${IMAGE_PULL_SECRET:-""}#g" \
-      "$helm_path/helm/secrets-provider/ci/test-values-template.yaml" > "$helm_path/helm/secrets-provider/ci/${id}test-values-$UNIQUE_TEST_ID.yaml"
+      -e "s#{{ NAMESPACE_ALLOWLIST }}#${NAMESPACE_ALLOWLIST:-"*"}#g" \
+      -e "s#{{ SECRETS_REFRESH_ENABLED }}#${SECRETS_REFRESH_ENABLED:-"true"}#g" \
+      -e "s#{{ SECRETS_REFRESH_INTERVAL }}#${SECRETS_REFRESH_INTERVAL:-"5m"}#g" \
+      -e "s#{{ REMOVE_DELETED_SECRETS_ENABLED }}#${REMOVE_DELETED_SECRETS_ENABLED:-"true"}#g" \
+      "$template_file" > "$helm_path/helm/secrets-provider/ci/test-values-$UNIQUE_TEST_ID.yaml"
   done
 }
 

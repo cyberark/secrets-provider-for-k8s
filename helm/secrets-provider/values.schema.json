@@ -5,7 +5,49 @@
     "secretsProvider",
     "environment"
   ],
+  "allOf": [
+    {
+      "if": {
+        "allOf": [
+          { "required": ["containerMode"] },
+          { "properties": { "containerMode": { "const": "standalone" } } }
+        ]
+      },
+      "then": {
+        "properties": {
+          "environment": {
+            "required": ["conjur"]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": { "containerMode": { "const": "application" } }
+      },
+      "then": {
+        "properties": {
+          "environment": {
+            "required": ["k8sSecrets", "conjur"]
+          }
+        }
+      }
+    }
+  ],
   "properties": {
+    "containerMode": {
+      "type": "string",
+      "enum": ["application", "standalone"]
+    },
+    "standalone": {
+      "type": "object",
+      "properties": {
+        "namespaceAllowlist": { "type": "string" },
+        "secretsRefreshEnabled": { "type": "boolean" },
+        "secretsRefreshInterval": { "type": "string" },
+        "removeDeletedSecretsEnabled": { "type": "boolean" }
+      }
+    },
     "rbac": {
       "properties": {
         "create": {
@@ -47,6 +89,14 @@
         "name": {
           "type": "string",
           "minLength": 1
+        },
+        "workloadName": {
+          "type": ["string", "null"],
+          "description": "Name of the Job (application mode) or Deployment (standalone mode). Defaults to Helm Release."
+        },
+        "jobName": {
+          "type": ["string", "null"],
+          "description": "Deprecated: Use workloadName instead."
         }
       }
     },
@@ -57,10 +107,7 @@
       "type": "object"
     },
     "environment": {
-      "required": [
-        "k8sSecrets",
-        "conjur"
-      ],
+      "required": ["conjur"],
       "properties": {
         "k8sSecrets": {
           "type": "array",

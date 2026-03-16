@@ -226,6 +226,14 @@ pipeline {
           }
         }
 
+        stage('Helm chart tests') {
+          steps {
+            script {
+              INFRAPOOL_EXECUTORV2_AGENT_0.agentSh './bin/test_helm'
+            }
+          }
+        }
+
         stage('Package helm chart') {
           steps {
             script {

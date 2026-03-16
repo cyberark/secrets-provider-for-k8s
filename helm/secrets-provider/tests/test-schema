@@ -110,13 +110,24 @@ function missing_conjur_authn_url_test() {
 }
 
 function conjur_ssl_cert_test() {
-    helm lint . --strict \
-        --set "$DEFAULT_ACCOUNT_SETTING" \
-        --set "$DEFAULT_APPLIANCE_URL_SETTING" \
-        --set "$DEFAULT_AUTHN_LOGIN_SETTING" \
-        --set "$DEFAULT_AUTHN_URL_SETTING" \
-        --set "environment.conjur.sslCertificate.value=\"$1\"" \
-        --set "$DEFAULT_K8S_SECRETS_SETTING"
+    local ssl_value="$1"
+    if [ -z "$ssl_value" ]; then
+        helm lint . --strict \
+            --set "$DEFAULT_ACCOUNT_SETTING" \
+            --set "$DEFAULT_APPLIANCE_URL_SETTING" \
+            --set "$DEFAULT_AUTHN_LOGIN_SETTING" \
+            --set "$DEFAULT_AUTHN_URL_SETTING" \
+            --set-json 'environment.conjur.sslCertificate={"value":""}' \
+            --set "$DEFAULT_K8S_SECRETS_SETTING"
+    else
+        helm lint . --strict \
+            --set "$DEFAULT_ACCOUNT_SETTING" \
+            --set "$DEFAULT_APPLIANCE_URL_SETTING" \
+            --set "$DEFAULT_AUTHN_LOGIN_SETTING" \
+            --set "$DEFAULT_AUTHN_URL_SETTING" \
+            --set "environment.conjur.sslCertificate.value=\"$ssl_value\"" \
+            --set "$DEFAULT_K8S_SECRETS_SETTING"
+    fi
 }
 
 function missing_conjur_ssl_cert_test() {
@@ -181,6 +192,11 @@ function conjur_conn_configmap_test() {
 function missing_conjur_conn_configmap_test() {
     helm lint . --strict \
         --set "$DEFAULT_AUTHN_LOGIN_SETTING" \
+        --set "$DEFAULT_K8S_SECRETS_SETTING"
+}
+
+function missing_conjur_configmap_name_test() {
+    helm lint . --strict \
         --set "$DEFAULT_K8S_SECRETS_SETTING"
 }
 
@@ -269,7 +285,7 @@ function main() {
     update_results "$?" "$EXPECT_FAILURE"
 
     announce "Null-string Conjur SSL cert is rejected"
-    conjur_ssl_cert__test ""
+    conjur_ssl_cert_test ""
     update_results "$?" "$EXPECT_FAILURE"
 
     announce "Missing Conjur SSL cert causes failure"

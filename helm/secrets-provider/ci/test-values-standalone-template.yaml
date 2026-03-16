@@ -1,0 +1,41 @@
+# Values for secrets-provider Chart (standalone mode). All missing values need to be supplied via environment variable.
+
+containerMode: standalone
+
+standalone:
+  namespaceAllowlist: "{{ NAMESPACE_ALLOWLIST }}"
+  secretsRefreshEnabled: {{ SECRETS_REFRESH_ENABLED }}
+  secretsRefreshInterval: "{{ SECRETS_REFRESH_INTERVAL }}"
+  removeDeletedSecretsEnabled: {{ REMOVE_DELETED_SECRETS_ENABLED }}
+
+rbac:
+  # Indicates whether the Secrets Provider service account, Role, and RoleBinding should be created.
+  # This should be set to true unless resources with the proper permissions exist in the namespace.
+  create: {{ CREATE_SERVICE_ACCOUNT }}
+  serviceAccount:
+    # Name of the service account for the Secrets Provider.
+    name: {{ SERVICE_ACCOUNT }}
+
+secretsProvider:
+  image: {{ IMAGE }}
+  imagePullPolicy: {{ IMAGE_PULL_POLICY }}
+  tag: {{ TAG }}
+  name: cyberark-secrets-provider-for-k8s
+  imagePullSecret: {{ IMAGE_PULL_SECRET }}
+
+# Additional labels to apply to all resources.
+labels: { {{ LABELS }} }
+annotations: {}
+
+environment:
+  logLevel: {{ LOG_LEVEL }}
+  conjur:
+    retryIntervalSec: {{ RETRY_INTERVAL_SEC }}
+    retryCountLimit: {{ RETRY_COUNT_LIMIT }}
+    account: {{ CONJUR_ACCOUNT }}
+    applianceUrl: {{ CONJUR_APPLIANCE_URL }}
+    authnUrl: {{ CONJUR_AUTHN_URL }}
+    authnLogin: {{ CONJUR_AUTHN_LOGIN }}
+    sslCertificate:
+      value: ""
+      name: {{ SECRETS_PROVIDER_SSL_CONFIG_MAP }}
