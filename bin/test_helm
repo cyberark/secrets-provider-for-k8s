@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 
-# Runs Helm unit tests and schema validation tests in a Docker container.
+# Runs Helm unit and schema validation tests in a Docker container.
 # Requires Helm 3.18+ (for latest helm-unittest plugin) and Helm 3.5.3+ (schema tests).
 # Can be run locally or from Jenkins.
 helm_version=3.18.0
@@ -16,5 +16,7 @@ docker run --rm \
     if ! helm plugin list 2>/dev/null | grep -q unittest; then
       helm plugin install https://github.com/helm-unittest/helm-unittest
     fi
+    helm repo add stakater https://stakater.github.io/stakater-charts > /dev/null
+    helm dependency update /workspace/helm/secrets-provider > /dev/null
     ./test-unit && ./test-schema
   '

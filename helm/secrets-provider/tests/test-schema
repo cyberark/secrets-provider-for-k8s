@@ -270,8 +270,8 @@ function reloader_service_account_test() {
         --set "$DEFAULT_SSL_CERT_SETTING" \
         --set "$DEFAULT_K8S_SECRETS_SETTING" \
         --set "autoReload.enabled=true" \
-        --set "reloader.serviceAccount.create=$1" \
-        --set "reloader.serviceAccount.name=$2"
+        --set "reloader.reloader.serviceAccount.create=$1" \
+        --set "reloader.reloader.serviceAccount.name=$2"
 }
 
 function main() {

@@ -167,6 +167,11 @@ reloader:
       # kics-scan ignore-line
       secret: conjur.org/restart-secrets
 
+    # Service account configuration
+    serviceAccount:
+      create: true
+      name: reloader
+
   # Resource limits and requests for Reloader
   resources:
     limits:
@@ -181,8 +186,3 @@ reloader:
     # Whether to create RBAC resources for Reloader
     # Set to true if your cluster has RBAC enabled (most modern clusters do)
     create: true
-
-  # Service account configuration
-  serviceAccount:
-    create: true
-    name: reloader

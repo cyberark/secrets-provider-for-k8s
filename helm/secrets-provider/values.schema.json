@@ -340,6 +340,20 @@
                   "description": "Alias for secret.reloader.stakater.com/reload (e.g. conjur.org/restart-secrets)"
                 }
               }
+            },
+            "serviceAccount": {
+              "type": "object",
+              "properties": {
+                "create": {
+                  "type": "boolean",
+                  "description": "Create service account for Reloader"
+                },
+                "name": {
+                  "type": "string",
+                  "minLength": 1,
+                  "description": "Name of service account for Reloader"
+                }
+              }
             }
           }
         },
@@ -380,20 +394,6 @@
             "create": {
               "type": "boolean",
               "description": "Create RBAC resources for Reloader"
-            }
-          }
-        },
-        "serviceAccount": {
-          "type": "object",
-          "properties": {
-            "create": {
-              "type": "boolean",
-              "description": "Create service account for Reloader"
-            },
-            "name": {
-              "type": "string",
-              "minLength": 1,
-              "description": "Name of service account for Reloader"
             }
           }
         }
