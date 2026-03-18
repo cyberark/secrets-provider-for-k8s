@@ -130,11 +130,6 @@ reloader:
   # Reloader container image configuration
   image:
     repository: stakater/reloader
-    # Version mapping: chart v2.2.8 ships reloader v1.4.13.
-    # Keep this aligned with the reloader subchart CLI flags (for example
-    # --ignored-workload-types used by chart v2.2.8). Bump both the chart
-    # dependency version in Chart.yaml and this tag together.
-    tag: v1.4.13
     pullPolicy: IfNotPresent
 
   # Reloader-specific configuration (maps to subchart's reloader.* values)
