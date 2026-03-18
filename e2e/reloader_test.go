@@ -78,6 +78,15 @@ func TestReloaderTriggersApplicationRestart(t *testing.T) {
 			err = WaitForPodReady(cfg.Client(), SecretsProviderNamespace(), "app.kubernetes.io/name=reloader", 60*time.Second)
 			require.Nil(t, err)
 
+			// Wait for the test-env deployment to stabilize: exactly one Running+Ready pod.
+			// The reloader may trigger a rollout in response to the initial K8s secret
+			// population by the secrets-provider Job. If that rollout is still in progress
+			// when the Assess phase begins, WaitForPodRestart would immediately find the
+			// rollout pod (created before the K8s secret is updated to "updated-secret-value"),
+			// causing the subsequent secret-value check to fail.
+			err = WaitForSingleReadyPod(cfg.Client(), SecretsProviderNamespace(), "app=test-env", 120*time.Second)
+			require.Nil(t, err)
+
 			return ctx
 		}).
 		Assess("application restarts when secret changes", func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
@@ -117,7 +126,7 @@ func TestReloaderTriggersApplicationRestart(t *testing.T) {
 			fmt.Printf("New test app pod after restart: %s (UID: %s)\n", newPod.Name, newPod.UID)
 
 			// Verify the new pod has the updated secret value
-			err = WaitForSecretValue(cfg.Client(), "app=test-env", "test-app", "TEST_SECRET", "updated-secret-value", 60*time.Second)
+			err = WaitForSecretValue(cfg.Client(), "app=test-env", "test-app", "TEST_SECRET", "updated-secret-value", 120*time.Second)
 			assert.Nil(t, err, "Application should have the updated secret value after reloader triggered restart")
 
 			return ctx

@@ -332,7 +332,8 @@ pipeline {
           post {
             always {
               script {
-                INFRAPOOL_EXECUTORV2_AGENT_0.agentStash name: 'logs-dap-gke-ocp', includes: 'deploy/output/**/*.txt,deploy/output/**/*.log,deploy/output/**/*.json'
+                INFRAPOOL_EXECUTORV2_AGENT_0.agentSh 'ls -la deploy/output/ 2>&1 || echo "no deploy/output dir"'
+                INFRAPOOL_EXECUTORV2_AGENT_0.agentStash name: 'logs-dap-gke-ocp', includes: 'deploy/output/*.txt,deploy/output/*.log,deploy/output/*.json'
               }
             }
           }
@@ -368,10 +369,10 @@ pipeline {
             always {
               script {
                 if (params.TEST_KIND_AUTHN_IAM) {
-                  INFRAPOOL_EXECUTORV2_AGENT_0.agentStash name: 'logs-kind-iam', includes: 'deploy/output/**/*.txt,deploy/output/**/*.log,deploy/output/**/*.json'
+                  INFRAPOOL_EXECUTORV2_AGENT_0.agentStash name: 'logs-kind-iam', includes: 'deploy/output/*.txt,deploy/output/*.log,deploy/output/*.json'
                 }
                 if (params.TEST_KIND_AUTHN_AZURE) {
-                  INFRAPOOL_AZURE_EXECUTORV2_AGENT_0.agentStash name: 'logs-kind-azure', includes: 'deploy/output/**/*.txt,deploy/output/**/*.log,deploy/output/**/*.json'
+                  INFRAPOOL_AZURE_EXECUTORV2_AGENT_0.agentStash name: 'logs-kind-azure', includes: 'deploy/output/*.txt,deploy/output/*.log,deploy/output/*.json'
                 }
               }
             }
@@ -398,7 +399,7 @@ pipeline {
           post {
             always {
               script {
-                INFRAPOOL_EXECUTORV2_AGENT_0.agentStash name: 'logs-ocp-oldest-next', includes: 'deploy/output/**/*.txt,deploy/output/**/*.log,deploy/output/**/*.json'
+                INFRAPOOL_EXECUTORV2_AGENT_0.agentStash name: 'logs-ocp-oldest-next', includes: 'deploy/output/*.txt,deploy/output/*.log,deploy/output/*.json'
               }
             }
           }
@@ -424,7 +425,7 @@ pipeline {
           post {
             always {
               script {
-                INFRAPOOL_EXECUTORV2_AGENT_0.agentStash name: 'logs-oss-gke', includes: 'deploy/output/**/*.txt,deploy/output/**/*.log,deploy/output/**/*.json'
+                INFRAPOOL_EXECUTORV2_AGENT_0.agentStash name: 'logs-oss-gke', includes: 'deploy/output/*.txt,deploy/output/*.log,deploy/output/*.json'
               }
             }
           }

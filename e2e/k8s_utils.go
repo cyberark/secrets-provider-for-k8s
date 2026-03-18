@@ -9,8 +9,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -102,6 +104,31 @@ func WaitForPodRestart(client klient.Client, namespace, labelSelector string, or
 			}
 		}
 		return false, nil
+	}
+	return wait.For(condition, wait.WithTimeout(timeout), wait.WithInterval(2*time.Second))
+}
+
+// WaitForSingleReadyPod waits until exactly one pod matching the label selector is Running+Ready.
+// This is useful for ensuring a deployment has stabilized (no ongoing rollouts) before proceeding.
+func WaitForSingleReadyPod(client klient.Client, namespace, labelSelector string, timeout time.Duration) error {
+	condition := func(ctx context.Context) (bool, error) {
+		pods, err := GetPods(client, namespace, labelSelector)
+		if err != nil {
+			return false, nil
+		}
+		readyCount := 0
+		for i := range pods.Items {
+			pod := &pods.Items[i]
+			if pod.Status.Phase != corev1.PodRunning {
+				continue
+			}
+			for _, cond := range pod.Status.Conditions {
+				if cond.Type == corev1.PodReady && cond.Status == corev1.ConditionTrue {
+					readyCount++
+				}
+			}
+		}
+		return readyCount == 1, nil
 	}
 	return wait.For(condition, wait.WithTimeout(timeout), wait.WithInterval(2*time.Second))
 }
@@ -659,6 +686,8 @@ func WaitForFileDeleted(client klient.Client, labelSelector string, container st
 }
 
 // DumpFailureDiagnosticsOnFailure writes focused namespace diagnostics for RCA when a test fails.
+// Diagnostics are logged via t.Logf and also written to a file in TEST_OUTPUT_DIR (if set)
+// so they are captured as Jenkins build artifacts.
 func DumpFailureDiagnosticsOnFailure(t *testing.T) {
 	if !t.Failed() {
 		return
@@ -667,28 +696,50 @@ func DumpFailureDiagnosticsOnFailure(t *testing.T) {
 	namespace := SecretsProviderNamespace()
 	t.Logf("Collecting failure diagnostics for namespace %q", namespace)
 
-	dumpKubectlOutput(t, "pods-wide", "get", "pods", "-n", namespace, "-o", "wide")
-	dumpKubectlOutput(t, "workloads", "get", "deploy,rs,job", "-n", namespace, "-o", "wide")
-	dumpKubectlOutput(t, "events", "get", "events", "-n", namespace, "--sort-by=.lastTimestamp")
-	dumpKubectlOutput(t, "pods-describe", "describe", "pods", "-n", namespace)
-	dumpKubectlOutput(t, "secrets-provider-logs", "logs", "-l", SPLabelSelector, "-c", LogsContainer, "--tail", "200", "-n", namespace)
-	dumpKubectlOutput(t, "secrets-provider-previous-logs", "logs", "-l", SPLabelSelector, "-c", LogsContainer, "--previous", "--tail", "200", "-n", namespace)
+	// Open an artifact file if TEST_OUTPUT_DIR is set, so diagnostics are captured as
+	// Jenkins build artifacts (not just console output).
+	var artifactWriter io.Writer
+	if outDir := os.Getenv("TEST_OUTPUT_DIR"); outDir != "" {
+		safeName := strings.NewReplacer("/", "_", " ", "_", ":", "_").Replace(t.Name())
+		filePath := filepath.Join(outDir, "failure-diagnostics-"+safeName+".txt")
+		if f, err := os.Create(filePath); err == nil {
+			defer f.Close()
+			artifactWriter = f
+			fmt.Fprintf(f, "Failure diagnostics for test: %s\nNamespace: %s\n\n", t.Name(), namespace)
+			t.Logf("Writing failure diagnostics artifact to %s", filePath)
+		} else {
+			t.Logf("Warning: could not create diagnostics file %s: %v", filePath, err)
+		}
+	}
+
+	dumpKubectlOutput(t, artifactWriter, "pods-wide", "get", "pods", "-n", namespace, "-o", "wide")
+	dumpKubectlOutput(t, artifactWriter, "workloads", "get", "deploy,rs,job", "-n", namespace, "-o", "wide")
+	dumpKubectlOutput(t, artifactWriter, "events", "get", "events", "-n", namespace, "--sort-by=.lastTimestamp")
+	dumpKubectlOutput(t, artifactWriter, "pods-describe", "describe", "pods", "-n", namespace)
+	dumpKubectlOutput(t, artifactWriter, "secrets-provider-logs", "logs", "-l", SPLabelSelector, "-c", LogsContainer, "--tail", "200", "-n", namespace)
+	dumpKubectlOutput(t, artifactWriter, "secrets-provider-previous-logs", "logs", "-l", SPLabelSelector, "-c", LogsContainer, "--previous", "--tail", "200", "-n", namespace)
 
 	// Reloader pod failures are critical for reloader E2E and frequently require previous logs.
-	dumpKubectlOutput(t, "reloader-deploy-describe", "describe", "deployment", "secrets-provider-reloader", "-n", namespace)
-	dumpKubectlOutput(t, "reloader-pods", "get", "pods", "-n", namespace, "-l", "app.kubernetes.io/name=reloader", "-o", "wide")
-	dumpKubectlOutput(t, "reloader-pods-describe", "describe", "pod", "-n", namespace, "-l", "app.kubernetes.io/name=reloader")
-	dumpKubectlOutput(t, "reloader-logs", "logs", "-l", "app.kubernetes.io/name=reloader", "--all-containers", "--tail", "200", "-n", namespace)
-	dumpKubectlOutput(t, "reloader-previous-logs", "logs", "-l", "app.kubernetes.io/name=reloader", "--all-containers", "--previous", "--tail", "200", "-n", namespace)
+	dumpKubectlOutput(t, artifactWriter, "reloader-deploy-describe", "describe", "deployment", "secrets-provider-reloader", "-n", namespace)
+	dumpKubectlOutput(t, artifactWriter, "reloader-pods", "get", "pods", "-n", namespace, "-l", "app.kubernetes.io/name=reloader", "-o", "wide")
+	dumpKubectlOutput(t, artifactWriter, "reloader-pods-describe", "describe", "pod", "-n", namespace, "-l", "app.kubernetes.io/name=reloader")
+	dumpKubectlOutput(t, artifactWriter, "reloader-logs", "logs", "-l", "app.kubernetes.io/name=reloader", "--all-containers", "--tail", "200", "-n", namespace)
+	dumpKubectlOutput(t, artifactWriter, "reloader-previous-logs", "logs", "-l", "app.kubernetes.io/name=reloader", "--all-containers", "--previous", "--tail", "200", "-n", namespace)
 }
 
-func dumpKubectlOutput(t *testing.T, section string, args ...string) {
+func dumpKubectlOutput(t *testing.T, w io.Writer, section string, args ...string) {
 	command := exec.Command("kubectl", args...)
 	command.Env = os.Environ()
 	output, err := command.CombinedOutput()
 	if err != nil {
 		t.Logf("Diagnostics section %q failed: %v\nOutput:\n%s", section, err, string(output))
+		if w != nil {
+			fmt.Fprintf(w, "=== %s (FAILED: %v) ===\n%s\n\n", section, err, output)
+		}
 		return
 	}
 	t.Logf("Diagnostics section %q:\n%s", section, string(output))
+	if w != nil {
+		fmt.Fprintf(w, "=== %s ===\n%s\n\n", section, output)
+	}
 }

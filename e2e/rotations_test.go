@@ -115,12 +115,6 @@ func TestPushToFileSecretsRotation(t *testing.T) {
 			err = SetConjurSecret(cfg.Client(), "data/secrets/encoded", encodedStr)
 			assert.Nil(t, err)
 
-			// wait for secrets to be rotated and files to be updated
-			// Poll for the first file to confirm rotation has occurred
-			err = WaitForFileContent(cfg.Client(), SPLabelSelector, TestAppContainer, "/opt/secrets/conjur/group5.template",
-				"username | some-user\npassword | 7H1SiSmYp@5Sw0rd\ntest | secret2\n", 30*time.Second)
-			assert.Nil(t, err)
-
 			// files to test against
 			files := []string{"group1.yaml", "group2.json", "some-dotenv.env", "group4.bash", "group5.template", "group6.yaml"}
 
@@ -155,6 +149,13 @@ func TestPushToFileSecretsRotation(t *testing.T) {
 "data/secrets/var with spaces": "some-secret"
 "data/secrets/var+with+pluses": "some-secret"`,
 			}
+
+			// Wait for BOTH test_secret and encoded to be updated in the same rotation cycle.
+			// Using group1.yaml (which contains both fields) prevents a race where the
+			// rotation cycle picks up test_secret but not yet the updated encoded value.
+			err = WaitForFileContent(cfg.Client(), SPLabelSelector, TestAppContainer, "/opt/secrets/conjur/group1.yaml",
+				expectedContent["group1.yaml"], 30*time.Second)
+			assert.Nil(t, err)
 
 			// check file contents match container output
 			var stdout, stderr bytes.Buffer

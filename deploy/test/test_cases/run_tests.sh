@@ -94,9 +94,10 @@ fi
 create_secret_access_role
 create_secret_access_role_binding
 deploy_env
-pushd /secrets-provider-for-k8s
+test_output_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)/deploy/output"
+export TEST_OUTPUT_DIR="$test_output_dir"
 
-test_output_dir="$PWD/deploy/output"
+pushd /secrets-provider-for-k8s
 mkdir -p "$test_output_dir"
 test_log_file="$test_output_dir/e2e-go-test.log"
 summary_file="$test_output_dir/e2e-analysis-summary.txt"
