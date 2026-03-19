@@ -2,6 +2,7 @@ package k8s
 
 import (
 	"context"
+	"time"
 
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/config"
 
@@ -60,8 +61,13 @@ func UpdateK8sSecret(namespace string, secretName string, originalK8sSecret *v1.
 
 func ListLabeledK8sSecrets(namespace string) (*v1.SecretList, error) {
 	kubeClient, _ := configK8sClient()
+	if namespace == "*" {
+		namespace = v1.NamespaceAll
+	}
 	log.Info(messages.CSPFK025I, namespace)
-	secretList, err := kubeClient.CoreV1().Secrets(namespace).List(context.TODO(), metav1.ListOptions{LabelSelector: config.ManagedByProviderKey + "=true"})
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	secretList, err := kubeClient.CoreV1().Secrets(namespace).List(ctx, metav1.ListOptions{LabelSelector: config.ManagedByProviderKey + "=true"})
 	if err != nil {
 		log.Debug(messages.CSPFK011D, err.Error())
 		return nil, log.RecordedError(messages.CSPFK024E)
@@ -78,7 +84,7 @@ func ResolveNamespaceAllowlist(parsedAllowlist config.NamespaceAllowlistSet) (co
 		return nil, nil
 	}
 	if len(parsedAllowlist) == 1 {
-		if _, ok := parsedAllowlist["*"]; ok {
+		if _, isWildcard := parsedAllowlist[config.NamespaceAllowlistWildcard]; isWildcard {
 			return resolveAllNamespacesAsSet()
 		}
 	}
@@ -90,7 +96,9 @@ func resolveAllNamespacesAsSet() (config.NamespaceAllowlistSet, error) {
 	if err != nil {
 		return nil, err
 	}
-	list, err := kubeClient.CoreV1().Namespaces().List(context.Background(), metav1.ListOptions{})
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	list, err := kubeClient.CoreV1().Namespaces().List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return nil, err
 	}

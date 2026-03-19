@@ -113,8 +113,8 @@ type K8sProvider struct {
 // K8sProviderConfig provides config specific to Kubernetes Secrets provider
 type K8sProviderConfig struct {
 	PodNamespace       string
-	RequiredK8sSecrets  []string
-	NamespaceAllowlist  config.NamespaceAllowlistSet // Resolved namespace set for standalone mode; nil for single-namespace
+	RequiredK8sSecrets []string
+	NamespaceAllowlist config.NamespaceAllowlistSet // Resolved namespace set for standalone mode; nil for single-namespace
 }
 
 // NewProvider creates a new secret provider for K8s Secrets mode.
@@ -283,27 +283,32 @@ func (p *K8sProvider) retrieveRequiredK8sSecrets(tracer trace.Tracer) error {
 	if len(p.requiredK8sSecrets) > 0 {
 		for _, k8sSecretName := range p.requiredK8sSecrets {
 			_, childSpan := tracer.Start(spanCtx, "Retrieve K8s Secret")
-			defer childSpan.End()
 			k8sSecret, err := p.k8s.retrieveSecret(p.podNamespace, k8sSecretName)
 			if err != nil {
 				childSpan.RecordErrorAndSetStatus(err)
 				span.RecordErrorAndSetStatus(err)
+				childSpan.End()
 				return p.log.recordedError(messages.CSPFK020E)
 			}
 			if err := p.retrieveRequiredK8sSecret(k8sSecret, false); err != nil {
 				childSpan.RecordErrorAndSetStatus(err)
 				span.RecordErrorAndSetStatus(err)
+				childSpan.End()
 				return err
 			}
+			childSpan.End()
 		}
 	} else {
-		namespaces := p.namespaceAllowlist
-		if len(namespaces) == 0 {
-			namespaces = config.NamespaceAllowlistSet{p.podNamespace: struct{}{}}
+		_, childSpan := tracer.Start(spanCtx, "Resolve namespace allowlist")
+		namespaces, err := p.getNamespaceAllowlist()
+		if err != nil {
+			childSpan.RecordErrorAndSetStatus(err)
+			span.RecordErrorAndSetStatus(err)
+			childSpan.End()
+			return err
 		}
 		for ns := range namespaces {
 			_, childSpan := tracer.Start(spanCtx, "List Labeled K8s Secrets")
-			defer childSpan.End()
 			k8sSecrets, err := p.k8s.listLabeledSecrets(ns)
 			if err != nil {
 				// In label-based mode, skip namespaces that fail to list and continue
@@ -312,12 +317,15 @@ func (p *K8sProvider) retrieveRequiredK8sSecrets(tracer trace.Tracer) error {
 				childSpan.RecordErrorAndSetStatus(err)
 				span.RecordErrorAndSetStatus(err)
 				p.log.warn(messages.CSPFK096E, ns, err.Error())
+				childSpan.End()
 				continue
 			}
 
 			for _, k8sSecret := range k8sSecrets.Items {
+				if !p.isSecretNamespaceAllowed(k8sSecret.Namespace) {
+					continue
+				}
 				_, childSpan := tracer.Start(spanCtx, "Process K8s Secret")
-				defer childSpan.End()
 				if err := p.retrieveRequiredK8sSecret(&k8sSecret, true); err != nil {
 					// In label-based mode, skip invalid secrets and continue processing others
 					// instead of failing the entire operation. This makes the provider more
@@ -327,12 +335,36 @@ func (p *K8sProvider) retrieveRequiredK8sSecrets(tracer trace.Tracer) error {
 					p.log.warn(messages.CSPFK073E, k8sSecret.Name, err.Error())
 					// Remove the secret from originalK8sSecrets since we're skipping it
 					delete(p.secretsState.originalK8sSecrets, p.secretKey(k8sSecret.Namespace, k8sSecret.Name))
+					childSpan.End()
 					continue
 				}
+				childSpan.End()
 			}
+			childSpan.End()
 		}
 	}
 	return nil
+}
+
+func (p *K8sProvider) getNamespaceAllowlist() (config.NamespaceAllowlistSet, error) {
+	if len(p.namespaceAllowlist) == 0 {
+		return config.NamespaceAllowlistSet{p.podNamespace: struct{}{}}, nil
+	}
+	if _, isWildcard := p.namespaceAllowlist[config.NamespaceAllowlistWildcard]; isWildcard {
+		return k8sClient.ResolveNamespaceAllowlist(p.namespaceAllowlist)
+	}
+	return p.namespaceAllowlist, nil
+}
+
+func (p *K8sProvider) isSecretNamespaceAllowed(namespace string) bool {
+	if len(p.namespaceAllowlist) == 0 {
+		return namespace == p.podNamespace
+	}
+	if _, isWildcard := p.namespaceAllowlist[config.NamespaceAllowlistWildcard]; isWildcard {
+		return !config.IsSystemNamespace(namespace)
+	}
+	_, isAllowed := p.namespaceAllowlist[namespace]
+	return isAllowed
 }
 
 // retrieveRequiredK8sSecret retrieves an individual K8s Secrets that needs
@@ -624,9 +656,9 @@ func (p *K8sProvider) updateRequiredK8sSecretsWithCleanup(
 	// Update K8s Secrets with the retrieved Conjur secrets
 	for secretKey, secretData := range newSecretsDataMap {
 		_, childSpan := tracer.Start(spanCtx, "Update K8s Secret")
-		defer childSpan.End()
 		originalSecret := p.secretsState.originalK8sSecrets[secretKey]
 		if originalSecret == nil {
+			childSpan.End()
 			continue
 		}
 		namespace := originalSecret.Namespace
@@ -637,6 +669,7 @@ func (p *K8sProvider) updateRequiredK8sSecretsWithCleanup(
 		if err != nil {
 			p.log.debug(messages.CSPFK005D, err.Error())
 			childSpan.RecordErrorAndSetStatus(err)
+			childSpan.End()
 			return updated, p.log.recordedError(messages.CSPFK022E)
 		}
 
@@ -663,6 +696,7 @@ func (p *K8sProvider) updateRequiredK8sSecretsWithCleanup(
 				// Error messages returned from K8s should be printed only in debug mode
 				p.log.debug(messages.CSPFK005D, err.Error())
 				childSpan.RecordErrorAndSetStatus(err)
+				childSpan.End()
 				return false, p.log.recordedError(messages.CSPFK022E)
 			}
 			p.prevSecretsChecksums[secretKey] = checksum
@@ -670,6 +704,7 @@ func (p *K8sProvider) updateRequiredK8sSecretsWithCleanup(
 		} else {
 			p.log.debug(messages.CSPFK016D, namespace, k8sSecretName)
 		}
+		childSpan.End()
 	}
 
 	return updated, nil

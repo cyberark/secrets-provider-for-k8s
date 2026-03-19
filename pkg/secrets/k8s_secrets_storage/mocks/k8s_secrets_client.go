@@ -22,6 +22,8 @@ type K8sSecrets map[string]k8sSecretData
 type k8sSecretData map[string]k8sSecretDataValues
 type k8sSecretDataValues map[string]interface{}
 
+const mockDefaultNamespace = "someNamespace"
+
 // KubeSecretsClient implements a mock Kubernetes client for testing
 // Kubernetes Secrets access by the Secrets Provider. This client provides:
 // - A Kubernetes Secret retrieve function
@@ -94,6 +96,7 @@ func (c *KubeSecretsClient) RetrieveSecret(_ string, secretName string) (*v1.Sec
 	return &v1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        secretName,
+			Namespace:   mockDefaultNamespace,
 			Annotations: secretContent.annotations,
 		},
 		Data: secretContent.data,
@@ -143,6 +146,7 @@ func (c *KubeSecretsClient) ListSecrets(_ string) (*v1.SecretList, error) {
 		secretList.Items = append(secretList.Items, v1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:        secretName,
+				Namespace:   mockDefaultNamespace,
 				Annotations: secretContent.annotations,
 			},
 			Data: secretContent.data,
