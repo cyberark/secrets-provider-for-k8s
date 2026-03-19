@@ -78,11 +78,14 @@ func (si *SecretInformer) namespaceToWatch() string {
 	case 0:
 		return si.namespace
 	case 1:
+		if _, isWildcard := si.namespaceAllowlistSet[config.NamespaceAllowlistWildcard]; isWildcard {
+			return "" // Cluster-wide for wildcard
+		}
 		for ns := range si.namespaceAllowlistSet {
 			return ns
 		}
 	}
-	return "" // Cluster-wide for multiple namespaces or "*"
+	return "" // Cluster-wide for multiple namespaces
 }
 
 // isNamespaceAllowed returns true if the secret's namespace is in the allowlist.
@@ -90,6 +93,9 @@ func (si *SecretInformer) namespaceToWatch() string {
 func (si *SecretInformer) isNamespaceAllowed(secretNamespace string) bool {
 	if len(si.namespaceAllowlistSet) == 0 {
 		return secretNamespace == si.namespace
+	}
+	if _, isWildcard := si.namespaceAllowlistSet[config.NamespaceAllowlistWildcard]; isWildcard {
+		return !config.IsSystemNamespace(secretNamespace)
 	}
 	_, ok := si.namespaceAllowlistSet[secretNamespace]
 	return ok

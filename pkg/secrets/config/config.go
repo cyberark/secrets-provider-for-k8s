@@ -491,6 +491,15 @@ func validRefreshInterval(intervalStr string, enableStr string, envAndAnnots map
 //   - ibm-*: IBM Cloud
 //   - pks-*: VMware Tanzu / Broadcom (PKS)
 //   - aks-*: Azure AKS
+//   - gke-*: Google Kubernetes Engine
+//   - amazon-*: Amazon EKS
+//   - aws-*: AWS EKS
+//   - cattle-*: Rancher RKE
+//   - fleet-*: Rancher RKE
+//   - flux-system: Flux CD
+//   - cert-manager: Cert Manager
+//   - istio-system: Istio
+//   - linkerd: Linkerd
 func IsSystemNamespace(name string) bool {
 	switch {
 	case strings.HasPrefix(name, "kube-"):
@@ -503,9 +512,29 @@ func IsSystemNamespace(name string) bool {
 		return true
 	case strings.HasPrefix(name, "aks-"):
 		return true
+	case strings.HasPrefix(name, "gke-"):
+		return true
+	case strings.HasPrefix(name, "amazon-"):
+		return true
+	case strings.HasPrefix(name, "aws-"):
+		return true
+	case strings.HasPrefix(name, "cattle-"):
+		return true
+	case strings.HasPrefix(name, "fleet-"):
+		return true
+	case name == "flux-system":
+		return true
+	case name == "cert-manager":
+		return true
+	case name == "istio-system":
+		return true
+	case name == "linkerd":
+		return true
 	}
 	return false
 }
+
+const NamespaceAllowlistWildcard = "*"
 
 // NamespaceAllowlistSet is a set of namespace names for O(1) lookup.
 type NamespaceAllowlistSet map[string]struct{}
@@ -519,8 +548,8 @@ func ParseNamespaceAllowlist(allowlist string) (NamespaceAllowlistSet, error) {
 	if trimmed == "" {
 		return nil, nil
 	}
-	if trimmed == "*" {
-		return NamespaceAllowlistSet{"*": {}}, nil
+	if trimmed == NamespaceAllowlistWildcard {
+		return NamespaceAllowlistSet{NamespaceAllowlistWildcard: {}}, nil
 	}
 	parts := strings.Split(trimmed, ",")
 	result := make(NamespaceAllowlistSet, len(parts))

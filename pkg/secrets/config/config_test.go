@@ -895,6 +895,27 @@ func TestIsSystemNamespace(t *testing.T) {
 
 	// Azure AKS
 	assert.True(t, IsSystemNamespace("aks-istio-system"))
+	assert.True(t, IsSystemNamespace("amazon-cloud"))
+	assert.True(t, IsSystemNamespace("aws-system"))
+
+	// GKE / cloud platforms
+	assert.True(t, IsSystemNamespace("gke-system"))
+
+	// Rancher RKE
+	assert.True(t, IsSystemNamespace("cattle-system"))
+	assert.True(t, IsSystemNamespace("fleet-workspace"))
+
+	// Flux CD
+	assert.True(t, IsSystemNamespace("flux-system"))
+
+	// Cert Manager
+	assert.True(t, IsSystemNamespace("cert-manager"))
+
+	// Istio
+	assert.True(t, IsSystemNamespace("istio-system"))
+
+	// Linkerd
+	assert.True(t, IsSystemNamespace("linkerd"))
 
 	// User namespaces
 	assert.False(t, IsSystemNamespace("default"))
