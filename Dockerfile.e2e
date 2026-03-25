@@ -44,7 +44,7 @@ RUN apt-get update && \
     jq
 
 # Download and install Golang
-ENV GOLANG_VERSION=1.25.5
+ENV GOLANG_VERSION=1.26.1
 RUN curl -L https://golang.org/dl/go${GOLANG_VERSION}.linux-amd64.tar.gz | tar -C /usr/local -xz
 ENV GOROOT=/usr/local/go
 ENV GOPATH=/root/go

@@ -6,7 +6,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
-## [1.10.0] - 2026-03-16
+## [1.10.0] - 2026-03-25
 
 ### Added
 - Helm chart deployment supports standalone mode. (CNJR-12580)
@@ -14,7 +14,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - Add Reloader as an optional sub-chart for automatic rolling restarts of application workloads on secret rotation. (CNJR-13038)
 
 ### Security
-- Upgrade golang to 1.26 to address CVE-2026-22184
+- Upgrade golang to 1.26 to address CVE-2026-22184 (CNJR-13301)
 
 ## [1.9.0] - 2026-03-09
 
@@ -432,7 +432,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ### Changed
   - Escape secrets with backslashes before patching in k8s
 
-[Unreleased]: https://github.com/cyberark/secrets-provider-for-k8s/compare/v1.8.0...HEAD
+[Unreleased]: https://github.com/cyberark/secrets-provider-for-k8s/compare/v1.10.0...HEAD
+[1.10.0]: https://github.com/cyberark/secrets-provider-for-k8s/compare/v1.9.0...v1.10.0
 [1.9.0]: https://github.com/cyberark/secrets-provider-for-k8s/compare/v1.8.0...v1.9.0
 [1.8.0]: https://github.com/cyberark/secrets-provider-for-k8s/compare/v1.7.8...v1.8.0
 [1.7.8]: https://github.com/cyberark/secrets-provider-for-k8s/compare/v1.7.7...v1.7.8
