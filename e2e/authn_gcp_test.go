@@ -22,7 +22,7 @@ func TestAuthnGCP(t *testing.T) {
 		Setup(func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
 			t.Setenv("CONJUR_AUTHN_LOGIN", "conjur/authn-gcp/apps/test-app")
 			t.Setenv("CONJUR_AUTHN_TYPE", "gcp")
-			t.Setenv("CONJUR_AUTHN_URL", ConjurApplianceUrl()+"/authn-gcp")
+			t.Setenv("CONJUR_AUTHN_URL", ConjurApplianceURL()+"/authn-gcp")
 
 			err := ReloadWithTemplate(cfg.Client(), K8sTemplate)
 			require.Nil(t, err)

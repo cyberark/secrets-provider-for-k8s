@@ -200,6 +200,80 @@ function missing_conjur_configmap_name_test() {
         --set "$DEFAULT_K8S_SECRETS_SETTING"
 }
 
+function reloader_enabled_test() {
+    helm lint . --strict \
+        --set "$DEFAULT_ACCOUNT_SETTING" \
+        --set "$DEFAULT_APPLIANCE_URL_SETTING" \
+        --set "$DEFAULT_AUTHN_LOGIN_SETTING" \
+        --set "$DEFAULT_AUTHN_URL_SETTING" \
+        --set "$DEFAULT_SSL_CERT_SETTING" \
+        --set "$DEFAULT_K8S_SECRETS_SETTING" \
+        --set "autoReload.enabled=$1"
+}
+
+function reloader_replica_count_test() {
+    helm lint . --strict \
+        --set "$DEFAULT_ACCOUNT_SETTING" \
+        --set "$DEFAULT_APPLIANCE_URL_SETTING" \
+        --set "$DEFAULT_AUTHN_LOGIN_SETTING" \
+        --set "$DEFAULT_AUTHN_URL_SETTING" \
+        --set "$DEFAULT_SSL_CERT_SETTING" \
+        --set "$DEFAULT_K8S_SECRETS_SETTING" \
+        --set "autoReload.enabled=true" \
+        --set "reloader.reloader.deployment.replicas=$1" \
+        --set "reloader.reloader.enableHA=$2"
+}
+
+function reloader_image_test() {
+    helm lint . --strict \
+        --set "$DEFAULT_ACCOUNT_SETTING" \
+        --set "$DEFAULT_APPLIANCE_URL_SETTING" \
+        --set "$DEFAULT_AUTHN_LOGIN_SETTING" \
+        --set "$DEFAULT_AUTHN_URL_SETTING" \
+        --set "$DEFAULT_SSL_CERT_SETTING" \
+        --set "$DEFAULT_K8S_SECRETS_SETTING" \
+        --set "autoReload.enabled=true" \
+        --set "reloader.image.repository=$1" \
+        --set "reloader.image.tag=$2"
+}
+
+function reloader_image_pull_policy_test() {
+    helm lint . --strict \
+        --set "$DEFAULT_ACCOUNT_SETTING" \
+        --set "$DEFAULT_APPLIANCE_URL_SETTING" \
+        --set "$DEFAULT_AUTHN_LOGIN_SETTING" \
+        --set "$DEFAULT_AUTHN_URL_SETTING" \
+        --set "$DEFAULT_SSL_CERT_SETTING" \
+        --set "$DEFAULT_K8S_SECRETS_SETTING" \
+        --set "autoReload.enabled=true" \
+        --set "reloader.image.pullPolicy=$1"
+}
+
+function reloader_rbac_test() {
+    helm lint . --strict \
+        --set "$DEFAULT_ACCOUNT_SETTING" \
+        --set "$DEFAULT_APPLIANCE_URL_SETTING" \
+        --set "$DEFAULT_AUTHN_LOGIN_SETTING" \
+        --set "$DEFAULT_AUTHN_URL_SETTING" \
+        --set "$DEFAULT_SSL_CERT_SETTING" \
+        --set "$DEFAULT_K8S_SECRETS_SETTING" \
+        --set "autoReload.enabled=true" \
+        --set "reloader.rbac.create=$1"
+}
+
+function reloader_service_account_test() {
+    helm lint . --strict \
+        --set "$DEFAULT_ACCOUNT_SETTING" \
+        --set "$DEFAULT_APPLIANCE_URL_SETTING" \
+        --set "$DEFAULT_AUTHN_LOGIN_SETTING" \
+        --set "$DEFAULT_AUTHN_URL_SETTING" \
+        --set "$DEFAULT_SSL_CERT_SETTING" \
+        --set "$DEFAULT_K8S_SECRETS_SETTING" \
+        --set "autoReload.enabled=true" \
+        --set "reloader.reloader.serviceAccount.create=$1" \
+        --set "reloader.reloader.serviceAccount.name=$2"
+}
+
 function main() {
     banner $BOLD "Running Helm schema tests for chart \"conjur-config-cluster-prep\""
     check_helm_version
@@ -310,6 +384,65 @@ function main() {
 
     announce "Missing both Conjur connect info and Conjur connect ConfigMap name causes failure"
     missing_conjur_configmap_name_test
+    update_results "$?" "$EXPECT_FAILURE"
+
+    announce "Reloader is disabled by default"
+    reloader_enabled_test false
+    update_results "$?" 
+
+    announce "Reloader can be enabled"
+    reloader_enabled_test true
+    update_results "$?" 
+
+    announce "Reloader replica count must be greater than 0"
+    reloader_replica_count_test 1 true
+    update_results "$?" 
+
+    announce "Reloader replica count of 0 is rejected"
+    reloader_replica_count_test 0 true
+    update_results "$?" "$EXPECT_FAILURE"
+
+    announce "Reloader with negative replica count is rejected"
+    reloader_replica_count_test -1 true
+    update_results "$?" "$EXPECT_FAILURE"
+
+    announce "Reloader replicas > 1 requires HA enabled"
+    reloader_replica_count_test 2 false
+    update_results "$?" "$EXPECT_FAILURE"
+
+    announce "Valid Reloader image configuration is accepted"
+    reloader_image_test "stakater/reloader" "v1.0.81"
+    update_results "$?" 
+
+    announce "Null-string Reloader image repository is rejected"
+    reloader_image_test "" "v1.0.81"
+    update_results "$?" "$EXPECT_FAILURE"
+
+    announce "Null-string Reloader image tag is rejected"
+    reloader_image_test "stakater/reloader" ""
+    update_results "$?" "$EXPECT_FAILURE"
+
+    announce "Valid Reloader image pull policy is accepted"
+    reloader_image_pull_policy_test "IfNotPresent"
+    update_results "$?" 
+
+    announce "Invalid Reloader image pull policy is rejected"
+    reloader_image_pull_policy_test "InvalidPolicy"
+    update_results "$?" "$EXPECT_FAILURE"
+
+    announce "Reloader RBAC can be enabled or disabled"
+    reloader_rbac_test true
+    update_results "$?" 
+
+    reloader_rbac_test false
+    update_results "$?" 
+
+    announce "Valid Reloader service account configuration is accepted"
+    reloader_service_account_test true "my-reloader-sa"
+    update_results "$?" 
+
+    announce "Null-string Reloader service account name is rejected"
+    reloader_service_account_test true ""
     update_results "$?" "$EXPECT_FAILURE"
 
     display_final_results

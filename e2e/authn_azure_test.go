@@ -25,9 +25,9 @@ func TestAuthnAzure(t *testing.T) {
 
 	f := features.New("authn-azure").
 		Setup(func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
-			t.Setenv("CONJUR_AUTHN_LOGIN", "host/conjur/authn-azure/"+AuthenticatorId()+"/apps/azureVM")
+			t.Setenv("CONJUR_AUTHN_LOGIN", "host/conjur/authn-azure/"+AuthenticatorID()+"/apps/azureVM")
 			t.Setenv("CONJUR_AUTHN_TYPE", "azure")
-			t.Setenv("CONJUR_AUTHN_URL", ConjurApplianceUrl()+"/authn-azure/"+AuthenticatorId())
+			t.Setenv("CONJUR_AUTHN_URL", ConjurApplianceURL()+"/authn-azure/"+AuthenticatorID())
 
 			err := ReloadWithTemplate(cfg.Client(), K8sTemplate)
 			require.Nil(t, err)

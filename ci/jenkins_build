@@ -6,6 +6,15 @@ helm_version=3.3.0
 
 docker run --rm \
   -v $PWD/helm/secrets-provider:/root/helm/secrets-provider \
+  --workdir /root/helm/secrets-provider \
+  --entrypoint /bin/sh \
+  alpine/helm:${helm_version} -c \
+  "helm repo add stakater https://stakater.github.io/stakater-charts && \
+  helm repo update && \
+  helm dependency build ."
+
+docker run --rm \
+  -v $PWD/helm/secrets-provider:/root/helm/secrets-provider \
   -v $PWD/helm-artifacts/:/root/helm-artifacts \
   --workdir /root/helm-artifacts \
   alpine/helm:${helm_version} package ../helm/secrets-provider

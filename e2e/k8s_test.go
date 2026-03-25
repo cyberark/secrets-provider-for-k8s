@@ -11,12 +11,18 @@ import (
 	"math/rand"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"sigs.k8s.io/e2e-framework/pkg/envconf"
 	"sigs.k8s.io/e2e-framework/pkg/features"
 )
+
+// contextKey is an unexported type for context keys in this package.
+type contextKey string
+
+const expectedKey contextKey = "expected"
 
 // Helper function to assert environment variable contains expected value
 func assertEnvVarContains(t *testing.T, cfg *envconf.Config, envVarName string, expectedValue string) {
@@ -96,6 +102,19 @@ func TestSecretsProvidedK8s(t *testing.T) {
 			err := ReloadWithTemplate(cfg.Client(), K8sTemplate)
 			require.Nil(t, err)
 
+			requiredKeys := []string{
+				"secret",
+				"ssh_key",
+				"json_object_secret",
+				"var_with_spaces",
+				"var_with_pluses",
+				"var_with_umlaut",
+				"var_with_base64",
+				"non-conjur-key",
+			}
+			err = WaitForK8sSecretKeys(cfg.Client(), SecretsProviderNamespace(), "test-k8s-secret", requiredKeys, 2*time.Minute)
+			require.Nil(t, err)
+
 			return ctx
 		}).
 		Assess("ssh key set correctly in pod", assessSSHKey).
@@ -154,7 +173,7 @@ func TestLargeDecodedVariableSecretProvidedK8s(t *testing.T) {
 			err = ReloadWithTemplate(cfg.Client(), K8sTemplate)
 			require.Nil(t, err)
 
-			return context.WithValue(ctx, "expected", string(str))
+			return context.WithValue(ctx, expectedKey, string(str))
 		}).
 		// Replaces TEST_ID_1.7_providing_large_decoded_variable_successfully
 		Assess("large decoded variable secret set correctly in pod", func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
@@ -164,7 +183,7 @@ func TestLargeDecodedVariableSecretProvidedK8s(t *testing.T) {
 
 			RunCommandInSecretsProviderPod(cfg.Client(), SPLabelSelector, TestAppContainer, command, &stdout, &stderr)
 
-			assert.Contains(t, stdout.String(), ctx.Value("expected").(string))
+			assert.Contains(t, stdout.String(), ctx.Value(expectedKey).(string))
 
 			return ctx
 		}).

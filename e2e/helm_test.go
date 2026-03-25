@@ -308,19 +308,30 @@ func TestMultipleHelmJobsSameServiceAccount(t *testing.T) {
 func TestHelmRbacDefaultsSuccessful(t *testing.T) {
 	f := features.New("helm rbac defaults successful").
 		Setup(func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
+			// Ensure cluster connectivity before attempting deployment
+			fmt.Println("Waiting for cluster connectivity...")
+			err := WaitForClusterConnectivity(cfg.Client(), 2*time.Minute)
+			if err != nil {
+				t.Fatalf("Cluster unreachable after 2 minutes: %v", err)
+			}
+
 			// set up job
 			chartPath, err := FillHelmChartNoOverrideDefaults(cfg.Client(), "", map[string]string{
 				"LOG_LEVEL":          "debug",
 				"LABELS":             "app: test-helm",
 				"K8S_SECRETS":        "test-k8s-secret",
 				"CONJUR_ACCOUNT":     ConjurAccount(),
-				"CONJUR_AUTHN_URL":   ConjurAuthnUrl(),
-				"CONJUR_AUTHN_LOGIN": "host/conjur/authn-k8s/" + AuthenticatorId() + "/apps/" + SecretsProviderNamespace() + "/*/*",
+				"CONJUR_AUTHN_URL":   ConjurAuthnURL(),
+				"CONJUR_AUTHN_LOGIN": "host/conjur/authn-k8s/" + AuthenticatorID() + "/apps/" + SecretsProviderNamespace() + "/*/*",
 			})
-			assert.Nil(t, err)
+			if err != nil {
+				t.Fatalf("Failed to fill Helm chart: %v", err)
+			}
 
 			err = DeploySecretsProviderJobWithHelm(cfg, "", chartPath)
-			assert.Nil(t, err)
+			if err != nil {
+				t.Fatalf("Failed to deploy Secrets Provider with Helm: %v", err)
+			}
 
 			return ctx
 		}).
@@ -328,13 +339,31 @@ func TestHelmRbacDefaultsSuccessful(t *testing.T) {
 		Assess("helm rbac defaults successful", func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
 			// verify that known defaults were taken if not supplied
 			sa, err := GetServiceAccount(cfg.Client(), "secrets-provider-service-account")
-			assert.Nil(t, err)
+			if err != nil {
+				t.Fatalf("Failed to get ServiceAccount 'secrets-provider-service-account': %v", err)
+			}
+			if sa == nil {
+				t.Fatal("ServiceAccount 'secrets-provider-service-account' is nil")
+			}
 
 			role, roleBinding, err := GetRoleAndBinding(cfg.Client(), "secrets-provider-role", "secrets-provider-role-binding")
-			assert.Nil(t, err)
+			if err != nil {
+				t.Fatalf("Failed to get Role and RoleBinding: %v", err)
+			}
+			if role == nil {
+				t.Fatal("Role 'secrets-provider-role' is nil")
+			}
+			if roleBinding == nil {
+				t.Fatal("RoleBinding 'secrets-provider-role-binding' is nil")
+			}
 
 			configMap, err := GetConfigMap(cfg.Client(), "cert-config-map")
-			assert.Nil(t, err)
+			if err != nil {
+				t.Fatalf("Failed to get ConfigMap 'cert-config-map': %v", err)
+			}
+			if configMap == nil {
+				t.Fatal("ConfigMap 'cert-config-map' is nil")
+			}
 
 			assert.Equal(t, "secrets-provider-service-account", sa.Name)
 			assert.Equal(t, "secrets-provider-role", role.Name)
@@ -343,7 +372,15 @@ func TestHelmRbacDefaultsSuccessful(t *testing.T) {
 
 			// verify that the Secrets Provider took the default image configuration if not supplied & deployed successfully
 			job, err := GetJob(cfg.Client(), "secrets-provider")
-			assert.Nil(t, err)
+			if err != nil {
+				t.Fatalf("Failed to get Job 'secrets-provider': %v", err)
+			}
+			if job == nil {
+				t.Fatal("Job 'secrets-provider' is nil; Helm deployment may have failed to create resources")
+			}
+			if len(job.Spec.Template.Spec.Containers) == 0 {
+				t.Fatal("Job containers list is empty")
+			}
 
 			assert.Contains(t, job.Spec.Template.Spec.Containers[0].Image, "cyberark/secrets-provider-for-k8s:latest")
 			assert.Equal(t, int32(1), job.Status.Succeeded)
@@ -471,10 +508,10 @@ func TestHelmDefaultRetrySuccessful(t *testing.T) {
 				"LOG_LEVEL":            "debug",
 				"K8S_SECRETS":          "test-k8s-secret",
 				"CONJUR_ACCOUNT":       ConjurAccount(),
-				"CONJUR_APPLIANCE_URL": ConjurApplianceUrl(),
-				"CONJUR_AUTHN_LOGIN":   "host/conjur/authn-k8s/" + AuthenticatorId() + "/apps/" + SecretsProviderNamespace() + "/*/*",
+				"CONJUR_APPLIANCE_URL": ConjurApplianceURL(),
+				"CONJUR_AUTHN_LOGIN":   "host/conjur/authn-k8s/" + AuthenticatorID() + "/apps/" + SecretsProviderNamespace() + "/*/*",
 				// parameter that will force failure
-				"CONJUR_AUTHN_URL":   ConjurAuthnUrl() + "xyz",
+				"CONJUR_AUTHN_URL":   ConjurAuthnURL() + "xyz",
 				"RETRY_COUNT_LIMIT":  "1",
 				"RETRY_INTERVAL_SEC": "5",
 			})
@@ -537,7 +574,7 @@ func TestHelmOverrideDefaultRetrySuccessful(t *testing.T) {
 				"LABELS":    "app: test-helm",
 				"LOG_LEVEL": "debug",
 				// parameter that will force failure
-				"CONJUR_AUTHN_URL":   ConjurAuthnUrl() + "xyz",
+				"CONJUR_AUTHN_URL":   ConjurAuthnURL() + "xyz",
 				"RETRY_COUNT_LIMIT":  "2",
 				"RETRY_INTERVAL_SEC": "5",
 			})

@@ -16,9 +16,9 @@ func TestAuthnJWT(t *testing.T) {
 	f := features.New("authn-jwt").
 		Setup(func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
 			// Override the authn parameters to use authn-jwt
-			t.Setenv("CONJUR_AUTHN_LOGIN", "host/conjur/authn-jwt/"+AuthenticatorId()+"/apps/system:serviceaccount:"+SecretsProviderNamespace()+"-sa")
+			t.Setenv("CONJUR_AUTHN_LOGIN", "host/conjur/authn-jwt/"+AuthenticatorID()+"/apps/system:serviceaccount:"+SecretsProviderNamespace()+"-sa")
 			t.Setenv("CONJUR_AUTHN_TYPE", "jwt")
-			t.Setenv("CONJUR_AUTHN_URL", ConjurApplianceUrl()+"/authn-jwt/"+AuthenticatorId())
+			t.Setenv("CONJUR_AUTHN_URL", ConjurApplianceURL()+"/authn-jwt/"+AuthenticatorID())
 
 			err := ReloadWithTemplate(cfg.Client(), K8sTemplate)
 			require.Nil(t, err)

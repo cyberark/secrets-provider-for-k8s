@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ### Added
 - Helm chart deployment supports standalone mode. (CNJR-12580)
 - Standalone mode can operate on secrets in multiple namespaces. (CNJR-12578)
+- Add Reloader as an optional sub-chart for automatic rolling restarts of application workloads on secret rotation. (CNJR-13038)
 
 ### Security
 - Upgrade golang to 1.26 to address CVE-2026-22184

@@ -1,6 +1,7 @@
 //go:build e2e
 // +build e2e
 
+// Package e2e contains end-to-end tests for the Secrets Provider.
 package e2e
 
 import (
@@ -24,13 +25,15 @@ import (
 	"sigs.k8s.io/e2e-framework/third_party/helm"
 )
 
-func AuthenticatorId() string {
+// AuthenticatorID returns the Conjur authenticator ID from the AUTHENTICATOR_ID environment variable, or a default value.
+func AuthenticatorID() string {
 	if id := os.Getenv("AUTHENTICATOR_ID"); id != "" {
 		return id
 	}
 	return "authn-k8s/dev"
 }
 
+// ConjurAccount returns the Conjur account from the CONJUR_ACCOUNT environment variable, or a default value.
 func ConjurAccount() string {
 	if id := os.Getenv("CONJUR_ACCOUNT"); id != "" {
 		return id
@@ -38,42 +41,46 @@ func ConjurAccount() string {
 	return "cucumber"
 }
 
-func ConjurApplianceUrl() string {
+// ConjurApplianceURL returns the Conjur appliance URL based on the deployment configuration and namespace.
+func ConjurApplianceURL() string {
 	conjurNodeName := "conjur-follower"
 	if deployment := os.Getenv("CONJUR_DEPLOYMENT"); deployment == "oss" {
 		conjurNodeName = "conjur-oss"
 	}
-	conjurApplianceUrl := fmt.Sprintf("https://%s.%s.svc.cluster.local", conjurNodeName, ConjurNamespace())
+	conjurApplianceURL := fmt.Sprintf("https://%s.%s.svc.cluster.local", conjurNodeName, ConjurNamespace())
 	if deployment := os.Getenv("CONJUR_DEPLOYMENT"); deployment == "dap" {
-		conjurApplianceUrl = conjurApplianceUrl + "/api"
+		conjurApplianceURL = conjurApplianceURL + "/api"
 	}
-	return conjurApplianceUrl
+	return conjurApplianceURL
 }
 
-func ConjurAuthnUrl() string {
-	return fmt.Sprintf("%s/authn-k8s/%s", ConjurApplianceUrl(), AuthenticatorId())
+// ConjurAuthnURL returns the full Conjur authentication URL for the configured authenticator.
+func ConjurAuthnURL() string {
+	return fmt.Sprintf("%s/authn-k8s/%s", ConjurApplianceURL(), AuthenticatorID())
 }
 
+// GetImagePath returns the Docker image path for the secrets provider based on the deployment platform.
 func GetImagePath() string {
-	image_path := SecretsProviderNamespace()
+	imagePath := SecretsProviderNamespace()
 
 	// KinD runs load images directly into the cluster (no registry push/pull).
 	// Avoid relying on DOCKER_REGISTRY_* env vars in that mode.
 	if strings.ToLower(os.Getenv("TEST_PLATFORM")) == "kind" {
-		return image_path
+		return imagePath
 	}
 
 	if os.Getenv("PLATFORM") == "openshift" && os.Getenv("DEV") == "false" {
-		image_path = fmt.Sprintf("%s/%s", os.Getenv("PULL_DOCKER_REGISTRY_PATH"), os.Getenv("APP_NAMESPACE_NAME"))
+		imagePath = fmt.Sprintf("%s/%s", os.Getenv("PULL_DOCKER_REGISTRY_PATH"), os.Getenv("APP_NAMESPACE_NAME"))
 	} else if os.Getenv("PLATFORM") == "kubernetes" && os.Getenv("DEV") == "false" {
-		image_path = fmt.Sprintf("%s/%s", os.Getenv("DOCKER_REGISTRY_PATH"), os.Getenv("APP_NAMESPACE_NAME"))
+		imagePath = fmt.Sprintf("%s/%s", os.Getenv("DOCKER_REGISTRY_PATH"), os.Getenv("APP_NAMESPACE_NAME"))
 	}
-	return image_path
+	return imagePath
 }
 
+// FillHelmChart generates a Helm values file by populating a template with environment-specific replacements.
 func FillHelmChart(client klient.Client, id string, optReplacements map[string]string) (string, error) {
-	uniqueTestId := os.Getenv("UNIQUE_TEST_ID")
-	chartName := fmt.Sprintf("%stest-values-%s.yaml", id, uniqueTestId)
+	uniqueTestID := os.Getenv("UNIQUE_TEST_ID")
+	chartName := fmt.Sprintf("%stest-values-%s.yaml", id, uniqueTestID)
 	chartPath := filepath.Join("..", "helm", "secrets-provider", "ci", chartName)
 
 	templateName := fmt.Sprintf("test-values-template.yaml")
@@ -81,7 +88,7 @@ func FillHelmChart(client klient.Client, id string, optReplacements map[string]s
 
 	templateContent, err := os.ReadFile(templatePath)
 	if err != nil {
-		return "", fmt.Errorf("Error reading template file: %v\n", err)
+		return "", fmt.Errorf("error reading template file: %v", err)
 	}
 
 	conjurCert, err := FetchConjurServerCert(client)
@@ -98,8 +105,8 @@ func FillHelmChart(client klient.Client, id string, optReplacements map[string]s
 		"K8S_SECRETS":                     getEnvOrDefault("K8S_SECRETS", "test-k8s-secret"),
 		"CONJUR_ACCOUNT":                  getEnvOrDefault("CONJUR_ACCOUNT", "cucumber"),
 		"CONJUR_APPLIANCE_URL":            getEnvOrDefault("CONJUR_APPLIANCE_URL", "https://conjur-follower."+ConjurNamespace()+".svc.cluster.local/api"),
-		"CONJUR_AUTHN_URL":                getEnvOrDefault("CONJUR_AUTHN_URL", "https://conjur-follower."+ConjurNamespace()+".svc.cluster.local/api/authn-k8s/"+AuthenticatorId()),
-		"CONJUR_AUTHN_LOGIN":              getEnvOrDefault("CONJUR_AUTHN_LOGIN", "host/conjur/authn-k8s/"+AuthenticatorId()+"/apps/"+SecretsProviderNamespace()+"/*/*"),
+		"CONJUR_AUTHN_URL":                getEnvOrDefault("CONJUR_AUTHN_URL", "https://conjur-follower."+ConjurNamespace()+".svc.cluster.local/api/authn-k8s/"+AuthenticatorID()),
+		"CONJUR_AUTHN_LOGIN":              getEnvOrDefault("CONJUR_AUTHN_LOGIN", "host/conjur/authn-k8s/"+AuthenticatorID()+"/apps/"+SecretsProviderNamespace()+"/*/*"),
 		"SECRETS_PROVIDER_SSL_CONFIG_MAP": getEnvOrDefault("SECRETS_PROVIDER_SSL_CONFIG_MAP", "secrets-provider-ssl-config-map"),
 		"IMAGE_PULL_POLICY":               getEnvOrDefault("IMAGE_PULL_POLICY", "IfNotPresent"),
 		"IMAGE":                           getEnvOrDefault("IMAGE", GetImagePath()+"/secrets-provider"),
@@ -111,6 +118,9 @@ func FillHelmChart(client klient.Client, id string, optReplacements map[string]s
 		"RETRY_INTERVAL_SEC":              getEnvOrDefault("RETRY_INTERVAL_SEC", "5"),
 		"CONJUR_SSL_CERTIFICATE":          getEnvOrDefault("CONJUR_SSL_CERTIFICATE", conjurCert),
 		"IMAGE_PULL_SECRET":               getEnvOrDefault("IMAGE_PULL_SECRET", ""),
+		"RELOADER_ENABLED":                getEnvOrDefault("RELOADER_ENABLED", "false"),
+		"RELOADER_DEPLOYMENT_REPLICAS":    getEnvOrDefault("RELOADER_DEPLOYMENT_REPLICAS", "1"),
+		"RELOADER_ENABLE_HA":              getEnvOrDefault("RELOADER_ENABLE_HA", "false"),
 	}
 
 	// OPTIONAL - update default replacements with desired values
@@ -128,15 +138,16 @@ func FillHelmChart(client klient.Client, id string, optReplacements map[string]s
 	// Write the modified content to the target file
 	err = os.WriteFile(chartPath, templateContent, 0644)
 	if err != nil {
-		return "", fmt.Errorf("Error writing to target file: %v\n", err)
+		return "", fmt.Errorf("error writing to target file: %v", err)
 	}
 
 	return chartPath, nil
 }
 
+// FillHelmChartNoOverrideDefaults generates a Helm values file using only default values without overriding template defaults.
 func FillHelmChartNoOverrideDefaults(client klient.Client, id string, optReplacements map[string]string) (string, error) {
-	uniqueTestId := os.Getenv("UNIQUE_TEST_ID")
-	chartName := fmt.Sprintf("%stake-default-test-values-%s.yaml", id, uniqueTestId)
+	uniqueTestID := os.Getenv("UNIQUE_TEST_ID")
+	chartName := fmt.Sprintf("%stake-default-test-values-%s.yaml", id, uniqueTestID)
 	chartPath := filepath.Join("..", "helm", "secrets-provider", "ci", chartName)
 
 	templateName := fmt.Sprintf("take-default-test-values-template.yaml")
@@ -144,7 +155,7 @@ func FillHelmChartNoOverrideDefaults(client klient.Client, id string, optReplace
 
 	templateContent, err := os.ReadFile(templatePath)
 	if err != nil {
-		return "", fmt.Errorf("Error reading template file: %v\n", err)
+		return "", fmt.Errorf("error reading template file: %v", err)
 	}
 
 	// Perform replacements using environment variables or defaults - default replacements
@@ -153,8 +164,8 @@ func FillHelmChartNoOverrideDefaults(client klient.Client, id string, optReplace
 		"CONJUR_ACCOUNT":       getEnvOrDefault("CONJUR_ACCOUNT", "cucumber"),
 		"LABELS":               getEnvOrDefault("LABELS", "app: test-helm"),
 		"CONJUR_APPLIANCE_URL": getEnvOrDefault("CONJUR_APPLIANCE_URL", "https://conjur-follower."+ConjurNamespace()+".svc.cluster.local/api"),
-		"CONJUR_AUTHN_URL":     getEnvOrDefault("CONJUR_AUTHN_URL", "https://conjur-follower."+ConjurNamespace()+".svc.cluster.local/api/authn-k8s/"+AuthenticatorId()),
-		"CONJUR_AUTHN_LOGIN":   getEnvOrDefault("CONJUR_AUTHN_LOGIN", "host/conjur/authn-k8s/"+AuthenticatorId()+"/apps/"+SecretsProviderNamespace()+"/*/*"),
+		"CONJUR_AUTHN_URL":     getEnvOrDefault("CONJUR_AUTHN_URL", "https://conjur-follower."+ConjurNamespace()+".svc.cluster.local/api/authn-k8s/"+AuthenticatorID()),
+		"CONJUR_AUTHN_LOGIN":   getEnvOrDefault("CONJUR_AUTHN_LOGIN", "host/conjur/authn-k8s/"+AuthenticatorID()+"/apps/"+SecretsProviderNamespace()+"/*/*"),
 	}
 
 	// OPTIONAL - update default replacements with desired values
@@ -172,15 +183,16 @@ func FillHelmChartNoOverrideDefaults(client klient.Client, id string, optReplace
 	// Write the modified content to the target file
 	err = os.WriteFile(chartPath, templateContent, 0644)
 	if err != nil {
-		return "", fmt.Errorf("Error writing to target file: %v\n", err)
+		return "", fmt.Errorf("error writing to target file: %v", err)
 	}
 
 	return chartPath, nil
 }
 
+// FillHelmChartTestImage generates a Helm values file focused on image configuration for test deployments.
 func FillHelmChartTestImage(client klient.Client, id string, optReplacements map[string]string) (string, error) {
-	uniqueTestId := os.Getenv("UNIQUE_TEST_ID")
-	chartName := fmt.Sprintf("%stake-image-values-%s.yaml", id, uniqueTestId)
+	uniqueTestID := os.Getenv("UNIQUE_TEST_ID")
+	chartName := fmt.Sprintf("%stake-image-values-%s.yaml", id, uniqueTestID)
 	chartPath := filepath.Join("..", "helm", "secrets-provider", "ci", chartName)
 
 	templateName := fmt.Sprintf("take-image-values-template.yaml")
@@ -188,7 +200,7 @@ func FillHelmChartTestImage(client klient.Client, id string, optReplacements map
 
 	templateContent, err := os.ReadFile(templatePath)
 	if err != nil {
-		return "", fmt.Errorf("Error reading template file: %v\n", err)
+		return "", fmt.Errorf("error reading template file: %v", err)
 	}
 
 	// Perform replacements using environment variables or defaults - default replacements
@@ -213,12 +225,13 @@ func FillHelmChartTestImage(client klient.Client, id string, optReplacements map
 	// Write the modified content to the target file
 	err = os.WriteFile(chartPath, templateContent, 0644)
 	if err != nil {
-		return "", fmt.Errorf("Error writing to target file: %v\n", err)
+		return "", fmt.Errorf("error writing to target file: %v", err)
 	}
 
 	return chartPath, nil
 }
 
+// DeployTestAppWithHelm deploys a test application that reads secrets from a Kubernetes Secret.
 func DeployTestAppWithHelm(client klient.Client, id string) error {
 	// create Deployment
 	var replicas int32 = 1
@@ -289,6 +302,7 @@ func DeployTestAppWithHelm(client klient.Client, id string) error {
 	return nil
 }
 
+// CreateK8sRole creates the ServiceAccount, Role, and RoleBinding required for the secrets provider deployment.
 func CreateK8sRole(client klient.Client, id string) error {
 	// create ServiceAccount
 	serviceAccount := corev1.ServiceAccount{
@@ -359,6 +373,7 @@ func CreateK8sRole(client klient.Client, id string) error {
 	return nil
 }
 
+// CreateK8sSecretForHelmDeployment creates a Kubernetes Secret used for Helm-based test deployments.
 func CreateK8sSecretForHelmDeployment(client klient.Client) error {
 	// create Secret
 	secret := corev1.Secret{
@@ -382,6 +397,7 @@ func CreateK8sSecretForHelmDeployment(client klient.Client) error {
 	return nil
 }
 
+// FetchConjurServerCert retrieves the Conjur server TLS certificate from the running Conjur pod.
 func FetchConjurServerCert(client klient.Client) (string, error) {
 	label := ConjurFollowerLabelSelector
 	certLocation := "/opt/conjur/etc/ssl/conjur.pem"
@@ -419,6 +435,7 @@ func bytesReplace(input []byte, old, new string) []byte {
 	return []byte(strings.ReplaceAll(string(input), old, new))
 }
 
+// CreateConjurCertFile writes the Conjur server certificate to a local PEM file for Helm chart use.
 func CreateConjurCertFile(client klient.Client) error {
 	conjurCert, err := FetchConjurServerCert(client)
 	if err != nil {
@@ -436,6 +453,7 @@ func CreateConjurCertFile(client klient.Client) error {
 	return nil
 }
 
+// DeploySecretsProviderJobWithHelm installs the secrets provider via Helm and waits for the job to complete.
 func DeploySecretsProviderJobWithHelm(cfg *envconf.Config, id string, chartPaths ...string) error {
 	// set conjur cert to file
 	err := CreateConjurCertFile(cfg.Client())
@@ -443,25 +461,38 @@ func DeploySecretsProviderJobWithHelm(cfg *envconf.Config, id string, chartPaths
 		return err
 	}
 
-	// helm install
+	// Ensure each test run starts from a fresh Helm release state.
 	manager := helm.New(cfg.KubeconfigFile())
 	spName := id + "secrets-provider"
+	uninstallErr := manager.RunUninstall(
+		helm.WithReleaseName(spName),
+	)
+	if uninstallErr != nil {
+		uninstallErrMessage := strings.ToLower(uninstallErr.Error())
+		if !strings.Contains(uninstallErrMessage, "not found") && !strings.Contains(uninstallErrMessage, "release: not found") {
+			return uninstallErr
+		}
+	}
+
+	// helm upgrade --install
 	if len(chartPaths) == 2 {
-		err = manager.RunInstall(
+		err = manager.RunUpgrade(
 			helm.WithName(spName),
 			helm.WithChart("../helm/secrets-provider"),
 			helm.WithArgs("-f", chartPaths[0]),
 			helm.WithArgs("-f", chartPaths[1]),
+			helm.WithArgs("--install"),
 			helm.WithArgs("--set-file", fmt.Sprintf("environment.conjur.sslCertificate.value=%s", "./conjur-server.pem")),
 		)
 		if err != nil {
 			return err
 		}
 	} else {
-		err = manager.RunInstall(
+		err = manager.RunUpgrade(
 			helm.WithName(spName),
 			helm.WithChart("../helm/secrets-provider"),
 			helm.WithArgs("-f", chartPaths[0]),
+			helm.WithArgs("--install"),
 			helm.WithArgs("--set-file", fmt.Sprintf("environment.conjur.sslCertificate.value=%s", "./conjur-server.pem")),
 		)
 		if err != nil {
@@ -489,6 +520,7 @@ func DeploySecretsProviderJobWithHelm(cfg *envconf.Config, id string, chartPaths
 	return nil
 }
 
+// RemoveJobWithHelm uninstalls a Helm release by name.
 func RemoveJobWithHelm(cfg *envconf.Config, name string) error {
 	manager := helm.New(cfg.KubeconfigFile())
 	err := manager.RunUninstall(
@@ -501,6 +533,7 @@ func RemoveJobWithHelm(cfg *envconf.Config, name string) error {
 	return nil
 }
 
+// GetPodLogs retrieves the logs from a specific container in a pod.
 func GetPodLogs(client klient.Client, podName string, namespace string, container string) (*bytes.Buffer, error) {
 	clientset, err := kubernetes.NewForConfig(client.RESTConfig())
 	if err != nil {
@@ -528,6 +561,7 @@ func GetPodLogs(client klient.Client, podName string, namespace string, containe
 	return content, nil
 }
 
+// GetTimestamp parses a timestamp from a log string by searching for a line containing the given token.
 func GetTimestamp(logs string, token string) (time.Time, error) {
 	logsLines := strings.Split(logs, "\n")
 
@@ -550,6 +584,7 @@ func GetTimestamp(logs string, token string) (time.Time, error) {
 	return time.Time{}, fmt.Errorf("could not find token %s", token)
 }
 
+// ConfigDir returns the platform-specific configuration directory path.
 func ConfigDir() string {
 	if os.Getenv("PLATFORM") == "openshift" {
 		return "config/openshift"
@@ -557,6 +592,7 @@ func ConfigDir() string {
 	return "config/k8s"
 }
 
+// CleanChartPathFiles removes the generated Helm chart files and the Conjur certificate file.
 func CleanChartPathFiles(paths []string) error {
 	for _, path := range paths {
 		err := os.Remove(path)
