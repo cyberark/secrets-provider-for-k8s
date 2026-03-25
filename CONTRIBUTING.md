@@ -33,7 +33,7 @@ Thanks for your interest in the CyberArk Secrets Provider for Kubernetes. We wel
 
 ### Go
 
-To work in this codebase, you will want to have Go version 1.25.3+ installed.
+To work in this codebase, you will want to have Go version 1.26.1+ installed.
 
 ## Documentation
 
