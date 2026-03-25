@@ -79,11 +79,36 @@ func GetImagePath() string {
 
 // FillHelmChart generates a Helm values file by populating a template with environment-specific replacements.
 func FillHelmChart(client klient.Client, id string, optReplacements map[string]string) (string, error) {
+	return fillHelmChartWithTemplate(client, id, "test-values-template.yaml", optReplacements)
+}
+
+// DeployMode is the secrets-provider container mode used when deploying via Helm.
+type DeployMode string
+
+const (
+	DeployModeApplication DeployMode = "application"
+	DeployModeStandalone  DeployMode = "standalone"
+)
+
+// FillHelmChartForMode generates a Helm values file for a specific mode ("application" or "standalone").
+// Returns an error for unrecognised modes rather than silently falling back to the application template.
+func FillHelmChartForMode(client klient.Client, id string, mode DeployMode, optReplacements map[string]string) (string, error) {
+	switch mode {
+	case DeployModeStandalone:
+		return fillHelmChartWithTemplate(client, id, "test-values-standalone-template.yaml", optReplacements)
+	case DeployModeApplication:
+		return fillHelmChartWithTemplate(client, id, "test-values-template.yaml", optReplacements)
+	default:
+		return "", fmt.Errorf("unknown deploy mode %q: must be %q or %q", mode, DeployModeApplication, DeployModeStandalone)
+	}
+}
+
+// fillHelmChartWithTemplate generates a Helm values file by populating a specific template with environment-specific replacements.
+func fillHelmChartWithTemplate(client klient.Client, id string, templateName string, optReplacements map[string]string) (string, error) {
 	uniqueTestID := os.Getenv("UNIQUE_TEST_ID")
 	chartName := fmt.Sprintf("%stest-values-%s.yaml", id, uniqueTestID)
 	chartPath := filepath.Join("..", "helm", "secrets-provider", "ci", chartName)
 
-	templateName := fmt.Sprintf("test-values-template.yaml")
 	templatePath := filepath.Join("..", "helm", "secrets-provider", "ci", templateName)
 
 	templateContent, err := os.ReadFile(templatePath)
@@ -121,14 +146,19 @@ func FillHelmChart(client klient.Client, id string, optReplacements map[string]s
 		"RELOADER_ENABLED":                getEnvOrDefault("RELOADER_ENABLED", "false"),
 		"RELOADER_DEPLOYMENT_REPLICAS":    getEnvOrDefault("RELOADER_DEPLOYMENT_REPLICAS", "1"),
 		"RELOADER_ENABLE_HA":              getEnvOrDefault("RELOADER_ENABLE_HA", "false"),
+		// Standalone mode settings
+		"NAMESPACE_ALLOWLIST":            getEnvOrDefault("NAMESPACE_ALLOWLIST", ""),
+		"SECRETS_REFRESH_ENABLED":        getEnvOrDefault("SECRETS_REFRESH_ENABLED", "true"),
+		"SECRETS_REFRESH_INTERVAL":       getEnvOrDefault("SECRETS_REFRESH_INTERVAL", "5m"),
+		"REMOVE_DELETED_SECRETS_ENABLED": getEnvOrDefault("REMOVE_DELETED_SECRETS_ENABLED", "true"),
 	}
 
 	// OPTIONAL - update default replacements with desired values
 	for key, value := range optReplacements {
-		_, exists := replacements[key]
-		if exists {
-			replacements[key] = value
+		if _, exists := replacements[key]; !exists {
+			return "", fmt.Errorf("unknown replacement key %q: not present in template defaults", key)
 		}
+		replacements[key] = value
 	}
 
 	for key, value := range replacements {
@@ -494,12 +524,17 @@ func FillHelmChartStandalone(_ klient.Client, id string, optReplacements map[str
 		"RETRY_COUNT_LIMIT":               getEnvOrDefault("RETRY_COUNT_LIMIT", "5"),
 		"RETRY_INTERVAL_SEC":              getEnvOrDefault("RETRY_INTERVAL_SEC", "5"),
 		"IMAGE_PULL_SECRET":               getEnvOrDefault("IMAGE_PULL_SECRET", ""),
+		"RELOADER_ENABLED":                getEnvOrDefault("RELOADER_ENABLED", "false"),
+		"RELOADER_DEPLOYMENT_REPLICAS":    getEnvOrDefault("RELOADER_DEPLOYMENT_REPLICAS", "1"),
+		"RELOADER_ENABLE_HA":              getEnvOrDefault("RELOADER_ENABLE_HA", "false"),
 	}
 
+	// OPTIONAL - update default replacements with desired values
 	for key, value := range optReplacements {
-		if _, exists := replacements[key]; exists {
-			replacements[key] = value
+		if _, exists := replacements[key]; !exists {
+			return "", fmt.Errorf("unknown replacement key %q: not present in template defaults", key)
 		}
+		replacements[key] = value
 	}
 
 	for key, value := range replacements {
@@ -548,13 +583,13 @@ func DeployStandaloneSecretsProviderWithHelm(cfg *envconf.Config, id string, cha
 	dep, err := WaitForDeploymentExists(cfg.Client(), ns, spName, 2*time.Minute)
 	if err != nil {
 		_ = CleanChartPathFiles(chartPaths)
-		_ = RemoveJobWithHelm(cfg, spName)
+		_ = RemoveHelmRelease(cfg, spName)
 		return err
 	}
 
 	if err := WaitResourceScaled(cfg.Client(), dep, 1); err != nil {
 		_ = CleanChartPathFiles(chartPaths)
-		_ = RemoveJobWithHelm(cfg, spName)
+		_ = RemoveHelmRelease(cfg, spName)
 		return err
 	}
 
@@ -628,12 +663,60 @@ func DeploySecretsProviderJobWithHelm(cfg *envconf.Config, id string, chartPaths
 	return nil
 }
 
-// RemoveJobWithHelm uninstalls a Helm release by name.
-func RemoveJobWithHelm(cfg *envconf.Config, name string) error {
+// RemoveHelmRelease uninstalls a Helm release by name.
+func RemoveHelmRelease(cfg *envconf.Config, name string) error {
 	manager := helm.New(cfg.KubeconfigFile())
-	err := manager.RunUninstall(
-		helm.WithReleaseName(name),
+	return manager.RunUninstall(helm.WithReleaseName(name))
+}
+
+// DeploySecretsProviderDeploymentWithHelm installs secrets-provider via Helm as a Deployment (standalone mode)
+// and waits for the Deployment to be ready.
+func DeploySecretsProviderDeploymentWithHelm(cfg *envconf.Config, id string, chartPath string) error {
+	// set conjur cert to file
+	err := CreateConjurCertFile(cfg.Client())
+	if err != nil {
+		return err
+	}
+
+	// Ensure each test run starts from a fresh Helm release state.
+	manager := helm.New(cfg.KubeconfigFile())
+	spName := id + "secrets-provider"
+	uninstallErr := manager.RunUninstall(
+		helm.WithReleaseName(spName),
 	)
+	if uninstallErr != nil {
+		uninstallErrMessage := strings.ToLower(uninstallErr.Error())
+		if !strings.Contains(uninstallErrMessage, "not found") && !strings.Contains(uninstallErrMessage, "release: not found") {
+			return uninstallErr
+		}
+	}
+
+	// helm upgrade --install
+	err = manager.RunUpgrade(
+		helm.WithName(spName),
+		helm.WithChart("../helm/secrets-provider"),
+		helm.WithArgs("-f", chartPath),
+		helm.WithArgs("--install"),
+		helm.WithArgs("--set-file", fmt.Sprintf("environment.conjur.sslCertificate.value=%s", "./conjur-server.pem")),
+	)
+	if err != nil {
+		return err
+	}
+
+	// wait for deployment to be ready
+	deployment, err := GetDeployment(cfg.Client(), spName)
+	if err != nil {
+		_ = CleanChartPathFiles([]string{chartPath})
+		return err
+	}
+
+	err = WaitResourceScaled(cfg.Client(), deployment, *deployment.Spec.Replicas)
+	if err != nil {
+		_ = CleanChartPathFiles([]string{chartPath})
+		return err
+	}
+
+	err = CleanChartPathFiles([]string{chartPath})
 	if err != nil {
 		return err
 	}
@@ -641,7 +724,6 @@ func RemoveJobWithHelm(cfg *envconf.Config, name string) error {
 	return nil
 }
 
-// GetPodLogs retrieves the logs from a specific container in a pod.
 func GetPodLogs(client klient.Client, podName string, namespace string, container string) (*bytes.Buffer, error) {
 	clientset, err := kubernetes.NewForConfig(client.RESTConfig())
 	if err != nil {
