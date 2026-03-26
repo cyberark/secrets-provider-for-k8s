@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 echo "This script requires that there is a running cluster with a valid kubeconfig!"
-echo "To run tests locally, run './bin/start --dev' before this script with the default values in 'bootstrap.env'."
+echo "To run tests locally, run './bin/start --dev' before this script (defaults from bootstrap.env)."
 
 set -eox pipefail
 

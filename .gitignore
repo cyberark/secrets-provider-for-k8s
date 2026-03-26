@@ -12,7 +12,10 @@ junit.xml
 # Temporary directory to store the CyberArk proxy CA certificate
 build_ca_certificate/
 
-# Ignore generated policy files and manifests
+# Ignore generated policy files, manifests, test output/helpers/diagnostics, etc.
 deploy/**/generated/
+deploy/**/output/
+*kubernetes-conjur-deploy-*
+*.debug
 
 VERSION

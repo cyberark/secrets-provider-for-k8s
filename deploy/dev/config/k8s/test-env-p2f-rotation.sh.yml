@@ -1,6 +1,24 @@
 #!/bin/bash
 set -euo pipefail
 
+SECRETS_PROVIDER_DEV_IMAGE="${CONJUR_APP_IMAGE:-secrets-provider-for-k8s:latest}"
+if [[ "${SECRETS_PROVIDER_DEV_IMAGE}" != *:* ]]; then
+  SECRETS_PROVIDER_DEV_IMAGE="${SECRETS_PROVIDER_DEV_IMAGE}:latest"
+fi
+SECRETS_PROVIDER_PULL_POLICY="Never"
+
+IMAGE_PULL_SECRETS_YAML=""
+if [[ "${KIND:-false}" != "true" ]]; then
+  IMAGE_PULL_SECRETS_YAML=$'      imagePullSecrets:\n        - name: dockerpullsecret\n'
+fi
+
+TEST_APP_IMAGE="debian"
+TEST_APP_PULL_POLICY_YAML=""
+if [[ "${KIND:-false}" = "true" ]]; then
+  TEST_APP_IMAGE="debian:latest"
+  TEST_APP_PULL_POLICY_YAML=$'        imagePullPolicy: Never\n'
+fi
+
 cat << EOL
 ---
 apiVersion: apps/v1
@@ -80,16 +98,16 @@ cat << EOL
         # conjur.org/jaeger-collector-url: http://jaeger-collector.jaeger.svc.cluster.local:14268/api/traces
     spec:
       containers:
-      - image: debian
-        name: test-app
+      - image: '${TEST_APP_IMAGE}'
+${TEST_APP_PULL_POLICY_YAML}        name: test-app
         command: ["sleep"]
         args: ["infinity"]
         volumeMounts:
           - mountPath: /opt/secrets/conjur
             name: conjur-secrets
             readOnly: true
-      - image: 'secrets-provider-for-k8s:latest'
-        imagePullPolicy: Never
+      - image: '${SECRETS_PROVIDER_DEV_IMAGE}'
+        imagePullPolicy: ${SECRETS_PROVIDER_PULL_POLICY}
         name: cyberark-secrets-provider-for-k8s
         volumeMounts:
           - mountPath: /conjur/secrets
@@ -123,9 +141,7 @@ cat << EOL
                 name: conjur-master-ca-env
                 key: ssl-certificate
 
-      imagePullSecrets:
-        - name: dockerpullsecret
-      volumes:
+${IMAGE_PULL_SECRETS_YAML}      volumes:
       - emptyDir:
           medium: Memory
         name: conjur-secrets

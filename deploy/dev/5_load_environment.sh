@@ -14,7 +14,13 @@ main() {
 
     create_k8s_secret
     export IMAGE_PULL_POLICY="Never"
-    export IMAGE="secrets-provider-for-k8s"
+    if [[ -z "${IMAGE:-}" ]]; then
+      if [[ "${KIND}" = "true" ]]; then
+        export IMAGE="${APP_NAMESPACE_NAME}/secrets-provider"
+      else
+        export IMAGE="secrets-provider-for-k8s"
+      fi
+    fi
     export TAG="latest"
     deploy_chart
 

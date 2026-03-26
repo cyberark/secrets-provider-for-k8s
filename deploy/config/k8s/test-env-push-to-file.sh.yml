@@ -3,6 +3,19 @@ set -euo pipefail
 
 CONJUR_AUTHN_LOGIN=${CONJUR_AUTHN_LOGIN:-"host/conjur/authn-k8s/${AUTHENTICATOR_ID}/apps/${APP_NAMESPACE_NAME}/*/*"}
 
+# Build image refs; empty PULL_DOCKER_REGISTRY_PATH (Kind/local) must not yield a leading "/" (InvalidImageName).
+SECRETS_PROVIDER_IMAGE="${APP_NAMESPACE_NAME}/secrets-provider:latest"
+DEBIAN_IMAGE="debian:latest"
+IMAGE_PULL_POLICY="Always"
+
+if [[ -n "${PULL_DOCKER_REGISTRY_PATH:-}" ]]; then
+  SECRETS_PROVIDER_IMAGE="${PULL_DOCKER_REGISTRY_PATH}/${APP_NAMESPACE_NAME}/secrets-provider:latest"
+  DEBIAN_IMAGE="${PULL_DOCKER_REGISTRY_PATH}/${APP_NAMESPACE_NAME}/debian:latest"
+fi
+if [[ "${KIND:-false}" = "true" ]]; then
+  IMAGE_PULL_POLICY="Never"
+fi
+
 cat << EOL
 ---
 apiVersion: apps/v1
@@ -80,7 +93,8 @@ spec:
         conjur.org/secret-file-format.group8: yaml
     spec:
       containers:
-      - image: '${PULL_DOCKER_REGISTRY_PATH}/${APP_NAMESPACE_NAME}/debian:latest'
+      - image: '${DEBIAN_IMAGE}'
+        imagePullPolicy: ${IMAGE_PULL_POLICY}
         name: test-app
         command: ["sleep"]
         args: ["infinity"]
@@ -89,8 +103,8 @@ spec:
             name: conjur-secrets
             readOnly: true
       initContainers:
-      - image: '${PULL_DOCKER_REGISTRY_PATH}/${APP_NAMESPACE_NAME}/secrets-provider:latest'
-        imagePullPolicy: Always
+      - image: '${SECRETS_PROVIDER_IMAGE}'
+        imagePullPolicy: ${IMAGE_PULL_POLICY}
         name: cyberark-secrets-provider-for-k8s
         volumeMounts:
           - mountPath: /conjur/secrets

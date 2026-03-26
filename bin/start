@@ -14,9 +14,9 @@ Usage: ./bin/start [options]
 
     --reload      Run reload to rebuild and redeploy changes done in Secrets Provider to a local cluster without redeploying DAP/Conjur.
 
-    --oss         Run the integration tests with a OSS Conjur deployment. By default the tests are run against a Conjur DAP deployment.
+    --oss         Use Conjur OSS (open source) for this run.
 
-    --dap         Run the integration tests with a DAP Conjur deployment. By default the tests are run against a Conjur DAP deployment.
+    --dap         Use Conjur DAP (enterprise appliance) for this run.
 
     --gke         Run the integration tests on GKE. By default the tests are run on GKE.
 
@@ -27,6 +27,22 @@ Usage: ./bin/start [options]
     --current     Run the integration tests on the currently supported Openshift platform. By default the tests are run on GKE.
 
     --next        Run the integration tests on the latest Openshift platform. By default the tests are run on GKE.
+
+    --secrets-mode=MODE   k8s | k8s-rotation | p2f | p2f-rotation | standalone (must be combined with --dev-helm).
+
+    --labeled-secrets     Enable labeled secrets in K8s secret mode manifests.
+
+    --secrets-refresh-interval=DURATION   e.g. 10m (optional; mainly for rotation/informer flows).
+
+    --dev-helm      Deploy the Secrets Provider via helm instead of raw manifests (suitable for 'application' or 'standalone' modes)
+
+    --debug         Set CONJUR_LOG_LEVEL and LOG_LEVEL to debug.
+
+    --no-stop-running-env   Set STOP_RUNNING_ENV=false for kubernetes-conjur-deploy ./start (skip ./stop first).
+
+    --test-prefix=*       TEST_NAME_PREFIX for test filtering.
+
+    --template=*          TEMPLATE_OVERRIDE for deploy templates.
 
     -h, --help    Shows this help message.
 EOF
@@ -40,7 +56,7 @@ runScriptWithSummon() {
 }
 
 RUN_IN_DOCKER=false
-CONJUR_DEPLOYMENT=dap
+CONJUR_DEPLOYMENT=oss
 SUMMON_ENV=gke
 RELOAD_ENV=false
 DEV=false
@@ -59,7 +75,12 @@ while true ; do
     --oldest ) SUMMON_ENV=oldest ; shift ;;
     --current ) SUMMON_ENV=current ; shift ;;
     --next ) SUMMON_ENV=next ; shift ;;
-    --template=* ) TEMPLATE_OVERRIDE="${1#*=}" ; export TEMPLATE_OVERRIDE; shift ;;
+    --secrets-mode=* ) SECRETS_MODE="${1#*=}" ; export SECRETS_MODE ; shift ;;
+    --labeled-secrets ) LABELED_SECRETS=true ; export LABELED_SECRETS ; shift ;;
+    --secrets-refresh-interval=* ) SECRETS_REFRESH_INTERVAL="${1#*=}" ; export SECRETS_REFRESH_INTERVAL ; shift ;;
+    --dev-helm ) DEV_HELM=true ; export DEV_HELM ; shift ;;
+    --debug ) CONJUR_LOG_LEVEL=debug ; LOG_LEVEL=debug ; export CONJUR_LOG_LEVEL LOG_LEVEL ; shift ;;
+    --no-stop-running-env ) STOP_RUNNING_ENV=false ; export STOP_RUNNING_ENV ; shift ;;
     -h | --help ) print_help ; shift ;;
      * ) if [ -z "$1" ]; then break; else echo "$1 is not a valid option"; exit 1; fi;;
   esac
@@ -71,18 +92,15 @@ if [[ "${DEV}" = "false" && $RELOAD_ENV = true ]]; then
 fi
 
 export RUN_IN_DOCKER
-export CONJUR_DEPLOYMENT
+export RELOAD_ENV
 export DEV
 export SUMMON_ENV
 export TEMPLATE_OVERRIDE
+export CONJUR_DEPLOYMENT
 
-# Ensure TEST_PLATFORM is set to 'kind' when running with --kind (used by runner entrypoint)
-if [[ "${SUMMON_ENV:-}" = "kind" ]]; then
-  export TEST_PLATFORM=kind
-  export KIND=true
-fi
-
-echo $TEMPLATE_OVERRIDE
+# bootstrap.env may set KIND / SUMMON_ENV / RUN_IN_DOCKER for ad-hoc use; CLI flags must win.
+_cli_summon_env="${SUMMON_ENV}"
+_cli_run_in_docker="${RUN_IN_DOCKER}"
 
 # summon environment variable
 export CONJUR_MAJOR_VERSION=5
@@ -90,7 +108,41 @@ export CONJUR_MAJOR_VERSION=5
 # make sure we are in the project root
 cd $(git rev-parse --show-toplevel)
 
+_explicit_unique_test_id=false
+[[ -n "${UNIQUE_TEST_ID+x}" ]] && _explicit_unique_test_id=true
+
+# KinD + Docker + non-dev: isolated id per leg (DAP vs OSS) for parallel Jenkins and output bucketing.
+_kind_ci_isolated_run=false
+if [[ "${_cli_summon_env}" = "kind" && "${RUN_IN_DOCKER}" = "true" && "${DEV}" = "false" && "${_explicit_unique_test_id}" = "false" ]]; then
+  export UNIQUE_TEST_ID="$(uuidgen | tr '[:upper:]' '[:lower:]' | head -c10)-${CONJUR_DEPLOYMENT}"
+  _kind_ci_isolated_run=true
+  git config --global --add safe.directory "$(pwd)" 2>/dev/null || true
+  mkdir -p deploy/output
+fi
+
 source bootstrap.env
+
+if [[ "${DEV}" = "true" ]]; then
+  if [[ -n "${TENANT_ID:-}" && -n "${TENANT_NAME:-}" && -n "${TENANT_USER:-}" && -n "${TENANT_PASSWORD:-}" ]]; then
+    export CONJUR_DEPLOYMENT=cloud
+  else
+    export CONJUR_DEPLOYMENT=oss
+  fi
+fi
+
+if [[ "${_cli_summon_env}" = "kind" ]]; then
+  export SUMMON_ENV=kind
+  export TEST_PLATFORM=kind
+  export KIND=true
+fi
+if [[ "${_cli_run_in_docker}" = "true" ]]; then
+  export RUN_IN_DOCKER=true
+fi
+
+if [[ "${DEV}" = "true" && $RELOAD_ENV = true ]]; then
+  export SKIP_KIND_CREATE=true
+  export KIND_FORCE_CLEAN=false
+fi
 
 pushd deploy
   if [[ $RUN_IN_DOCKER = true ]]; then
@@ -103,3 +155,16 @@ pushd deploy
     runScriptWithSummon ./run.sh
   fi
 popd
+
+if [[ "${_kind_ci_isolated_run}" = "true" ]]; then
+  subdir="kind-${CONJUR_DEPLOYMENT}"
+  mkdir -p "deploy/output/${subdir}"
+  shopt -s nullglob
+  for f in deploy/output/*.txt; do
+    base="$(basename "$f")"
+    if [[ "${base}" == "${UNIQUE_TEST_ID}"-* ]]; then
+      mv "$f" "deploy/output/${subdir}/"
+    fi
+  done
+  shopt -u nullglob
+fi

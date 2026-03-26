@@ -6,6 +6,19 @@ LABELED_SECRETS=${LABELED_SECRETS:-"false"}
 SECRETS_REFRESH_INTERVAL=${SECRETS_REFRESH_INTERVAL:-"10s"}
 REMOVE_DELETED_SECRETS=${REMOVE_DELETED_SECRETS:-"true"}
 
+SECRETS_PROVIDER_IMAGE="${APP_NAMESPACE_NAME}/secrets-provider:latest"
+DEBIAN_IMAGE="debian:latest"
+IMAGE_PULL_POLICY="Always"
+
+if [[ -n "${PULL_DOCKER_REGISTRY_PATH:-}" ]]; then
+  SECRETS_PROVIDER_IMAGE="${PULL_DOCKER_REGISTRY_PATH}/${APP_NAMESPACE_NAME}/secrets-provider:latest"
+  DEBIAN_IMAGE="${PULL_DOCKER_REGISTRY_PATH}/${APP_NAMESPACE_NAME}/debian:latest"
+fi
+
+if [[ "${KIND:-false}" = "true" ]]; then
+  IMAGE_PULL_POLICY="Never"
+fi
+
 cat << EOL
 ---
 apiVersion: apps/v1
@@ -47,7 +60,8 @@ cat << EOL
     spec:
       serviceAccountName: ${APP_NAMESPACE_NAME}-sa
       containers:
-      - image: '${PULL_DOCKER_REGISTRY_PATH}/${APP_NAMESPACE_NAME}/debian:latest'
+      - image: '${DEBIAN_IMAGE}'
+        imagePullPolicy: ${IMAGE_PULL_POLICY}
         name: test-app
         command: ["sleep"]
         args: ["infinity"]
@@ -119,8 +133,8 @@ cat << EOL
               secretKeyRef:
                 name: test-k8s-secret-fetch-all-base64
                 key: data.secrets.encoded
-      - image: '${PULL_DOCKER_REGISTRY_PATH}/${APP_NAMESPACE_NAME}/secrets-provider:latest'
-        imagePullPolicy: Always
+      - image: '${SECRETS_PROVIDER_IMAGE}'
+        imagePullPolicy: ${IMAGE_PULL_POLICY}
         name: cyberark-secrets-provider-for-k8s
         lifecycle:
           postStart:

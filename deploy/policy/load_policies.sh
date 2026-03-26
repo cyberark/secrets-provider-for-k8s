@@ -1,10 +1,14 @@
-#!/bin/sh
+#!/usr/bin/env bash
 set -eo pipefail
 
 cli_exec() {
   if [ "$CONJUR_DEPLOYMENT" = "cloud" ]; then
-    policy_dir="$(cd "$(dirname "$0")" && pwd)"
-    docker run --rm -it -v "$policy_dir:/tmp/policy:ro" \
+    if [[ -n "${HOST_REPO_ROOT:-}" ]]; then
+      policy_dir="${HOST_REPO_ROOT}/deploy/policy"
+    else
+      policy_dir="$(cd "$(dirname "$0")" && pwd)"
+    fi
+    docker run --rm -i -v "$policy_dir:/tmp/policy:ro" \
       -e CONJUR_APPLIANCE_URL="$INFRAPOOL_CONJUR_APPLIANCE_URL" \
       -e CONJUR_AUTHN_TOKEN="$(echo "$INFRAPOOL_CONJUR_AUTHN_TOKEN" | base64 -d)" \
       -e CONJUR_AUTHN_LOGIN="$INFRAPOOL_CONJUR_AUTHN_LOGIN" \

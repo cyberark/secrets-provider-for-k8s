@@ -5,7 +5,8 @@ pushd $(dirname "${BASH_SOURCE[0]}")
 
 # If DEV env variable isn't set, source the bootstrap file
 if [[ -z "${DEV:-}" ]]; then
-  source "../bootstrap.env"
+  _REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+  source "${_REPO_ROOT}/bootstrap.env"
 fi
 
 source "../deploy/utils.sh"
