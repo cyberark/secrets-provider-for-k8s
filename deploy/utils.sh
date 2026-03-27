@@ -329,8 +329,12 @@ setup_helm_environment() {
   set_namespace $APP_NAMESPACE_NAME
 
   if [[ "${DEV}" = "true" && "${DEV_HELM}" = "true" && "${SECRETS_MODE}" = "standalone" ]]; then
-    $cli_with_timeout create namespace another-namespace
-    create_k8s_secret_for_helm_deployment another-namespace
+    num_namespaces=5
+    export TEST_NAMESPACE_PREFIX="test-namespace"
+    for i in $(seq 1 $num_namespaces); do
+      $cli_with_timeout create namespace "${TEST_NAMESPACE_PREFIX}-$i"
+      create_k8s_secret_for_helm_deployment "${TEST_NAMESPACE_PREFIX}-$i"
+    done
   fi
 }
 
@@ -362,7 +366,12 @@ fill_helm_chart() {
   if [ "${SECRETS_MODE}" = "standalone" ]; then
     template_file="$helm_path/helm/secrets-provider/ci/test-values-standalone-template.yaml"
     if [[ "${DEV}" = "true" ]]; then
-      export NAMESPACE_ALLOWLIST="${NAMESPACE_ALLOWLIST:-${APP_NAMESPACE_NAME},another-namespace}"
+      namespace_allowlist="${APP_NAMESPACE_NAME}"
+      namespace_prefix="${TEST_NAMESPACE_PREFIX:-${NAMESPACE_PREFIX:-test-namespace}}"
+      for i in $(seq 1 "${num_namespaces:-5}"); do
+        namespace_allowlist="${namespace_allowlist},${namespace_prefix}-${i}"
+      done
+      export NAMESPACE_ALLOWLIST="${NAMESPACE_ALLOWLIST:-${namespace_allowlist}}"
     else
       export NAMESPACE_ALLOWLIST="${NAMESPACE_ALLOWLIST:-$APP_NAMESPACE_NAME}"
     fi
@@ -859,7 +868,7 @@ cloud_login() {
   echo "Identity Token:\n$identity_token"
   echo
   echo "Authenticating to Conjur Cloud..."
-  conjur_token=$(curl -v --request POST \
+  conjur_token=$(curl --request POST \
     --url "${INFRAPOOL_CONJUR_APPLIANCE_URL}/api/authn-oidc/cyberark/conjur/authenticate" \
     --header 'Accept-Encoding: base64' \
     --header 'Content-Type: application/x-www-form-urlencoded' \

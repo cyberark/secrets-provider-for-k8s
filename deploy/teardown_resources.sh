@@ -64,4 +64,9 @@ $cli_with_timeout "get pods --namespace=$APP_NAMESPACE_NAME --selector app=anoth
 echo "Verifying there are no (terminating) pods for Secrets Provider deployed with Helm"
 $cli_with_timeout "get pods --namespace=$APP_NAMESPACE_NAME --selector app=test-helm --no-headers | wc -l | tr -d ' ' | grep '^0$'"
 
-$cli_with_timeout "delete namespace another-namespace --ignore-not-found=true"
+# Remove any test namespaces with the prefix matching TEST_NAMESPACE_PREFIX
+TEST_NAMESPACE_PREFIX="test-namespace"
+namespaces_to_delete=$($cli_with_timeout get namespaces -o name | (grep -E "${TEST_NAMESPACE_PREFIX}-" || true) | cut -d/ -f2)
+if [[ -n "$namespaces_to_delete" ]]; then
+  $cli_with_timeout delete namespace $namespaces_to_delete --ignore-not-found=true
+fi

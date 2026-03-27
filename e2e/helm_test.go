@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/e2e-framework/pkg/envconf"
@@ -634,16 +635,17 @@ func TestHelmOverrideDefaultRetrySuccessful(t *testing.T) {
 
 func helmStandaloneSecondNamespace() string {
 	if id := os.Getenv("UNIQUE_TEST_ID"); id != "" {
-		return "e2e-helm-st-mn-" + id
+		return "e2e-helm-standalone-" + id
 	}
-	return "e2e-helm-st-mn"
+	return "e2e-helm-standalone"
 }
 
 func TestHelmStandaloneMultipleSecretsMultipleNamespaces(t *testing.T) {
 	const (
-		helmID                 = "st-mn-"
-		primaryLabeledSecret   = "helm-st-mn-labeled-primary"
-		secondaryLabeledSecret = "helm-st-mn-labeled-secondary"
+		helmID                 = "standalone-"
+		primaryLabeledSecret   = "helm-standalone-primary-secret"
+		secondaryLabeledSecret = "helm-standalone-secondary-secret"
+		thirdLabeledSecret     = "helm-standalone-third-secret"
 	)
 	secondNS := helmStandaloneSecondNamespace()
 	releaseName := helmID + "secrets-provider"
@@ -657,7 +659,7 @@ func TestHelmStandaloneMultipleSecretsMultipleNamespaces(t *testing.T) {
 			}
 
 			err = EnsureNamespace(cfg.Client(), secondNS)
-			assert.Nil(t, err)
+			require.Nil(t, err)
 
 			primary := corev1.Secret{
 				TypeMeta: metav1.TypeMeta{APIVersion: "v1", Kind: "Secret"},
@@ -674,7 +676,7 @@ func TestHelmStandaloneMultipleSecretsMultipleNamespaces(t *testing.T) {
 				Type: "Opaque",
 			}
 			err = cfg.Client().Resources(SecretsProviderNamespace()).Create(ctx, &primary)
-			assert.Nil(t, err)
+			require.Nil(t, err)
 
 			secondary := corev1.Secret{
 				TypeMeta: metav1.TypeMeta{APIVersion: "v1", Kind: "Secret"},
@@ -690,34 +692,75 @@ func TestHelmStandaloneMultipleSecretsMultipleNamespaces(t *testing.T) {
 				},
 				Type: "Opaque",
 			}
-			// TODO rotation/informer tests
 			err = cfg.Client().Resources(secondNS).Create(ctx, &secondary)
-			assert.Nil(t, err)
+			require.Nil(t, err)
 
 			allow := SecretsProviderNamespace() + "," + secondNS
 			chartPath, err := FillHelmChartStandalone(cfg.Client(), helmID, map[string]string{
 				"NAMESPACE_ALLOWLIST": allow,
 			})
-			assert.Nil(t, err)
+			require.Nil(t, err)
 
 			err = DeployStandaloneSecretsProviderWithHelm(cfg, helmID, chartPath)
-			assert.Nil(t, err)
+			require.Nil(t, err)
 
 			return ctx
 		}).
 		Assess("labeled secrets in two namespaces receive Conjur values", func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
 			err := WaitForK8sSecretValue(cfg.Client(), SecretsProviderNamespace(), primaryLabeledSecret, "secret", "supersecret", 90*time.Second)
-			assert.Nil(t, err)
+			require.Nil(t, err)
 
 			err = WaitForK8sSecretValue(cfg.Client(), secondNS, secondaryLabeledSecret, "secret", "some-secret", 90*time.Second)
-			assert.Nil(t, err)
+			require.Nil(t, err)
 
 			pod, err := FetchPodWithLabelSelector(cfg.Client(), SecretsProviderNamespace(), podLabelSelector)
-			assert.Nil(t, err)
+			require.Nil(t, err)
 
 			logs, err := GetPodLogs(cfg.Client(), pod.Name, SecretsProviderNamespace(), LogsContainer)
-			assert.Nil(t, err)
+			require.Nil(t, err)
 			assert.Contains(t, logs.String(), "CSPFK009I DAP/Conjur Secrets updated in Kubernetes successfully")
+
+			return ctx
+		}).
+		Assess("new labeled secret in watched namespace receives Conjur value (informer)", func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
+			newlyLabeled := corev1.Secret{
+				TypeMeta: metav1.TypeMeta{APIVersion: "v1", Kind: "Secret"},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      thirdLabeledSecret,
+					Namespace: secondNS,
+					Labels: map[string]string{
+						"conjur.org/managed-by-provider": "true",
+					},
+				},
+				StringData: map[string]string{
+					"conjur-map": "secret: data/secrets/test_secret",
+				},
+				Type: "Opaque",
+			}
+			err := cfg.Client().Resources(secondNS).Create(ctx, &newlyLabeled)
+			require.Nil(t, err)
+
+			err = WaitForK8sSecretValue(cfg.Client(), secondNS, thirdLabeledSecret, "secret", "supersecret", 90*time.Second)
+			require.Nil(t, err)
+
+			pod, err := FetchPodWithLabelSelector(cfg.Client(), SecretsProviderNamespace(), podLabelSelector)
+			require.Nil(t, err)
+
+			logs, err := GetPodLogs(cfg.Client(), pod.Name, SecretsProviderNamespace(), LogsContainer)
+			require.Nil(t, err)
+			assert.Contains(t, logs.String(), "CSPFK028I Secret informer event: [added] "+secondNS+"/"+thirdLabeledSecret)
+
+			return ctx
+		}).
+		Assess("updated Conjur value is propagated to all matching Kubernetes secrets (regular rotation)", func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
+			err := SetConjurSecret(cfg.Client(), "data/secrets/test_secret", "supersecret-updated")
+			require.Nil(t, err)
+
+			err = WaitForK8sSecretValue(cfg.Client(), SecretsProviderNamespace(), primaryLabeledSecret, "secret", "supersecret-updated", 90*time.Second)
+			require.Nil(t, err)
+
+			err = WaitForK8sSecretValue(cfg.Client(), secondNS, thirdLabeledSecret, "secret", "supersecret-updated", 90*time.Second)
+			require.Nil(t, err)
 
 			return ctx
 		}).
@@ -729,6 +772,9 @@ func TestHelmStandaloneMultipleSecretsMultipleNamespaces(t *testing.T) {
 
 			_ = DeleteSecretInNamespace(cfg.Client(), SecretsProviderNamespace(), primaryLabeledSecret)
 			_ = DeleteSecretInNamespace(cfg.Client(), secondNS, secondaryLabeledSecret)
+			_ = DeleteSecretInNamespace(cfg.Client(), secondNS, thirdLabeledSecret)
+			err = SetConjurSecret(cfg.Client(), "data/secrets/test_secret", "supersecret") // restore original secret value
+			assert.Nil(t, err)
 			if err := DeleteNamespaceIgnoringNotFound(cfg.Client(), secondNS); err != nil {
 				fmt.Printf("WARN: delete namespace %s: %v\n", secondNS, err)
 			}
