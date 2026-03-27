@@ -129,6 +129,10 @@ capture_kind_diagnostics() {
 # Clean up when script completes and fails
 finish() {
   exit_code=$?
+
+  if [[ "${DEV}" = "true" ]]; then
+    return 0
+  fi
   
   announce 'Wrapping up and removing test environment'
 
@@ -168,6 +172,12 @@ trap finish EXIT
 
 main() {
   mkdir -p output #location where Secrets Provider/Conjur logs will be saved
+  if [[ "${DEV}" = "true" && "${RELOAD_ENV:-false}" = "true" ]]; then
+    buildTestRunnerImage
+    runDockerCommand "SKIP_KIND_CREATE=true KIND_FORCE_CLEAN=false ./dev/reload.sh"
+    return 0
+  fi
+
   if [[ "${KIND}" = "true" ]]; then
     docker network create "${KIND_DOCKER_NETWORK}" || true
   fi
@@ -254,3 +264,11 @@ deployTest() {
 }
 
 main
+
+if [[ "${DEV}" = "true" && "${RELOAD_ENV:-false}" != "true" ]]; then
+  trap - EXIT
+  announce "DEV=true: leaving KinD and Conjur in place; attaching to test runner (kubectl uses KUBECONFIG from entrypoint). Exit the shell when done."
+  export SKIP_KIND_CREATE=true
+  export KIND_FORCE_CLEAN=false
+  runDockerInteractiveCommand
+fi

@@ -22,7 +22,10 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/kubernetes"
 	"sigs.k8s.io/e2e-framework/klient"
 	"sigs.k8s.io/e2e-framework/klient/k8s"
 	"sigs.k8s.io/e2e-framework/klient/k8s/resources"
@@ -274,6 +277,70 @@ func DeleteSecret(client klient.Client, secretName string) error {
 		return err
 	}
 	return nil
+}
+
+// DeleteNamespaceIgnoringNotFound requests namespace deletion via the Kubernetes API.
+// NotFound is ignored. Like kubectl delete --wait=false, this does not block until the namespace is fully removed.
+func DeleteNamespaceIgnoringNotFound(client klient.Client, name string) error {
+	clientset, err := kubernetes.NewForConfig(client.RESTConfig())
+	if err != nil {
+		return fmt.Errorf("kubernetes client: %w", err)
+	}
+	err = clientset.CoreV1().Namespaces().Delete(context.TODO(), name, metav1.DeleteOptions{})
+	if apierrors.IsNotFound(err) {
+		return nil
+	}
+	return err
+}
+
+// EnsureNamespace creates the namespace if it does not already exist.
+func EnsureNamespace(client klient.Client, name string) error {
+	ns := corev1.Namespace{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "v1",
+			Kind:       "Namespace",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name: name,
+		},
+	}
+	err := client.Resources().Create(context.TODO(), &ns)
+	if err != nil && !apierrors.IsAlreadyExists(err) {
+		return fmt.Errorf("create namespace %s: %w", name, err)
+	}
+	return nil
+}
+
+// DeleteSecretInNamespace deletes a Secret by name in the given namespace.
+func DeleteSecretInNamespace(client klient.Client, namespace, secretName string) error {
+	var secret corev1.Secret
+	err := client.Resources(namespace).Get(context.TODO(), secretName, namespace, &secret)
+	if err != nil {
+		return err
+	}
+	return client.Resources(namespace).Delete(context.TODO(), &secret)
+}
+
+// WaitForDeploymentExists polls until the named Deployment is present in the namespace.
+func WaitForDeploymentExists(client klient.Client, namespace, deploymentName string, timeout time.Duration) (*appsv1.Deployment, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	ticker := time.NewTicker(2 * time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return nil, fmt.Errorf("timeout waiting for deployment %s/%s", namespace, deploymentName)
+		case <-ticker.C:
+			var dep appsv1.Deployment
+			err := client.Resources(namespace).Get(context.TODO(), deploymentName, namespace, &dep)
+			if err == nil {
+				return &dep, nil
+			}
+		}
+	}
 }
 
 // GetServiceAccount retrieves a ServiceAccount from the secrets provider namespace by name.

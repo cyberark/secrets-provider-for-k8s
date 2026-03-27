@@ -1,6 +1,11 @@
 #!/bin/bash
 set -euo pipefail
 
+_RUN_TESTS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+_DEPLOY_DIR="$(cd "${_RUN_TESTS_DIR}/../.." && pwd)"
+_REPO_ROOT="$(cd "${_DEPLOY_DIR}/.." && pwd)"
+_TEARDOWN_SCRIPT="${_DEPLOY_DIR}/teardown_resources.sh"
+
 # By default lookup for folders with specifics prefix of type 'test_'.
 # Can be modified by using the `--test-prefix` flag for running `./bin/start`.
 TEST_NAME_PREFIX=${TEST_NAME_PREFIX:-TEST_ID_}
@@ -8,14 +13,14 @@ TEST_NAME_PREFIX=${TEST_NAME_PREFIX:-TEST_ID_}
 # Keep environment variables for debugging
 printenv > printenv.debug
 
-export CONFIG_DIR="$PWD/../../config/k8s"
+export CONFIG_DIR="${_DEPLOY_DIR}/config/k8s"
 if [[ "$PLATFORM" = "openshift" ]]; then
-    export CONFIG_DIR="$PWD/../../config/openshift"
+    export CONFIG_DIR="${_DEPLOY_DIR}/config/openshift"
 fi
 
 # export all utils.sh functions to be available for all tests
 set -a
-source "../../utils.sh"
+source "${_DEPLOY_DIR}/utils.sh"
 set +a
 
 build_e2e_failure_report() {
@@ -72,7 +77,7 @@ build_e2e_failure_report() {
   rm -f "$failure_lines_tmp"
 }
 
-../../teardown_resources.sh
+"${_TEARDOWN_SCRIPT}"
 
 announce "Preparing to run E2E tests"
 
@@ -90,11 +95,11 @@ elif [[ "${E2E_AUTHN_IAM:-false}" = "true" ]]; then
   echo "Running only Authn IAM tests in KinD environment."
 fi
 
-./test_case_setup.sh
+"${_RUN_TESTS_DIR}/test_case_setup.sh"
 create_secret_access_role
 create_secret_access_role_binding
 deploy_env
-test_output_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)/deploy/output"
+test_output_dir="${_REPO_ROOT}/deploy/output"
 export TEST_OUTPUT_DIR="$test_output_dir"
 
 pushd /secrets-provider-for-k8s
@@ -102,6 +107,17 @@ mkdir -p "$test_output_dir"
 test_log_file="$test_output_dir/e2e-go-test.log"
 summary_file="$test_output_dir/e2e-analysis-summary.txt"
 signatures_file="$test_output_dir/e2e-failure-signatures.txt"
+
+pushd "${_REPO_ROOT}"
+
+announce "Building Helm chart dependencies"
+if ! command -v helm >/dev/null 2>&1; then
+  echo "ERROR: helm not found in PATH; cannot build chart dependencies" >&2
+  exit 1
+fi
+helm repo add stakater https://stakater.github.io/stakater-charts 2>/dev/null || true
+helm repo update
+helm dependency build "${_REPO_ROOT}/helm/secrets-provider"
 
 if [[ -n "$testNameRegex" ]]; then
   echo "Running tests matching regex: $testNameRegex"
@@ -134,4 +150,4 @@ if [[ "$test_exit_code" -ne 0 ]]; then
   exit "$test_exit_code"
 fi
 
-../../teardown_resources.sh
+"${_TEARDOWN_SCRIPT}"

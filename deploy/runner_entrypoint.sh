@@ -49,8 +49,8 @@ if [[ "${KIND}" = "true" ]]; then
   # Now wait for the cluster to be ready using the adjusted kubeconfig
   kind_wait_ready "${KUBECONFIG}" 180
   
-  # Load Conjur appliance image if needed (DAP only, not OSS)
-  if [[ "${CONJUR_DEPLOYMENT:-dap}" != "oss" && -n "${CONJUR_APPLIANCE_IMAGE:-}" ]]; then
+  # Load Conjur appliance image if needed (not OSS or Cloud)
+  if [[ "${CONJUR_DEPLOYMENT}" != "oss" && "${CONJUR_DEPLOYMENT}" != "cloud" && -n "${CONJUR_APPLIANCE_IMAGE:-}" ]]; then
     echo "Loading ${CONJUR_APPLIANCE_IMAGE} into Kind cluster ${KIND_CLUSTER_NAME}..."
     # Verify image exists
     if ! docker image inspect "${CONJUR_APPLIANCE_IMAGE}" > /dev/null 2>&1; then
@@ -58,21 +58,14 @@ if [[ "${KIND}" = "true" ]]; then
       docker pull "${CONJUR_APPLIANCE_IMAGE}"
     fi
     
-    # Load directly without --all-platforms to avoid multi-arch manifest issues
-    # The minus sign (-) tells ctr to read from stdin
-    echo "Loading image into node ${KIND_CLUSTER_NAME}-control-plane..."
-    docker save "${CONJUR_APPLIANCE_IMAGE}" | \
-      docker exec -i "${KIND_CLUSTER_NAME}-control-plane" \
-        ctr --namespace=k8s.io images import --digests --snapshotter=overlayfs -
+    kind_load_image "${KIND_CLUSTER_NAME}" "${CONJUR_APPLIANCE_IMAGE}"
     
     # Also tag the image with the expected name that kubernetes-conjur-deploy will use
     # Format: conjur-appliance:<namespace>
     expected_tag="conjur-appliance:${CONJUR_NAMESPACE_NAME}"
     echo "Tagging image as ${expected_tag} for kubernetes-conjur-deploy..."
     docker tag "${CONJUR_APPLIANCE_IMAGE}" "${expected_tag}"
-    docker save "${expected_tag}" | \
-      docker exec -i "${KIND_CLUSTER_NAME}-control-plane" \
-        ctr --namespace=k8s.io images import --digests --snapshotter=overlayfs -
+    kind_load_image "${KIND_CLUSTER_NAME}" "${expected_tag}"
     
     echo "Successfully loaded ${CONJUR_APPLIANCE_IMAGE}"
   fi

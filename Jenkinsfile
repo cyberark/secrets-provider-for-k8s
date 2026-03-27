@@ -100,11 +100,13 @@ pipeline {
   }
 
   parameters {
-    booleanParam(name: 'TEST_OCP_NEXT', defaultValue: false, description: 'Run DAP tests against our running "next version" of Openshift')
+    booleanParam(name: 'TEST_E2E', defaultValue: true, description: 'Run KinD-based e2e tests on a branch (OSS and Enterprise)')
 
-    booleanParam(name: 'TEST_OCP_OLDEST', defaultValue: false, description: 'Run DAP tests against our running "oldest version" of Openshift')
+    booleanParam(name: 'TEST_GKE', defaultValue: false, description: 'Run e2e tests on GKE (OSS and Enterprise)')
 
-    booleanParam(name: 'TEST_E2E', defaultValue: true, description: 'Run E2E tests on a branch')
+    booleanParam(name: 'TEST_OCP_NEXT', defaultValue: false, description: 'Run Enterprise tests against our running "next version" of Openshift')
+
+    booleanParam(name: 'TEST_OCP_OLDEST', defaultValue: false, description: 'Run Enterprise tests against our running "oldest version" of Openshift')
 
     booleanParam(name: 'TEST_KIND_AUTHN_IAM', defaultValue: false, description: 'Run KinD-based authn-iam e2e tests (requires AWS-capable Jenkins executor/IMDS)')
 
@@ -311,10 +313,38 @@ pipeline {
           }
         }
 
-        stage ("DAP Integration Tests on GKE/Openshift") {
+        // Same DAP + OSS flows as GKE, on KinD inside the e2e runner (no cloud cluster).
+        stage('KinD E2E (default suite)') {
           when { anyOf {
             branch 'main'
             expression { params.TEST_E2E == true }
+          } }
+          steps {
+            script {
+              def tasks = [:]
+              tasks['KinD, DAP'] = {
+                INFRAPOOL_EXECUTORV2_AGENT_0.agentSh './bin/start --docker --dap --kind'
+              }
+              tasks['KinD, OSS'] = {
+                INFRAPOOL_EXECUTORV2_AGENT_0.agentSh './bin/start --docker --oss --kind'
+              }
+              parallel tasks
+            }
+          }
+          post {
+            always {
+              script {
+                INFRAPOOL_EXECUTORV2_AGENT_0.agentSh 'ls -la deploy/output/ 2>&1 || echo "no deploy/output dir"'
+                INFRAPOOL_EXECUTORV2_AGENT_0.agentStash name: 'logs-oss-dap-kind', includes: 'deploy/output/*.txt,deploy/output/*.log,deploy/output/*.json'
+              }
+            }
+          }
+        }
+
+        stage ("DAP Integration Tests on GKE/Openshift") {
+          when { anyOf {
+            branch 'main'
+            expression { params.TEST_GKE == true }
           } }
           steps {
             script {
@@ -332,7 +362,6 @@ pipeline {
           post {
             always {
               script {
-                INFRAPOOL_EXECUTORV2_AGENT_0.agentSh 'ls -la deploy/output/ 2>&1 || echo "no deploy/output dir"'
                 INFRAPOOL_EXECUTORV2_AGENT_0.agentStash name: 'logs-dap-gke-ocp', includes: 'deploy/output/*.txt,deploy/output/*.log,deploy/output/*.json'
               }
             }
@@ -411,7 +440,7 @@ pipeline {
         stage ("OSS Integration Tests on GKE") {
           when { anyOf {
             branch 'main'
-            expression { params.TEST_E2E == true }
+            expression { params.TEST_GKE == true }
           } }
           steps {
             script {
@@ -467,6 +496,9 @@ pipeline {
   post {
     always {
       script {
+        try {
+          unstash 'logs-oss-dap-kind'
+        } catch (e) {}
         try {
           unstash 'logs-dap-gke-ocp'
         } catch (e) {}

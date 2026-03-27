@@ -186,7 +186,7 @@ func DeployTestAppWithReloaderAnnotation(client klient.Client, id string) error 
 					ServiceAccountName: "secrets-provider-service-account",
 					Containers: []corev1.Container{
 						{
-							Image:   "centos:7",
+							Image:   helmTestAppImage(),
 							Name:    id + "test-app",
 							Command: []string{"sleep"},
 							Args:    []string{"infinity"},

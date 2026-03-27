@@ -12,8 +12,9 @@ Thanks for your interest in the CyberArk Secrets Provider for Kubernetes. We wel
     - [Get up and running](#get-up-and-running)
     - [Deploy a Local Dev Environment (K8s)](#deploy-a-local-dev-environment-k8s)
       - [Prerequisites](#prerequisites-1)
-      - [Deploy a local development environment](#deploy-a-local-development-environment)
-      - [Run integration tests against local development environment](#run-integration-tests-against-local-development-environment)
+      - [Flags for local dev and E2E](#flags-for-local-dev-and-e2e)
+      - [Common examples](#common-examples)
+      - [Logs, reload, and running E2E from the repo](#logs-reload-and-running-e2e-from-the-repo)
       - [Clean-up](#clean-up)
       - [Limitations](#limitations)
   - [Contributing](#contributing)
@@ -57,55 +58,52 @@ Before you can start contributing to the CyberArk Secrets Provider for Kubernete
 
 ### Deploy a Local Dev Environment (K8s)
 
-You can now deploy a local development environment for Kubernetes using [Docker Desktop](https://www.docker.com/products/docker-desktop). Docker Desktop provides a convenient way to deploy and develop from your machine against a locally deployed cluster.
+Local Conjur and the test app are driven by `./bin/start` (see `./bin/start --help` for the full option list). The script uses [kubernetes-conjur-deploy](https://github.com/cyberark/kubernetes-conjur-deploy/blob/master/CONTRIBUTING.md) to bring up Conjur on Kubernetes.
 
 #### Prerequisites
 
-1. [Docker Desktop](https://www.docker.com/products/docker-desktop) installed
+1. [Docker](https://www.docker.com/products/docker-desktop) (or another engine KinD can use). Heavier stacks (for example DAP) often need more RAM allocated to Docker; follow the memory guidance in the kubernetes-conjur-deploy contributing doc.
 
-1. Kubernetes enabled in Docker Desktop
+1. If you run `./bin/start --dev` against a desktop Kubernetes cluster (for example [Docker Desktop Kubernetes](https://docs.docker.com/desktop/kubernetes/)), enable Kubernetes in Docker Desktop, then point `kubectl` at that cluster (for example `kubectl config use-context docker-desktop`). You can use `kubectl config current-context` to confirm before and after.
 
-    1. Navigate to Docker Preferences
+1. Install the [Helm CLI](https://helm.sh/docs/intro/install/) if you plan to use `--dev-helm` outside of a containerized KinD cluster.
 
-    1. Click on the Kubernetes tab and "Enable Kubernetes"
+#### Flags for local dev and E2E
 
-1. The Secrets Provider for K8s uses the [Kubernetes Conjur deploy](https://github.com/cyberark/kubernetes-conjur-deploy/blob/master/CONTRIBUTING.md) repository to deploy Secrets Manager, Self-Hosted / Conjur Open Source on Kubernetes.
-   By default, 2.0 Gib of memory is allocated to Docker on your computer.
+These `./bin/start` flags are the ones most often used for local development or running E2E tests locally:
 
-   To successfully deploy a Secrets Manager, Self-Hosted cluster (Leader + Followers + Standbys), you will need to increase the memory limit to 6 Gib. To do so, perform the following:
+- `--kind` — Use a local KinD cluster instead of the default GKE-oriented summon environment (recommended).
 
-   1. Navigate to Docker preferences
+- `--docker` — Run the flow fully in Docker. This is recommended if running E2E tests for more predictable results, and is also useful when `kubectl`,  `oc`, or `helm` is not installed on the host.
 
-   1. Click on "Resources" and slide the "Memory" bar to 6
+- `--dev` — Start the **development** environment without running E2E tests.
 
-1. If you intend to deploy the Secrets Provider via Helm, you will need to install the Helm CLI. See [here](https://helm.sh/docs/intro/install/) for instructions on how to do so.
+- `--oss` / `--dap` — Conjur Open Source vs Secrets Manager or Self-Hosted (Enterprise/DAP).
 
-#### Deploy a local development environment
+- `--secrets-mode=MODE` — Sets `SECRETS_MODE`: `k8s` (default), `k8s-rotation`, `p2f`, `p2f-rotation`, or `standalone` (must be used with `--dev-helm`).
 
-To deploy a local development environment, perform the following:
+- `--labeled-secrets` / `--no-labeled-secrets` — Toggle labeled secrets in dev manifests (default is on when using `--dev`, off for CI-style runs).
 
-1. Run `./bin/build` to build the Secrets Provider image locally
+- `--secrets-refresh-interval=DURATION` — Optional interval (for example `10m`, default is `5s`) for rotation/informer-style flows.
 
-1. Ensure you are in the proper local context. Otherwise, the deployment will not run successfully
+- `--dev-helm` — Deploy the Secrets Provider with Helm instead of K8s manifests, which is suitable for `application` or `standalone` modes (for the latter, also apply `--secrets-mode=standalone`).
 
-Run ` kubectl config current-context` to verify which context you are currently in so if needed, you can switch back to it easily
+- `--reload` — Rebuild and redeploy only the Secrets Provider against an **existing** local dev cluster. Must be combined with `--dev`, plus other deployment flags should be the same as those used to start the dev environment. This is mainly useful for testing new code changes in an already running dev environment, or when switching between secrets modes. 
 
-Run `kubectl config use-context docker-desktop` to switch to a local context. This is the context you will need to run the development environment
+#### Common examples
 
-1. Navigate to `bootstrap.env` and uncomment the `Local DEV Env` section, ensuring that `DEV=true`. Additionally, you can deploy the Secrets Provider locally using HELM. To do so, _also_ uncomment `DEV_HELM`
+- `./bin/start --kind --docker` — Run E2E tests in a containerized KinD cluster.
 
-1. Run `./bin/start --dev`, appending `--oss` or `--dap` according to the environment that needs to be deployed
+- `./bin/start --kind --docker --dev` — Start the dev environment in a containerized KinD cluster.
 
-1. To view the pod(s) that were deployed and the Secrets Provider logs, run `kubectl get pods` and `kubectl logs -l app=test-env -c cyberark-secrets-provider-for-k8s --tail=100` respectively.
-You can also view Secrets Manager, Self-Hosted / Conjur Open Source pod logs by running `kubectl get pods -n local-conjur` and `kubectl logs -l app=conjur-oss -n local-conjur -c conjur --tail=100`
+- `./bin/start --kind --dev` — Start the dev environment on a **local** KinD cluster. This is fine for interactive dev, but if you are running E2E tests as well, prefer the containerized KinD flow (`--kind --docker`) for isolation and consistency.
 
-1. If a cluster is already locally deployed run `./bin/start --dev --reload` to build your local changes and redeploy them to the local Secrets Provider K8s cluster
+- `./bin/start --kind --docker --dev --secrets-mode=k8s-rotation` — Containerized KinD cluster with Kubernetes secret rotation.
 
-#### Run integration tests against local development environment
-
-Assuming you have a running local cluster per the previous section and a valid kubeconfig, you can run the Golang-based integration tests by simply running `go test -timeout 0 -v ./e2e --tags=e2e` from the project root folder. This will execute the tests against the local cluster.
-
-NOTE: This assumes that the cluster is running with the default values in `bootstrap.env` for local DEV clusters.
+After deploy, inspect workloads with `kubectl get pods`. 
+Secrets Provider logs: `kubectl logs -n local-secrets-provider -l app=test-env -c cyberark-secrets-provider-for-k8s --tail=100`
+Conjur OSS logs: `kubectl logs -l app=conjur-oss -n local-conjur -c conjur --tail=100`. 
+If the cluster is containerized, kubectl commands should be run from within the E2E test container.
 
 #### Clean-up
 
@@ -200,7 +198,7 @@ To view tracing output from Secrets Provider, you can enable Jaeger tracing.
     kubectl port-forward --namespace jaeger $pod_name 8080:16686
     ```
 
-2. Uncomment the following line in the template for the environment you are using in `bootstrap.env`,
+2. Uncomment the following line in the template for the environment you are using;
     for example, if using `SECRETS_MODE="p2f-rotation"` then you'll need to update
     [deploy/dev/config/k8s/secrets-provider-p2f-rotation.sh.yml](deploy/dev/config/k8s/secrets-provider-p2f-rotation.sh.yml):
 

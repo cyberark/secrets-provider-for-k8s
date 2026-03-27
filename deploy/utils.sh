@@ -104,9 +104,15 @@ get_conjur_cli_pod_name() {
 
 runDockerCommand() {
   local cmd="$1"
-  
-  # Build docker run arguments dynamically
-  local docker_args=(--rm -i)
+  local interactive="${2:-}"
+  local host_repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+  local docker_args
+  if [[ "$interactive" == "true" ]]; then
+    docker_args=(-it --rm)
+  else
+    docker_args=(--rm -i)
+  fi
   
   # Network configuration for Kind
   if [[ "${KIND}" = "true" ]]; then
@@ -128,12 +134,16 @@ runDockerCommand() {
     -e E2E_AUTHN_AZURE
     -e UNIQUE_TEST_ID
     -e CONJUR_APPLIANCE_IMAGE
+    -e "SECRETS_PROVIDER_SOURCE_IMAGE=${SECRETS_PROVIDER_SOURCE_IMAGE:-}"
     -e CONJUR_LOG_LEVEL
     -e CONJUR_FOLLOWER_COUNT
     -e CONJUR_ACCOUNT
     -e AUTHENTICATOR_ID
     -e CONJUR_AUTHENTICATORS
     -e CONJUR_ADMIN_PASSWORD
+    -e CONJUR_AUTHN_TYPE
+    -e CONJUR_AUTHN_LOGIN
+    -e SERVICE_ACCOUNT
     -e DEPLOY_MASTER_CLUSTER
     -e CONJUR_NAMESPACE_NAME
     -e CONJUR_START_TIMEOUT
@@ -162,10 +172,23 @@ runDockerCommand() {
     -e CONJUR_DEPLOYMENT
     -e RUN_IN_DOCKER
     -e SUMMON_ENV
+    -e "HOST_REPO_ROOT=$host_repo_root"
     -e "IMAGE_PULL_SECRET=${IMAGE_PULL_SECRET:-}"
     -e INFRAPOOL_CONJUR_APPLIANCE_URL
     -e INFRAPOOL_CONJUR_AUTHN_TOKEN
     -e INFRAPOOL_CONJUR_AUTHN_LOGIN
+    -e "TENANT_ID=${TENANT_ID:-}"
+    -e "TENANT_NAME=${TENANT_NAME:-}"
+    -e "TENANT_USER=${TENANT_USER:-}"
+    -e "TENANT_PASSWORD=${TENANT_PASSWORD:-}"
+    -e SECRETS_MODE
+    -e LABELED_SECRETS
+    -e SECRETS_REFRESH_INTERVAL
+    -e DEV_HELM
+    -e LOG_LEVEL
+    -e STOP_RUNNING_ENV
+    -e TEMPLATE_OVERRIDE
+    -e "HELM_TEST_APP_IMAGE=${HELM_TEST_APP_IMAGE:-debian:latest}"
   )
   
   # Optional gcloud credentials
@@ -188,12 +211,22 @@ runDockerCommand() {
   # Execute command based on platform
   if [[ "${KIND}" = "true" ]]; then
     docker run "${docker_args[@]}" bash /src/deploy/runner_entrypoint.sh bash -lc "$cmd"
+  elif [[ "$interactive" == "true" ]]; then
+    docker run "${docker_args[@]}" bash -lc "
+      ./platform_login.sh
+      $cmd
+    "
   else
     docker run "${docker_args[@]}" bash -c "
       ./platform_login.sh
       $cmd
     "
   fi
+}
+
+# Use after deploy with DEV=true; set SKIP_KIND_CREATE=true so runner_entrypoint attaches to existing KinD.
+runDockerInteractiveCommand() {
+  runDockerCommand "${1:-exec bash -il}" true
 }
 
 configure_cli_pod() {
@@ -262,6 +295,10 @@ fetch_ssl_from_conjur() {
 setup_helm_environment() {
   set_namespace $CONJUR_NAMESPACE_NAME
 
+  if [[ "${CONJUR_DEPLOYMENT}" = "cloud" ]]; then
+    cloud_login
+  fi
+
   configure_conjur_url
 
   ssl_location="conjur-server.pem"
@@ -269,18 +306,36 @@ setup_helm_environment() {
     ssl_location="../conjur-server.pem"
   fi
 
-  fetch_ssl_from_conjur
-  # Save cert for later setting in Helm
-  $cli_with_timeout "exec --namespace $CONJUR_NAMESPACE_NAME ${conjur_pod_name} -- cat $cert_location" > "$ssl_location"
-  i=0
-  while [[ ! -f "$ssl_location" || ! -s "$ssl_location" && $i -le 5 ]]; do
-    i=$(( $i + 1 ))
+  if [[ "${CONJUR_DEPLOYMENT}" = "cloud" ]]; then
+    fetch_ssl_from_conjur
+    if [[ -z "${CONJUR_SSL_CERTIFICATE:-}" ]]; then
+      echo "Failed to fetch Conjur Cloud certificate."
+      return 1
+    fi
+    printf "%s\n" "$CONJUR_SSL_CERTIFICATE" > "$ssl_location"
+  else
     fetch_ssl_from_conjur
     # Save cert for later setting in Helm
     $cli_with_timeout "exec --namespace $CONJUR_NAMESPACE_NAME ${conjur_pod_name} -- cat $cert_location" > "$ssl_location"
-  done
+    i=0
+    while [[ ! -f "$ssl_location" || ! -s "$ssl_location" && $i -le 5 ]]; do
+      i=$(( $i + 1 ))
+      fetch_ssl_from_conjur
+      # Save cert for later setting in Helm
+      $cli_with_timeout "exec --namespace $CONJUR_NAMESPACE_NAME ${conjur_pod_name} -- cat $cert_location" > "$ssl_location"
+    done
+  fi
 
   set_namespace $APP_NAMESPACE_NAME
+
+  if [[ "${DEV}" = "true" && "${DEV_HELM}" = "true" && "${SECRETS_MODE}" = "standalone" ]]; then
+    num_namespaces=5
+    export TEST_NAMESPACE_PREFIX="test-namespace"
+    for i in $(seq 1 $num_namespaces); do
+      $cli_with_timeout create namespace "${TEST_NAMESPACE_PREFIX}-$i"
+      create_k8s_secret_for_helm_deployment "${TEST_NAMESPACE_PREFIX}-$i"
+    done
+  fi
 }
 
 set_image_path() {
@@ -310,10 +365,27 @@ fill_helm_chart() {
 
   if [ "${SECRETS_MODE}" = "standalone" ]; then
     template_file="$helm_path/helm/secrets-provider/ci/test-values-standalone-template.yaml"
-    export NAMESPACE_ALLOWLIST="$APP_NAMESPACE_NAME"
+    if [[ "${DEV}" = "true" ]]; then
+      namespace_allowlist="${APP_NAMESPACE_NAME}"
+      namespace_prefix="${TEST_NAMESPACE_PREFIX:-${NAMESPACE_PREFIX:-test-namespace}}"
+      for i in $(seq 1 "${num_namespaces:-5}"); do
+        namespace_allowlist="${namespace_allowlist},${namespace_prefix}-${i}"
+      done
+      export NAMESPACE_ALLOWLIST="${NAMESPACE_ALLOWLIST:-${namespace_allowlist}}"
+    else
+      export NAMESPACE_ALLOWLIST="${NAMESPACE_ALLOWLIST:-$APP_NAMESPACE_NAME}"
+    fi
   else
     template_file="$helm_path/helm/secrets-provider/ci/test-values-template.yaml"
     LABELS="${LABELS:-app: test-helm}"
+  fi
+
+  local helm_authn_login="${CONJUR_AUTHN_LOGIN:-}"
+  if [[ "${CONJUR_DEPLOYMENT}" != "cloud" || "${CONJUR_AUTHN_TYPE}" != "jwt" ]]; then
+    # In Cloud + jwt flows we intentionally omit CONJUR_AUTHN_LOGIN to use token app-property mode.
+    helm_authn_login="${helm_authn_login:-host/conjur/authn-k8s/${AUTHENTICATOR_ID}/apps/${APP_NAMESPACE_NAME}/*/*}"
+  else
+    helm_authn_login="${helm_authn_login:-null}"
   fi
 
   i=0
@@ -327,7 +399,7 @@ fill_helm_chart() {
       -e "s#{{ CONJUR_ACCOUNT }}#${CONJUR_ACCOUNT:-"cucumber"}#g" \
       -e "s#{{ CONJUR_APPLIANCE_URL }}#${CONJUR_APPLIANCE_URL:-"https://conjur-follower.${CONJUR_NAMESPACE_NAME}.svc.cluster.local/api"}#g" \
       -e "s#{{ CONJUR_AUTHN_URL }}#${CONJUR_AUTHN_URL:-"https://conjur-follower.${CONJUR_NAMESPACE_NAME}.svc.cluster.local/api/authn-k8s/${AUTHENTICATOR_ID}"}#g" \
-      -e "s#{{ CONJUR_AUTHN_LOGIN }}# ${CONJUR_AUTHN_LOGIN:-"host/conjur/authn-k8s/${AUTHENTICATOR_ID}/apps/${APP_NAMESPACE_NAME}/*/*"}#g"  \
+      -e "s#{{ CONJUR_AUTHN_LOGIN }}#${helm_authn_login}#g"  \
       -e "s#{{ SECRETS_PROVIDER_SSL_CONFIG_MAP }}# ${SECRETS_PROVIDER_SSL_CONFIG_MAP:-"secrets-provider-ssl-config-map"}#g" \
       -e "s#{{ IMAGE_PULL_POLICY }}# ${IMAGE_PULL_POLICY:-"IfNotPresent"}#g" \
       -e "s#{{ IMAGE }}# ${IMAGE:-"$image_path/secrets-provider"}#g" \
@@ -347,6 +419,14 @@ fill_helm_chart() {
 }
 
 fill_helm_chart_no_override_defaults() {
+  local helm_authn_login="${CONJUR_AUTHN_LOGIN:-}"
+  if [[ "${CONJUR_DEPLOYMENT}" != "cloud" || "${CONJUR_AUTHN_TYPE}" != "jwt" ]]; then
+    # In Cloud + jwt flows we intentionally omit CONJUR_AUTHN_LOGIN to use token app-property mode.
+    helm_authn_login="${helm_authn_login:-host/conjur/authn-k8s/${AUTHENTICATOR_ID}/apps/${APP_NAMESPACE_NAME}/*/*}"
+  else
+    helm_authn_login="${helm_authn_login:-null}"
+  fi
+
   rm -rf "../helm/secrets-provider/ci/take-default-test-values-$UNIQUE_TEST_ID.yaml"
 
   i=0
@@ -357,7 +437,7 @@ fill_helm_chart_no_override_defaults() {
       -e "s#{{ LABELS }}# ${LABELS}#g" \
       -e "s#{{ CONJUR_APPLIANCE_URL }}#${CONJUR_APPLIANCE_URL}#g" \
       -e "s#{{ CONJUR_AUTHN_URL }}#${CONJUR_AUTHN_URL}#g" \
-      -e "s#{{ CONJUR_AUTHN_LOGIN }}# ${CONJUR_AUTHN_LOGIN}#g"  \
+      -e "s#{{ CONJUR_AUTHN_LOGIN }}# ${helm_authn_login}#g"  \
       "../helm/secrets-provider/ci/take-default-test-values-template.yaml" > "../helm/secrets-provider/ci/take-default-test-values-$UNIQUE_TEST_ID.yaml"
   done
 }
@@ -377,10 +457,12 @@ fill_helm_chart_test_image() {
 
 deploy_chart() {
   pushd ../
+    set -x
     fill_helm_chart
     helm install -f "helm/secrets-provider/ci/test-values-$UNIQUE_TEST_ID.yaml" \
       secrets-provider ./helm/secrets-provider \
       --set-file environment.conjur.sslCertificate.value="conjur-server.pem"
+    set +x
   popd
 }
 
@@ -403,6 +485,7 @@ deploy_helm_app() {
   id=${1:-""}
   sed -e "s#{{ SERVICE_ACCOUNT }}#${SERVICE_ACCOUNT:-"secrets-provider-service-account"}#g" $helm_app_path |
   sed -e "s#{{ K8S_SECRET }}#${K8S_SECRET:-"test-k8s-secret"}#g" |
+  sed -e "s#{{ TEST_APP_IMAGE }}#${HELM_TEST_APP_IMAGE:-debian:latest}#g" |
   sed -e "s#{{ ID }}#${id}#g" |
   $cli_with_timeout create -f -
 }
@@ -420,12 +503,13 @@ create_k8s_role() {
 }
 
 create_k8s_secret_for_helm_deployment() {
+  local namespace="${1:-$APP_NAMESPACE_NAME}"
   helm_app_path="../config/k8s_secret.yml"
   if [ "${DEV}" = "true" ]; then
     helm_app_path="test/config/k8s_secret.yml"
   fi
 
-  $cli_with_timeout create -f $helm_app_path
+  $cli_with_timeout apply -n "${namespace}" -f "$helm_app_path"
 }
 
 create_secret_access_role() {
@@ -532,6 +616,7 @@ get_app_logs_container() {
     set_namespace "$APP_NAMESPACE_NAME"
     helm=$(helm ls -q)
     $cli_without_timeout get pods
+    _out_stem="${UNIQUE_TEST_ID:+$UNIQUE_TEST_ID-}$SUMMON_ENV"
 
     if [[ -z "$helm" ]]; then
       pod_name=$($cli_without_timeout get pods --selector app=test-env --no-headers  | awk '{print $1}' )
@@ -541,7 +626,7 @@ get_app_logs_container() {
         $cli_without_timeout describe pod $pod_name
         $cli_without_timeout get events
         $cli_without_timeout logs $pod_name -c cyberark-secrets-provider-for-k8s --tail 1000
-        $cli_without_timeout logs $pod_name -c cyberark-secrets-provider-for-k8s > "output/$SUMMON_ENV-secrets-provider-logs.txt"
+        $cli_without_timeout logs $pod_name -c cyberark-secrets-provider-for-k8s > "output/${_out_stem}-secrets-provider-logs.txt"
       fi
     else
       pod_name=$($cli_without_timeout get pods --selector app=test-helm --no-headers | awk '{print $1}' )
@@ -551,7 +636,7 @@ get_app_logs_container() {
         $cli_without_timeout describe pod $pod_name
         $cli_without_timeout get events
         $cli_without_timeout logs $pod_name -c cyberark-secrets-provider-for-k8s --tail 1000
-        $cli_without_timeout logs $pod_name  > "output/$SUMMON_ENV-secrets-provider-logs-with-helm.txt"
+        $cli_without_timeout logs $pod_name  > "output/${_out_stem}-secrets-provider-logs-with-helm.txt"
       fi
     fi
 }
@@ -572,13 +657,14 @@ get_conjur_logs_container() {
     if [[ -z "$pod_list" ]]; then
       echo "Pod doesn't exist. DAP Follower/Conjur logs were unable to be retrieved"
     else
+      _out_stem="${UNIQUE_TEST_ID:+$UNIQUE_TEST_ID-}$SUMMON_ENV"
       if [ "$CONJUR_DEPLOYMENT" = "oss" ]; then
-        $cli_without_timeout logs $pod_list -c conjur > "output/$SUMMON_ENV-$pod_list-logs.txt"
+        $cli_without_timeout logs $pod_list -c conjur > "output/${_out_stem}-$pod_list-logs.txt"
       else
         #Fetch multiple container logs for case where there are more than one DAP Follower
         for pod in $pod_list
         do
-          $cli_without_timeout logs $pod  > "output/$SUMMON_ENV-$pod-logs.txt"
+          $cli_without_timeout logs $pod  > "output/${_out_stem}-$pod-logs.txt"
         done
       fi
     fi
@@ -656,9 +742,6 @@ deploy_env() {
     "p2f-rotation")
       yaml_template_name="test-env-p2f-rotation"
       ;;
-    "standalone")
-      yaml_template_name="test-env-standalone"
-      ;;
     *)
       echo "Invalid or missing SECRETS_MODE variable. Allowed values are: k8s, k8s-rotation, p2f, p2f-rotation, standalone."
       echo "Deploying with default config (k8s)."
@@ -680,10 +763,11 @@ generate_manifest_and_deploy() {
   configure_conjur_url
 
   if [[ "$DEV" = "true" ]]; then
-    export CONJUR_AUTHN_LOGIN="${CONJUR_AUTHN_LOGIN:-host/conjur/authn-k8s/${AUTHENTICATOR_ID}/apps/${APP_NAMESPACE_NAME}/*/*}"
-    if [[ "$CONJUR_DEPLOYMENT" = "cloud" ]]; then
-      # Unset to use authn-jwt with token-app-property
+    if [[ "$CONJUR_DEPLOYMENT" = "cloud" && "$CONJUR_AUTHN_TYPE" = "jwt" ]]; then
+      # Unset when using JWT with token-app-property to avoid forcing a host identity.
       unset CONJUR_AUTHN_LOGIN
+    else
+      export CONJUR_AUTHN_LOGIN="${CONJUR_AUTHN_LOGIN:-host/conjur/authn-k8s/${AUTHENTICATOR_ID}/apps/${APP_NAMESPACE_NAME}/*/*}"
     fi
     echo "Generating manifest"
     mkdir -p $DEV_CONFIG_DIR/generated
@@ -714,8 +798,36 @@ set_namespace_exp() {
 }
 
 cloud_login() {
+  unset CONJUR_AUTHN_LOGIN
+
+  if [[ -z "${INFRAPOOL_CONJUR_APPLIANCE_URL:-}" && -n "${TENANT_NAME:-}" ]]; then
+    discovered_appliance_url=$(curl -sS "https://platform-discovery.integration-cyberark.cloud/api/public/tenant-discovery?bySubdomain=${TENANT_NAME}&allEndpoints=true" \
+      | jq -r '.services[] | select(.service_name=="secrets_manager") | .endpoints[] | select(.type=="main" and .is_active == true) | .api' \
+      | head -n 1 | sed -e 's#/api$##' -e 's#/$##')
+    if [[ -z "${discovered_appliance_url}" || "${discovered_appliance_url}" == "null" ]]; then
+      echo "Falling back to default tenant secrets manager host for ${TENANT_NAME}" >&2
+      discovered_appliance_url="https://$TENANT_NAME.secretsmgr.integration-cyberark.cloud"
+    fi
+    INFRAPOOL_CONJUR_APPLIANCE_URL="$discovered_appliance_url"
+  fi
+
+  # Trim trailing slash and api from the appliance url
+  if [[ -n "${INFRAPOOL_CONJUR_APPLIANCE_URL:-}" ]]; then
+    INFRAPOOL_CONJUR_APPLIANCE_URL="${INFRAPOOL_CONJUR_APPLIANCE_URL%/api}"
+    INFRAPOOL_CONJUR_APPLIANCE_URL="${INFRAPOOL_CONJUR_APPLIANCE_URL%/}"
+  fi
+
+  if [[ -n "${INFRAPOOL_CONJUR_APPLIANCE_URL:-}" ]]; then
+    export INFRAPOOL_CONJUR_APPLIANCE_URL
+  fi
+
   # If token is already set from CI, fetch the SSL certificate and exit
   if [[ -n "${INFRAPOOL_CONJUR_AUTHN_TOKEN:-}" ]]; then
+    if [[ -z "${INFRAPOOL_CONJUR_APPLIANCE_URL:-}" ]]; then
+      echo "Missing INFRAPOOL_CONJUR_APPLIANCE_URL for Conjur Cloud auth" >&2
+      exit 1
+    fi
+
     # Fetch the SSL certificate from Conjur Cloud
     conjur_host="${INFRAPOOL_CONJUR_APPLIANCE_URL#https://}"
     conjur_host="${conjur_host#http://}"
@@ -757,16 +869,28 @@ cloud_login() {
   echo
   echo "Authenticating to Conjur Cloud..."
   conjur_token=$(curl --request POST \
-    --url https://$TENANT_NAME.secretsmgr.integration-cyberark.cloud/api/authn-oidc/cyberark/conjur/authenticate \
+    --url "${INFRAPOOL_CONJUR_APPLIANCE_URL}/api/authn-oidc/cyberark/conjur/authenticate" \
     --header 'Accept-Encoding: base64' \
     --header 'Content-Type: application/x-www-form-urlencoded' \
     --data "id_token=$identity_token")
   echo "Conjur Token:\n$conjur_token"
 
+
+  # Exit the token retrieval failed
+  if [[ -z "$conjur_token" ]]; then
+    echo "Failed to retrieve Conjur token"
+    exit 1
+  fi
+
   # Export the required variables
   export INFRAPOOL_CONJUR_AUTHN_TOKEN="$conjur_token"
-  export INFRAPOOL_CONJUR_APPLIANCE_URL="https://$TENANT_NAME.secretsmgr.integration-cyberark.cloud"
   export INFRAPOOL_CONJUR_AUTHN_LOGIN="$TENANT_USER"
+  # These are set in bootstrap.env but seem to get overridden currently
+  export CONJUR_DEPLOYMENT=cloud
+  export CONJUR_ACCOUNT=conjur
+  export SERVICE_ACCOUNT=${APP_NAMESPACE_NAME}-sa
+  unset CONJUR_AUTHN_LOGIN
+  export CONJUR_AUTHN_TYPE=jwt
 
   # Fetch the SSL certificate from Conjur Cloud
   conjur_host="${INFRAPOOL_CONJUR_APPLIANCE_URL#https://}"
@@ -777,9 +901,13 @@ cloud_login() {
 
 cli_exec() {
   if [[ "$CONJUR_DEPLOYMENT" = "cloud" ]]; then
-    local project_root
-    project_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-    docker run --rm -it -v "$project_root/deploy/policy:/tmp/policy:ro" \
+    local policy_dir
+    if [[ -n "${HOST_REPO_ROOT:-}" ]]; then
+      policy_dir="${HOST_REPO_ROOT}/deploy/policy"
+    else
+      policy_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/deploy/policy"
+    fi
+    docker run --rm -i -v "$policy_dir:/tmp/policy:ro" \
       -e CONJUR_APPLIANCE_URL="$INFRAPOOL_CONJUR_APPLIANCE_URL" \
       -e CONJUR_AUTHN_TOKEN="$(echo "$INFRAPOOL_CONJUR_AUTHN_TOKEN" | base64 -d)" \
       -e CONJUR_AUTHN_LOGIN="$INFRAPOOL_CONJUR_AUTHN_LOGIN" \

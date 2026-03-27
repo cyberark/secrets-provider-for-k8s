@@ -231,6 +231,15 @@ func FillHelmChartTestImage(client klient.Client, id string, optReplacements map
 	return chartPath, nil
 }
 
+// helmTestAppImage is the sleep-container image for Helm E2E (secret-as-env checks).
+// Matches deploy/test/config/*/helm-app.yaml substitution; override with HELM_TEST_APP_IMAGE.
+func helmTestAppImage() string {
+	if img := os.Getenv("HELM_TEST_APP_IMAGE"); img != "" {
+		return img
+	}
+	return "debian:latest"
+}
+
 // DeployTestAppWithHelm deploys a test application that reads secrets from a Kubernetes Secret.
 func DeployTestAppWithHelm(client klient.Client, id string) error {
 	// create Deployment
@@ -264,7 +273,7 @@ func DeployTestAppWithHelm(client klient.Client, id string) error {
 					ServiceAccountName: "secrets-provider-service-account",
 					Containers: []corev1.Container{
 						{
-							Image:   "centos:7",
+							Image:   helmTestAppImage(),
 							Name:    id + "test-app",
 							Command: []string{"sleep"},
 							Args:    []string{"infinity"},
@@ -451,6 +460,105 @@ func CreateConjurCertFile(client klient.Client) error {
 		return err
 	}
 	return nil
+}
+
+// FillHelmChartStandalone renders helm/secrets-provider/ci/test-values-standalone-template.yaml for containerMode standalone.
+func FillHelmChartStandalone(_ klient.Client, id string, optReplacements map[string]string) (string, error) {
+	uniqueTestId := os.Getenv("UNIQUE_TEST_ID")
+	chartName := fmt.Sprintf("%sstandalone-test-values-%s.yaml", id, uniqueTestId)
+	chartPath := filepath.Join("..", "helm", "secrets-provider", "ci", chartName)
+
+	templatePath := filepath.Join("..", "helm", "secrets-provider", "ci", "test-values-standalone-template.yaml")
+	templateContent, err := os.ReadFile(templatePath)
+	if err != nil {
+		return "", fmt.Errorf("error reading standalone template file: %w", err)
+	}
+
+	replacements := map[string]string{
+		"NAMESPACE_ALLOWLIST":             getEnvOrDefault("NAMESPACE_ALLOWLIST", SecretsProviderNamespace()),
+		"SECRETS_REFRESH_ENABLED":         getEnvOrDefault("SECRETS_REFRESH_ENABLED", "true"),
+		"SECRETS_REFRESH_INTERVAL":        getEnvOrDefault("SECRETS_REFRESH_INTERVAL", "10s"),
+		"REMOVE_DELETED_SECRETS_ENABLED":  getEnvOrDefault("REMOVE_DELETED_SECRETS_ENABLED", "true"),
+		"CREATE_SERVICE_ACCOUNT":          getEnvOrDefault("CREATE_SERVICE_ACCOUNT", "true"),
+		"SERVICE_ACCOUNT":                 getEnvOrDefault("SERVICE_ACCOUNT", "secrets-provider-service-account"),
+		"CONJUR_ACCOUNT":                  getEnvOrDefault("CONJUR_ACCOUNT", "cucumber"),
+		"CONJUR_APPLIANCE_URL":            getEnvOrDefault("CONJUR_APPLIANCE_URL", "https://conjur-follower."+ConjurNamespace()+".svc.cluster.local/api"),
+		"CONJUR_AUTHN_URL":                getEnvOrDefault("CONJUR_AUTHN_URL", "https://conjur-follower."+ConjurNamespace()+".svc.cluster.local/api/authn-k8s/"+AuthenticatorID()),
+		"CONJUR_AUTHN_LOGIN":              getEnvOrDefault("CONJUR_AUTHN_LOGIN", "host/conjur/authn-k8s/"+AuthenticatorID()+"/apps/"+SecretsProviderNamespace()+"/*/*"),
+		"SECRETS_PROVIDER_SSL_CONFIG_MAP": getEnvOrDefault("SECRETS_PROVIDER_SSL_CONFIG_MAP", "secrets-provider-ssl-config-map"),
+		"IMAGE_PULL_POLICY":               getEnvOrDefault("IMAGE_PULL_POLICY", "IfNotPresent"),
+		"IMAGE":                           getEnvOrDefault("IMAGE", GetImagePath()+"/secrets-provider"),
+		"TAG":                             getEnvOrDefault("TAG", "latest"),
+		"LABELS":                          getEnvOrDefault("LABELS", ""),
+		"LOG_LEVEL":                       getEnvOrDefault("LOG_LEVEL", "debug"),
+		"RETRY_COUNT_LIMIT":               getEnvOrDefault("RETRY_COUNT_LIMIT", "5"),
+		"RETRY_INTERVAL_SEC":              getEnvOrDefault("RETRY_INTERVAL_SEC", "5"),
+		"IMAGE_PULL_SECRET":               getEnvOrDefault("IMAGE_PULL_SECRET", ""),
+	}
+
+	for key, value := range optReplacements {
+		if _, exists := replacements[key]; exists {
+			replacements[key] = value
+		}
+	}
+
+	for key, value := range replacements {
+		templateContent = bytesReplace(templateContent, "{{ "+key+" }}", value)
+	}
+
+	if err := os.WriteFile(chartPath, templateContent, 0644); err != nil {
+		return "", fmt.Errorf("error writing standalone values file: %w", err)
+	}
+
+	return chartPath, nil
+}
+
+// DeployStandaloneSecretsProviderWithHelm installs the chart in standalone mode (Deployment) and waits until it is ready.
+func DeployStandaloneSecretsProviderWithHelm(cfg *envconf.Config, id string, chartPaths ...string) error {
+	err := CreateConjurCertFile(cfg.Client())
+	if err != nil {
+		return err
+	}
+
+	manager := helm.New(cfg.KubeconfigFile())
+	spName := id + "secrets-provider"
+
+	var installErr error
+	if len(chartPaths) == 2 {
+		installErr = manager.RunInstall(
+			helm.WithName(spName),
+			helm.WithChart("../helm/secrets-provider"),
+			helm.WithArgs("-f", chartPaths[0]),
+			helm.WithArgs("-f", chartPaths[1]),
+			helm.WithArgs("--set-file", fmt.Sprintf("environment.conjur.sslCertificate.value=%s", "./conjur-server.pem")),
+		)
+	} else {
+		installErr = manager.RunInstall(
+			helm.WithName(spName),
+			helm.WithChart("../helm/secrets-provider"),
+			helm.WithArgs("-f", chartPaths[0]),
+			helm.WithArgs("--set-file", fmt.Sprintf("environment.conjur.sslCertificate.value=%s", "./conjur-server.pem")),
+		)
+	}
+	if installErr != nil {
+		return installErr
+	}
+
+	ns := SecretsProviderNamespace()
+	dep, err := WaitForDeploymentExists(cfg.Client(), ns, spName, 2*time.Minute)
+	if err != nil {
+		_ = CleanChartPathFiles(chartPaths)
+		_ = RemoveJobWithHelm(cfg, spName)
+		return err
+	}
+
+	if err := WaitResourceScaled(cfg.Client(), dep, 1); err != nil {
+		_ = CleanChartPathFiles(chartPaths)
+		_ = RemoveJobWithHelm(cfg, spName)
+		return err
+	}
+
+	return CleanChartPathFiles(chartPaths)
 }
 
 // DeploySecretsProviderJobWithHelm installs the secrets provider via Helm and waits for the job to complete.

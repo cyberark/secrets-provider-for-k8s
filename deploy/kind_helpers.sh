@@ -74,8 +74,37 @@ kind_wait_ready() {
 }
 
 kind_load_image() {
-  local name=${1:-secrets-provider-test}
-  local image=${2:?"image is required"}
+  local name="${1:-secrets-provider-test}"
+  local image="${2:?image is required}"
+  local control_plane_container="${name}-control-plane"
+  local attempt
+
   echo "Loading image ${image} into kind cluster ${name}"
-  kind load docker-image --name "${name}" "${image}"
+
+  if kind load docker-image "${image}" --name "${name}"; then
+    return 0
+  fi
+  echo "kind load failed for ${image}; falling back to containerd import..."
+
+  if ! docker inspect "${control_plane_container}" >/dev/null 2>&1; then
+    echo "ERROR: Could not find KinD control-plane container ${control_plane_container}"
+    return 1
+  fi
+
+  if ! docker exec "${control_plane_container}" test -S /run/containerd/containerd.sock; then
+    echo "Timed out waiting for ${control_plane_container} containerd socket."
+    return 1
+  fi
+
+  for attempt in 1 2 3; do
+    if docker save "${image}" | \
+      docker exec --privileged -i "${control_plane_container}" \
+        ctr --namespace=k8s.io images import --digests --snapshotter=overlayfs -; then
+      return 0
+    fi
+    echo "containerd import failed for ${image} (attempt ${attempt}/3); retrying..."
+    sleep 2
+  done
+
+  return 1
 }

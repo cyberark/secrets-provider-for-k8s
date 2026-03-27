@@ -69,6 +69,7 @@ if [[ "${DEPLOY_MASTER_CLUSTER}" == "true" ]]; then
     $cli_with_timeout "exec $conjur_cli_pod -- rm -rf ./tmp/policy"
   else
     # For Conjur Cloud, run load_policies.sh directly (no pod needed)
+    cloud_login
     announce "Loading policies for Conjur Cloud"
     export PUBLIC_KEYS
     export ISSUER

@@ -119,22 +119,46 @@
         },
         "conjur": {
           "if": {
-            "not": {
-              "properties": {
-                "authnJWT": {
+            "allOf": [
+              {
+                "not": {
                   "properties": {
-                    "projectToken": {
-                      "enum": [ true ]
+                    "authnJWT": {
+                      "properties": {
+                        "projectToken": {
+                          "enum": [ true ]
+                        }
+                      }
+                    }
+                  }
+                }
+              },
+              {
+                "required": [
+                  "authnUrl"
+                ]
+              },
+              {
+                "not": {
+                  "properties": {
+                    "authnUrl": {
+                      "pattern": ".*/authn-jwt/.*"
                     }
                   }
                 }
               }
-            }
+            ]
           },
           "then": {
             "required": [
               "authnLogin"
-            ]
+            ],
+            "properties": {
+              "authnLogin": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
           },
           "anyOf": [
             {
@@ -170,8 +194,7 @@
               "pattern": "^https?://[^\\s/$.?#].[^\\s]*$"
             },
             "authnLogin": {
-              "type": "string",
-              "minLength": 1
+              "type": ["string", "null"]
             },
             "conjurConnConfigMap": {
               "type": ["string","null"],

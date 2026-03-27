@@ -47,10 +47,25 @@ set_namespace $APP_NAMESPACE_NAME
 
 echo "Publish docker image"
 
+# No implicit ./bin/build — CI loads from another stage via SECRETS_PROVIDER_SOURCE_IMAGE; else prefer :latest then :dev.
+SP_SRC="${SECRETS_PROVIDER_SOURCE_IMAGE:-}"
+if [[ -z "${SP_SRC}" ]]; then
+  if docker image inspect secrets-provider-for-k8s:latest >/dev/null 2>&1; then
+    SP_SRC=secrets-provider-for-k8s:latest
+  elif docker image inspect secrets-provider-for-k8s:dev >/dev/null 2>&1; then
+    SP_SRC=secrets-provider-for-k8s:dev
+  fi
+fi
+if [[ -z "${SP_SRC}" ]] || ! docker image inspect "${SP_SRC}" >/dev/null 2>&1; then
+  echo "secrets-provider image not found (tried SECRETS_PROVIDER_SOURCE_IMAGE, secrets-provider-for-k8s:latest, secrets-provider-for-k8s:dev)." >&2
+  echo "Set SECRETS_PROVIDER_SOURCE_IMAGE for CI, or run ./bin/build locally." >&2
+  exit 1
+fi
+
 # Tag and push/load image based on environment
 if [[ "${DEV}" = "false" && "${KIND}" != "true" ]]; then
   # Push to registry for CI environments
-  docker tag "secrets-provider-for-k8s:dev" \
+  docker tag "${SP_SRC}" \
     "${DOCKER_REGISTRY_PATH}/${APP_NAMESPACE_NAME}/secrets-provider"
   docker push "${DOCKER_REGISTRY_PATH}/${APP_NAMESPACE_NAME}/secrets-provider"
   
@@ -62,20 +77,22 @@ if [[ "${DEV}" = "false" && "${KIND}" != "true" ]]; then
   # Set CONJUR_APP_IMAGE for deployment manifests
   export CONJUR_APP_IMAGE="${DOCKER_REGISTRY_PATH}/${APP_NAMESPACE_NAME}/secrets-provider"
 else
-  # Local dev or Kind - just tag locally, no push needed
-  docker tag "secrets-provider-for-k8s:dev" \
-    "${APP_NAMESPACE_NAME}/secrets-provider"
-    
+  # Local dev or Kind - tag locally (explicit :latest matches dev manifests / kubelet lookup)
+  docker tag "${SP_SRC}" \
+    "${APP_NAMESPACE_NAME}/secrets-provider:latest"
+
   # Set CONJUR_APP_IMAGE for deployment manifests (no registry prefix for Kind/dev)
   export CONJUR_APP_IMAGE="${APP_NAMESPACE_NAME}/secrets-provider"
 fi
 
 # For Kind clusters, load the image directly
-if [[ -n "${KIND_CLUSTER_NAME:-}" ]]; then
-  # Ensure kind binary is in PATH (installed via go install in Dockerfile.e2e)
+if [[ "${KIND}" = "true" ]]; then
   export PATH="${PATH}:/root/go/bin"
   source "$(dirname "${BASH_SOURCE[0]}")/kind_helpers.sh"
-  kind_load_image "${KIND_CLUSTER_NAME}" "${APP_NAMESPACE_NAME}/secrets-provider"
+  kind_cluster="${KIND_CLUSTER_NAME:-kind}"
+  docker pull debian:latest
+  kind_load_image "${kind_cluster}" "${APP_NAMESPACE_NAME}/secrets-provider:latest"
+  kind_load_image "${kind_cluster}" "debian:latest"
 fi
 
 fetch_ssl_from_conjur
