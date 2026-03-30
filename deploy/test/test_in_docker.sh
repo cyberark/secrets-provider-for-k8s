@@ -180,6 +180,10 @@ main() {
 
   if [[ "${KIND}" = "true" ]]; then
     docker network create "${KIND_DOCKER_NETWORK}" || true
+    _repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+    # shellcheck source=../../bin/build_utils
+    . "${_repo_root}/bin/build_utils"
+    retrieve_cyberark_ca_cert || true
   fi
 
   buildTestRunnerImage
@@ -221,6 +225,14 @@ run_conjur_deploy_in_kind() {
       curl -Lo /usr/local/bin/kind https://kind.sigs.k8s.io/dl/${kind_version}/kind-linux-amd64
       chmod +x /usr/local/bin/kind
     fi
+    
+    # Load Conjur appliance image into Kind cluster if needed
+    if [[ ${CONJUR_DEPLOYMENT} != oss && -n ${CONJUR_APPLIANCE_IMAGE:-} ]]; then
+      source ./kind_helpers.sh
+      docker tag ${CONJUR_APPLIANCE_IMAGE} conjur-appliance:${CONJUR_NAMESPACE_NAME}
+      kind_load_image ${KIND_CLUSTER_NAME} ${CONJUR_APPLIANCE_IMAGE}
+      kind_load_image ${KIND_CLUSTER_NAME} conjur-appliance:${CONJUR_NAMESPACE_NAME}
+    fi
 
     cd ./kubernetes-conjur-deploy-$UNIQUE_TEST_ID
     
@@ -244,7 +256,7 @@ deployConjur() {
 
   git clone --single-branch --branch master \
       https://github.com/cyberark/kubernetes-conjur-deploy.git \
-      "kubernetes-conjur-deploy-${UNIQUE_TEST_ID}"
+      "kubernetes-conjur-deploy-${UNIQUE_TEST_ID}" || true
 
   # Build deployment command
   local deploy_cmd="./start"

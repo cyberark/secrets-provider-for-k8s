@@ -122,11 +122,17 @@ fi
 
 source bootstrap.env
 
+if [[ "${SECRETS_MODE:-}" == "standalone" && "${DEV_HELM:-false}" != "true" ]]; then
+  echo "Error: --secrets-mode=standalone requires --dev-helm."
+  echo "Standalone mode is only supported with Helm deployments."
+  exit 1
+fi
+
 if [[ "${DEV}" = "true" ]]; then
   if [[ -n "${TENANT_ID:-}" && -n "${TENANT_NAME:-}" && -n "${TENANT_USER:-}" && -n "${TENANT_PASSWORD:-}" ]]; then
     export CONJUR_DEPLOYMENT=cloud
   else
-    export CONJUR_DEPLOYMENT=oss
+    export CONJUR_DEPLOYMENT="${CONJUR_DEPLOYMENT:-oss}"
   fi
 fi
 
@@ -142,6 +148,10 @@ fi
 if [[ "${DEV}" = "true" && $RELOAD_ENV = true ]]; then
   export SKIP_KIND_CREATE=true
   export KIND_FORCE_CLEAN=false
+fi
+
+if [[ "${E2E_AUTHN_AZURE:-false}" = "true" ]]; then
+  export SUMMON_ENV="azure"
 fi
 
 pushd deploy

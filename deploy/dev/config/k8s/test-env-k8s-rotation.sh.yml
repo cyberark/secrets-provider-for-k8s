@@ -4,11 +4,8 @@ set -euo pipefail
 LABELED_SECRETS=${LABELED_SECRETS:-"false"}
 SECRETS_REFRESH_INTERVAL=${SECRETS_REFRESH_INTERVAL:-"10s"}
 
-SECRETS_PROVIDER_DEV_IMAGE="${CONJUR_APP_IMAGE:-secrets-provider-for-k8s:latest}"
-if [[ "${SECRETS_PROVIDER_DEV_IMAGE}" != *:* ]]; then
-  SECRETS_PROVIDER_DEV_IMAGE="${SECRETS_PROVIDER_DEV_IMAGE}:latest"
-fi
-SECRETS_PROVIDER_PULL_POLICY="Never"
+SECRETS_PROVIDER_IMAGE="${SECRETS_PROVIDER_IMAGE:-secrets-provider-for-k8s:latest}"
+SECRETS_PROVIDER_PULL_POLICY="IfNotPresent"
 
 IMAGE_PULL_SECRETS_YAML=""
 if [[ "${KIND:-false}" != "true" ]]; then
@@ -19,7 +16,7 @@ TEST_APP_IMAGE="debian"
 TEST_APP_PULL_POLICY_YAML=""
 if [[ "${KIND:-false}" = "true" ]]; then
   TEST_APP_IMAGE="debian:latest"
-  TEST_APP_PULL_POLICY_YAML=$'        imagePullPolicy: Never\n'
+  TEST_APP_PULL_POLICY_YAML=$'        imagePullPolicy: IfNotPresent\n'
 fi
 
 cat << EOL
@@ -144,7 +141,7 @@ ${TEST_APP_PULL_POLICY_YAML}        name: test-app
               secretKeyRef:
                 name: test-k8s-secret-with-templates
                 key: example.1
-      - image: '${SECRETS_PROVIDER_DEV_IMAGE}'
+      - image: '${SECRETS_PROVIDER_IMAGE}'
         imagePullPolicy: ${SECRETS_PROVIDER_PULL_POLICY}
         name: cyberark-secrets-provider-for-k8s
         lifecycle:

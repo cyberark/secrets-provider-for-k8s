@@ -8,15 +8,11 @@ REMOVE_DELETED_SECRETS=${REMOVE_DELETED_SECRETS:-"true"}
 
 SECRETS_PROVIDER_IMAGE="${APP_NAMESPACE_NAME}/secrets-provider:latest"
 DEBIAN_IMAGE="debian:latest"
-IMAGE_PULL_POLICY="Always"
+IMAGE_PULL_POLICY="IfNotPresent"
 
 if [[ -n "${PULL_DOCKER_REGISTRY_PATH:-}" ]]; then
   SECRETS_PROVIDER_IMAGE="${PULL_DOCKER_REGISTRY_PATH}/${APP_NAMESPACE_NAME}/secrets-provider:latest"
   DEBIAN_IMAGE="${PULL_DOCKER_REGISTRY_PATH}/${APP_NAMESPACE_NAME}/debian:latest"
-fi
-
-if [[ "${KIND:-false}" = "true" ]]; then
-  IMAGE_PULL_POLICY="Never"
 fi
 
 cat << EOL

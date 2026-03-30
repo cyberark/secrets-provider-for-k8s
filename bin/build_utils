@@ -66,7 +66,7 @@ function retrieve_cyberark_ca_cert() {
   then
     security find-certificate \
       -a -c "CyberArk Root CA" \
-      -p > build_ca_certificate/cyberark_root.crt
+      -p > "$(repo_root)/build_ca_certificate/cyberark_root.crt"
   fi
 }
 

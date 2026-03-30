@@ -13,7 +13,7 @@ main() {
     setup_helm_environment
 
     create_k8s_secret
-    export IMAGE_PULL_POLICY="Never"
+    export IMAGE_PULL_POLICY="IfNotPresent"
     if [[ -z "${IMAGE:-}" ]]; then
       if [[ "${KIND}" = "true" ]]; then
         export IMAGE="${APP_NAMESPACE_NAME}/secrets-provider"

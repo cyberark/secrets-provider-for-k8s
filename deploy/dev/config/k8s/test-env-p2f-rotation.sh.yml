@@ -1,11 +1,8 @@
 #!/bin/bash
 set -euo pipefail
 
-SECRETS_PROVIDER_DEV_IMAGE="${CONJUR_APP_IMAGE:-secrets-provider-for-k8s:latest}"
-if [[ "${SECRETS_PROVIDER_DEV_IMAGE}" != *:* ]]; then
-  SECRETS_PROVIDER_DEV_IMAGE="${SECRETS_PROVIDER_DEV_IMAGE}:latest"
-fi
-SECRETS_PROVIDER_PULL_POLICY="Never"
+SECRETS_PROVIDER_IMAGE="${SECRETS_PROVIDER_IMAGE:-secrets-provider-for-k8s:latest}"
+SECRETS_PROVIDER_PULL_POLICY="IfNotPresent"
 
 IMAGE_PULL_SECRETS_YAML=""
 if [[ "${KIND:-false}" != "true" ]]; then
@@ -16,7 +13,7 @@ TEST_APP_IMAGE="debian"
 TEST_APP_PULL_POLICY_YAML=""
 if [[ "${KIND:-false}" = "true" ]]; then
   TEST_APP_IMAGE="debian:latest"
-  TEST_APP_PULL_POLICY_YAML=$'        imagePullPolicy: Never\n'
+  TEST_APP_PULL_POLICY_YAML=$'        imagePullPolicy: IfNotPresent\n'
 fi
 
 cat << EOL
@@ -106,7 +103,7 @@ ${TEST_APP_PULL_POLICY_YAML}        name: test-app
           - mountPath: /opt/secrets/conjur
             name: conjur-secrets
             readOnly: true
-      - image: '${SECRETS_PROVIDER_DEV_IMAGE}'
+      - image: '${SECRETS_PROVIDER_IMAGE}'
         imagePullPolicy: ${SECRETS_PROVIDER_PULL_POLICY}
         name: cyberark-secrets-provider-for-k8s
         volumeMounts:

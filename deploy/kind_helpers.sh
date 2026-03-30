@@ -46,7 +46,33 @@ kind_create_cluster() {
     docker rm -f -v "${container_name}" || true
   fi
 
-  kind create cluster --name "${name}"
+  # Kind extraMounts need a path on the Docker host. In the test runner, CONTAINERIZED=true (see utils.sh)
+  # and the repo is mounted at /src — bind-mounting /src/... fails; use HOST_REPO_ROOT for the daemon.
+  local ca_repo ca_host
+  if [[ "${CONTAINERIZED:-}" = "true" ]]; then
+    ca_repo="/src/build_ca_certificate/cyberark_root.crt"
+    if [[ -z "${HOST_REPO_ROOT:-}" ]]; then
+      echo "Skipping Kind corporate CA mount: HOST_REPO_ROOT unset (required with CONTAINERIZED=true)." >&2
+      kind create cluster --name "$name"
+      return 0
+    fi
+    ca_host="${HOST_REPO_ROOT}/build_ca_certificate/cyberark_root.crt"
+  else
+    ca_repo="$(cd "$(git rev-parse --show-toplevel 2>/dev/null || pwd)" && pwd)/build_ca_certificate/cyberark_root.crt"
+    ca_host="${ca_repo}"
+  fi
+
+  if [[ -f "${ca_repo}" && -s "${ca_repo}" ]]; then
+    export CONJUR_CA_CERT_HOST_PATH="${ca_host}"
+    echo "Using Kind config with corporate CA certificate for image pulls (hostPath=${CONJUR_CA_CERT_HOST_PATH})"
+    KIND_CONFIG=$(sed -e "s|CONJUR_CA_CERT_HOST_PATH_PLACEHOLDER|${CONJUR_CA_CERT_HOST_PATH}|g" \
+                      -e "s|CLUSTER_NAME_PLACEHOLDER|${name}|g" \
+                      kind-config-corporate-ca.yaml)
+    echo "$KIND_CONFIG"
+    kind create cluster --name "$name" --config <(echo "$KIND_CONFIG")
+  else
+    kind create cluster --name "$name"
+  fi
 }
 
 kind_wait_ready() {

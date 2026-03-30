@@ -25,19 +25,17 @@ main() {
     if [[ -z "${KIND_CLUSTER_NAME:-}" ]]; then
       KIND_CLUSTER_NAME="$(kind_sanitize_cluster_name "${UNIQUE_TEST_ID:-secrets-provider-test}")"
     fi
-    if [[ -z "${IMAGE:-}" ]]; then
-      IMAGE="${APP_NAMESPACE_NAME}/secrets-provider"
-    fi
-    if [[ -z "${TAG:-}" ]]; then
-      TAG="latest"
-    fi
-    kind_load_image "${KIND_CLUSTER_NAME}" "${IMAGE}:${TAG}"
+    # Tag and push the built secrets-provider-for-k8s image to the Kind cluster
+    local secrets_provider_image="${APP_NAMESPACE_NAME}/secrets-provider:latest"
+    export SECRETS_PROVIDER_IMAGE="${APP_NAMESPACE_NAME}/secrets-provider"
+    docker tag "secrets-provider-for-k8s:latest" "${secrets_provider_image}"
+    kind_load_image "${KIND_CLUSTER_NAME}" "${secrets_provider_image}"
   fi
 
   if [ "${DEV_HELM}" = "true" ]; then
     setup_helm_environment
 
-    export IMAGE_PULL_POLICY="Never"
+    export IMAGE_PULL_POLICY="IfNotPresent"
     export IMAGE="${IMAGE:-${APP_NAMESPACE_NAME}/secrets-provider}"
     export TAG="latest"
     deploy_chart
