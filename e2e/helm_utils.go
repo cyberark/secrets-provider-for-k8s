@@ -7,6 +7,7 @@ package e2e
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -474,22 +475,28 @@ func bytesReplace(input []byte, old, new string) []byte {
 	return []byte(strings.ReplaceAll(string(input), old, new))
 }
 
-// CreateConjurCertFile writes the Conjur server certificate to a local PEM file for Helm chart use.
-func CreateConjurCertFile(client klient.Client) error {
+// CreateConjurCertFile writes the Conjur server certificate to a unique temp file for Helm --set-file.
+// Callers should defer os.Remove on the returned path so parallel test processes never share one filename.
+func CreateConjurCertFile(client klient.Client) (string, error) {
 	conjurCert, err := FetchConjurServerCert(client)
 	if err != nil {
-		return err
+		return "", err
 	}
-	file, err := os.Create("conjur-server.pem")
+	f, err := os.CreateTemp("", "conjur-server-*.pem")
 	if err != nil {
-		return err
+		return "", err
 	}
-	defer file.Close()
-	_, err = file.WriteString(conjurCert)
-	if err != nil {
-		return err
+	path := f.Name()
+	if _, err := f.WriteString(conjurCert); err != nil {
+		_ = f.Close()
+		_ = os.Remove(path)
+		return "", err
 	}
-	return nil
+	if err := f.Close(); err != nil {
+		_ = os.Remove(path)
+		return "", err
+	}
+	return path, nil
 }
 
 // FillHelmChartStandalone renders helm/secrets-provider/ci/test-values-standalone-template.yaml for containerMode standalone.
@@ -550,10 +557,11 @@ func FillHelmChartStandalone(_ klient.Client, id string, optReplacements map[str
 
 // DeployStandaloneSecretsProviderWithHelm installs the chart in standalone mode (Deployment) and waits until it is ready.
 func DeployStandaloneSecretsProviderWithHelm(cfg *envconf.Config, id string, chartPaths ...string) error {
-	err := CreateConjurCertFile(cfg.Client())
+	certPath, err := CreateConjurCertFile(cfg.Client())
 	if err != nil {
 		return err
 	}
+	defer func() { _ = os.Remove(certPath) }()
 
 	manager := helm.New(cfg.KubeconfigFile())
 	spName := id + "secrets-provider"
@@ -565,14 +573,14 @@ func DeployStandaloneSecretsProviderWithHelm(cfg *envconf.Config, id string, cha
 			helm.WithChart("../helm/secrets-provider"),
 			helm.WithArgs("-f", chartPaths[0]),
 			helm.WithArgs("-f", chartPaths[1]),
-			helm.WithArgs("--set-file", fmt.Sprintf("environment.conjur.sslCertificate.value=%s", "./conjur-server.pem")),
+			helm.WithArgs("--set-file", fmt.Sprintf("environment.conjur.sslCertificate.value=%s", certPath)),
 		)
 	} else {
 		installErr = manager.RunInstall(
 			helm.WithName(spName),
 			helm.WithChart("../helm/secrets-provider"),
 			helm.WithArgs("-f", chartPaths[0]),
-			helm.WithArgs("--set-file", fmt.Sprintf("environment.conjur.sslCertificate.value=%s", "./conjur-server.pem")),
+			helm.WithArgs("--set-file", fmt.Sprintf("environment.conjur.sslCertificate.value=%s", certPath)),
 		)
 	}
 	if installErr != nil {
@@ -598,11 +606,11 @@ func DeployStandaloneSecretsProviderWithHelm(cfg *envconf.Config, id string, cha
 
 // DeploySecretsProviderJobWithHelm installs the secrets provider via Helm and waits for the job to complete.
 func DeploySecretsProviderJobWithHelm(cfg *envconf.Config, id string, chartPaths ...string) error {
-	// set conjur cert to file
-	err := CreateConjurCertFile(cfg.Client())
+	certPath, err := CreateConjurCertFile(cfg.Client())
 	if err != nil {
 		return err
 	}
+	defer func() { _ = os.Remove(certPath) }()
 
 	// Ensure each test run starts from a fresh Helm release state.
 	manager := helm.New(cfg.KubeconfigFile())
@@ -625,7 +633,7 @@ func DeploySecretsProviderJobWithHelm(cfg *envconf.Config, id string, chartPaths
 			helm.WithArgs("-f", chartPaths[0]),
 			helm.WithArgs("-f", chartPaths[1]),
 			helm.WithArgs("--install"),
-			helm.WithArgs("--set-file", fmt.Sprintf("environment.conjur.sslCertificate.value=%s", "./conjur-server.pem")),
+			helm.WithArgs("--set-file", fmt.Sprintf("environment.conjur.sslCertificate.value=%s", certPath)),
 		)
 		if err != nil {
 			return err
@@ -636,7 +644,7 @@ func DeploySecretsProviderJobWithHelm(cfg *envconf.Config, id string, chartPaths
 			helm.WithChart("../helm/secrets-provider"),
 			helm.WithArgs("-f", chartPaths[0]),
 			helm.WithArgs("--install"),
-			helm.WithArgs("--set-file", fmt.Sprintf("environment.conjur.sslCertificate.value=%s", "./conjur-server.pem")),
+			helm.WithArgs("--set-file", fmt.Sprintf("environment.conjur.sslCertificate.value=%s", certPath)),
 		)
 		if err != nil {
 			return err
@@ -672,11 +680,11 @@ func RemoveHelmRelease(cfg *envconf.Config, name string) error {
 // DeploySecretsProviderDeploymentWithHelm installs secrets-provider via Helm as a Deployment (standalone mode)
 // and waits for the Deployment to be ready.
 func DeploySecretsProviderDeploymentWithHelm(cfg *envconf.Config, id string, chartPath string) error {
-	// set conjur cert to file
-	err := CreateConjurCertFile(cfg.Client())
+	certPath, err := CreateConjurCertFile(cfg.Client())
 	if err != nil {
 		return err
 	}
+	defer func() { _ = os.Remove(certPath) }()
 
 	// Ensure each test run starts from a fresh Helm release state.
 	manager := helm.New(cfg.KubeconfigFile())
@@ -697,7 +705,7 @@ func DeploySecretsProviderDeploymentWithHelm(cfg *envconf.Config, id string, cha
 		helm.WithChart("../helm/secrets-provider"),
 		helm.WithArgs("-f", chartPath),
 		helm.WithArgs("--install"),
-		helm.WithArgs("--set-file", fmt.Sprintf("environment.conjur.sslCertificate.value=%s", "./conjur-server.pem")),
+		helm.WithArgs("--set-file", fmt.Sprintf("environment.conjur.sslCertificate.value=%s", certPath)),
 	)
 	if err != nil {
 		return err
@@ -782,17 +790,13 @@ func ConfigDir() string {
 	return "config/k8s"
 }
 
-// CleanChartPathFiles removes the generated Helm chart files and the Conjur certificate file.
+// CleanChartPathFiles removes generated Helm chart value files. Missing paths are ignored.
 func CleanChartPathFiles(paths []string) error {
 	for _, path := range paths {
 		err := os.Remove(path)
-		if err != nil {
+		if err != nil && !errors.Is(err, os.ErrNotExist) {
 			return err
 		}
-	}
-	err := os.Remove("./conjur-server.pem")
-	if err != nil {
-		return err
 	}
 	return nil
 }
