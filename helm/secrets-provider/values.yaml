@@ -126,6 +126,12 @@ autoReload:
 
 # OPTIONAL: Reloader subchart configuration.
 # Only deployed if autoReload.enabled is set to true.
+#
+# reloader.reloader.watchGlobally defaults to false (namespace-scoped Reloader,
+# least privilege). When standalone.namespaceAllowlist is "*" or comma-separated
+# (more than one namespace), set watchGlobally to true so Reloader can see secrets
+# and workloads outside the release namespace. Schema + templates enforce this when
+# autoReload is enabled (same allowlist shape as ClusterRole in standalone mode).
 reloader:
   # Reloader container image configuration
   image:
@@ -145,6 +151,11 @@ reloader:
     # Set to true to enable leadership election allowing you to run multiple replicas.
     # This MUST be true if deployment.replicas > 1.
     enableHA: false
+
+    # When false, Reloader only watches the release namespace (Stakater default was cluster-wide).
+    # If your allowlist is "*" or comma-separated and you enabled autoReload, you must set this to true
+    # (chart blocks install otherwise so this is not forgotten).
+    watchGlobally: false
 
     # Use 'annotations' strategy: Reloader updates a reloader.stakater.com/last-reloaded-from
     # annotation on the workload to trigger a rolling restart.

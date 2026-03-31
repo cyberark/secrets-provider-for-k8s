@@ -32,6 +32,33 @@
           }
         }
       }
+    },
+    {
+      "if": {
+        "allOf": [
+          { "properties": { "autoReload": { "properties": { "enabled": { "const": true } } } } },
+          {
+            "anyOf": [
+              { "properties": { "standalone": { "properties": { "namespaceAllowlist": { "pattern": "^\\s*\\*\\s*$" } } } } },
+              { "properties": { "standalone": { "properties": { "namespaceAllowlist": { "pattern": ".*,.*" } } } } }
+            ]
+          }
+        ]
+      },
+      "then": {
+        "properties": {
+          "reloader": {
+            "properties": {
+              "reloader": {
+                "properties": {
+                  "watchGlobally": { "const": true }
+                },
+                "required": ["watchGlobally"]
+              }
+            }
+          }
+        }
+      }
     }
   ],
   "properties": {
@@ -332,6 +359,10 @@
             "enableHA": {
               "type": "boolean",
               "description": "Enable leadership election for running multiple replicas"
+            },
+            "watchGlobally": {
+              "type": "boolean",
+              "description": "When false, Reloader watches only the release namespace. Must be true when standalone.namespaceAllowlist is '*' or comma-separated (more than one namespace)."
             },
             "reloadStrategy": {
               "type": "string",

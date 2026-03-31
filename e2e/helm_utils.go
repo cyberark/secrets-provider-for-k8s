@@ -147,6 +147,7 @@ func fillHelmChartWithTemplate(client klient.Client, id string, templateName str
 		"RELOADER_ENABLED":                getEnvOrDefault("RELOADER_ENABLED", "false"),
 		"RELOADER_DEPLOYMENT_REPLICAS":    getEnvOrDefault("RELOADER_DEPLOYMENT_REPLICAS", "1"),
 		"RELOADER_ENABLE_HA":              getEnvOrDefault("RELOADER_ENABLE_HA", "false"),
+		"RELOADER_WATCH_GLOBALLY":         getEnvOrDefault("RELOADER_WATCH_GLOBALLY", "false"),
 		// Standalone mode settings
 		"NAMESPACE_ALLOWLIST":            getEnvOrDefault("NAMESPACE_ALLOWLIST", ""),
 		"SECRETS_REFRESH_ENABLED":        getEnvOrDefault("SECRETS_REFRESH_ENABLED", "true"),
@@ -534,6 +535,7 @@ func FillHelmChartStandalone(_ klient.Client, id string, optReplacements map[str
 		"RELOADER_ENABLED":                getEnvOrDefault("RELOADER_ENABLED", "false"),
 		"RELOADER_DEPLOYMENT_REPLICAS":    getEnvOrDefault("RELOADER_DEPLOYMENT_REPLICAS", "1"),
 		"RELOADER_ENABLE_HA":              getEnvOrDefault("RELOADER_ENABLE_HA", "false"),
+		"RELOADER_WATCH_GLOBALLY":         getEnvOrDefault("RELOADER_WATCH_GLOBALLY", "false"),
 	}
 
 	// OPTIONAL - update default replacements with desired values

@@ -289,6 +289,114 @@ function reloader_service_account_test() {
         --set "reloader.reloader.serviceAccount.name=$2"
 }
 
+# Standalone + cluster-wide namespace allowlist requires watchGlobally=true when Reloader is enabled.
+readonly RELOADER_STANDALONE_LINT_BASE=(
+    --set "containerMode=standalone"
+    --set "$DEFAULT_ACCOUNT_SETTING"
+    --set "$DEFAULT_APPLIANCE_URL_SETTING"
+    --set "$DEFAULT_AUTHN_LOGIN_SETTING"
+    --set "$DEFAULT_AUTHN_URL_SETTING"
+    --set "$DEFAULT_SSL_CERT_SETTING"
+    --set "autoReload.enabled=true"
+)
+
+function reloader_standalone_wildcard_allowlist_watchglobally_true_ok_test() {
+    helm lint . --strict \
+        "${RELOADER_STANDALONE_LINT_BASE[@]}" \
+        --set "standalone.namespaceAllowlist=*" \
+        --set "reloader.reloader.watchGlobally=true"
+}
+
+function reloader_standalone_multins_allowlist_watchglobally_true_ok_test() {
+    helm lint . --strict \
+        "${RELOADER_STANDALONE_LINT_BASE[@]}" \
+        --set-json standalone.namespaceAllowlist='"ns1,ns2"' \
+        --set "reloader.reloader.watchGlobally=true"
+}
+
+function reloader_standalone_cluster_allowlist_watchglobally_false_rejected_test() {
+    helm lint . --strict \
+        "${RELOADER_STANDALONE_LINT_BASE[@]}" \
+        --set "standalone.namespaceAllowlist=*" \
+        --set "reloader.reloader.watchGlobally=false"
+}
+
+function reloader_standalone_multins_allowlist_watchglobally_false_rejected_test() {
+    helm lint . --strict \
+        "${RELOADER_STANDALONE_LINT_BASE[@]}" \
+        --set-json standalone.namespaceAllowlist='"ns1,ns2"' \
+        --set "reloader.reloader.watchGlobally=false"
+}
+
+function reloader_application_multins_allowlist_watchglobally_false_rejected_test() {
+    helm lint . --strict \
+        --set "$DEFAULT_ACCOUNT_SETTING" \
+        --set "$DEFAULT_APPLIANCE_URL_SETTING" \
+        --set "$DEFAULT_AUTHN_LOGIN_SETTING" \
+        --set "$DEFAULT_AUTHN_URL_SETTING" \
+        --set "$DEFAULT_SSL_CERT_SETTING" \
+        --set "$DEFAULT_K8S_SECRETS_SETTING" \
+        --set "containerMode=application" \
+        --set "autoReload.enabled=true" \
+        --set-json standalone.namespaceAllowlist='"ns1,ns2"' \
+        --set "reloader.reloader.watchGlobally=false"
+}
+
+# Schema can be skipped (e.g. --skip-schema-validation); templates/auto-reload-validation.yaml must still fail.
+function reloader_misconfig_skip_schema_triggers_template_fail_test() {
+    local out rc
+    set +e
+    out=$(helm template rel-test . --skip-schema-validation \
+        --set "containerMode=standalone" \
+        --set "$DEFAULT_ACCOUNT_SETTING" \
+        --set "$DEFAULT_APPLIANCE_URL_SETTING" \
+        --set "$DEFAULT_AUTHN_LOGIN_SETTING" \
+        --set "$DEFAULT_AUTHN_URL_SETTING" \
+        --set "$DEFAULT_SSL_CERT_SETTING" \
+        --set "autoReload.enabled=true" \
+        --set "standalone.namespaceAllowlist=*" \
+        --set "reloader.reloader.watchGlobally=false" \
+        2>&1)
+    rc=$?
+    set -e
+    if [[ "$rc" -eq 0 ]]; then
+        echo "expected helm template to fail with Reloader misconfiguration" >&2
+        return 1
+    fi
+    if ! echo "$out" | grep -q "Reloader with autoReload"; then
+        echo "expected error from auto-reload-validation template" >&2
+        echo "$out" >&2
+        return 1
+    fi
+    if ! echo "$out" | grep -q "reloader.reloader.watchGlobally=true"; then
+        echo "expected error to include remediation reloader.reloader.watchGlobally=true" >&2
+        echo "$out" >&2
+        return 1
+    fi
+    return 0
+}
+
+function reloader_application_wildcard_allowlist_watchglobally_false_rejected_test() {
+    helm lint . --strict \
+        --set "$DEFAULT_ACCOUNT_SETTING" \
+        --set "$DEFAULT_APPLIANCE_URL_SETTING" \
+        --set "$DEFAULT_AUTHN_LOGIN_SETTING" \
+        --set "$DEFAULT_AUTHN_URL_SETTING" \
+        --set "$DEFAULT_SSL_CERT_SETTING" \
+        --set "$DEFAULT_K8S_SECRETS_SETTING" \
+        --set "containerMode=application" \
+        --set "autoReload.enabled=true" \
+        --set "standalone.namespaceAllowlist=*" \
+        --set "reloader.reloader.watchGlobally=false"
+}
+
+function reloader_standalone_single_ns_watchglobally_false_ok_test() {
+    helm lint . --strict \
+        "${RELOADER_STANDALONE_LINT_BASE[@]}" \
+        --set "standalone.namespaceAllowlist=my-namespace" \
+        --set "reloader.reloader.watchGlobally=false"
+}
+
 function main() {
     banner $BOLD "Running Helm schema tests for chart \"conjur-config-cluster-prep\""
     check_helm_version
@@ -463,6 +571,38 @@ function main() {
     announce "Null-string Reloader service account name is rejected"
     reloader_service_account_test true ""
     update_results "$?" "$EXPECT_FAILURE"
+
+    announce "Standalone with * allowlist and Reloader requires watchGlobally=true (accepted when true)"
+    reloader_standalone_wildcard_allowlist_watchglobally_true_ok_test
+    update_results "$?"
+
+    announce "Standalone with comma-separated allowlist and Reloader requires watchGlobally=true (accepted when true)"
+    reloader_standalone_multins_allowlist_watchglobally_true_ok_test
+    update_results "$?"
+
+    announce "Standalone with * allowlist and Reloader rejects watchGlobally=false"
+    reloader_standalone_cluster_allowlist_watchglobally_false_rejected_test
+    update_results "$?" "$EXPECT_FAILURE"
+
+    announce "Standalone with comma-separated allowlist and Reloader rejects watchGlobally=false"
+    reloader_standalone_multins_allowlist_watchglobally_false_rejected_test
+    update_results "$?" "$EXPECT_FAILURE"
+
+    announce "Application mode with * allowlist and Reloader rejects watchGlobally=false"
+    reloader_application_wildcard_allowlist_watchglobally_false_rejected_test
+    update_results "$?" "$EXPECT_FAILURE"
+
+    announce "Application mode with comma-separated allowlist and Reloader rejects watchGlobally=false"
+    reloader_application_multins_allowlist_watchglobally_false_rejected_test
+    update_results "$?" "$EXPECT_FAILURE"
+
+    announce "helm template --skip-schema-validation still fails on Reloader misconfiguration"
+    reloader_misconfig_skip_schema_triggers_template_fail_test
+    update_results "$?"
+
+    announce "Standalone with single-namespace allowlist accepts watchGlobally=false"
+    reloader_standalone_single_ns_watchglobally_false_ok_test
+    update_results "$?"
 
     display_final_results
     if [ "$num_failed" -ne 0 ]; then

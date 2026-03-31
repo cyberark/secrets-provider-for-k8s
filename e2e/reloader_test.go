@@ -482,6 +482,7 @@ func TestReloaderTriggersApplicationRestartInStandaloneModeSingleNamespace(t *te
 //   - The secrets-provider Deployment manages secrets across multiple namespaces via
 //     the namespaceAllowlist configuration
 //   - RBAC (ClusterRole/ClusterRoleBinding) is correctly configured for cross-namespace access
+//   - Reloader runs with watchGlobally enabled (required for multi-namespace allowlist + autoReload per chart schema)
 //   - Simultaneous Conjur secret updates in different namespaces are both synced by the provider
 //   - Reloader restarts workloads in each namespace independently when their secrets change
 //   - Each restarted workload reads its own updated secret value
@@ -520,6 +521,7 @@ func TestReloaderTriggersApplicationRestartInStandaloneModeMultiNamespace(t *tes
 			// Deploy secrets-provider in Standalone mode with multi-namespace support
 			chartPath, err := FillHelmChartForMode(cfg.Client(), "", DeployModeStandalone, map[string]string{
 				"RELOADER_ENABLED":             "true",
+				"RELOADER_WATCH_GLOBALLY":      "true",
 				"RELOADER_ENABLE_HA":           "false",
 				"RELOADER_DEPLOYMENT_REPLICAS": "1",
 				"NAMESPACE_ALLOWLIST":          namespaceAllowlist,
