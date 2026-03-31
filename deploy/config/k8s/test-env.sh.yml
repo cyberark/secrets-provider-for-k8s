@@ -25,17 +25,13 @@ fi
 # Build the image name, handling empty PULL_DOCKER_REGISTRY_PATH for KIND
 SECRETS_PROVIDER_IMAGE="${APP_NAMESPACE_NAME}/secrets-provider:latest"
 DEBIAN_IMAGE="debian:latest"  # For KIND, use standard debian from Docker Hub
-IMAGE_PULL_POLICY="Always"
+IMAGE_PULL_POLICY="IfNotPresent"
 
 if [[ -n "${PULL_DOCKER_REGISTRY_PATH:-}" ]]; then
   SECRETS_PROVIDER_IMAGE="${PULL_DOCKER_REGISTRY_PATH}/${APP_NAMESPACE_NAME}/secrets-provider:latest"
   DEBIAN_IMAGE="${PULL_DOCKER_REGISTRY_PATH}/${APP_NAMESPACE_NAME}/debian:latest"
 fi
 
-# KinD: images are docker-loaded into nodes; Never avoids kubelet registry pulls (TLS/proxy issues).
-if [[ "${KIND:-false}" = "true" ]]; then
-  IMAGE_PULL_POLICY="Never"
-fi
 
 cat << EOL
 ---

@@ -6,14 +6,11 @@ CONJUR_AUTHN_LOGIN=${CONJUR_AUTHN_LOGIN:-"host/conjur/authn-k8s/${AUTHENTICATOR_
 # Build image refs; empty PULL_DOCKER_REGISTRY_PATH (Kind/local) must not yield a leading "/" (InvalidImageName).
 SECRETS_PROVIDER_IMAGE="${APP_NAMESPACE_NAME}/secrets-provider:latest"
 DEBIAN_IMAGE="debian:latest"
-IMAGE_PULL_POLICY="Always"
+IMAGE_PULL_POLICY="IfNotPresent"
 
 if [[ -n "${PULL_DOCKER_REGISTRY_PATH:-}" ]]; then
   SECRETS_PROVIDER_IMAGE="${PULL_DOCKER_REGISTRY_PATH}/${APP_NAMESPACE_NAME}/secrets-provider:latest"
   DEBIAN_IMAGE="${PULL_DOCKER_REGISTRY_PATH}/${APP_NAMESPACE_NAME}/debian:latest"
-fi
-if [[ "${KIND:-false}" = "true" ]]; then
-  IMAGE_PULL_POLICY="Never"
 fi
 
 cat << EOL

@@ -332,7 +332,7 @@ setup_helm_environment() {
     num_namespaces=5
     export TEST_NAMESPACE_PREFIX="test-namespace"
     for i in $(seq 1 $num_namespaces); do
-      $cli_with_timeout create namespace "${TEST_NAMESPACE_PREFIX}-$i"
+      $cli_without_timeout create namespace "${TEST_NAMESPACE_PREFIX}-$i" || true
       create_k8s_secret_for_helm_deployment "${TEST_NAMESPACE_PREFIX}-$i"
     done
   fi
@@ -367,7 +367,7 @@ fill_helm_chart() {
     template_file="$helm_path/helm/secrets-provider/ci/test-values-standalone-template.yaml"
     if [[ "${DEV}" = "true" ]]; then
       namespace_allowlist="${APP_NAMESPACE_NAME}"
-      namespace_prefix="${TEST_NAMESPACE_PREFIX:-${NAMESPACE_PREFIX:-test-namespace}}"
+      namespace_prefix="${TEST_NAMESPACE_PREFIX:-test-namespace}"
       for i in $(seq 1 "${num_namespaces:-5}"); do
         namespace_allowlist="${namespace_allowlist},${namespace_prefix}-${i}"
       done

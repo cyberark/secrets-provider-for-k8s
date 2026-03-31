@@ -11,6 +11,20 @@ if [[ "${KIND}" = "true" ]]; then
   raw_name="${UNIQUE_TEST_ID:-secrets-provider-test}"
   KIND_CLUSTER_NAME="$(kind_sanitize_cluster_name "${raw_name}")"
   export KIND_CLUSTER_NAME
+
+  # Corporate CA for Docker Hub (and similar) pulls inside KinD nodes; hostPath must be on the Docker host.
+  if [[ -f /src/bin/build_utils ]]; then
+    # shellcheck source=/dev/null
+    . /src/bin/build_utils
+    retrieve_cyberark_ca_cert || true
+  fi
+  # HOST_REPO_ROOT is on the Docker host; inside this container the same tree is under /src.
+  if [[ -z "${CONJUR_CA_CERT_HOST_PATH:-}" && -n "${HOST_REPO_ROOT:-}" ]]; then
+    _ca="${HOST_REPO_ROOT}/build_ca_certificate/cyberark_root.crt"
+    if [[ -f /src/build_ca_certificate/cyberark_root.crt && -s /src/build_ca_certificate/cyberark_root.crt ]]; then
+      export CONJUR_CA_CERT_HOST_PATH="${_ca}"
+    fi
+  fi
   
   # Allow skipping cluster creation for diagnostics collection in existing cluster
   if [[ "${SKIP_KIND_CREATE:-false}" != "true" ]]; then
@@ -48,27 +62,6 @@ if [[ "${KIND}" = "true" ]]; then
 
   # Now wait for the cluster to be ready using the adjusted kubeconfig
   kind_wait_ready "${KUBECONFIG}" 180
-  
-  # Load Conjur appliance image if needed (not OSS or Cloud)
-  if [[ "${CONJUR_DEPLOYMENT}" != "oss" && "${CONJUR_DEPLOYMENT}" != "cloud" && -n "${CONJUR_APPLIANCE_IMAGE:-}" ]]; then
-    echo "Loading ${CONJUR_APPLIANCE_IMAGE} into Kind cluster ${KIND_CLUSTER_NAME}..."
-    # Verify image exists
-    if ! docker image inspect "${CONJUR_APPLIANCE_IMAGE}" > /dev/null 2>&1; then
-      echo "Image ${CONJUR_APPLIANCE_IMAGE} not found in Docker daemon, attempting to pull..."
-      docker pull "${CONJUR_APPLIANCE_IMAGE}"
-    fi
-    
-    kind_load_image "${KIND_CLUSTER_NAME}" "${CONJUR_APPLIANCE_IMAGE}"
-    
-    # Also tag the image with the expected name that kubernetes-conjur-deploy will use
-    # Format: conjur-appliance:<namespace>
-    expected_tag="conjur-appliance:${CONJUR_NAMESPACE_NAME}"
-    echo "Tagging image as ${expected_tag} for kubernetes-conjur-deploy..."
-    docker tag "${CONJUR_APPLIANCE_IMAGE}" "${expected_tag}"
-    kind_load_image "${KIND_CLUSTER_NAME}" "${expected_tag}"
-    
-    echo "Successfully loaded ${CONJUR_APPLIANCE_IMAGE}"
-  fi
   
   # Validate kubeconfig connectivity after rewrite
   if ! kubectl --kubeconfig="${KUBECONFIG}" cluster-info > /dev/null 2>&1; then

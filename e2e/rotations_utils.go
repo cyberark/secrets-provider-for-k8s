@@ -42,14 +42,7 @@ func RestoreTestSecret(client klient.Client) error {
 }
 
 func CreateTestingDirectories(client klient.Client) error {
-	// create 'generated' directory for generated policies (current /generated is .gitignored)
-	cmd := exec.Command("mkdir", "../deploy/policy/generated")
-	err := cmd.Run()
-	if err != nil {
-		return fmt.Errorf("failed to create 'generated' directory: %v", err)
-	}
-
-	// create 'policy' directory in conjur
+	// create temporary in-pod policy directory
 	pod, err := FetchPodWithLabelSelector(client, ConjurNamespace(), ConjurCLILabelSelector)
 	if err != nil {
 		return fmt.Errorf("failed to fetch cli pod. %v", err)
@@ -65,13 +58,6 @@ func CreateTestingDirectories(client klient.Client) error {
 }
 
 func DeleteTestingDirectories(client klient.Client) error {
-	// delete 'generated' directory for generated policies (current /generated is .gitignored)
-	cmd := exec.Command("rm", "-rf", "../deploy/policy/generated")
-	err := cmd.Run()
-	if err != nil {
-		return fmt.Errorf("failed to remove 'generated' directory: %v", err)
-	}
-
 	// delete 'policy' directory in conjur
 	pod, err := FetchPodWithLabelSelector(client, ConjurNamespace(), ConjurCLILabelSelector)
 	if err != nil {
@@ -95,13 +81,14 @@ func GeneratePolicyFromTemplate(client klient.Client, filename string) (string, 
 
 	// set output file
 	fileName := fmt.Sprintf("%s.%s.yml", SecretsProviderNamespace(), filename)
-	filePath := filepath.Join("..", "deploy", "policy", "generated", fileName)
+	file, err := os.CreateTemp("", fileName+".")
 
 	// generate policy
-	file, err := os.Create(filePath)
 	if err != nil {
 		return "", "", fmt.Errorf("failed to create file: %v", err)
 	}
+	defer file.Close()
+	filePath := file.Name()
 
 	// redirect template contents to policy
 	cmd.Stdout = file
@@ -204,6 +191,7 @@ func LoadPolicy(client klient.Client, filename string) error {
 	if err != nil {
 		return err
 	}
+	defer os.Remove(src)
 
 	// update root with policy
 	var stdout, stderr bytes.Buffer

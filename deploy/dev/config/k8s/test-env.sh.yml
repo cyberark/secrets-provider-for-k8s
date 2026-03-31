@@ -3,13 +3,9 @@ set -euo pipefail
 
 LABELED_SECRETS=${LABELED_SECRETS:-"false"}
 
-# run_with_summon sets CONJUR_APP_IMAGE for KinD/CI (e.g. app-ns/secrets-provider); local docker dev uses secrets-provider-for-k8s:latest
-SECRETS_PROVIDER_DEV_IMAGE="${CONJUR_APP_IMAGE:-secrets-provider-for-k8s:latest}"
-if [[ "${SECRETS_PROVIDER_DEV_IMAGE}" != *:* ]]; then
-  SECRETS_PROVIDER_DEV_IMAGE="${SECRETS_PROVIDER_DEV_IMAGE}:latest"
-fi
-# Side-loaded or local-tagged image only; Never avoids registry pulls for names like app-ns/secrets-provider.
-SECRETS_PROVIDER_PULL_POLICY="Never"
+# defaults to local image name when a deploy script does not set a specific image path
+SECRETS_PROVIDER_IMAGE="${SECRETS_PROVIDER_IMAGE:-secrets-provider-for-k8s:latest}"
+SECRETS_PROVIDER_PULL_POLICY="IfNotPresent"
 
 # dockerpullsecret is created only in test_case_setup (DEV=false && KIND!=true). Omit on KinD so DEV+docker+kind works.
 IMAGE_PULL_SECRETS_YAML=""
@@ -21,7 +17,7 @@ TEST_APP_IMAGE="debian"
 TEST_APP_PULL_POLICY_YAML=""
 if [[ "${KIND:-false}" = "true" ]]; then
   TEST_APP_IMAGE="debian:latest"
-  TEST_APP_PULL_POLICY_YAML=$'        imagePullPolicy: Never\n'
+  TEST_APP_PULL_POLICY_YAML=$'        imagePullPolicy: IfNotPresent\n'
 fi
 
 cat << EOL
@@ -105,7 +101,7 @@ ${TEST_APP_PULL_POLICY_YAML}        name: test-app
                 name: test-k8s-secret-with-templates
                 key: example.1
       initContainers:
-      - image: '${SECRETS_PROVIDER_DEV_IMAGE}'
+      - image: '${SECRETS_PROVIDER_IMAGE}'
         imagePullPolicy: ${SECRETS_PROVIDER_PULL_POLICY}
         name: cyberark-secrets-provider-for-k8s
         env:

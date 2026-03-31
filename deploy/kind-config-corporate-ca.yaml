@@ -1,0 +1,14 @@
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+name: CLUSTER_NAME_PLACEHOLDER
+nodes:
+  - role: control-plane
+    extraMounts:
+      # Mount CyberArk Root CA so Kind nodes can pull images through corporate proxy
+      - hostPath: CONJUR_CA_CERT_HOST_PATH_PLACEHOLDER
+        containerPath: /etc/containerd/certs.d/docker.io/cyberark_root.crt
+        readOnly: true
+containerdConfigPatches:
+  - |-
+    [plugins."io.containerd.grpc.v1.cri".registry]
+      config_path = "/etc/containerd/certs.d"

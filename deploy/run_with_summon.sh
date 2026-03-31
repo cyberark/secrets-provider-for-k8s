@@ -74,15 +74,15 @@ if [[ "${DEV}" = "false" && "${KIND}" != "true" ]]; then
   docker tag debian:latest "${DOCKER_REGISTRY_PATH}/${APP_NAMESPACE_NAME}/debian:latest"
   docker push "${DOCKER_REGISTRY_PATH}/${APP_NAMESPACE_NAME}/debian:latest"
   
-  # Set CONJUR_APP_IMAGE for deployment manifests
-  export CONJUR_APP_IMAGE="${DOCKER_REGISTRY_PATH}/${APP_NAMESPACE_NAME}/secrets-provider"
+  # Set image name for deployment manifests
+  export SECRETS_PROVIDER_IMAGE="${DOCKER_REGISTRY_PATH}/${APP_NAMESPACE_NAME}/secrets-provider"
 else
   # Local dev or Kind - tag locally (explicit :latest matches dev manifests / kubelet lookup)
   docker tag "${SP_SRC}" \
     "${APP_NAMESPACE_NAME}/secrets-provider:latest"
 
-  # Set CONJUR_APP_IMAGE for deployment manifests (no registry prefix for Kind/dev)
-  export CONJUR_APP_IMAGE="${APP_NAMESPACE_NAME}/secrets-provider"
+  # Set image name for deployment manifests (no registry prefix for Kind/dev)
+  export SECRETS_PROVIDER_IMAGE="${APP_NAMESPACE_NAME}/secrets-provider"
 fi
 
 # For Kind clusters, load the image directly
@@ -90,9 +90,7 @@ if [[ "${KIND}" = "true" ]]; then
   export PATH="${PATH}:/root/go/bin"
   source "$(dirname "${BASH_SOURCE[0]}")/kind_helpers.sh"
   kind_cluster="${KIND_CLUSTER_NAME:-kind}"
-  docker pull debian:latest
   kind_load_image "${kind_cluster}" "${APP_NAMESPACE_NAME}/secrets-provider:latest"
-  kind_load_image "${kind_cluster}" "debian:latest"
 fi
 
 fetch_ssl_from_conjur

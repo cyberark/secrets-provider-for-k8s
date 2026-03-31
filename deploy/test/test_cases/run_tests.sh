@@ -65,7 +65,9 @@ build_e2e_failure_report() {
     echo ""
     echo "Top failure signatures:"
     local sig_count
-    sig_count=$(grep -cE -- "--- FAIL:|unable to upgrade connection|container not found|timed out waiting|context deadline exceeded|i/o timeout|connection refused|couldn't find key|secret .* not found|Error from server \(NotFound\)|No resources found" "$test_log_file" 2>/dev/null || echo 0)
+    if ! sig_count=$(grep -cE -- "--- FAIL:|unable to upgrade connection|container not found|timed out waiting|context deadline exceeded|i/o timeout|connection refused|couldn't find key|secret .* not found|Error from server \(NotFound\)|No resources found" "$test_log_file" 2>/dev/null); then
+      sig_count=0
+    fi
     grep -nE -- "--- FAIL:|unable to upgrade connection|container not found|timed out waiting|context deadline exceeded|i/o timeout|connection refused|couldn't find key|secret .* not found|Error from server \(NotFound\)|No resources found" "$test_log_file" | head -n 80 || true
     if [[ "$sig_count" -gt 80 ]]; then
       echo "...truncated (${sig_count} total matches, showing first 80)"
@@ -102,13 +104,11 @@ deploy_env
 test_output_dir="${_REPO_ROOT}/deploy/output"
 export TEST_OUTPUT_DIR="$test_output_dir"
 
-pushd /secrets-provider-for-k8s
+pushd "${_REPO_ROOT}"
 mkdir -p "$test_output_dir"
 test_log_file="$test_output_dir/e2e-go-test.log"
 summary_file="$test_output_dir/e2e-analysis-summary.txt"
 signatures_file="$test_output_dir/e2e-failure-signatures.txt"
-
-pushd "${_REPO_ROOT}"
 
 announce "Building Helm chart dependencies"
 if ! command -v helm >/dev/null 2>&1; then
