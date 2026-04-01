@@ -2,6 +2,12 @@
 set -euo pipefail
 IFS=$'\n\t'
 
+# Repo is bind-mounted at /src with host ownership; Git 2.35+ treats that as dubious unless
+# marked safe. Cleanup scripts that invoke git would otherwise fail inside this container.
+if command -v git >/dev/null 2>&1; then
+  git config --global --add safe.directory /src 2>/dev/null || true
+fi
+
 source ./kind_helpers.sh || true
 
 if [[ "${KIND}" = "true" ]]; then

@@ -39,3 +39,12 @@ environment:
     sslCertificate:
       value: ""
       name: {{ SECRETS_PROVIDER_SSL_CONFIG_MAP }}
+
+autoReload:
+  enabled: {{ RELOADER_ENABLED }}
+
+reloader:
+  reloader:
+    deployment:
+      replicas: {{ RELOADER_DEPLOYMENT_REPLICAS }}
+    enableHA: {{ RELOADER_ENABLE_HA }}

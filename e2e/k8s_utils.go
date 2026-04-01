@@ -225,8 +225,13 @@ func WaitJobCompleted(client klient.Client, job *batchv1.Job) error {
 
 // GetDeployment retrieves a Deployment from the secrets provider namespace by name.
 func GetDeployment(client klient.Client, deploymentName string) (*appsv1.Deployment, error) {
+	return GetDeploymentInNamespace(client, deploymentName, SecretsProviderNamespace())
+}
+
+// GetDeploymentInNamespace retrieves a Deployment from the specified namespace by name.
+func GetDeploymentInNamespace(client klient.Client, deploymentName string, namespace string) (*appsv1.Deployment, error) {
 	var deployment appsv1.Deployment
-	err := client.Resources().Get(context.TODO(), deploymentName, SecretsProviderNamespace(), &deployment)
+	err := client.Resources(namespace).Get(context.TODO(), deploymentName, namespace, &deployment)
 	if err != nil {
 		return &deployment, err
 	}
@@ -454,8 +459,8 @@ func GetConjurSecret(client klient.Client, varID string) (string, error) {
 	return stdout.String(), nil
 }
 
-// RunCommandInSecretsProviderPod executes a command in the secrets provider pod, retrying on transient errors.
-func RunCommandInSecretsProviderPod(client klient.Client, labelSelector string, container string, command []string, stdout *bytes.Buffer, stderr *bytes.Buffer) error {
+// RunCommandInPod executes a command in a pod in the given namespace matching the label selector, retrying on transient errors.
+func RunCommandInPod(client klient.Client, namespace string, labelSelector string, container string, command []string, stdout *bytes.Buffer, stderr *bytes.Buffer) error {
 	var lastExecError error
 	for attemptNumber := 1; attemptNumber <= 10; attemptNumber++ {
 		if stdout != nil {
@@ -465,14 +470,14 @@ func RunCommandInSecretsProviderPod(client klient.Client, labelSelector string, 
 			stderr.Reset()
 		}
 
-		pod, fetchError := FetchPodWithLabelSelector(client, SecretsProviderNamespace(), labelSelector)
+		pod, fetchError := FetchPodWithLabelSelector(client, namespace, labelSelector)
 		if fetchError != nil {
-			lastExecError = fmt.Errorf("failed to fetch cli pod: %v", fetchError)
+			lastExecError = fmt.Errorf("failed to fetch pod: %v", fetchError)
 			time.Sleep(2 * time.Second)
 			continue
 		}
 
-		execError := client.Resources(SecretsProviderNamespace()).ExecInPod(context.TODO(), SecretsProviderNamespace(), pod.Name, container, command, stdout, stderr)
+		execError := client.Resources(namespace).ExecInPod(context.TODO(), namespace, pod.Name, container, command, stdout, stderr)
 		if execError == nil {
 			return nil
 		}
@@ -489,7 +494,12 @@ func RunCommandInSecretsProviderPod(client klient.Client, labelSelector string, 
 		return lastExecError
 	}
 
-	return fmt.Errorf("failed to execute command in secrets provider pod for unknown reason")
+	return fmt.Errorf("failed to execute command in pod for unknown reason")
+}
+
+// RunCommandInSecretsProviderPod executes a command in the secrets provider pod, retrying on transient errors.
+func RunCommandInSecretsProviderPod(client klient.Client, labelSelector string, container string, command []string, stdout *bytes.Buffer, stderr *bytes.Buffer) error {
+	return RunCommandInPod(client, SecretsProviderNamespace(), labelSelector, container, command, stdout, stderr)
 }
 
 func isTransientExecError(execError error, stderrText string) bool {
@@ -621,6 +631,33 @@ func WaitForSecretValue(client klient.Client, labelSelector string, container st
 			lastStderr = stderr.String()
 
 			// Check if command succeeded and output contains the expected value
+			if err == nil && strings.Contains(lastStdout, expectedValue) {
+				return nil
+			}
+		}
+	}
+}
+
+// WaitForSecretValueInNamespace polls a pod in the given namespace to check if an env var has the expected value.
+func WaitForSecretValueInNamespace(client klient.Client, namespace string, labelSelector string, container string, envVar string, expectedValue string, timeout time.Duration) error {
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	ticker := time.NewTicker(2 * time.Second)
+	defer ticker.Stop()
+
+	var lastStdout, lastStderr string
+	for {
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("timeout waiting for %s to contain %s in namespace %s. Last output: %q (stderr: %q)", envVar, expectedValue, namespace, lastStdout, lastStderr)
+		case <-ticker.C:
+			var stdout, stderr bytes.Buffer
+			command := []string{"sh", "-c", fmt.Sprintf("printenv | grep %s || true", envVar)}
+			err := RunCommandInPod(client, namespace, labelSelector, container, command, &stdout, &stderr)
+			lastStdout = stdout.String()
+			lastStderr = stderr.String()
+
 			if err == nil && strings.Contains(lastStdout, expectedValue) {
 				return nil
 			}

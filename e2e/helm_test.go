@@ -69,7 +69,7 @@ func TestHelmJobDeploysSuccessfully(t *testing.T) {
 		}).
 		Teardown(func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
 			// clean up job and test app
-			err := RemoveJobWithHelm(cfg, "secrets-provider")
+			err := RemoveHelmRelease(cfg, "secrets-provider")
 			assert.Nil(t, err)
 
 			return ctx
@@ -138,10 +138,10 @@ func TestMultipleHelmJobsMultipleSecret(t *testing.T) {
 			assert.Nil(t, err)
 
 			// clean up jobs
-			err = RemoveJobWithHelm(cfg, "secrets-provider")
+			err = RemoveHelmRelease(cfg, "secrets-provider")
 			assert.Nil(t, err)
 
-			err = RemoveJobWithHelm(cfg, "another-secrets-provider")
+			err = RemoveHelmRelease(cfg, "another-secrets-provider")
 			assert.Nil(t, err)
 
 			// clean up test apps
@@ -223,10 +223,10 @@ func TestMultipleHelmJobsSameSecret(t *testing.T) {
 		}).
 		Teardown(func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
 			// clean up jobs
-			err := RemoveJobWithHelm(cfg, "secrets-provider")
+			err := RemoveHelmRelease(cfg, "secrets-provider")
 			assert.Nil(t, err)
 
-			err = RemoveJobWithHelm(cfg, "another-secrets-provider")
+			err = RemoveHelmRelease(cfg, "another-secrets-provider")
 			assert.Nil(t, err)
 
 			// clean up test app
@@ -290,10 +290,10 @@ func TestMultipleHelmJobsSameServiceAccount(t *testing.T) {
 		}).
 		Teardown(func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
 			// clean up jobs
-			err := RemoveJobWithHelm(cfg, "secrets-provider")
+			err := RemoveHelmRelease(cfg, "secrets-provider")
 			assert.Nil(t, err)
 
-			err = RemoveJobWithHelm(cfg, "another-secrets-provider")
+			err = RemoveHelmRelease(cfg, "another-secrets-provider")
 			assert.Nil(t, err)
 
 			// clean up test app
@@ -393,7 +393,7 @@ func TestHelmRbacDefaultsSuccessful(t *testing.T) {
 		}).
 		Teardown(func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
 			// clean up job
-			err := RemoveJobWithHelm(cfg, "secrets-provider")
+			err := RemoveHelmRelease(cfg, "secrets-provider")
 			assert.Nil(t, err)
 
 			return ctx
@@ -439,7 +439,7 @@ func TestHelmServiceAccountExists(t *testing.T) {
 		}).
 		Teardown(func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
 			// clean up job
-			err := RemoveJobWithHelm(cfg, "secrets-provider")
+			err := RemoveHelmRelease(cfg, "secrets-provider")
 			assert.Nil(t, err)
 
 			// delete resources created from CreateK8sRole
@@ -487,7 +487,7 @@ func TestHelmValidateK8sSecret(t *testing.T) {
 		}).
 		Teardown(func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
 			// clean up job
-			err := RemoveJobWithHelm(cfg, "secrets-provider")
+			err := RemoveHelmRelease(cfg, "secrets-provider")
 			assert.Nil(t, err)
 
 			return ctx
@@ -561,7 +561,7 @@ func TestHelmDefaultRetrySuccessful(t *testing.T) {
 		}).
 		Teardown(func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
 			// clean up job
-			err := RemoveJobWithHelm(cfg, "secrets-provider")
+			err := RemoveHelmRelease(cfg, "secrets-provider")
 			assert.Nil(t, err)
 
 			return ctx
@@ -624,7 +624,7 @@ func TestHelmOverrideDefaultRetrySuccessful(t *testing.T) {
 		}).
 		Teardown(func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
 			// clean up job
-			err := RemoveJobWithHelm(cfg, "secrets-provider")
+			err := RemoveHelmRelease(cfg, "secrets-provider")
 			assert.Nil(t, err)
 
 			return ctx
@@ -765,7 +765,7 @@ func TestHelmStandaloneMultipleSecretsMultipleNamespaces(t *testing.T) {
 			return ctx
 		}).
 		Teardown(func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
-			err := RemoveJobWithHelm(cfg, releaseName)
+			err := RemoveHelmRelease(cfg, releaseName)
 			if err != nil {
 				fmt.Printf("WARN: helm uninstall %s: %s\n", releaseName, err)
 			}

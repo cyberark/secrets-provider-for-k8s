@@ -62,6 +62,8 @@ main() {
   # in the pod
   set_variable data/secrets/test_secret "some-secret"
   set_variable data/secrets/another_test_secret "some-secret"
+  set_variable data/secrets/test_secret_1 "some-secret"
+  set_variable data/secrets/test_secret_2 "some-secret"
   set_variable data/secrets/ssh_key "\"ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEA879BJGYlPTLIuc9/R5MYiN4yc/YiCLcdBpSdzgK9Dt0Bkfe3rSz5cPm4wmehdE7GkVFXrBJ2YHqPLuM1yx1AUxIebpwlIl9f/aUHOts9eVnVh4NztPy0iSU/Sv0b2ODQQvcy2vYcujlorscl8JjAgfWsO3W4iGEe6QwBpVomcME8IU35v5VbylM9ORQa6wvZMVrPECBvwItTY8cPWH3MGZiK/74eHbSLKA4PY3gM4GHI450Nie16yggEg2aTQfWA1rry9JYWEoHS9pJ1dnLqZU3k/8OWgqJrilwSoC5rGjgp93iu0H8T6+mEHGRQe84Nk1y5lESSWIbn6P636Bl3uQ== your@email.com\""
   set_variable "data/secrets/json_object_secret" "\"{\"auths\":{\"someurl\":{\"auth\":\"sometoken=\"}}}\""
   set_variable "data/secrets/var with spaces" "some-secret"

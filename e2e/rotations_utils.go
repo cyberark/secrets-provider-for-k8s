@@ -42,7 +42,15 @@ func RestoreTestSecret(client klient.Client) error {
 }
 
 func CreateTestingDirectories(client klient.Client) error {
-	// create temporary in-pod policy directory
+	// create 'generated' directory for generated policies (current /generated is .gitignored).
+	// Use mkdir -p so it succeeds even if a parallel test run already created it.
+	cmd := exec.Command("mkdir", "-p", "../deploy/policy/generated")
+	err := cmd.Run()
+	if err != nil {
+		return fmt.Errorf("failed to create 'generated' directory: %v", err)
+	}
+
+	// create temporary in-pod policy directory in conjur
 	pod, err := FetchPodWithLabelSelector(client, ConjurNamespace(), ConjurCLILabelSelector)
 	if err != nil {
 		return fmt.Errorf("failed to fetch cli pod. %v", err)
@@ -58,6 +66,19 @@ func CreateTestingDirectories(client klient.Client) error {
 }
 
 func DeleteTestingDirectories(client klient.Client) error {
+	// Remove only the generated policy files for this namespace so parallel test
+	// runs sharing the same mounted filesystem do not interfere with each other.
+	pattern := filepath.Join("..", "deploy", "policy", "generated", SecretsProviderNamespace()+".*")
+	matches, err := filepath.Glob(pattern)
+	if err != nil {
+		return fmt.Errorf("failed to glob generated policy files: %v", err)
+	}
+	for _, match := range matches {
+		if removeErr := os.Remove(match); removeErr != nil && !os.IsNotExist(removeErr) {
+			return fmt.Errorf("failed to remove generated policy file %s: %v", match, removeErr)
+		}
+	}
+
 	// delete 'policy' directory in conjur
 	pod, err := FetchPodWithLabelSelector(client, ConjurNamespace(), ConjurCLILabelSelector)
 	if err != nil {
