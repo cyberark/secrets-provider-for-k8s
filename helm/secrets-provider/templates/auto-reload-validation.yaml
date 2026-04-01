@@ -1,0 +1,8 @@
+{{- /* Fail fast when Reloader cannot work with namespace-scoped watch (same rules as values.schema.json). */}}
+{{- if .Values.autoReload.enabled }}
+{{- $al := trim (default "" .Values.standalone.namespaceAllowlist) }}
+{{- $multiNs := or (eq $al "*") (contains "," $al) }}
+{{- if and $multiNs (not .Values.reloader.reloader.watchGlobally) }}
+{{- fail "Reloader with autoReload: set reloader.reloader.watchGlobally to true when standalone.namespaceAllowlist is '*' or comma-separated (multiple namespaces). Example: --set reloader.reloader.watchGlobally=true" }}
+{{- end }}
+{{- end }}

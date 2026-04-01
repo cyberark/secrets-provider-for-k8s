@@ -32,6 +32,33 @@
           }
         }
       }
+    },
+    {
+      "if": {
+        "allOf": [
+          { "properties": { "autoReload": { "properties": { "enabled": { "const": true } } } } },
+          {
+            "anyOf": [
+              { "properties": { "standalone": { "properties": { "namespaceAllowlist": { "pattern": "^\\s*\\*\\s*$" } } } } },
+              { "properties": { "standalone": { "properties": { "namespaceAllowlist": { "pattern": ".*,.*" } } } } }
+            ]
+          }
+        ]
+      },
+      "then": {
+        "properties": {
+          "reloader": {
+            "properties": {
+              "reloader": {
+                "properties": {
+                  "watchGlobally": { "const": true }
+                },
+                "required": ["watchGlobally"]
+              }
+            }
+          }
+        }
+      }
     }
   ],
   "properties": {
@@ -306,12 +333,28 @@
             "tag": {
               "type": "string",
               "minLength": 1,
-              "description": "Reloader container image tag"
+              "description": "Optional override; default tag is defined by the Reloader sub-chart"
+            },
+            "digest": {
+              "type": "string",
+              "pattern": "^sha256:[a-f0-9]{64}$",
+              "description": "Immutable OCI digest for the Reloader image (pin supply chain)"
             },
             "pullPolicy": {
               "type": "string",
               "enum": ["Always", "IfNotPresent", "Never"],
               "description": "Container image pull policy"
+            }
+          }
+        },
+        "imageDigestReference": {
+          "type": "object",
+          "description": "Full OCI pull reference (registry/repository:tag) that image.digest was resolved against; update when mirror or tag changes",
+          "properties": {
+            "pullReference": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Canonical image reference for the pinned digest, e.g. docker.io/stakater/reloader:v1.4.13"
             }
           }
         },
@@ -332,6 +375,10 @@
             "enableHA": {
               "type": "boolean",
               "description": "Enable leadership election for running multiple replicas"
+            },
+            "watchGlobally": {
+              "type": "boolean",
+              "description": "When false, Reloader watches only the release namespace. Must be true when standalone.namespaceAllowlist is '*' or comma-separated (more than one namespace)."
             },
             "reloadStrategy": {
               "type": "string",

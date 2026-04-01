@@ -126,11 +126,26 @@ autoReload:
 
 # OPTIONAL: Reloader subchart configuration.
 # Only deployed if autoReload.enabled is set to true.
+#
+# reloader.reloader.watchGlobally defaults to false (namespace-scoped Reloader,
+# least privilege). When standalone.namespaceAllowlist is "*" or comma-separated
+# (more than one namespace), set watchGlobally to true so Reloader can see secrets
+# and workloads outside the release namespace. Schema + templates enforce this when
+# autoReload is enabled (same allowlist shape as ClusterRole in standalone mode).
 reloader:
   # Reloader container image configuration
   image:
     repository: stakater/reloader
+    # When image.digest is set, the subchart renders repository@digest (immutable pin).
+    # After Chart.yaml bump: helm dependency update in helm/secrets-provider, then ./bin/reloader-image-digest.sh sync (CONTRIBUTING.md)
+    digest: sha256:7355e1b4d6832888c8e53a21d40a7526d6eabb2164b1a32e43b1dd97520f1038
     pullPolicy: IfNotPresent
+
+  # OCI pull reference this digest was computed for (registry/repository:tag). Kubernetes may
+  # resolve short names (e.g. stakater/reloader) to docker.io; this field states the exact ref used
+  # when pinning. Update when changing mirrors, registry, or the Reloader sub-chart image tag.
+  imageDigestReference:
+    pullReference: docker.io/stakater/reloader:v1.4.13
 
   # Reloader-specific configuration (maps to subchart's reloader.* values)
   reloader:
@@ -145,6 +160,11 @@ reloader:
     # Set to true to enable leadership election allowing you to run multiple replicas.
     # This MUST be true if deployment.replicas > 1.
     enableHA: false
+
+    # When false, Reloader only watches the release namespace (Stakater default was cluster-wide).
+    # If your allowlist is "*" or comma-separated and you enabled autoReload, you must set this to true
+    # (chart blocks install otherwise so this is not forgotten).
+    watchGlobally: false
 
     # Use 'annotations' strategy: Reloader updates a reloader.stakater.com/last-reloaded-from
     # annotation on the workload to trigger a rolling restart.

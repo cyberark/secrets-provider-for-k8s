@@ -236,6 +236,30 @@ pipeline {
           }
         }
 
+        // Ensures values.yaml digest matches the registry for the locked Reloader chart. Relies on
+        // helm/secrets-provider/charts/* from the preceding Helm chart tests stage (helm dependency update there).
+        // RELEASE: fail the build on mismatch. Non-RELEASE: stage UNSTABLE on mismatch; overall build stays SUCCESS (green).
+        stage('Verify Reloader image digest') {
+          steps {
+            script {
+              if (MODE == "RELEASE") {
+                INFRAPOOL_EXECUTORV2_AGENT_0.agentSh './bin/reloader-image-digest.sh verify'
+              } else {
+                catchError(buildResult: 'SUCCESS', stageResult: 'UNSTABLE') {
+                  def rc = INFRAPOOL_EXECUTORV2_AGENT_0.agentSh(
+                    returnStatus: true,
+                    script: './bin/reloader-image-digest.sh verify'
+                  )
+                  if (rc != 0) {
+                    echo "Reloader image digest verify failed (exit ${rc}). Stage UNSTABLE; overall build SUCCESS. Run ./bin/reloader-image-digest.sh sync before release."
+                    error("Reloader image digest verify failed (exit ${rc})")
+                  }
+                }
+              }
+            }
+          }
+        }
+
         stage('Package helm chart') {
           steps {
             script {
