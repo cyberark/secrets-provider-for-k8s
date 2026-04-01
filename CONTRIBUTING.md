@@ -23,6 +23,7 @@ Thanks for your interest in the CyberArk Secrets Provider for Kubernetes. We wel
       - [Unit testing](#unit-testing)
       - [Integration testing](#integration-testing)
       - [Tracing](#tracing)
+    - [Helm chart: Reloader image digest](#helm-chart-reloader-image-digest)
   - [Releases](#releases)
     - [Pre-requisites](#pre-requisites)
     - [Update the version, changelog, and notices](#update-the-version-changelog-and-notices)
@@ -208,6 +209,47 @@ To view tracing output from Secrets Provider, you can enable Jaeger tracing.
 
     Now reload the dev environment with `./bin/start --dev --reload` and optionally run
     the e2e tests with `go test -timeout 0 -v ./e2e --tags=e2e`.
+
+### Helm chart: Reloader image digest
+
+To update the Reloader image used by this chart, maintainers must keep two fields in sync in `helm/secrets-provider/values.yaml`:
+
+| Field                                      | Purpose                                                        |
+|---------------------------------------------|----------------------------------------------------------------|
+| `reloader.image.digest`                     | Image digest (`sha256:...`) for the desired image.             |
+| `reloader.imageDigestReference.pullReference` | Complete source reference (`registry/repository:tag`) matching the digest. |
+
+#### How to update
+
+1. Ensure Docker with `buildx` and the Helm CLI are installed.
+2. After editing `helm/secrets-provider/Chart.yaml`, run from the repo root:
+
+   ```bash
+   helm repo add stakater https://stakater.github.io/stakater-charts 2>/dev/null || true
+   ( cd helm/secrets-provider && helm dependency update )
+   ./bin/reloader-image-digest.sh sync
+   ```
+
+   This will automatically update `.digest` and `.pullReference` in `values.yaml` using the locked chart and current image settings.  
+   If you’re using a private registry, set `reloader.image.repository` before running the sync command.
+
+#### Manual/inspect mode
+
+- To inspect or verify the configured digest and reference:
+  - Run `./bin/reloader-image-digest.sh print` or `verify` after `helm dependency build`.
+  - The `verify` command exits 2 if Docker cannot access the registry.
+
+#### CI and tests
+
+- Jenkins runs `verify` after Helm chart tests. Release builds fail if verification fails; other builds may mark only the digest-check stage as unstable.
+- Test overall integration with `helm/secrets-provider/tests/test-schema`, `tests/test-unit`, or `bin/test_helm`.
+
+#### Pinning overview
+
+- `Chart.lock` pins the exact Helm sub-chart and version.
+- `values.yaml` pins the precise container image (by digest and full reference), so tag changes upstream don’t affect which image is deployed.
+
+In short: Helm sub-chart versions are locked in `Chart.lock`, while the container image is locked in `values.yaml`.
 
 ## Releases
 

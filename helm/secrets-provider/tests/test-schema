@@ -249,7 +249,8 @@ function reloader_image_test() {
         --set "$DEFAULT_K8S_SECRETS_SETTING" \
         --set "autoReload.enabled=true" \
         --set "reloader.image.repository=$1" \
-        --set "reloader.image.tag=$2"
+        --set "reloader.image.tag=$2" \
+        --set "reloader.image.digest=$3"
 }
 
 function reloader_image_pull_policy_test() {
@@ -343,6 +344,31 @@ function reloader_application_multins_allowlist_watchglobally_false_rejected_tes
 }
 
 # Schema can be skipped (e.g. --skip-schema-validation); templates/auto-reload-validation.yaml must still fail.
+# Reloader deployment must use an immutable digest pin (not tag-only). CI also runs bin/reloader-image-digest.sh verify against the registry.
+function reloader_deployment_uses_digest_pin_test() {
+    local out
+    out=$(helm template rel-test . \
+        --set "$DEFAULT_ACCOUNT_SETTING" \
+        --set "$DEFAULT_APPLIANCE_URL_SETTING" \
+        --set "$DEFAULT_AUTHN_LOGIN_SETTING" \
+        --set "$DEFAULT_AUTHN_URL_SETTING" \
+        --set "$DEFAULT_SSL_CERT_SETTING" \
+        --set "$DEFAULT_K8S_SECRETS_SETTING" \
+        --set "autoReload.enabled=true" \
+        --show-only charts/reloader/templates/deployment.yaml \
+        2>&1) || {
+        echo "helm template --show-only Reloader deployment failed" >&2
+        echo "$out" >&2
+        return 1
+    }
+    if ! echo "$out" | grep -qE 'image:.*@sha256:[a-f0-9]{64}'; then
+        echo "expected Reloader Deployment container image to reference @sha256:<64-hex>" >&2
+        echo "$out" >&2
+        return 1
+    fi
+    return 0
+}
+
 function reloader_misconfig_skip_schema_triggers_template_fail_test() {
     local out rc
     set +e
@@ -537,16 +563,20 @@ function main() {
     reloader_replica_count_test 2 false
     update_results "$?" "$EXPECT_FAILURE"
 
+    announce "Reloader Deployment uses a digest-pinned container image"
+    reloader_deployment_uses_digest_pin_test
+    update_results "$?"
+
     announce "Valid Reloader image configuration is accepted"
-    reloader_image_test "stakater/reloader" "v1.0.81"
+    reloader_image_test "stakater/reloader" "v1.0.81" "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
     update_results "$?" 
 
     announce "Null-string Reloader image repository is rejected"
-    reloader_image_test "" "v1.0.81"
+    reloader_image_test "" "v1.0.81" "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
     update_results "$?" "$EXPECT_FAILURE"
 
     announce "Null-string Reloader image tag is rejected"
-    reloader_image_test "stakater/reloader" ""
+    reloader_image_test "stakater/reloader" "" "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
     update_results "$?" "$EXPECT_FAILURE"
 
     announce "Valid Reloader image pull policy is accepted"

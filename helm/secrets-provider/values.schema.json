@@ -333,12 +333,28 @@
             "tag": {
               "type": "string",
               "minLength": 1,
-              "description": "Reloader container image tag"
+              "description": "Optional override; default tag is defined by the Reloader sub-chart"
+            },
+            "digest": {
+              "type": "string",
+              "pattern": "^sha256:[a-f0-9]{64}$",
+              "description": "Immutable OCI digest for the Reloader image (pin supply chain)"
             },
             "pullPolicy": {
               "type": "string",
               "enum": ["Always", "IfNotPresent", "Never"],
               "description": "Container image pull policy"
+            }
+          }
+        },
+        "imageDigestReference": {
+          "type": "object",
+          "description": "Full OCI pull reference (registry/repository:tag) that image.digest was resolved against; update when mirror or tag changes",
+          "properties": {
+            "pullReference": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Canonical image reference for the pinned digest, e.g. docker.io/stakater/reloader:v1.4.13"
             }
           }
         },
