@@ -7,6 +7,7 @@
   - [Methods for Configuring Secrets Provider](#methods-for-configuring-cyberark-secrets-provider)
   - [Configuring Kubernetes Probes](#configuring-kubernetes-probes)
   - [Enabling Tracing](#enabling-tracing)
+  - [Automatic Application Restart (Reloader)](#automatic-application-restart-reloader)
 - [Releases](#releases)
   - [Stable release definition](#stable-release-definition)
 - [Development](#development)
@@ -247,6 +248,24 @@ environment variable), which defaults to `true`.
 >   from the `conjur-map`, or
 > - If the secret has already been removed, reapply the Kubernetes Secret with the
 >   correct data to restore the value.
+
+
+## Automatic Application Restart (Reloader)
+
+When using the Secrets Provider Helm chart, you can enable automatic rolling restarts of application
+Deployments and StatefulSets whenever a Kubernetes Secret is updated by the Secrets Provider.
+This is powered by [Reloader](https://github.com/stakater/Reloader), an open-source project by
+[Stakater](https://github.com/stakater), included as an optional subchart.
+
+Enable Reloader with `autoReload.enabled: true` in `values.yaml`, then add the Conjur restart
+annotations on your application Deployments or StatefulSets (`conjur.org/automatic-restart` or
+`conjur.org/restart-secrets`). By default **`reloader.reloader.watchGlobally` is `false`**, so
+Reloader watches Secrets in the release namespace only; if `standalone.namespaceAllowlist` is `*`
+or lists multiple namespaces, the chart requires **`watchGlobally: true`** so Reloader can cover
+those namespaces. Standalone mode is the usual choice when you want the Secrets Provider to keep
+syncing Conjur into Kubernetes Secrets so Reloader can react; copy-paste YAML, annotation behavior,
+RBAC notes, digest pinning, and troubleshooting are all in the
+[Reloader Integration Guide](RELOADER.md).
 
 
 ## Enabling Tracing
