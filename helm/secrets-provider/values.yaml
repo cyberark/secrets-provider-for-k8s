@@ -14,6 +14,24 @@ standalone:
   secretsRefreshEnabled: true
   secretsRefreshInterval: "5m"
   removeDeletedSecretsEnabled: true
+  # Probe configuration for the standalone deployment.
+  probes:
+    port: 8080
+    portName: probes
+    livenessPath: /healthz
+    readinessPath: /readyz
+    livenessProbe:
+      initialDelaySeconds: 5
+      periodSeconds: 10
+      timeoutSeconds: 1
+      failureThreshold: 3
+      successThreshold: 1
+    readinessProbe:
+      initialDelaySeconds: 5
+      periodSeconds: 5
+      timeoutSeconds: 1
+      failureThreshold: 3
+      successThreshold: 1
 
 rbac:
   # Indicates whether the Secrets Provider service account, Role, and RoleBinding should be created. This should be set

@@ -72,7 +72,36 @@
         "namespaceAllowlist": { "type": "string" },
         "secretsRefreshEnabled": { "type": "boolean" },
         "secretsRefreshInterval": { "type": "string" },
-        "removeDeletedSecretsEnabled": { "type": "boolean" }
+        "removeDeletedSecretsEnabled": { "type": "boolean" },
+        "probes": {
+          "type": "object",
+          "properties": {
+            "port": { "type": "number" },
+            "portName": { "type": "string", "minLength": 1 },
+            "livenessPath": { "type": "string" },
+            "readinessPath": { "type": "string" },
+            "livenessProbe": {
+              "type": "object",
+              "properties": {
+                "initialDelaySeconds": { "type": "number" },
+                "periodSeconds": { "type": "number" },
+                "timeoutSeconds": { "type": "number" },
+                "failureThreshold": { "type": "number" },
+                "successThreshold": { "type": "number" }
+              }
+            },
+            "readinessProbe": {
+              "type": "object",
+              "properties": {
+                "initialDelaySeconds": { "type": "number" },
+                "periodSeconds": { "type": "number" },
+                "timeoutSeconds": { "type": "number" },
+                "failureThreshold": { "type": "number" },
+                "successThreshold": { "type": "number" }
+              }
+            }
+          }
+        }
       }
     },
     "rbac": {
