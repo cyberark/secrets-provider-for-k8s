@@ -89,6 +89,8 @@ These `./bin/start` flags are the ones most often used for local development or 
 
 - `--dev-helm` — Deploy the Secrets Provider with Helm instead of K8s manifests, which is suitable for `application` or `standalone` modes (for the latter, also apply `--secrets-mode=standalone`).
 
+- `--with-reloader` — Enable the Reloader subchart with chart defaults (requires `--dev-helm`).
+
 - `--reload` — Rebuild and redeploy only the Secrets Provider against an **existing** local dev cluster. Must be combined with `--dev`, plus other deployment flags should be the same as those used to start the dev environment. This is mainly useful for testing new code changes in an already running dev environment, or when switching between secrets modes. 
 
 #### Common examples
@@ -100,6 +102,8 @@ These `./bin/start` flags are the ones most often used for local development or 
 - `./bin/start --kind --dev` — Start the dev environment on a **local** KinD cluster. This is fine for interactive dev, but if you are running E2E tests as well, prefer the containerized KinD flow (`--kind --docker`) for isolation and consistency.
 
 - `./bin/start --kind --docker --dev --secrets-mode=k8s-rotation` — Containerized KinD cluster with Kubernetes secret rotation.
+
+- `./bin/start --kind --docker --dev --dev-helm --secrets-mode=standalone --with-reloader` — Containerized KinD cluster with Helm standalone deployment and Reloader enabled.
 
 After deploy, inspect workloads with `kubectl get pods`. 
 Secrets Provider logs: `kubectl logs -n local-secrets-provider -l app=test-env -c cyberark-secrets-provider-for-k8s --tail=100`

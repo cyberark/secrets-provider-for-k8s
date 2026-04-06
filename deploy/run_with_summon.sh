@@ -69,10 +69,10 @@ if [[ "${DEV}" = "false" && "${KIND}" != "true" ]]; then
     "${DOCKER_REGISTRY_PATH}/${APP_NAMESPACE_NAME}/secrets-provider"
   docker push "${DOCKER_REGISTRY_PATH}/${APP_NAMESPACE_NAME}/secrets-provider"
   
-  # Also push debian to avoid Dockerhub pull restrictions
-  docker pull debian:latest
-  docker tag debian:latest "${DOCKER_REGISTRY_PATH}/${APP_NAMESPACE_NAME}/debian:latest"
-  docker push "${DOCKER_REGISTRY_PATH}/${APP_NAMESPACE_NAME}/debian:latest"
+  # Also push busybox to avoid Dockerhub pull restrictions
+  docker pull busybox:latest
+  docker tag busybox:latest "${DOCKER_REGISTRY_PATH}/${APP_NAMESPACE_NAME}/busybox:latest"
+  docker push "${DOCKER_REGISTRY_PATH}/${APP_NAMESPACE_NAME}/busybox:latest"
   
   # Set image name for deployment manifests
   export SECRETS_PROVIDER_IMAGE="${DOCKER_REGISTRY_PATH}/${APP_NAMESPACE_NAME}/secrets-provider"

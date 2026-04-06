@@ -4,26 +4,28 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   labels:
-    app: {{ ID }}test-env
-  name: {{ ID }}test-env
+    app: test-env
+  name: test-env
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: {{ ID }}test-env
+      app: test-env
   template:
     metadata:
       labels:
-        app: {{ ID }}test-env
+        app: test-env
+      annotations:
+        conjur.org/automatic-restart: "true"
     spec:
       serviceAccountName:  {{ SERVICE_ACCOUNT }}
       containers:
       - image: {{ TEST_APP_IMAGE }}
-        name: {{ ID }}test-app
+        name: test-app
         command: ["sleep"]
         args: ["infinity"]
         env:
-        - name: {{ ID }}TEST_SECRET
+        - name: TEST_SECRET
           valueFrom:
             secretKeyRef:
               name: {{ K8S_SECRET }}

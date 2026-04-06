@@ -25,7 +25,7 @@ wait_for_it() {
   if ! [ "${timeout}" = '-1' ]; then
     local times_to_run=$((timeout / spacer))
 
-    for i in $(seq $times_to_run); do
+  for attempt in $(seq $times_to_run); do
       if cmd_output=$(eval "$@") ;
       then
         echo "$cmd_output"
@@ -185,10 +185,14 @@ runDockerCommand() {
     -e LABELED_SECRETS
     -e SECRETS_REFRESH_INTERVAL
     -e DEV_HELM
+    -e RELOADER_ENABLED
+    -e RELOADER_DEPLOYMENT_REPLICAS
+    -e RELOADER_ENABLE_HA
+    -e RELOADER_WATCH_GLOBALLY
     -e LOG_LEVEL
     -e STOP_RUNNING_ENV
     -e TEMPLATE_OVERRIDE
-    -e "HELM_TEST_APP_IMAGE=${HELM_TEST_APP_IMAGE:-debian:latest}"
+    -e "HELM_TEST_APP_IMAGE=${HELM_TEST_APP_IMAGE:-busybox:latest}"
   )
   
   # Optional gcloud credentials
@@ -329,11 +333,28 @@ setup_helm_environment() {
   set_namespace $APP_NAMESPACE_NAME
 
   if [[ "${DEV}" = "true" && "${DEV_HELM}" = "true" && "${SECRETS_MODE}" = "standalone" ]]; then
+    announce "Building Helm chart dependencies"
+    if ! command -v helm >/dev/null 2>&1; then
+      echo "ERROR: helm not found in PATH; cannot build chart dependencies" >&2
+      exit 1
+    fi
+    helm repo add stakater https://stakater.github.io/stakater-charts 2>/dev/null || true
+    helm repo update
+    helm dependency build ../helm/secrets-provider
+
+    announce "Creating test namespaces/deployments"
     num_namespaces=5
     export TEST_NAMESPACE_PREFIX="test-namespace"
-    for i in $(seq 1 $num_namespaces); do
-      $cli_without_timeout create namespace "${TEST_NAMESPACE_PREFIX}-$i" || true
-      create_k8s_secret_for_helm_deployment "${TEST_NAMESPACE_PREFIX}-$i"
+    for namespace_index in $(seq 1 "$num_namespaces"); do
+      $cli_without_timeout create namespace "${TEST_NAMESPACE_PREFIX}-${namespace_index}" || true
+      create_k8s_secret_for_helm_deployment "${TEST_NAMESPACE_PREFIX}-${namespace_index}"
+      # If RELOADER_ENABLED is set, also create a test app in each namespace with reloader enabled
+      if [[ "${RELOADER_ENABLED}" = "true" ]]; then
+        export RELOADER_DEPLOYMENT_REPLICAS="${RELOADER_DEPLOYMENT_REPLICAS:-1}"
+        export RELOADER_ENABLE_HA="${RELOADER_ENABLE_HA:-false}"
+        export RELOADER_WATCH_GLOBALLY="${RELOADER_WATCH_GLOBALLY:-true}"
+        K8S_SECRET="another-test-k8s-secret" deploy_helm_app "${TEST_NAMESPACE_PREFIX}-${namespace_index}"
+      fi
     done
   fi
 }
@@ -414,6 +435,10 @@ fill_helm_chart() {
       -e "s#{{ SECRETS_REFRESH_ENABLED }}#${SECRETS_REFRESH_ENABLED:-"true"}#g" \
       -e "s#{{ SECRETS_REFRESH_INTERVAL }}#${SECRETS_REFRESH_INTERVAL:-"5m"}#g" \
       -e "s#{{ REMOVE_DELETED_SECRETS_ENABLED }}#${REMOVE_DELETED_SECRETS_ENABLED:-"true"}#g" \
+      -e "s#{{ RELOADER_ENABLED }}#${RELOADER_ENABLED:-"false"}#g" \
+      -e "s#{{ RELOADER_DEPLOYMENT_REPLICAS }}#${RELOADER_DEPLOYMENT_REPLICAS:-"1"}#g" \
+      -e "s#{{ RELOADER_ENABLE_HA }}#${RELOADER_ENABLE_HA:-"false"}#g" \
+      -e "s#{{ RELOADER_WATCH_GLOBALLY }}#${RELOADER_WATCH_GLOBALLY:-"false"}#g" \
       "$template_file" > "$helm_path/helm/secrets-provider/ci/test-values-$UNIQUE_TEST_ID.yaml"
   done
 }
@@ -475,6 +500,7 @@ set_config_directory_path() {
 }
 
 deploy_helm_app() {
+  local namespace="${1:-$APP_NAMESPACE_NAME}"
   set_config_directory_path
 
   helm_app_path="../$CONFIG_DIR/helm-app.yaml"
@@ -482,12 +508,10 @@ deploy_helm_app() {
       helm_app_path="test/$CONFIG_DIR/helm-app.yaml"
   fi
 
-  id=${1:-""}
-  sed -e "s#{{ SERVICE_ACCOUNT }}#${SERVICE_ACCOUNT:-"secrets-provider-service-account"}#g" $helm_app_path |
+  sed -e "s#{{ SERVICE_ACCOUNT }}#${SERVICE_ACCOUNT:-"default"}#g" $helm_app_path |
   sed -e "s#{{ K8S_SECRET }}#${K8S_SECRET:-"test-k8s-secret"}#g" |
-  sed -e "s#{{ TEST_APP_IMAGE }}#${HELM_TEST_APP_IMAGE:-debian:latest}#g" |
-  sed -e "s#{{ ID }}#${id}#g" |
-  $cli_with_timeout create -f -
+  sed -e "s#{{ TEST_APP_IMAGE }}#${HELM_TEST_APP_IMAGE:-busybox:latest}#g" |
+  $cli_with_timeout apply -n "${namespace}" -f -
 }
 
 create_k8s_role() {

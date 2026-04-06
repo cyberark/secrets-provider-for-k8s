@@ -9,10 +9,10 @@ if [[ "${KIND:-false}" != "true" ]]; then
   IMAGE_PULL_SECRETS_YAML=$'      imagePullSecrets:\n        - name: dockerpullsecret\n'
 fi
 
-TEST_APP_IMAGE="debian"
+TEST_APP_IMAGE="busybox"
 TEST_APP_PULL_POLICY_YAML=""
 if [[ "${KIND:-false}" = "true" ]]; then
-  TEST_APP_IMAGE="debian:latest"
+  TEST_APP_IMAGE="busybox:latest"
   TEST_APP_PULL_POLICY_YAML=$'        imagePullPolicy: IfNotPresent\n'
 fi
 
