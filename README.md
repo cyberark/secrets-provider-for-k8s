@@ -2,14 +2,22 @@
 
 - [Table of Contents](#table-of-contents)
 - [CyberArk Secrets Provider for Kubernetes](#cyberark-secrets-provider-for-kubernetes)
-  - [Supported services](#supported-services)
-  - [Using This Project With Conjur Open Source](#using-secrets-provider-for-k8s-with-conjur-open-source)
-  - [Methods for Configuring Secrets Provider](#methods-for-configuring-cyberark-secrets-provider)
-  - [Configuring Kubernetes Probes](#configuring-kubernetes-probes)
-  - [Enabling Tracing](#enabling-tracing)
+  - [Consuming Secrets from CyberArk Secrets Provider](#consuming-secrets-from-cyberark-secrets-provider)
+  - [Deployment Modes](#deployment-modes)
+  - [Supported Services](#supported-services)
+  - [Supported Platforms](#supported-platforms)
+  - [Using secrets-provider-for-k8s with Conjur Open Source](#using-secrets-provider-for-k8s-with-conjur-open-source)
+  - [Methods for Configuring CyberArk Secrets Provider](#methods-for-configuring-cyberark-secrets-provider)
+  - [Retry Behavior](#retry-behavior)
+  - [Standalone Mode](#standalone-mode)
+  - [Label-based Secret Management](#label-based-secret-management)
+    - [Label-based Secret Groups and Templates](#label-based-secret-groups-and-templates)
+    - [Sanitization Behavior in Label-based Mode](#sanitization-behavior-in-label-based-mode)
   - [Automatic Application Restart (Reloader)](#automatic-application-restart-reloader)
+  - [Enabling Tracing](#enabling-tracing)
 - [Releases](#releases)
   - [Stable release definition](#stable-release-definition)
+- [Builds](#builds)
 - [Development](#development)
 - [Documentation](#documentation)
 - [Community](#community)
@@ -38,29 +46,16 @@ secrets that have been retrieved from Secrets Manager in one of two ways:
 ## Deployment Modes
 
 The Secrets Provider can be deployed into your Kubernetes cluster in one
-of two modes:
+of four modes:
 
-- **As an init container:** The Secrets Provider can be deployed as a
-  Kubernetes init container for each of your application Pods that requires
-  secrets to be retrieved from Secrets Manager. This configuration allows you to employ
-  Secrets Manager policy that authorizes access to Secrets Manager secrets on a
-  per-application-Pod basis.
+| Mode | Deploy with Helm | K8s Secrets | Push-to-file | Multiple Pods (provider scope) | Multiple Namespaces | Rotation |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| Init container | No | Yes | Yes | Pod-scoped | No | No |
+| Sidecar container | No | Yes | Yes | Pod-scoped | No | Yes |
+| Kubernetes Job (application mode) | Yes | Yes | No | Namespace-scoped | No | No |
+| Kubernetes Deployment (standalone mode) | Yes | Yes | No | Cluster-scoped | Yes | Yes |
 
-- **As a standalone application container (Kubernetes Job):**
-  The Secrets Provider can be deployed as a separate, application container
-  that runs to completion as part of a Kubernetes Job. In this mode, the
-  Secrets Provider can support delivery of Secrets Manager secrets to multiple
-  application Pods. In this mode, you would use Secrets Manager policy that authorizes
-  access to Secrets Manager secrets on a per-Secrets-Provider basis.
-
-  The [Secrets Provider Helm chart](helm) can be used to deploy the
-  Secrets Provider in standalone application mode.
-
-- **As a sidecar to enable [secrets rotation.](ROTATION.md)**
-
-__NOTE: If you are using the Secrets Provider "Push to file" mode, the
-  Secrets Provider must be deployed as an init or sidecar container, since these modes
-  makes use of shared volumes to deliver secrets to an application.__
+__NOTE: Application and standalone modes are scoped more broadly, meaning multiple pods/namespaces may receive secrets from the same Secrets Provider instance, and therefore the same host identity in Secrets Manager policy. While convenient, this should be treated as a security tradeoff which makes auditing and RBAC more complex.__
 
 ## Supported Services
 - Secrets Manager, Self-Hosted 11.1+
@@ -103,8 +98,8 @@ Provider:
   the Secrets Provider, see the
   [Secrets Provider Push-to-File guide](PUSH_TO_FILE.md).
 
-- **Using the [Secrets Provider Helm chart](helm) (Standalone Application Mode Only)**
-  If you are using the Secrets Provider in standalone application mode, then
+- **Using the [Secrets Provider Helm chart](helm) (Standalone/Application Modes Only)**
+  If you are using the Secrets Provider in standalone or application modes, then
   you can configure the Secrets Provider by setting Helm chart values and
   deploying Secrets Provider using the [Secrets Provider Helm chart](helm).
 
@@ -132,69 +127,20 @@ The default retry count depends on container mode:
 
 Note: set the retry count to `-1` to indicate "unlimited" retries. Retries will continue indefinitely until success or process termination.
 
-## Configuring Kubernetes Probes
 
-The Secrets Provider exposes the following probe endpoints:
+## Standalone Mode
 
-- `GET /healthz` (liveness)
-- `GET /readyz` (readiness)
-
-### When probe endpoints are enabled
-
-Probe endpoints are created only when the Secrets Provider runs in **standalone** mode.
-Both `k8s_secrets` and `push-to-file` store types are supported.
-
-In other modes (init, application, or sidecar), probe endpoints are not started.
-
-### Configure server bind address
-
-To let Kubernetes reach the probe endpoints from outside the container process,
-set `SERVER_ADDRESS` (or annotation `conjur.org/server-address`) to a bindable
-address such as `:8080` or `0.0.0.0:8080`.
-
-> Avoid `127.0.0.1:8080` for Kubernetes probes, because kubelet probes the Pod
-> IP and may not be able to reach a localhost-only bind.
-
-### Pod spec example
-
-```yaml
-containers:
-  - name: cyberark-secrets-provider-for-k8s
-    image: cyberark/secrets-provider-for-k8s:latest
-    env:
-      - name: CONTAINER_MODE
-        value: "standalone"
-      - name: SECRETS_DESTINATION
-        value: "k8s_secrets"
-      - name: SERVER_ADDRESS
-        value: ":8080"
-    ports:
-      - name: probes
-        containerPort: 8080
-    livenessProbe:
-      httpGet:
-        path: /healthz
-        port: probes
-      initialDelaySeconds: 5
-      periodSeconds: 10
-    readinessProbe:
-      httpGet:
-        path: /readyz
-        port: probes
-      initialDelaySeconds: 5
-      periodSeconds: 10
-```
-
-`/healthz` reports process health. `/readyz` reports provider readiness based on
-the latest secret provisioning results.
-
+For full standalone Helm deployment guidance, including benefits, tradeoffs, install
+examples, and key flags, see [STANDALONE.md](STANDALONE.md).
 
 ## Label-based Secret Management
 
 Beginning with v1.8.0, when running in Kubernetes Secrets mode, the Secrets
 Provider can automatically detect which secrets it should manage by checking for
 the label `conjur.org/managed-by-provider: true` on Kubernetes secrets in the
-same namespace. If a secret has this label with the value `true`, the Secrets
+configured namespace set. In a single namespace deployment this is the current
+namespace; in standalone mode with a namespace allowlist this applies to those
+allowed namespaces. If a secret has this label with the value `true`, the Secrets
 Provider will automatically manage it.
 
 This configuration only applies when both the `K8S_SECRETS` environment variable
@@ -207,8 +153,8 @@ privileges on secrets within the namespace.
 > | Secrets Manager Flavor | Version |
 > |------------------------|---------|
 > | SaaS                   | Latest  |
-> | Self-Hosted            | 14.0+   |
-> | Conjur OSS             | 1.25.0+ |
+> | Self-Hosted            | TBD     |
+> | Conjur OSS             | TBD     |
 > 
 > Without this API, a Kubernetes secret which is improperly configured or lacking
 > necessary Secrets Manager privileges could cause the Secrets Provider to fail
@@ -216,9 +162,44 @@ privileges on secrets within the namespace.
 
 
 When using label-based secrets, if the Secrets Provider is running continuously
-(as a sidecar container) and has `watch` privileges on secrets within the
-namespace, it will detect when a labeled Kubernetes secret is added or updated
-and immediately provision the secret.
+as either a standalone deployment or a sidecar container, and has `watch` privileges
+on secrets within the namespace, it will detect when a labeled Kubernetes secret
+is added or updated and immediately provision the secret.
+
+### Label-based Secret Groups and Templates
+
+In label-based mode, a managed Kubernetes Secret can also include secret-group
+annotations and custom templates (`conjur.org/conjur-secrets.<group>` and
+`conjur.org/secret-file-template.<group>`) to render computed values directly into
+the Kubernetes Secret data key named `<group>`.
+
+Example:
+
+```yaml
+metadata:
+  labels:
+    conjur.org/managed-by-provider: "true"
+  annotations:
+    conjur.org/conjur-secrets.db: |
+      - db-user: secrets/team/db/user
+      - db-pass: secrets/team/db/password
+      - db-host: secrets/team/db/host
+      - db-port: secrets/team/db/port
+      - db-name: secrets/team/db/name
+    conjur.org/secret-file-template.db: |
+      postgres://{{ secret "db-user" }}:{{ secret "db-pass" }}@{{ secret "db-host" }}:{{ secret "db-port" }}/{{ secret "db-name" }}
+stringData:
+  conjur-map: |
+    DB_HOST: secrets/team/db/host
+```
+
+With this configuration, the provider updates both:
+
+- `DB_HOST` (from `conjur-map`) as a normal managed secret entry, and
+- `db` (from template rendering) as a computed entry in the same Kubernetes Secret.
+
+This behavior is mirrored from Push-to-File mode, and includes the ability to use inline template functions
+such as b64enc and b64dec, i.e. `{{ secret "<alias>" | b64enc }}` or `{{ secret "<alias>" | b64dec }}`.
 
 ### Sanitization Behavior in Label-based Mode
 

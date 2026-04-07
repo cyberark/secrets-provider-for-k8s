@@ -349,7 +349,7 @@ setup_helm_environment() {
       $cli_without_timeout create namespace "${TEST_NAMESPACE_PREFIX}-${namespace_index}" || true
       create_k8s_secret_for_helm_deployment "${TEST_NAMESPACE_PREFIX}-${namespace_index}"
       # If RELOADER_ENABLED is set, also create a test app in each namespace with reloader enabled
-      if [[ "${RELOADER_ENABLED}" = "true" ]]; then
+      if [[ "${RELOADER_ENABLED:-}" = "true" ]]; then
         export RELOADER_DEPLOYMENT_REPLICAS="${RELOADER_DEPLOYMENT_REPLICAS:-1}"
         export RELOADER_ENABLE_HA="${RELOADER_ENABLE_HA:-false}"
         export RELOADER_WATCH_GLOBALLY="${RELOADER_WATCH_GLOBALLY:-true}"
