@@ -8,22 +8,22 @@ of the license associated with each component.
 
 SECTION 1: Apache License 2.0
 
->>> github.com/aws/aws-sdk-go-v2-1.41.3
->>> github.com/aws/aws-sdk-go-v2/config-1.32.11
->>> github.com/aws/aws-sdk-go-v2/credentials-1.19.11
->>> github.com/aws/aws-sdk-go-v2/feature/ec2/imds-1.18.19
->>> github.com/aws/aws-sdk-go-v2/internal/configsources-1.4.19
->>> github.com/aws/aws-sdk-go-v2/internal/endpoints/v2-2.7.19
->>> github.com/aws/aws-sdk-go-v2/internal/ini-1.8.5
->>> github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding-1.13.6
->>> github.com/aws/aws-sdk-go-v2/service/internal/presigned-url-1.13.19
->>> github.com/aws/aws-sdk-go-v2/service/signin-1.0.7
->>> github.com/aws/aws-sdk-go-v2/service/sso-1.30.12
->>> github.com/aws/aws-sdk-go-v2/service/ssooidc-1.35.16
->>> github.com/aws/aws-sdk-go-v2/service/sts-1.41.8
+>>> github.com/aws/aws-sdk-go-v2-1.41.4
+>>> github.com/aws/aws-sdk-go-v2/config-1.32.12
+>>> github.com/aws/aws-sdk-go-v2/credentials-1.19.12
+>>> github.com/aws/aws-sdk-go-v2/feature/ec2/imds-1.18.20
+>>> github.com/aws/aws-sdk-go-v2/internal/configsources-1.4.20
+>>> github.com/aws/aws-sdk-go-v2/internal/endpoints/v2-2.7.20
+>>> github.com/aws/aws-sdk-go-v2/internal/ini-1.8.6
+>>> github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding-1.13.7
+>>> github.com/aws/aws-sdk-go-v2/service/internal/presigned-url-1.13.20
+>>> github.com/aws/aws-sdk-go-v2/service/signin-1.0.8
+>>> github.com/aws/aws-sdk-go-v2/service/sso-1.30.13
+>>> github.com/aws/aws-sdk-go-v2/service/ssooidc-1.35.17
+>>> github.com/aws/aws-sdk-go-v2/service/sts-1.41.9
 >>> github.com/aws/smithy-go-1.24.2
->>> github.com/cyberark/conjur-api-go/conjurapi-0.13.16
->>> github.com/cyberark/conjur-authn-k8s-client/pkg-0.26.11
+>>> github.com/cyberark/conjur-api-go/conjurapi-0.13.19
+>>> github.com/cyberark/conjur-authn-k8s-client/pkg-0.26.12
 >>> github.com/cyberark/conjur-opentelemetry-tracer/pkg/trace-0.0.6
 >>> github.com/go-logr/logr-1.4.3
 >>> github.com/go-logr/stdr-1.2.2
@@ -45,22 +45,22 @@ SECTION 1: Apache License 2.0
 >>> github.com/modern-go/concurrent-0.0.0-20180306012644-bacd9c7ef1dd
 >>> github.com/modern-go/reflect2-1.0.3-0.20250322232337-35a7c28c31ee
 >>> go.opentelemetry.io/auto/sdk-1.2.1
->>> go.opentelemetry.io/otel-1.41.0
+>>> go.opentelemetry.io/otel-1.42.0
 >>> go.opentelemetry.io/otel/exporters/jaeger-1.17.0
 >>> go.opentelemetry.io/otel/exporters/jaeger/internal/third_party/thrift/lib/go/thrift-1.17.0
->>> go.opentelemetry.io/otel/exporters/stdout/stdouttrace-1.41.0
->>> go.opentelemetry.io/otel/metric-1.41.0
->>> go.opentelemetry.io/otel/sdk-1.41.0
->>> go.opentelemetry.io/otel/trace-1.41.0
->>> go.yaml.in/yaml/v2-2.4.3
+>>> go.opentelemetry.io/otel/exporters/stdout/stdouttrace-1.42.0
+>>> go.opentelemetry.io/otel/metric-1.42.0
+>>> go.opentelemetry.io/otel/sdk-1.42.0
+>>> go.opentelemetry.io/otel/trace-1.42.0
+>>> go.yaml.in/yaml/v2-2.4.4
 >>> gopkg.in/yaml.v2-2.4.0
->>> k8s.io/api-0.35.2
->>> k8s.io/apimachinery/pkg-0.35.2
->>> k8s.io/client-go-0.35.2
->>> k8s.io/klog/v2-2.130.1
->>> k8s.io/kube-openapi/pkg-0.0.0-20260304202019-5b3e3fdb0acf
->>> k8s.io/kube-openapi/pkg/validation/spec-0.0.0-20260304202019-5b3e3fdb0acf
->>> k8s.io/utils-0.0.0-20260210185600-b8788abfbbc2
+>>> k8s.io/api-0.35.3
+>>> k8s.io/apimachinery/pkg-0.35.3
+>>> k8s.io/client-go-0.35.3
+>>> k8s.io/klog/v2-2.140.0
+>>> k8s.io/kube-openapi/pkg-0.0.0-20260319004828-5883c5ee87b9
+>>> k8s.io/kube-openapi/pkg/validation/spec-0.0.0-20260319004828-5883c5ee87b9
+>>> k8s.io/utils-0.0.0-20260319190234-28399d86e0b5
 >>> sigs.k8s.io/json-0.0.0-20250730193827-2d320260d730
 >>> sigs.k8s.io/randfill-1.0.0
 >>> sigs.k8s.io/structured-merge-diff/v6-6.3.2
@@ -71,37 +71,37 @@ SECTION 2: BSD 2-clause "Simplified" License
 
 SECTION 3: BSD 3-clause "New" or "Revised" License
 
->>> github.com/aws/aws-sdk-go-v2/internal/sync/singleflight-1.41.3
+>>> github.com/aws/aws-sdk-go-v2/internal/sync/singleflight-1.41.4
 >>> github.com/aws/smithy-go/internal/sync/singleflight-1.24.2
 >>> github.com/google/uuid-1.6.0
 >>> github.com/munnerz/goautoneg-0.0.0-20191010083416-a7dc8b61c822
 >>> github.com/pmezard/go-difflib/difflib-1.0.1-0.20181226105442-5d4384ee4fb2
->>> golang.org/x/net-0.47.0
->>> golang.org/x/oauth2-0.35.0
->>> golang.org/x/sys/unix-0.41.0
->>> golang.org/x/term-0.40.0
->>> golang.org/x/text-0.31.0
->>> golang.org/x/time/rate-0.14.0
+>>> golang.org/x/net-0.52.0
+>>> golang.org/x/oauth2-0.36.0
+>>> golang.org/x/sys/unix-0.42.0
+>>> golang.org/x/term-0.41.0
+>>> golang.org/x/text-0.35.0
+>>> golang.org/x/time/rate-0.15.0
 >>> google.golang.org/protobuf-1.36.11
 >>> gopkg.in/evanphx/json-patch.v4-4.13.0
 >>> gopkg.in/inf.v0-0.9.1
->>> k8s.io/apimachinery/third_party/forked/golang-0.35.2
->>> k8s.io/kube-openapi/pkg/internal/third_party/go-json-experiment/json-0.0.0-20260304202019-5b3e3fdb0acf
->>> k8s.io/utils/internal/third_party/forked/golang/net-0.0.0-20260210185600-b8788abfbbc2
+>>> k8s.io/apimachinery/third_party/forked/golang-0.35.3
+>>> k8s.io/kube-openapi/pkg/internal/third_party/go-json-experiment/json-0.0.0-20260319004828-5883c5ee87b9
+>>> k8s.io/utils/internal/third_party/forked/golang/net-0.0.0-20260319190234-28399d86e0b5
 
 SECTION 4: MIT License
 
->>> al.essio.dev/pkg/shellescape-1.6.0
 >>> github.com/Masterminds/semver/v3-3.4.0
 >>> github.com/bgentry/go-netrc/netrc-0.0.0-20140422174119-9fd32a8b3d3d
 >>> github.com/cenkalti/backoff-2.2.1
 >>> github.com/cespare/xxhash/v2-2.3.0
->>> github.com/emicklei/go-restful/v3-3.12.2
+>>> github.com/emicklei/go-restful/v3-3.13.0
 >>> github.com/fxamacker/cbor/v2-2.9.0
 >>> github.com/json-iterator/go-1.1.12
 >>> github.com/sirupsen/logrus-1.9.4
 >>> github.com/x448/float16-0.8.4
->>> github.com/zalando/go-keyring-0.2.6
+>>> github.com/zalando/go-keyring-0.2.8
+>>> github.com/zalando/go-keyring/internal/shellescape-0.2.8
 >>> go.yaml.in/yaml/v3-3.0.4
 >>> gopkg.in/yaml.v3-3.0.1
 
@@ -114,7 +114,7 @@ SECTION 5: ISC License
 
 Apache License 2.0 is applicable to the following component(s).
 
->>> github.com/aws/aws-sdk-go-v2-1.41.3
+>>> github.com/aws/aws-sdk-go-v2-1.41.4
 
 
                                  Apache License
@@ -320,7 +320,7 @@ Apache License 2.0 is applicable to the following component(s).
    limitations under the License.
 
 
->>> github.com/aws/aws-sdk-go-v2/config-1.32.11
+>>> github.com/aws/aws-sdk-go-v2/config-1.32.12
 
 
                                  Apache License
@@ -526,7 +526,7 @@ Apache License 2.0 is applicable to the following component(s).
    limitations under the License.
 
 
->>> github.com/aws/aws-sdk-go-v2/credentials-1.19.11
+>>> github.com/aws/aws-sdk-go-v2/credentials-1.19.12
 
 
                                  Apache License
@@ -732,7 +732,7 @@ Apache License 2.0 is applicable to the following component(s).
    limitations under the License.
 
 
->>> github.com/aws/aws-sdk-go-v2/feature/ec2/imds-1.18.19
+>>> github.com/aws/aws-sdk-go-v2/feature/ec2/imds-1.18.20
 
 
                                  Apache License
@@ -938,7 +938,7 @@ Apache License 2.0 is applicable to the following component(s).
    limitations under the License.
 
 
->>> github.com/aws/aws-sdk-go-v2/internal/configsources-1.4.19
+>>> github.com/aws/aws-sdk-go-v2/internal/configsources-1.4.20
 
 
                                  Apache License
@@ -1144,7 +1144,7 @@ Apache License 2.0 is applicable to the following component(s).
    limitations under the License.
 
 
->>> github.com/aws/aws-sdk-go-v2/internal/endpoints/v2-2.7.19
+>>> github.com/aws/aws-sdk-go-v2/internal/endpoints/v2-2.7.20
 
 
                                  Apache License
@@ -1350,7 +1350,7 @@ Apache License 2.0 is applicable to the following component(s).
    limitations under the License.
 
 
->>> github.com/aws/aws-sdk-go-v2/internal/ini-1.8.5
+>>> github.com/aws/aws-sdk-go-v2/internal/ini-1.8.6
 
 
                                  Apache License
@@ -1556,7 +1556,7 @@ Apache License 2.0 is applicable to the following component(s).
    limitations under the License.
 
 
->>> github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding-1.13.6
+>>> github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding-1.13.7
 
 
                                  Apache License
@@ -1762,7 +1762,7 @@ Apache License 2.0 is applicable to the following component(s).
    limitations under the License.
 
 
->>> github.com/aws/aws-sdk-go-v2/service/internal/presigned-url-1.13.19
+>>> github.com/aws/aws-sdk-go-v2/service/internal/presigned-url-1.13.20
 
 
                                  Apache License
@@ -1968,7 +1968,7 @@ Apache License 2.0 is applicable to the following component(s).
    limitations under the License.
 
 
->>> github.com/aws/aws-sdk-go-v2/service/signin-1.0.7
+>>> github.com/aws/aws-sdk-go-v2/service/signin-1.0.8
 
 
                                  Apache License
@@ -2174,7 +2174,7 @@ Apache License 2.0 is applicable to the following component(s).
    limitations under the License.
 
 
->>> github.com/aws/aws-sdk-go-v2/service/sso-1.30.12
+>>> github.com/aws/aws-sdk-go-v2/service/sso-1.30.13
 
 
                                  Apache License
@@ -2380,7 +2380,7 @@ Apache License 2.0 is applicable to the following component(s).
    limitations under the License.
 
 
->>> github.com/aws/aws-sdk-go-v2/service/ssooidc-1.35.16
+>>> github.com/aws/aws-sdk-go-v2/service/ssooidc-1.35.17
 
 
                                  Apache License
@@ -2586,7 +2586,7 @@ Apache License 2.0 is applicable to the following component(s).
    limitations under the License.
 
 
->>> github.com/aws/aws-sdk-go-v2/service/sts-1.41.8
+>>> github.com/aws/aws-sdk-go-v2/service/sts-1.41.9
 
 
                                  Apache License
@@ -2971,7 +2971,7 @@ Apache License 2.0 is applicable to the following component(s).
       of your accepting any such warranty or additional liability.
 
 
->>> github.com/cyberark/conjur-api-go/conjurapi-0.13.16
+>>> github.com/cyberark/conjur-api-go/conjurapi-0.13.19
 
 
                                  Apache License
@@ -3177,7 +3177,7 @@ Apache License 2.0 is applicable to the following component(s).
    limitations under the License.
 
 
->>> github.com/cyberark/conjur-authn-k8s-client/pkg-0.26.11
+>>> github.com/cyberark/conjur-authn-k8s-client/pkg-0.26.12
 
 
                                  Apache License
@@ -7703,7 +7703,7 @@ Apache License 2.0 is applicable to the following component(s).
    limitations under the License.
 
 
->>> go.opentelemetry.io/otel-1.41.0
+>>> go.opentelemetry.io/otel-1.42.0
 
                                  Apache License
                            Version 2.0, January 2004
@@ -8452,7 +8452,7 @@ For t_cl_generator.cc
 ---------------------------------------------------
 
 
->>> go.opentelemetry.io/otel/exporters/stdout/stdouttrace-1.41.0
+>>> go.opentelemetry.io/otel/exporters/stdout/stdouttrace-1.42.0
 
                                  Apache License
                            Version 2.0, January 2004
@@ -8686,7 +8686,7 @@ THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
->>> go.opentelemetry.io/otel/metric-1.41.0
+>>> go.opentelemetry.io/otel/metric-1.42.0
 
                                  Apache License
                            Version 2.0, January 2004
@@ -8920,7 +8920,7 @@ THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
->>> go.opentelemetry.io/otel/sdk-1.41.0
+>>> go.opentelemetry.io/otel/sdk-1.42.0
 
                                  Apache License
                            Version 2.0, January 2004
@@ -9154,7 +9154,7 @@ THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
->>> go.opentelemetry.io/otel/trace-1.41.0
+>>> go.opentelemetry.io/otel/trace-1.42.0
 
                                  Apache License
                            Version 2.0, January 2004
@@ -9388,7 +9388,7 @@ THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
->>> go.yaml.in/yaml/v2-2.4.3
+>>> go.yaml.in/yaml/v2-2.4.4
 
                                  Apache License
                            Version 2.0, January 2004
@@ -9798,7 +9798,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
    limitations under the License.
 
 
->>> k8s.io/api-0.35.2
+>>> k8s.io/api-0.35.3
 
 
                                  Apache License
@@ -10004,7 +10004,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
    limitations under the License.
 
 
->>> k8s.io/apimachinery/pkg-0.35.2
+>>> k8s.io/apimachinery/pkg-0.35.3
 
 
                                  Apache License
@@ -10210,7 +10210,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
    limitations under the License.
 
 
->>> k8s.io/client-go-0.35.2
+>>> k8s.io/client-go-0.35.3
 
 
                                  Apache License
@@ -10416,7 +10416,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
    limitations under the License.
 
 
->>> k8s.io/klog/v2-2.130.1
+>>> k8s.io/klog/v2-2.140.0
 
 Apache License
 Version 2.0, January 2004
@@ -10611,7 +10611,7 @@ third-party archives.
    limitations under the License.
 
 
->>> k8s.io/kube-openapi/pkg-0.0.0-20260304202019-5b3e3fdb0acf
+>>> k8s.io/kube-openapi/pkg-0.0.0-20260319004828-5883c5ee87b9
 
 
                                  Apache License
@@ -10817,7 +10817,7 @@ third-party archives.
    limitations under the License.
 
 
->>> k8s.io/kube-openapi/pkg/validation/spec-0.0.0-20260304202019-5b3e3fdb0acf
+>>> k8s.io/kube-openapi/pkg/validation/spec-0.0.0-20260319004828-5883c5ee87b9
 
 
                                  Apache License
@@ -11023,7 +11023,7 @@ third-party archives.
    limitations under the License.
 
 
->>> k8s.io/utils-0.0.0-20260210185600-b8788abfbbc2
+>>> k8s.io/utils-0.0.0-20260319190234-28399d86e0b5
 
 
                                  Apache License
@@ -12200,7 +12200,7 @@ ISC License is applicable to the following component(s).
 
 BSD 3-clause "New" or "Revised" License is applicable to the following component(s).
 
->>> github.com/aws/aws-sdk-go-v2/internal/sync/singleflight-1.41.3
+>>> github.com/aws/aws-sdk-go-v2/internal/sync/singleflight-1.41.4
 
 Copyright (c) 2009 The Go Authors. All rights reserved.
 
@@ -12361,7 +12361,7 @@ NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 
->>> golang.org/x/net-0.47.0
+>>> golang.org/x/net-0.52.0
 
 Copyright 2009 The Go Authors.
 
@@ -12392,7 +12392,7 @@ THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 
->>> golang.org/x/oauth2-0.35.0
+>>> golang.org/x/oauth2-0.36.0
 
 Copyright 2009 The Go Authors.
 
@@ -12423,7 +12423,7 @@ THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 
->>> golang.org/x/sys/unix-0.41.0
+>>> golang.org/x/sys/unix-0.42.0
 
 Copyright 2009 The Go Authors.
 
@@ -12454,7 +12454,7 @@ THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 
->>> golang.org/x/term-0.40.0
+>>> golang.org/x/term-0.41.0
 
 Copyright 2009 The Go Authors.
 
@@ -12485,7 +12485,7 @@ THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 
->>> golang.org/x/text-0.31.0
+>>> golang.org/x/text-0.35.0
 
 Copyright 2009 The Go Authors.
 
@@ -12516,7 +12516,7 @@ THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 
->>> golang.org/x/time/rate-0.14.0
+>>> golang.org/x/time/rate-0.15.0
 
 Copyright 2009 The Go Authors.
 
@@ -12639,7 +12639,7 @@ THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 
->>> k8s.io/apimachinery/third_party/forked/golang-0.35.2
+>>> k8s.io/apimachinery/third_party/forked/golang-0.35.3
 
 Copyright (c) 2009 The Go Authors. All rights reserved.
 
@@ -12670,7 +12670,7 @@ THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 
->>> k8s.io/kube-openapi/pkg/internal/third_party/go-json-experiment/json-0.0.0-20260304202019-5b3e3fdb0acf
+>>> k8s.io/kube-openapi/pkg/internal/third_party/go-json-experiment/json-0.0.0-20260319004828-5883c5ee87b9
 
 Copyright (c) 2020 The Go Authors. All rights reserved.
 
@@ -12701,7 +12701,7 @@ THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 
->>> k8s.io/utils/internal/third_party/forked/golang/net-0.0.0-20260210185600-b8788abfbbc2
+>>> k8s.io/utils/internal/third_party/forked/golang/net-0.0.0-20260319190234-28399d86e0b5
 
 Copyright (c) 2012 The Go Authors. All rights reserved.
 
@@ -12735,31 +12735,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 --------------- SECTION 4: MIT License ----------
 
 MIT License is applicable to the following component(s).
-
->>> al.essio.dev/pkg/shellescape-1.6.0
-
-The MIT License (MIT)
-
-Copyright (c) 2016 Alessio Treglia
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-
 
 >>> github.com/Masterminds/semver/v3-3.4.0
 
@@ -12858,7 +12833,7 @@ OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 
->>> github.com/emicklei/go-restful/v3-3.12.2
+>>> github.com/emicklei/go-restful/v3-3.13.0
 
 Copyright (c) 2012,2013 Ernest Micklei
 
@@ -12983,11 +12958,36 @@ SOFTWARE.
 
 
 
->>> github.com/zalando/go-keyring-0.2.6
+>>> github.com/zalando/go-keyring-0.2.8
 
 The MIT License (MIT)
 
 Copyright (c) 2016 Zalando SE
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+
+>>> github.com/zalando/go-keyring/internal/shellescape-0.2.8
+
+The MIT License (MIT)
+
+Copyright (c) 2016 Alessio Treglia
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal

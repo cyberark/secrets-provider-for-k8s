@@ -7,12 +7,12 @@ SECRETS_REFRESH_INTERVAL=${SECRETS_REFRESH_INTERVAL:-"10s"}
 REMOVE_DELETED_SECRETS=${REMOVE_DELETED_SECRETS:-"true"}
 
 SECRETS_PROVIDER_IMAGE="${APP_NAMESPACE_NAME}/secrets-provider:latest"
-DEBIAN_IMAGE="debian:latest"
+BUSYBOX_IMAGE="busybox:latest"
 IMAGE_PULL_POLICY="IfNotPresent"
 
 if [[ -n "${PULL_DOCKER_REGISTRY_PATH:-}" ]]; then
   SECRETS_PROVIDER_IMAGE="${PULL_DOCKER_REGISTRY_PATH}/${APP_NAMESPACE_NAME}/secrets-provider:latest"
-  DEBIAN_IMAGE="${PULL_DOCKER_REGISTRY_PATH}/${APP_NAMESPACE_NAME}/debian:latest"
+  BUSYBOX_IMAGE="${PULL_DOCKER_REGISTRY_PATH}/${APP_NAMESPACE_NAME}/busybox:latest"
 fi
 
 cat << EOL
@@ -56,7 +56,7 @@ cat << EOL
     spec:
       serviceAccountName: ${APP_NAMESPACE_NAME}-sa
       containers:
-      - image: '${DEBIAN_IMAGE}'
+      - image: '${BUSYBOX_IMAGE}'
         imagePullPolicy: ${IMAGE_PULL_POLICY}
         name: test-app
         command: ["sleep"]

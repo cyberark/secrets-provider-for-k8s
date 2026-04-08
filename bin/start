@@ -36,6 +36,8 @@ Usage: ./bin/start [options]
 
     --dev-helm      Deploy the Secrets Provider via helm instead of raw manifests (suitable for 'application' or 'standalone' modes)
 
+    --with-reloader Enable the Reloader subchart with chart defaults (requires --dev-helm).
+
     --debug         Set CONJUR_LOG_LEVEL and LOG_LEVEL to debug.
 
     --no-stop-running-env   Set STOP_RUNNING_ENV=false for kubernetes-conjur-deploy ./start (skip ./stop first).
@@ -79,6 +81,7 @@ while true ; do
     --labeled-secrets ) LABELED_SECRETS=true ; export LABELED_SECRETS ; shift ;;
     --secrets-refresh-interval=* ) SECRETS_REFRESH_INTERVAL="${1#*=}" ; export SECRETS_REFRESH_INTERVAL ; shift ;;
     --dev-helm ) DEV_HELM=true ; export DEV_HELM ; shift ;;
+    --with-reloader ) RELOADER_ENABLED=true ; export RELOADER_ENABLED ; shift ;;
     --debug ) CONJUR_LOG_LEVEL=debug ; LOG_LEVEL=debug ; export CONJUR_LOG_LEVEL LOG_LEVEL ; shift ;;
     --no-stop-running-env ) STOP_RUNNING_ENV=false ; export STOP_RUNNING_ENV ; shift ;;
     -h | --help ) print_help ; shift ;;
@@ -125,6 +128,11 @@ source bootstrap.env
 if [[ "${SECRETS_MODE:-}" == "standalone" && "${DEV_HELM:-false}" != "true" ]]; then
   echo "Error: --secrets-mode=standalone requires --dev-helm."
   echo "Standalone mode is only supported with Helm deployments."
+  exit 1
+fi
+
+if [[ "${RELOADER_ENABLED:-false}" = "true" && "${DEV_HELM:-false}" != "true" ]]; then
+  echo "Error: --with-reloader requires --dev-helm."
   exit 1
 fi
 

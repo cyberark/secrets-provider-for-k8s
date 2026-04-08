@@ -269,7 +269,7 @@ func helmTestAppImage() string {
 	if img := os.Getenv("HELM_TEST_APP_IMAGE"); img != "" {
 		return img
 	}
-	return "debian:latest"
+	return "busybox:latest"
 }
 
 // DeployTestAppWithHelm deploys a test application that reads secrets from a Kubernetes Secret.

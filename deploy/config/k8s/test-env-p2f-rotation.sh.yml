@@ -4,12 +4,12 @@ set -euo pipefail
 CONJUR_AUTHN_LOGIN=${CONJUR_AUTHN_LOGIN:-"host/conjur/authn-k8s/${AUTHENTICATOR_ID}/apps/${APP_NAMESPACE_NAME}/*/*"}
 
 SECRETS_PROVIDER_IMAGE="${APP_NAMESPACE_NAME}/secrets-provider:latest"
-DEBIAN_IMAGE="debian:latest"
+BUSYBOX_IMAGE="busybox:latest"
 IMAGE_PULL_POLICY="IfNotPresent"
 
 if [[ -n "${PULL_DOCKER_REGISTRY_PATH:-}" ]]; then
   SECRETS_PROVIDER_IMAGE="${PULL_DOCKER_REGISTRY_PATH}/${APP_NAMESPACE_NAME}/secrets-provider:latest"
-  DEBIAN_IMAGE="${PULL_DOCKER_REGISTRY_PATH}/${APP_NAMESPACE_NAME}/debian:latest"
+  BUSYBOX_IMAGE="${PULL_DOCKER_REGISTRY_PATH}/${APP_NAMESPACE_NAME}/busybox:latest"
 fi
 
 cat << EOL
@@ -83,7 +83,7 @@ spec:
         conjur.org/remove-deleted-secrets-enabled: "true"
     spec:
       containers:
-      - image: '${DEBIAN_IMAGE}'
+      - image: '${BUSYBOX_IMAGE}'
         imagePullPolicy: ${IMAGE_PULL_POLICY}
         name: test-app
         command: ["sleep"]
