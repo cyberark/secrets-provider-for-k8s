@@ -270,7 +270,7 @@ follow the instructions in this section.
 
 ### Update the changelog and notices (if necessary)
 
-1. Update the `CHANGELOG.md` file with the new version and the changes that are included in the release.
+1. Ensure the relevant `CHANGELOG.md` changes are included under the correct version and update the version release date.
 
 1. Update the version in the [Chart version](helm/secrets-provider/Chart.yaml) file.
 
@@ -293,6 +293,8 @@ follow the instructions in this section.
       --ignore $(go list std | awk 'NR > 1 { printf(",") } { printf("%s",$0) } END { print "" }') \
       > NOTICES.txt
     ```
+
+1. Ensure the internal libraries in the [go.mod](go.mod#L114-L118) still `replace` to `latest`. This may have been auto-updated by a `go mod tidy`.
 
 1. Commit these changes - `Bump version to x.y.z` is an acceptable commit
    message - and open a PR for review.

@@ -6,7 +6,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
-## [1.10.0] - 2026-04-07
+## [1.10.0] - 2026-04-09
 
 ### Added
 - Expose Health and Readiness probe configuration in Helm chart.
