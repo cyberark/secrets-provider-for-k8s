@@ -86,13 +86,13 @@ require (
 	go.opentelemetry.io/otel/exporters/jaeger v1.17.0 // indirect
 	go.opentelemetry.io/otel/exporters/stdout/stdouttrace v1.42.0 // indirect
 	go.opentelemetry.io/otel/metric v1.43.0 // indirect
-	go.opentelemetry.io/otel/sdk v1.42.0 // indirect
+	go.opentelemetry.io/otel/sdk v1.43.0 // indirect
 	go.opentelemetry.io/otel/trace v1.43.0 // indirect
 	go.yaml.in/yaml/v2 v2.4.4 // indirect
 	go.yaml.in/yaml/v3 v3.0.4 // indirect
 	golang.org/x/net v0.52.0 // indirect
 	golang.org/x/oauth2 v0.36.0 // indirect
-	golang.org/x/sys v0.42.0 // indirect
+	golang.org/x/sys v0.43.0 // indirect
 	golang.org/x/term v0.41.0 // indirect
 	golang.org/x/text v0.35.0 // indirect
 	golang.org/x/time v0.15.0 // indirect
@@ -123,7 +123,3 @@ replace github.com/cyberark/conjur-opentelemetry-tracer => github.com/cyberark/c
 // so we don't downgrade future versions unintentionally.
 
 exclude github.com/emicklei/go-restful v2.9.5+incompatible
-
-replace google.golang.org/grpc v1.65.0 => google.golang.org/grpc v1.79.3
-
-replace go.opentelemetry.io/otel/sdk v1.42.0 => go.opentelemetry.io/otel/sdk v1.43.0

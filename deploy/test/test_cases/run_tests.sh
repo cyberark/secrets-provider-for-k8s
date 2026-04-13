@@ -115,7 +115,7 @@ if ! command -v helm >/dev/null 2>&1; then
   echo "ERROR: helm not found in PATH; cannot build chart dependencies" >&2
   exit 1
 fi
-helm repo add stakater https://stakater.github.io/stakater-charts 2>/dev/null || true
+helm repo add stakater https://stakater.github.io/stakater-charts || true
 helm repo update
 helm dependency build "${_REPO_ROOT}/helm/secrets-provider"
 
