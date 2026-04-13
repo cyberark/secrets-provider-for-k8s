@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ### Security
 - Upgrade golang to 1.26 to address CVE-2026-22184 (CNJR-13301)
+- Upgrade otel to 1.43 to address CVE-2026-39883 and CVE-2026-39882. CNJR-13645
 
 ## [1.9.0] - 2026-03-09
 
