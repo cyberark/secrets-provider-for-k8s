@@ -13,10 +13,41 @@ docker run --rm \
   alpine/helm:${helm_version} \
   sh -c '
     apk add --no-cache bash > /dev/null
+
+    set -eu
+
+    retry() {
+      attempts="${1}"
+      shift
+      delay=5
+      count=1
+
+      until "$@"; do
+        if [ "${count}" -ge "${attempts}" ]; then
+          echo "Command failed after ${count} attempts: $*" >&2
+          return 1
+        fi
+
+        echo "Command failed (attempt ${count}/${attempts}): $*" >&2
+        echo "Retrying in ${delay}s..." >&2
+        sleep "${delay}"
+        count=$((count + 1))
+        delay=$((delay * 2))
+      done
+    }
+
     if ! helm plugin list 2>/dev/null | grep -q unittest; then
       helm plugin install https://github.com/helm-unittest/helm-unittest
     fi
-    helm repo add stakater https://stakater.github.io/stakater-charts > /dev/null
-    helm dependency update /workspace/helm/secrets-provider > /dev/null
+
+    helm repo add stakater https://stakater.github.io/stakater-charts --force-update > /dev/null
+    retry 3 helm repo update stakater > /dev/null
+    retry 3 helm dependency update /workspace/helm/secrets-provider > /dev/null
+
+    if [ -z "$(ls -1 /workspace/helm/secrets-provider/charts/*.tgz 2>/dev/null)" ]; then
+      echo "helm dependency update did not produce any chart package in /workspace/helm/secrets-provider/charts" >&2
+      exit 1
+    fi
+
     ./test-unit && ./test-schema
   '
