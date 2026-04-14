@@ -7,6 +7,9 @@ import (
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/log/messages"
 )
 
+// IntegrationVersion is set by the Go linker using -ldflags at build time.
+var IntegrationVersion = "unset"
+
 /*
 Client for communication with Conjur. In this project it is used only for
 batch secrets retrieval so we expose only this method of the client.
@@ -25,6 +28,10 @@ func NewConjurClient(tokenData []byte) (ConjurClient, error) {
 	if err != nil {
 		return nil, log.RecordedError(messages.CSPFK031E, err.Error())
 	}
+	config.SetIntegrationName("secrets-provider-for-k8s")
+	config.SetIntegrationType("conjur-api-go")
+	config.SetIntegrationVersion(IntegrationVersion)
+	config.SetVendorName("CyberArk")
 	config.CredentialStorage = conjurapi.CredentialStorageNone
 
 	client, err := conjurapi.NewClientFromToken(config, string(tokenData))

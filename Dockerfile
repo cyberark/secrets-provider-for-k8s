@@ -40,6 +40,7 @@ RUN go build \
     -a \
     -installsuffix cgo \
     -ldflags="-X 'github.com/cyberark/secrets-provider-for-k8s/pkg/secrets.Tag=$TAG' \
+              -X 'github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/clients/conjur.IntegrationVersion=$VERSION' \
               -X 'github.com/cyberark/secrets-provider-for-k8s/pkg/secrets.Version=$VERSION'" \
     -o secrets-provider \
     ./cmd/secrets-provider
@@ -47,6 +48,9 @@ RUN go build \
 # =================== DEBUG BUILD LAYER ===================
 # this layer is used to build the debug binaries
 FROM secrets-provider-builder-base AS secrets-provider-builder-debug
+
+ARG TAG="debug"
+ARG VERSION="unreleased"
 
 # Build Delve - debugging tool for Go
 RUN go get github.com/go-delve/delve/cmd/dlv
@@ -57,7 +61,13 @@ EXPOSE 40000
 COPY . .
 
 # Build debug flavor without compilation optimizations using "all=-N -l"
-RUN go build -a -installsuffix cgo -gcflags="all=-N -l" -o secrets-provider ./cmd/secrets-provider
+RUN go build -a -installsuffix cgo \
+    -ldflags="-X 'github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/clients/conjur.IntegrationVersion=$VERSION' \
+              -X 'github.com/cyberark/secrets-provider-for-k8s/pkg/secrets.Tag=$TAG' \
+              -X 'github.com/cyberark/secrets-provider-for-k8s/pkg/secrets.Version=$VERSION'" \
+    -gcflags="all=-N -l" \
+    -o secrets-provider \
+    ./cmd/secrets-provider
 
 # =================== BASE MAIN CONTAINER ===================
 # this layer is used to prepare a common layer for both debug and release containers
