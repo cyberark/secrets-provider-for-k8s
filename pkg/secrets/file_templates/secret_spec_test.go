@@ -170,6 +170,50 @@ another-password: dev/openshift/password
 			},
 		),
 	},
+	{
+		description: "fetch all with trim path segments as int",
+		contents: `
+- "*": "*"
+  trim-path-segments: 2
+`,
+		assert: assertGoodSecretSpecs(
+			[]SecretSpec{
+				{
+					Path:             "*",
+					Alias:            "*",
+					ContentType:      "text",
+					TrimPathSegments: 2,
+				},
+			},
+		),
+	},
+	{
+		description: "fetch all with trim path segments as string",
+		contents: `
+- "*": "*"
+  trim-path-segments: "2"
+`,
+		assert: assertGoodSecretSpecs(
+			[]SecretSpec{
+				{
+					Path:             "*",
+					Alias:            "*",
+					ContentType:      "text",
+					TrimPathSegments: 2,
+				},
+			},
+		),
+	},
+	{
+		description: "fetch all with invalid trim path segments",
+		contents: `
+- "*": "*"
+  trim-path-segments: -1
+`,
+		assert: func(t *testing.T, result []SecretSpec, err error) {
+			assert.Contains(t, err.Error(), "invalid trim-path-segments")
+		},
+	},
 }
 
 func TestNewSecretSpecs(t *testing.T) {
@@ -313,6 +357,59 @@ func TestValidateSecretSpecContents(t *testing.T) {
 
 		// Run test case
 		err := ValidateSecretContents(secretSpecs, "some-group-name")
+
+		// Check result
+		tc.assert(t, err, tc.description)
+	}
+}
+
+func TestValidateSecretTrimPathSegments(t *testing.T) {
+	type assertFunc func(*testing.T, []error, string)
+
+	assertNoErrors := func() assertFunc {
+		return func(t *testing.T, errors []error, desc string) {
+			assert.Len(t, errors, 0, desc)
+		}
+	}
+
+	assertErrorsContain := func(expErrStrs ...string) assertFunc {
+		return func(t *testing.T, errors []error, desc string) {
+			assert.Len(t, errors, len(expErrStrs), desc)
+			for i, expErrStr := range expErrStrs {
+				assert.Contains(t, errors[i].Error(), expErrStr, desc)
+			}
+		}
+	}
+
+	testCases := []struct {
+		description string
+		trim1       int
+		trim2       int
+		assert      assertFunc
+	}{
+		{
+			"valid trim values",
+			0,
+			3,
+			assertNoErrors(),
+		},
+		{
+			"invalid trim value",
+			-1,
+			3,
+			assertErrorsContain("expected a non-negative integer"),
+		},
+	}
+
+	for _, tc := range testCases {
+		// Set up test case
+		secretSpecs := []SecretSpec{
+			{Alias: "foo", Path: validConjurPath1, TrimPathSegments: tc.trim1},
+			{Alias: "bar", Path: validConjurPath2, TrimPathSegments: tc.trim2},
+		}
+
+		// Run test case
+		err := ValidateSecretTrimPathSegments(secretSpecs, "some-group-name")
 
 		// Check result
 		tc.assert(t, err, tc.description)

@@ -6,6 +6,14 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [1.11.0] - 2026-04-16
+
+### Added
+- Fetch-all mode supports trim-path-segments configuration. (CNJR-13592)
+
+### Changed
+- Normalized key collisions in fetch-all mode cause errors rather than silent overwrites.
+
 ## [1.10.0] - 2026-04-09
 
 ### Added

@@ -1206,6 +1206,64 @@ func TestProvide(t *testing.T) {
 			},
 		},
 		{
+			desc: "K8s secret fetch all with trim-path-segments",
+			k8sSecrets: k8sStorageMocks.K8sSecrets{
+				"k8s-secret1": {
+					"conjur-map": map[string]interface{}{
+						"*": map[interface{}]interface{}{
+							"id":                 "*",
+							"trim-path-segments": 2,
+						},
+					},
+				},
+			},
+			requiredSecrets: []string{"k8s-secret1"},
+			alternateConjurSecrets: map[string]string{
+				"vault/lob/my_account/my_username": "secret-username",
+				"vault/lob/my_secret":              "secret-plain",
+			},
+			asserts: []assertFunc{
+				assertSecretsUpdated(
+					expectedK8sSecrets{
+						"k8s-secret1": {
+							"my_account.my_username": "secret-username",
+							"my_secret":              "secret-plain",
+						},
+					},
+					expectedMissingValues{},
+					false,
+				),
+			},
+		},
+		{
+			desc: "K8s secret fetch all with trim-path-segments and insufficient segments",
+			k8sSecrets: k8sStorageMocks.K8sSecrets{
+				"k8s-secret1": {
+					"conjur-map": map[string]interface{}{
+						"*": map[interface{}]interface{}{
+							"id":                 "*",
+							"trim-path-segments": 4,
+						},
+					},
+				},
+			},
+			requiredSecrets: []string{"k8s-secret1"},
+			alternateConjurSecrets: map[string]string{
+				"short/path": "secret-short",
+			},
+			asserts: []assertFunc{
+				assertSecretsUpdated(
+					expectedK8sSecrets{
+						"k8s-secret1": {
+							"short.path": "secret-short",
+						},
+					},
+					expectedMissingValues{},
+					false,
+				),
+			},
+		},
+		{
 			desc: "K8s secret fetch all with duplicate normalized secret names",
 			k8sSecrets: k8sStorageMocks.K8sSecrets{
 				"k8s-secret1": {
@@ -1218,9 +1276,48 @@ func TestProvide(t *testing.T) {
 				"conjur/var+1": "secret2", // also normalized to conjur.var.1
 			},
 			asserts: []assertFunc{
-				assertLogged(true, "warn", messages.CSPFK067E, "conjur.var.1"),
-				// We can't predict which secret will be written to the K8s secret
-				// since the order of the secrets is not guaranteed
+				assertErrorContains(messages.CSPFK023E, false),
+				assertErrorLogged(messages.CSPFK098E, "conjur.var.1", "k8s-secret1"),
+			},
+		},
+		{
+			desc: "K8s secret fetch all with trim-path-segments and duplicate normalized names",
+			k8sSecrets: k8sStorageMocks.K8sSecrets{
+				"k8s-secret1": {
+					"conjur-map": map[string]interface{}{
+						"*": map[interface{}]interface{}{
+							"id":                 "*",
+							"trim-path-segments": 2,
+						},
+					},
+				},
+			},
+			requiredSecrets: []string{"k8s-secret1"},
+			alternateConjurSecrets: map[string]string{
+				"dev/env/my_account/my_user": "secret-one",
+				"qa/env/my_account/my_user":  "secret-two",
+			},
+			asserts: []assertFunc{
+				assertErrorContains(messages.CSPFK023E, false),
+				assertErrorLogged(messages.CSPFK098E, "my_account.my_user", "k8s-secret1"),
+			},
+		},
+		{
+			desc: "K8s secret fetch all with invalid trim-path-segments",
+			k8sSecrets: k8sStorageMocks.K8sSecrets{
+				"k8s-secret1": {
+					"conjur-map": map[string]interface{}{
+						"*": map[interface{}]interface{}{
+							"id":                 "*",
+							"trim-path-segments": -1,
+						},
+					},
+				},
+			},
+			requiredSecrets: []string{"k8s-secret1"},
+			asserts: []assertFunc{
+				assertErrorContains(messages.CSPFK021E, false),
+				assertErrorLogged(messages.CSPFK097E, "*", "k8s-secret1", "expected a non-negative integer"),
 			},
 		},
 		{
@@ -1810,7 +1907,7 @@ func TestBase64PKCS12SecretPreservesTrailingNull(t *testing.T) {
 		"pkcs12var": encoded,
 	}
 
-	secretData := provider.createSecretData(conjurSecrets)
+	secretData, _ := provider.createSecretData(conjurSecrets)
 	got := secretData["pkcs12secret"]["pkcs12file"]
 
 	assert.Equal(t, original, got, "decoded PKCS#12 secret should match original including trailing null bytes")
