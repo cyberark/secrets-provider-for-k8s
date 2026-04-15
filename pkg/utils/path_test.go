@@ -8,10 +8,10 @@ import (
 
 func TestTrimLeadingPathSegments(t *testing.T) {
 	testCases := []struct {
-		name          string
-		path          string
-		trim          int
-		expected      string
+		name     string
+		path     string
+		trim     int
+		expected string
 	}{
 		{
 			name:     "trim zero segments",
@@ -38,6 +38,12 @@ func TestTrimLeadingPathSegments(t *testing.T) {
 			expected: "one/two/three",
 		},
 		{
+			name:     "trim exact number of segments keeps path unchanged",
+			path:     "one/two/three",
+			trim:     3,
+			expected: "one/two/three",
+		},
+		{
 			name:     "trim with negative segments keeps path unchanged",
 			path:     "one/two/three",
 			trim:     -1,
@@ -55,23 +61,23 @@ func TestTrimLeadingPathSegments(t *testing.T) {
 
 func TestParseTrimPathSegments(t *testing.T) {
 	testCases := []struct {
-		name          string
-		input         interface{}
-		expected      int
-		expectErr     bool
-		errContains   string
+		name        string
+		input       interface{}
+		expected    int
+		expectErr   bool
+		errContains string
 	}{
 		{
-			name:        "parses string value",
-			input:       "2",
-			expected:    2,
-			expectErr:   false,
+			name:      "parses string value",
+			input:     "2",
+			expected:  2,
+			expectErr: false,
 		},
 		{
-			name:        "trims whitespace before parse",
-			input:       "  3 ",
-			expected:    3,
-			expectErr:   false,
+			name:      "trims whitespace before parse",
+			input:     "  3 ",
+			expected:  3,
+			expectErr: false,
 		},
 		{
 			name:      "parses numeric integer",

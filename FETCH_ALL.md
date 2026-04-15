@@ -197,7 +197,9 @@ There are several important things to note about this feature:
     leading path segments from each returned path before key generation. This is
     useful when your paths include common prefixes like `vault-name/lob-name/...`.
     For example, with `trim-path-segments: 3`, `data/vault/lob/my-account/my-username` 
-    becomes `my-account/my-username` before normalization.
+    becomes `my-account/my-username` before normalization. If the configured number of
+    segments to trim equals or exceeds the number of segments for a given secret path,
+    the path is returned unchanged.
     This feature should be used with caution, as it can cause errors if the
     path trimming results in duplicate keys for multiple secrets.
   - *Duplicate keys:* If there are two or more secrets that, after path trimming

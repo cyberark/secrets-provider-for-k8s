@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/otel"
 	"gopkg.in/yaml.v2"
 	v1 "k8s.io/api/core/v1"
@@ -1907,7 +1908,8 @@ func TestBase64PKCS12SecretPreservesTrailingNull(t *testing.T) {
 		"pkcs12var": encoded,
 	}
 
-	secretData, _ := provider.createSecretData(conjurSecrets)
+	secretData, err := provider.createSecretData(conjurSecrets)
+	require.NoError(t, err, "createSecretData should succeed")
 	got := secretData["pkcs12secret"]["pkcs12file"]
 
 	assert.Equal(t, original, got, "decoded PKCS#12 secret should match original including trailing null bytes")

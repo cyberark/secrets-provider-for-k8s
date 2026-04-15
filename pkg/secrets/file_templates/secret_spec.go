@@ -138,7 +138,6 @@ func NewSecretSpecs(raw []byte) ([]SecretSpec, error) {
 }
 
 func ValidateSecretPathsAndContents(secretSpecs []SecretSpec, groupName string) []error {
-
 	errors := ValidateSecretPaths(secretSpecs, groupName)
 
 	errs := ValidateSecretContents(secretSpecs, groupName)
@@ -147,25 +146,7 @@ func ValidateSecretPathsAndContents(secretSpecs []SecretSpec, groupName string) 
 		log.Warn(messages.CSPFK065E, err.Error())
 	}
 
-	errors = append(errors, ValidateSecretTrimPathSegments(secretSpecs, groupName)...)
 	return errors
-}
-
-func ValidateSecretTrimPathSegments(secretSpecs []SecretSpec, groupName string) []error {
-	var errors []error
-	for _, secretSpec := range secretSpecs {
-		if err := validateSecretTrimPathSegments(secretSpec.TrimPathSegments, groupName); err != nil {
-			errors = append(errors, err)
-		}
-	}
-	return errors
-}
-
-func validateSecretTrimPathSegments(trimPathSegments int, groupName string) error {
-	if trimPathSegments < 0 {
-		return fmt.Errorf("Secret group %s: trim-path-segments expected a non-negative integer, got %d", groupName, trimPathSegments)
-	}
-	return nil
 }
 
 func ValidateSecretPaths(secretSpecs []SecretSpec, groupName string) []error {
