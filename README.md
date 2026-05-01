@@ -9,6 +9,7 @@
   - [Using secrets-provider-for-k8s with Conjur Open Source](#using-secrets-provider-for-k8s-with-conjur-open-source)
   - [Methods for Configuring CyberArk Secrets Provider](#methods-for-configuring-cyberark-secrets-provider)
   - [Retry Behavior](#retry-behavior)
+  - [Fetch All](#fetch-all)
   - [Standalone Mode](#standalone-mode)
   - [Label-based Secret Management](#label-based-secret-management)
     - [Label-based Secret Groups and Templates](#label-based-secret-groups-and-templates)
@@ -127,6 +128,14 @@ The default retry count depends on container mode:
 
 Note: set the retry count to `-1` to indicate "unlimited" retries. Retries will continue indefinitely until success or process termination.
 
+## Fetch All
+
+Fetch All can be configured for Kubernetes Secrets mode by using `*` in `conjur-map`
+or for Push-to-File mode with a secret spec that has `Path: "*"` in
+`conjur.org/conjur-secrets.<group>`. In this mode the provider will retrieve all
+Secrets Manager secrets for which it has read/execute privileges.
+
+For full examples and mode-specific details, see [Fetch All](FETCH_ALL.md).
 
 ## Standalone Mode
 

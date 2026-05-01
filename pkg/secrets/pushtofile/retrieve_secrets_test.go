@@ -270,12 +270,72 @@ func newMockSecretFetcher() mockSecretFetcher {
 	return m
 }
 
+func newMockSecretFetcherWithSecrets(secrets map[string]string) mockSecretFetcher {
+	m := mockSecretFetcher{
+		conjurMockClient: conjurMocks.NewConjurMockClient(),
+	}
+	m.conjurMockClient.ClearSecrets()
+	m.conjurMockClient.AddSecrets(secrets)
+	return m
+}
+
 func TestRetrieveSecrets(t *testing.T) {
 	m := newMockSecretFetcher()
 
 	for _, tc := range retrieveSecretsTestCases {
 		tc.Run(t, m.Fetch)
 	}
+}
+
+func TestFetchSecretsForGroupsTrimPathSegments(t *testing.T) {
+	mock := newMockSecretFetcherWithSecrets(
+		map[string]string{
+			"vault/lob/my_account/my_username": "secret-username",
+			"vault/lob/my_secret":              "secret-plain",
+			"short/path":                       "secret-short",
+		},
+	)
+
+	secretGroups := createSecretGroups(map[string][]filetemplates.SecretSpec{
+		"unified": {
+			{Path: "*", TrimPathSegments: 2},
+		},
+	})
+
+	ret, err := FetchSecretsForGroups(mock.Fetch, secretGroups, context.Background())
+	if !assert.NoError(t, err) {
+		return
+	}
+	assert.Equal(t,
+		[]*filetemplates.Secret{
+			{Alias: "short/path", Value: "secret-short"},
+			{Alias: "my_account/my_username", Value: "secret-username"},
+			{Alias: "my_secret", Value: "secret-plain"},
+		},
+		ret["unified"],
+	)
+
+	assert.NoError(t, err)
+}
+
+func TestFetchSecretsForGroupsTrimPathSegmentsCollision(t *testing.T) {
+	mock := newMockSecretFetcherWithSecrets(
+		map[string]string{
+			"dev/env/my_account/my_user": "secret-one",
+			"qa/env/my_account/my_user":  "secret-two",
+		},
+	)
+	secretGroups := createSecretGroups(map[string][]filetemplates.SecretSpec{
+		"unified": {
+			{Path: "*", TrimPathSegments: 2},
+		},
+	})
+
+	_, err := FetchSecretsForGroups(mock.Fetch, secretGroups, context.Background())
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "CSPFK098E")
+	assert.Contains(t, err.Error(), "my_account/my_user")
+	assert.Contains(t, err.Error(), "unified")
 }
 
 func TestGetAllPaths(t *testing.T) {

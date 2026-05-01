@@ -6,6 +6,7 @@ import (
 
 	"github.com/cyberark/conjur-authn-k8s-client/pkg/log"
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/log/messages"
+	"github.com/cyberark/secrets-provider-for-k8s/pkg/utils"
 	"gopkg.in/yaml.v3"
 )
 
@@ -17,9 +18,10 @@ const (
 // its alias (i.e. the name of the secret from an application's perspective)
 // and its variable path in Conjur.
 type SecretSpec struct {
-	Alias       string
-	Path        string
-	ContentType string
+	Alias            string
+	Path             string
+	ContentType      string
+	TrimPathSegments int
 }
 
 // SecretGroup incorporates common information about a secret group
@@ -69,7 +71,7 @@ func (t *SecretSpec) unmarshalFromLiteralString(node *yaml.Node) error {
 }
 
 func (t *SecretSpec) unmarshalFromMap(node *yaml.Node) error {
-	var mapValue map[string]string
+	var mapValue map[string]interface{}
 
 	err := node.Decode(&mapValue)
 	// Mapping node but not string to string
@@ -77,21 +79,36 @@ func (t *SecretSpec) unmarshalFromMap(node *yaml.Node) error {
 		return fmt.Errorf(invalidSecretSpecErr, node.Line)
 	}
 
-	// Mapping node but has multiple entries
-
 	t.ContentType = "text"
 	count := 0
 	for k, v := range mapValue {
 		if k == "content-type" {
-			t.ContentType = v
-		} else {
-			count = count + 1
-			if count > 1 {
+			contentType, ok := v.(string)
+			if !ok {
 				return fmt.Errorf(invalidSecretSpecErr, node.Line)
 			}
-			t.Path = v
-			t.Alias = k
+			t.ContentType = contentType
+			continue
 		}
+		if k == "trim-path-segments" {
+			trimPathSegments, err := utils.ParseTrimPathSegments(v)
+			if err != nil {
+				return fmt.Errorf("secret spec has invalid trim-path-segments: %v", err)
+			}
+			t.TrimPathSegments = trimPathSegments
+			continue
+		}
+
+		path, ok := v.(string)
+		if !ok {
+			return fmt.Errorf(invalidSecretSpecErr, node.Line)
+		}
+		count = count + 1
+		if count > 1 {
+			return fmt.Errorf(invalidSecretSpecErr, node.Line)
+		}
+		t.Path = path
+		t.Alias = k
 	}
 	return nil
 }
@@ -121,16 +138,14 @@ func NewSecretSpecs(raw []byte) ([]SecretSpec, error) {
 }
 
 func ValidateSecretPathsAndContents(secretSpecs []SecretSpec, groupName string) []error {
-
 	errors := ValidateSecretPaths(secretSpecs, groupName)
 
 	errs := ValidateSecretContents(secretSpecs, groupName)
-	if errs != nil {
-		for _, err := range errs {
-			// Log the errors as warnings but allow it to proceed
-			log.Warn(messages.CSPFK065E, err.Error())
-		}
+	for _, err := range errs {
+		// Log the errors as warnings but allow it to proceed
+		log.Warn(messages.CSPFK065E, err.Error())
 	}
+
 	return errors
 }
 

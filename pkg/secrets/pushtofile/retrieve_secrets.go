@@ -7,6 +7,7 @@ import (
 	"slices"
 
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/secrets/file_templates"
+	"github.com/cyberark/secrets-provider-for-k8s/pkg/utils"
 
 	"github.com/cyberark/conjur-authn-k8s-client/pkg/log"
 	"github.com/cyberark/secrets-provider-for-k8s/pkg/log/messages"
@@ -39,6 +40,7 @@ func FetchSecretsForGroups(
 	}()
 
 	for _, group := range secretGroups {
+		usedAliases := map[string]struct{}{}
 		for _, spec := range group.SecretSpecs {
 			paths := []string{spec.Path}
 			// If the path is "*", then we should populate all the fetched secrets
@@ -64,6 +66,10 @@ func FetchSecretsForGroups(
 				if err != nil {
 					return nil, fmt.Errorf(messages.CSPFK068E, path, group.Name)
 				}
+				if _, exists := usedAliases[secret.Alias]; exists {
+					return nil, fmt.Errorf(messages.CSPFK098E, secret.Alias, group.Name)
+				}
+				usedAliases[secret.Alias] = struct{}{}
 				secretsByGroup[group.Name] = append(secretsByGroup[group.Name], secret)
 			}
 		}
@@ -75,7 +81,7 @@ func FetchSecretsForGroups(
 func getSecretValueByID(secretValuesByID map[string][]byte, spec filetemplates.SecretSpec, path string) (*filetemplates.Secret, error) {
 	alias := spec.Alias
 	if alias == "" || alias == "*" {
-		alias = path
+		alias = utils.TrimLeadingPathSegments(path, spec.TrimPathSegments)
 	}
 
 	// Get the secret value from the map

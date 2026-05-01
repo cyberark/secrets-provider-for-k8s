@@ -45,6 +45,8 @@ const CSPFK027E string = "CSPFK027E Failed to update Kubernetes Secrets map with
 const CSPFK028E string = "CSPFK028E Unable to update Kubernetes Secret '%s'"
 const CSPFK063E string = "CSPFK063E Unable to delete Kubernetes Secret"
 const CSPFK067E string = "CSPFK067E Normalized secret names produced a duplicate secret key '%s'. Leaving first value in place."
+const CSPFK097E string = "CSPFK097E Failed to parse trim-path-segments for destination '%s' in secret '%s': %v"
+const CSPFK098E string = "CSPFK098E Normalized fetch-all secret names produced a duplicate secret key '%s' in destination '%s'. No secrets were written."
 
 // DAP/Conjur
 const CSPFK031E string = "CSPFK031E Failed to load DAP/Conjur config. Reason: %s"

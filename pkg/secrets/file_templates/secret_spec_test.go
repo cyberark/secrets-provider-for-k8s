@@ -170,6 +170,50 @@ another-password: dev/openshift/password
 			},
 		),
 	},
+	{
+		description: "fetch all with trim path segments as int",
+		contents: `
+- "*": "*"
+  trim-path-segments: 2
+`,
+		assert: assertGoodSecretSpecs(
+			[]SecretSpec{
+				{
+					Path:             "*",
+					Alias:            "*",
+					ContentType:      "text",
+					TrimPathSegments: 2,
+				},
+			},
+		),
+	},
+	{
+		description: "fetch all with trim path segments as string",
+		contents: `
+- "*": "*"
+  trim-path-segments: "2"
+`,
+		assert: assertGoodSecretSpecs(
+			[]SecretSpec{
+				{
+					Path:             "*",
+					Alias:            "*",
+					ContentType:      "text",
+					TrimPathSegments: 2,
+				},
+			},
+		),
+	},
+	{
+		description: "fetch all with invalid trim path segments",
+		contents: `
+- "*": "*"
+  trim-path-segments: -1
+`,
+		assert: func(t *testing.T, result []SecretSpec, err error) {
+			assert.Contains(t, err.Error(), "invalid trim-path-segments")
+		},
+	},
 }
 
 func TestNewSecretSpecs(t *testing.T) {
@@ -318,3 +362,4 @@ func TestValidateSecretSpecContents(t *testing.T) {
 		tc.assert(t, err, tc.description)
 	}
 }
+

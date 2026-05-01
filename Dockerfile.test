@@ -1,4 +1,4 @@
-FROM golang:1.26.1-alpine3.22
+FROM golang:1.26-alpine3.22
 LABEL maintainer="CyberArk Software Ltd."
 LABEL id="secrets-provider-for-k8s-test-runner"
 

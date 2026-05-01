@@ -30,10 +30,11 @@ import (
 // represents one destination to which a retrieved Conjur secret value needs
 // to be written when Kubernetes Secrets are updated.
 type updateDestination struct {
-	namespace     string
-	k8sSecretName string
-	secretName    string
-	contentType   string
+	namespace        string
+	k8sSecretName    string
+	secretName       string
+	contentType      string
+	trimPathSegments int
 }
 
 type k8sSecretsState struct {
@@ -509,7 +510,7 @@ func (p *K8sProvider) refreshUpdateDestinations(conjurMap map[string]interface{}
 	for secretName, contents := range conjurMap {
 		switch value := contents.(type) {
 		case string: //in that case contents is varID
-			dest := updateDestination{namespace, k8sSecretName, secretName, "text"}
+			dest := updateDestination{namespace, k8sSecretName, secretName, "text", 0}
 			p.appendDestination(value, dest)
 		case map[interface{}]interface{}:
 			varId, ok := value["id"].(string)
@@ -524,7 +525,16 @@ func (p *K8sProvider) refreshUpdateDestinations(conjurMap map[string]interface{}
 				contentType = "text"
 			}
 
-			dest := updateDestination{namespace, k8sSecretName, secretName, contentType}
+			trimPathSegments := 0
+			if rawTrimPathSegments, ok := value["trim-path-segments"]; ok {
+				var err error
+				trimPathSegments, err = utils.ParseTrimPathSegments(rawTrimPathSegments)
+				if err != nil {
+					return p.log.recordedError(messages.CSPFK097E, secretName, k8sSecretName, err)
+				}
+			}
+
+			dest := updateDestination{namespace, k8sSecretName, secretName, contentType, trimPathSegments}
 			p.appendDestination(varId, dest)
 
 		default:
@@ -638,7 +648,10 @@ func (p *K8sProvider) updateRequiredK8sSecretsWithCleanup(
 	spanCtx, span := tracer.Start(p.traceContext, "Update K8s Secrets")
 	defer span.End()
 
-	newSecretsDataMap := p.createSecretData(conjurSecrets)
+	newSecretsDataMap, err := p.createSecretData(conjurSecrets)
+	if err != nil {
+		return false, err
+	}
 	p.populateGroupTemplateSecretData(conjurSecrets, newSecretsDataMap)
 
 	// Add K8s Secrets that don't have conjur-map (not in newSecretData) to ensure they are processed
@@ -714,7 +727,7 @@ func (p *K8sProvider) updateRequiredK8sSecretsWithCleanup(
 // of each K8s Secret. Each entry will map an application secret name to a
 // value retrieved from Conjur. If a secret has a 'base64' content type, the
 // resulting secret value will be decoded.
-func (p *K8sProvider) createSecretData(conjurSecrets map[string][]byte) map[string]map[string][]byte {
+func (p *K8sProvider) createSecretData(conjurSecrets map[string][]byte) (map[string]map[string][]byte, error) {
 	_, isFetchAll := p.secretsState.updateDestinations["*"]
 
 	secretData := map[string]map[string][]byte{}
@@ -737,13 +750,10 @@ func (p *K8sProvider) createSecretData(conjurSecrets map[string][]byte) map[stri
 			if secretName == "*" {
 				// In fetch all mode, use the Conjur variable ID as the key.
 				// However, we need to normalize the key to be a valid K8s secret name.
-				secretName = normalizeK8sSecretName(variableID)
-				if secretData[secretKey][secretName] != nil {
-					// The key already exists. Since the order of the secrets is not guaranteed,
-					// this will cause non-deterministic behavior. Log a warning and leave the
-					// first value in place.
-					p.log.warn(messages.CSPFK067E, secretName)
-					continue
+				secretName = normalizeK8sSecretName(utils.TrimLeadingPathSegments(variableID, dest.trimPathSegments))
+				if _, exists := secretData[secretKey][secretName]; exists {
+					// The key already exists; fail fast.
+					return nil, p.log.recordedError(messages.CSPFK098E, secretName, secretKey)
 				}
 			}
 
@@ -805,7 +815,7 @@ func (p *K8sProvider) createSecretData(conjurSecrets map[string][]byte) map[stri
 			}
 		}
 	}
-	return secretData
+	return secretData, nil
 }
 
 // GetRemovedKeys compares old and new secrets to find keys that were removed from conjur-map.

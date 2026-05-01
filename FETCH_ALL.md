@@ -77,10 +77,12 @@ stringData:
     "*": "*"
   
   # For secrets that should be decoded from Base64
+  # and/or have path trimming applied
   conjur-map: |-
     "*":
       id: "*"
       content-type: base64
+      trim-path-segments: 2
 ```
 
 The values in the K8s secret can now be used in the application pod in the usual
@@ -129,9 +131,11 @@ conjur.org/secret-file-format.test-app: json # or "yaml", or "template"
 # For plaintext secrets
 conjur.org/conjur-secrets.test-app: "*"
 # For secrets that should be decoded from Base64
+# and/or have path trimming applied
 conjur.org/conjur-secrets.test-app: |
   - "*": "*"
     content-type: base64
+    trim-path-segments: 2
 ```
 
 With this configuration, the Secrets Provider will retrieve all secrets that the
@@ -179,8 +183,9 @@ There are several important things to note about this feature:
 
 - There is no way to use aliases for secrets when using the Fetch All feature.
   This means that the keys used for the secrets (both in K8s Secrets and P2F)
-  will be the *full path* of the secret in Secrets Manager. At the same time, Kubernetes
-  secrets do not allow keys to contain slashes (`/`) or most other special
+  are derived directly from the secret path in Secrets Manager, unless
+  `trim-path-segments` is configured. At the same time, Kubernetes secrets do
+  not allow keys to contain slashes (`/`) or most other special
   characters. Due to these limitations:
   
   - *In K8s secrets mode:* Any slashes, spaces or other special characters
@@ -188,20 +193,30 @@ There are several important things to note about this feature:
     dots (`.`) in the key names when using K8s Secrets. For example, if the
     secret is stored at `host/my-app/secrets/db-password`, the key in the K8s
     Secret will be `host.my-app.secrets.db-password`.
-  - *Duplicate keys:* If there are two or more secrets that, after this
-    character replacement, have the same key, a warning will be logged with
-    error code `CSPFK067E`. The first secret will be used, and the others will
-    be ignored. For example, if there are two secrets at
+  - *Optional path trimming:* Use `trim-path-segments` with Fetch All to remove
+    leading path segments from each returned path before key generation. This is
+    useful when your paths include common prefixes like `vault-name/lob-name/...`.
+    For example, with `trim-path-segments: 3`, `data/vault/lob/my-account/my-username` 
+    becomes `my-account/my-username` before normalization. If the configured number of
+    segments to trim equals or exceeds the number of segments for a given secret path,
+    the path is returned unchanged.
+    This feature should be used with caution, as it can cause errors if the
+    path trimming results in duplicate keys for multiple secrets.
+  - *Duplicate keys:* If there are two or more secrets that, after path trimming
+    and character replacement, have the same key, the provider fails with error
+    code `CSPFK098E` and does not write any secrets for that run.
+    This prevents non-deterministic behavior but does require either policy/layout
+    changes or a different `trim-path-segments` value to remediate the issue. For
+    example, if there are two secrets at
     `host/my-app/secrets/db.password` and `host/my-app/secrets/db password`
-    (with a space in place of a `.`), the key in the K8s Secret for each of them
-    will be `host.my-app.secrets.db.password`. The order in which the secrets
-    are processed is not guaranteed, so one of them will be used and the other
-    will be ignored. This will cause non-deterministic behavior in the
-    application and must be avoided.
+    (with a space in place of a `.`), both can produce the same normalized key.
 
   - *In P2F mode:* The key names will be the full path of the secret in Secrets Manager.
     For example, if the secret is stored at `host/my-app/secrets/db-password`,
     the key in the P2F file will be `host/my-app/secrets/db-password`.
+    The same `trim-path-segments` option can also be used to remove shared prefix
+    segments before writing keys, however using this option introduces the possibility
+    of duplicate keys causing errors and should be used with caution.
     This poses no issues for YAML and JSON files, since those formats
     support special characters in key names. However, it is impossible to
     use the `bash`, `dotenv`, and `properties` formats with secrets that have
