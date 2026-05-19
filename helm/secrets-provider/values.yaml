@@ -174,6 +174,13 @@ reloader:
       # WARNING: The Reloader subchart silently caps replicas to 1 when
       # enableHA is false, even if a higher value is specified here.
       replicas: 1
+      # runAsUser: null removes the scalar so OpenShift's restricted-v2 SCC assigns a UID dynamically.
+      # The chart default (runAsUser: 65534) is rejected by OpenShift.
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: null
+        seccompProfile:
+          type: RuntimeDefault
 
     # Set to true to enable leadership election allowing you to run multiple replicas.
     # This MUST be true if deployment.replicas > 1.

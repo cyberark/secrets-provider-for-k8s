@@ -35,8 +35,9 @@ set_variable() {
 }
 
 enable_authenticator() {
-  service_id=$1
-  cli_exec authenticator enable -i "authn-jwt/$service_id"
+  local type=$1
+  local service_id=$2
+  cli_exec authenticator enable -i "$type/$service_id"
 }
 
 main() {
@@ -80,11 +81,19 @@ main() {
     set_variable "conjur/authn-jwt/$AUTHENTICATOR_ID/identity-path" "data"
     set_variable "conjur/authn-jwt/$AUTHENTICATOR_ID/token-app-property" "sub"
     set_variable "conjur/authn-jwt/$AUTHENTICATOR_ID/public-keys" "$PUBLIC_KEYS"
-    enable_authenticator "$AUTHENTICATOR_ID"
+    enable_authenticator "authn-jwt" "$AUTHENTICATOR_ID"
   else
     set_variable "conjur/authn-jwt/$AUTHENTICATOR_ID/identity-path" "conjur/authn-jwt/$AUTHENTICATOR_ID/apps"
     set_variable "conjur/authn-jwt/$AUTHENTICATOR_ID/jwks-uri" "$JWKS_URI"
-    set_variable "conjur/authn-jwt/$AUTHENTICATOR_ID/ca-cert" "$(echo $CA_CERT_B64 | base64 -d)"
+    local ca_cert_file
+    ca_cert_file=$(mktemp)
+    echo "$CA_CERT_B64" | base64 -d > "$ca_cert_file"
+    cli_exec variable set -i "conjur/authn-jwt/$AUTHENTICATOR_ID/ca-cert" -f "$ca_cert_file"
+    rm -f "$ca_cert_file"
+    if [ "$CONJUR_DEPLOYMENT" = "dap" ]; then
+      enable_authenticator "authn-k8s" "$AUTHENTICATOR_ID"
+    fi
+    enable_authenticator "authn-jwt" "$AUTHENTICATOR_ID"
   fi
 
   if [ "$CONJUR_DEPLOYMENT" != "cloud" ]; then

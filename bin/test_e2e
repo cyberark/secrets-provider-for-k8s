@@ -7,7 +7,7 @@ set -eox pipefail
 
 function main() {
   build_docker_e2e_image
-  run_e2e_tests $@
+  run_e2e_tests "$@"
 }
 
 function build_docker_e2e_image() {
@@ -20,10 +20,9 @@ function run_e2e_tests() {
 
   docker run --rm -t \
              --volume $HOME/.kube/config:/root/.kube/config \
+             -w /secrets-provider-for-k8s \
              secrets-provider-for-k8s-e2e-test-runner:latest \
-             "$@"
-
-  echo "E2E test exit status: $?"
+             go test -tags e2e -count=1 -v ./e2e/... "$@"
 }
 
-main $@
+main "$@"

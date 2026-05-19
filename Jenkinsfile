@@ -411,8 +411,12 @@ pipeline {
               }
               if (params.TEST_KIND_AUTHN_AZURE) {
                 tasks["KinD authn-azure"] = {
-                  INFRAPOOL_AZURE_EXECUTORV2_AGENT_0.agentSh "./bin/build"
-                  INFRAPOOL_AZURE_EXECUTORV2_AGENT_0.agentSh "E2E_AUTHN_AZURE=true ./bin/start --docker --oss --kind"
+                  retry(2) {
+                    // Reacquire Azure executor for each attempt to avoid sticky failures on a bad host.
+                    INFRAPOOL_AZURE_EXECUTORV2_AGENT_0 = getInfraPoolAgent.connected(type: "AzureExecutorV2", quantity: 1, duration: 2)[0]
+                    INFRAPOOL_AZURE_EXECUTORV2_AGENT_0.agentSh "./bin/build"
+                    INFRAPOOL_AZURE_EXECUTORV2_AGENT_0.agentSh "E2E_AUTHN_AZURE=true ./bin/start --docker --oss --kind"
+                  }
                 }
               }
               parallel tasks
