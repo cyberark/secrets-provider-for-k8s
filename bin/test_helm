@@ -12,7 +12,7 @@ docker run --rm \
   --entrypoint "" \
   alpine/helm:${helm_version} \
   sh -c '
-    apk add --no-cache bash > /dev/null
+    apk add --no-cache bash coreutils > /dev/null
 
     set -eu
 

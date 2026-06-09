@@ -28,13 +28,13 @@ type conjurClient interface {
 var newConjurClientFromConfig = func(cfg conjurapi.Config) (conjurClient, error) {
 	switch cfg.AuthnType {
 	case "iam":
-		return conjurapi.NewClientFromAWSCredentials(cfg)
+		return conjurapi.NewClientFromAWSCredentials(cfg, telemetryData)
 	case "azure":
-		return conjurapi.NewClientFromAzureCredentials(cfg)
+		return conjurapi.NewClientFromAzureCredentials(cfg, telemetryData)
 	case "gcp":
-		return conjurapi.NewClientFromGCPCredentials(cfg, "")
+		return conjurapi.NewClientFromGCPCredentials(cfg, "", telemetryData)
 	default:
-		return conjurapi.NewClient(cfg)
+		return conjurapi.NewClient(cfg, telemetryData)
 	}
 }
 
