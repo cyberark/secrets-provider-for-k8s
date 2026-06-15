@@ -244,7 +244,7 @@ configure_cli_pod() {
 
   conjur_cli_pod=$(get_conjur_cli_pod_name)
 
-  $cli_with_timeout "exec $conjur_cli_pod -- sh -c \"echo y | conjur init -a $CONJUR_ACCOUNT -u $conjur_url --self-signed --force\""
+  $cli_with_timeout "exec $conjur_cli_pod -- sh -c \"conjur init -a $CONJUR_ACCOUNT -u $conjur_url --env=oss --self-signed --force\""
 
   $cli_with_timeout exec $conjur_cli_pod -- conjur login -i admin -p $CONJUR_ADMIN_PASSWORD
 }
