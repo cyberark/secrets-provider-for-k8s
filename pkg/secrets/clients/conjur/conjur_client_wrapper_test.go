@@ -4,8 +4,45 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/cyberark/conjur-api-go/conjurapi"
 	"github.com/stretchr/testify/assert"
 )
+
+func TestShouldUseV2(t *testing.T) {
+	testCases := []struct {
+		name        string
+		environment conjurapi.EnvironmentType
+		expected    bool
+	}{
+		{
+			name:        "SaaS enables V2 (covers Edge detected as SaaS)",
+			environment: conjurapi.EnvironmentSaaS,
+			expected:    true,
+		},
+		{
+			name:        "Self-hosted disables V2",
+			environment: conjurapi.EnvironmentSH,
+			expected:    false,
+		},
+		{
+			name:        "OSS disables V2",
+			environment: conjurapi.EnvironmentOSS,
+			expected:    false,
+		},
+		{
+			name:        "Unset environment disables V2",
+			environment: conjurapi.EnvironmentType(""),
+			expected:    false,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			config := conjurapi.Config{Environment: tc.environment}
+			assert.Equal(t, tc.expected, shouldUseV2(config))
+		})
+	}
+}
 
 func TestIsV2NotAvailableError(t *testing.T) {
 	testCases := []struct {

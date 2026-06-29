@@ -6,6 +6,12 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Changed
+- V2 batch secret retrieval is now selected based on the configured environment
+  (Idira Secrets Manager SaaS, including Edge) instead of always being attempted.
+  This enables V2 batch retrieval on Edge and removes the WARN log that fired on
+  every retrieval cycle when falling back to V1 on self-hosted. (CNJR-14071)
+
 ## [1.11.0] - 2026-04-16
 
 ### Added
