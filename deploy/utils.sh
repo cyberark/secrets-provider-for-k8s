@@ -75,7 +75,7 @@ announce() {
 has_namespace() {
   # We don't need a timeout here as false is a valid output.
   # Running with a timeout will run this command repeatedly for no reason, ending with the same result
-  if $cli_without_timeout get namespace  "$1" > /dev/null; then
+  if $cli_without_timeout get namespace "$1" > /dev/null 2>&1; then
     true
   else
     false
@@ -244,7 +244,7 @@ configure_cli_pod() {
 
   conjur_cli_pod=$(get_conjur_cli_pod_name)
 
-  $cli_with_timeout "exec $conjur_cli_pod -- sh -c \"conjur init -a $CONJUR_ACCOUNT -u $conjur_url --env=oss --self-signed --force\""
+  $cli_with_timeout "exec $conjur_cli_pod -- sh -c \"echo y | conjur init self-hosted -a $CONJUR_ACCOUNT -u $conjur_url --self-signed --force\""
 
   $cli_with_timeout exec $conjur_cli_pod -- conjur login -i admin -p $CONJUR_ADMIN_PASSWORD
 }
@@ -637,13 +637,17 @@ verify_secret_value_in_pod() {
 
 get_app_logs_container() {
     echo "Get logs from the Secrets Provider container"
+    if ! has_namespace "$APP_NAMESPACE_NAME"; then
+      echo "App namespace $APP_NAMESPACE_NAME not found. Secrets Provider logs were unable to be retrieved"
+      return 0
+    fi
     set_namespace "$APP_NAMESPACE_NAME"
     helm=$(helm ls -q)
     $cli_without_timeout get pods
     _out_stem="${UNIQUE_TEST_ID:+$UNIQUE_TEST_ID-}$SUMMON_ENV"
 
     if [[ -z "$helm" ]]; then
-      pod_name=$($cli_without_timeout get pods --selector app=test-env --no-headers  | awk '{print $1}' )
+      pod_name=$($cli_without_timeout get pods --selector app=test-env --no-headers 2>/dev/null | awk '{print $1}' )
       echo "pod_name="$pod_name
 
       if [[ $pod_name != "" ]]; then
@@ -653,7 +657,7 @@ get_app_logs_container() {
         $cli_without_timeout logs $pod_name -c cyberark-secrets-provider-for-k8s > "output/${_out_stem}-secrets-provider-logs.txt"
       fi
     else
-      pod_name=$($cli_without_timeout get pods --selector app=test-helm --no-headers | awk '{print $1}' )
+      pod_name=$($cli_without_timeout get pods --selector app=test-helm --no-headers 2>/dev/null | awk '{print $1}' )
       echo "pod_name="$pod_name
 
       if [[ $pod_name != "" ]]; then
@@ -667,6 +671,10 @@ get_app_logs_container() {
 
 get_conjur_logs_container() {
     echo "Get logs from the DAP Follower/Conjur container(s)"
+    if ! has_namespace "$CONJUR_NAMESPACE_NAME"; then
+      echo "Conjur namespace $CONJUR_NAMESPACE_NAME not found. DAP Follower/Conjur logs were unable to be retrieved"
+      return 0
+    fi
     set_namespace "$CONJUR_NAMESPACE_NAME"
     selector="role=follower"
 
@@ -817,7 +825,11 @@ set_namespace_exp() {
   # that it can safely delete this namespace after that time.
   local namespace=$1
   local fmt="+%Y-%m-%dT%H%M%SZ"
-  exp=$(date -u -d "+1Hour" $fmt 2>/dev/null||date -u -v "+1H" $fmt)
+  local now_epoch
+  local exp_epoch
+  now_epoch=$(date -u +%s)
+  exp_epoch=$((now_epoch + 3600))
+  exp=$(date -u -d "@${exp_epoch}" $fmt 2>/dev/null || date -u -r "${exp_epoch}" $fmt)
   $cli_with_timeout "label namespace $namespace safely_delete_after=$exp"
 }
 

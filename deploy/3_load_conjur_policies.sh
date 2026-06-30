@@ -39,7 +39,7 @@ if [[ "${DEPLOY_MASTER_CLUSTER}" == "true" ]]; then
   announce "Extracting openid configuration"
   JWKS_URI=$($cli_without_timeout get --raw /.well-known/openid-configuration | jq -r '.jwks_uri')
   ISSUER=$($cli_without_timeout get --raw /.well-known/openid-configuration | jq -r '.issuer')
-  CA_CERT_B64=$($cli_without_timeout get configmap -n kube-system extension-apiserver-authentication -o jsonpath='{.data.client-ca-file}' | base64 -w0)
+  CA_CERT_B64=$(kubectl config view --raw -o jsonpath='{.clusters[0].cluster.certificate-authority-data}')
   announce "JWKS URI of this cluster is $JWKS_URI and Issuer is $ISSUER"
 
   JWKS=$($cli_without_timeout get --raw "$JWKS_URI")

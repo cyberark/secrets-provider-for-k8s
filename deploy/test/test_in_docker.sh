@@ -202,6 +202,12 @@ main() {
 
 buildTestRunnerImage() {
   pushd ..
+  # Pre-fetch helm chart dependencies on the host so they are baked into the
+  # image via COPY . . — the test container then finds them already present
+  # and skips the network download, which may not be available in CI.
+  helm repo add stakater https://stakater.github.io/stakater-charts 2>/dev/null || true
+  helm repo update 2>/dev/null || true
+  helm dependency build helm/secrets-provider || true
   docker build --tag "${TEST_RUNNER_IMAGE}:${CONJUR_NAMESPACE_NAME}" \
     --file Dockerfile.e2e \
     --build-arg OPENSHIFT_CLI_URL="${OPENSHIFT_CLI_URL:-}" \
@@ -241,8 +247,47 @@ run_conjur_deploy_in_kind() {
     export LOG_LEVEL=debug
     export TEST_PLATFORM=kubernetes
     export CONJUR_NAMESPACE_NAME=${CONJUR_NAMESPACE_NAME}
-    
-    $cmd"
+
+    $cmd || {
+      ts=\$(date -u +%Y%m%dT%H%M%SZ)
+      echo '--- Conjur KinD deployment failed: dumping diagnostics ---'
+      echo 'timestamp='\${ts}
+      echo 'cluster='\${KIND_CLUSTER_NAME}
+      echo 'namespace='\${CONJUR_NAMESPACE_NAME}
+      echo
+      echo '--- All pods ---'
+      kubectl get pods -A -o wide || true
+      echo
+      echo '--- Cluster warning/error events ---'
+      kubectl get events -A --sort-by='.lastTimestamp' | grep -E 'Warning|BackOff|CrashLoopBackOff|Failed|Evicted|Error|deadline|timeout' || true
+      echo
+      if [[ -n \${CONJUR_NAMESPACE_NAME} ]] && kubectl get namespace \${CONJUR_NAMESPACE_NAME} >/dev/null 2>&1; then
+        echo '--- Namespace events ('\${CONJUR_NAMESPACE_NAME}') ---'
+        kubectl -n \${CONJUR_NAMESPACE_NAME} get events --sort-by='.lastTimestamp' || true
+        echo
+        echo '--- Namespace pods ('\${CONJUR_NAMESPACE_NAME}') ---'
+        kubectl -n \${CONJUR_NAMESPACE_NAME} get pods -o wide || true
+        echo
+        echo '--- Namespace workloads ('\${CONJUR_NAMESPACE_NAME}') ---'
+        kubectl -n \${CONJUR_NAMESPACE_NAME} get deploy,rs,sts,svc -o wide || true
+        echo
+        echo '--- Describe pods ('\${CONJUR_NAMESPACE_NAME}') ---'
+        kubectl -n \${CONJUR_NAMESPACE_NAME} describe pods || true
+        echo
+        echo '--- Conjur pod logs ('\${CONJUR_NAMESPACE_NAME}') ---'
+        kubectl -n \${CONJUR_NAMESPACE_NAME} logs -l app=conjur-oss --all-containers --tail=300 || true
+        kubectl -n \${CONJUR_NAMESPACE_NAME} logs -l app=conjur-cluster --all-containers --tail=300 || true
+        kubectl -n \${CONJUR_NAMESPACE_NAME} logs -l app=conjur-postgres --all-containers --tail=300 || true
+        kubectl -n \${CONJUR_NAMESPACE_NAME} logs -l app=conjur-cli --all-containers --tail=300 || true
+        echo
+        echo '--- Previous Conjur pod logs ('\${CONJUR_NAMESPACE_NAME}') ---'
+        kubectl -n \${CONJUR_NAMESPACE_NAME} logs -l app=conjur-oss --all-containers --previous --tail=300 || true
+        kubectl -n \${CONJUR_NAMESPACE_NAME} logs -l app=conjur-cluster --all-containers --previous --tail=300 || true
+        kubectl -n \${CONJUR_NAMESPACE_NAME} logs -l app=conjur-postgres --all-containers --previous --tail=300 || true
+        kubectl -n \${CONJUR_NAMESPACE_NAME} logs -l app=conjur-cli --all-containers --previous --tail=300 || true
+      fi
+      exit 1
+    }"
 }
 
 # Main deployment logic
@@ -272,7 +317,38 @@ deployConjur() {
   fi
 }
 deployTest() {
-  runDockerCommand "./run_with_summon.sh"
+  if [[ "${KIND}" = "true" ]]; then
+    runDockerCommand "set -e
+      ./run_with_summon.sh || {
+        echo '--- KinD test execution failed: dumping diagnostics ---'
+        kubectl get pods -A -o wide || true
+        kubectl get events -A --sort-by='.lastTimestamp' | grep -E 'Warning|BackOff|CrashLoopBackOff|Failed|Evicted|Error|deadline|timeout' || true
+
+        if [[ -n \${CONJUR_NAMESPACE_NAME:-} ]] && kubectl get namespace \${CONJUR_NAMESPACE_NAME} >/dev/null 2>&1; then
+          echo '--- Conjur namespace diagnostics ('\${CONJUR_NAMESPACE_NAME}') ---'
+          kubectl -n \${CONJUR_NAMESPACE_NAME} get pods -o wide || true
+          kubectl -n \${CONJUR_NAMESPACE_NAME} get events --sort-by='.lastTimestamp' || true
+          kubectl -n \${CONJUR_NAMESPACE_NAME} logs -l app=conjur-oss --all-containers --tail=300 || true
+          kubectl -n \${CONJUR_NAMESPACE_NAME} logs -l app=conjur-cluster --all-containers --tail=300 || true
+          kubectl -n \${CONJUR_NAMESPACE_NAME} logs -l app=conjur-cli --all-containers --tail=300 || true
+        fi
+
+        if [[ -n \${APP_NAMESPACE_NAME:-} ]] && kubectl get namespace \${APP_NAMESPACE_NAME} >/dev/null 2>&1; then
+          echo '--- App namespace diagnostics ('\${APP_NAMESPACE_NAME}') ---'
+          kubectl -n \${APP_NAMESPACE_NAME} get pods -o wide || true
+          kubectl -n \${APP_NAMESPACE_NAME} get events --sort-by='.lastTimestamp' || true
+          kubectl -n \${APP_NAMESPACE_NAME} logs -l app=secrets-provider --all-containers --tail=300 || true
+          kubectl -n \${APP_NAMESPACE_NAME} logs -l app=secrets-provider --all-containers --previous --tail=300 || true
+          kubectl -n \${APP_NAMESPACE_NAME} logs -l app=test-env --all-containers --tail=300 || true
+          kubectl -n \${APP_NAMESPACE_NAME} logs -l app.kubernetes.io/name=reloader --all-containers --tail=300 || true
+          kubectl -n \${APP_NAMESPACE_NAME} logs -l app.kubernetes.io/name=reloader --all-containers --previous --tail=300 || true
+        fi
+        exit 1
+      }
+    "
+  else
+    runDockerCommand "./run_with_summon.sh"
+  fi
 }
 
 main
