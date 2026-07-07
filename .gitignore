@@ -18,4 +18,7 @@ deploy/**/output/
 *kubernetes-conjur-deploy-*
 *.debug
 
+# Ignore subchart artifacts
+helm/secrets-provider/charts/
+
 VERSION

@@ -75,12 +75,31 @@ else
   fi
 fi
 
-registry_digest() {
+registry_digest_buildx() {
   docker buildx imagetools inspect "${ref}" 2>/dev/null | awk '
     BEGIN { found=0 }
     /^Digest:/ { print $2; found=1; exit }
     END { exit !found }
   '
+}
+
+registry_digest() {
+  local attempts=3 delay=5 count=1 digest
+
+  while true; do
+    if digest=$(registry_digest_buildx); then
+      echo "${digest}"
+      return 0
+    fi
+    if [[ "${count}" -ge "${attempts}" ]]; then
+      return 1
+    fi
+    echo "docker buildx imagetools inspect failed (attempt ${count}/${attempts})" >&2
+    echo "Retrying in ${delay}s..." >&2
+    sleep "${delay}"
+    count=$((count + 1))
+    delay=$((delay * 2))
+  done
 }
 
 sync_values() {

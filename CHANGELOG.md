@@ -6,12 +6,15 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
-## [1.11.0] - 2026-04-16
+## [1.11.0] - 2026-07-07
 
 ### Added
 - Fetch-all mode supports trim-path-segments configuration. (CNJR-13592)
 
 ### Changed
+- Updated reloader subchart version
+- V2 batch secret retrieval support is determined based on the configured environment rather than enabled
+  by default (CNJR-14071)
 - Normalized key collisions in fetch-all mode cause errors rather than silent overwrites.
 
 ## [1.10.0] - 2026-04-09
