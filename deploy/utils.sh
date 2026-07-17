@@ -46,6 +46,24 @@ wait_for_it() {
   fi
 }
 
+# retry_command retries a transient/flaky command (e.g. a network call to an
+# external chart repository) a few times with a delay between attempts,
+# instead of failing the whole test run on the first blip.
+retry_command() {
+  local attempts=3
+  local delay=10
+  local n=1
+  until "$@"; do
+    if [[ $n -ge $attempts ]]; then
+      echo "ERROR: command failed after ${attempts} attempts: $*" >&2
+      return 1
+    fi
+    echo "WARN: command failed (attempt ${n}/${attempts}), retrying in ${delay}s: $*" >&2
+    n=$((n + 1))
+    sleep "$delay"
+  done
+}
+
 check_env_var() {
   # If running KinD tests, registry variables are optional; do not fail on them.
   local var_name="$1"
@@ -339,8 +357,8 @@ setup_helm_environment() {
       exit 1
     fi
     helm repo add stakater https://stakater.github.io/stakater-charts 2>/dev/null || true
-    helm repo update
-    helm dependency build ../helm/secrets-provider
+    retry_command helm repo update
+    retry_command helm dependency build ../helm/secrets-provider
 
     announce "Creating test namespaces/deployments"
     num_namespaces=5

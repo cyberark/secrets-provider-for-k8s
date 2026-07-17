@@ -116,8 +116,8 @@ if ! command -v helm >/dev/null 2>&1; then
   exit 1
 fi
 helm repo add stakater https://stakater.github.io/stakater-charts || true
-helm repo update
-helm dependency build "${_REPO_ROOT}/helm/secrets-provider"
+retry_command helm repo update
+retry_command helm dependency build "${_REPO_ROOT}/helm/secrets-provider"
 
 if [[ -n "$testNameRegex" ]]; then
   echo "Running tests matching regex: $testNameRegex"
