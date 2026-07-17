@@ -215,8 +215,15 @@ func WaitResourceDeleted(client klient.Client, namespace string, labelSelector s
 }
 
 // WaitJobCompleted waits until the given Kubernetes Job reaches a completed state.
+//
+// The timeout is aligned with WaitResourceScaled/WaitResourceDeleted (3 minutes)
+// rather than a tighter budget: a Job's pod still has to be scheduled and pull its
+// image before it can even start running, and under CI load (e.g. multiple parallel
+// pipeline branches sharing a cluster) that alone can take longer than a minute,
+// which previously surfaced as spurious "client rate limiter Wait returned an
+// error: context deadline exceeded" failures.
 func WaitJobCompleted(client klient.Client, job *batchv1.Job) error {
-	err := wait.For(conditions.New(client.Resources()).JobCompleted(job), wait.WithTimeout(time.Minute*1))
+	err := wait.For(conditions.New(client.Resources()).JobCompleted(job), wait.WithTimeout(time.Minute*3))
 	if err != nil {
 		return fmt.Errorf("failed to wait for job completion: %v", err)
 	}
