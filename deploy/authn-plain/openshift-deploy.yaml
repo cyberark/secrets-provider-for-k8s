@@ -1,0 +1,161 @@
+---
+# 1. ConfigMap - Conjur connection details (plain authn)
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: conjur-connect
+  namespace: cyberark-conjur-app
+  labels:
+    app: secrets-provider-conjur
+data:
+  CONJUR_ACCOUNT: "BRI"
+  CONJUR_APPLIANCE_URL: "https://conjur-follower.dev.bri.co.id"
+  CONJUR_CERT_FILE: "/etc/ssl/certs/ca-certificates.crt"
+---
+# 2. Kubernetes Secret - Conjur host credentials
+apiVersion: v1
+kind: Secret
+metadata:
+  name: conjur-credentials
+  namespace: cyberark-conjur-app
+  labels:
+    app: secrets-provider-conjur
+type: Opaque
+stringData:
+  login: "host/monitoring"
+  api-key: "REPLACE_WITH_YOUR_API_KEY"
+---
+# 3. Kubernetes Secret with conjur-map (target secret to be populated)
+apiVersion: v1
+kind: Secret
+metadata:
+  name: s3-creds
+  namespace: cyberark-conjur-app
+  labels:
+    app: secrets-provider-conjur
+type: Opaque
+stringData:
+  conjur-map: |-
+    username: dummy_username
+    password: dummy_passwrd
+---
+# 4. ServiceAccount
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: cyberark-conjur-init-sa1
+  namespace: cyberark-conjur-app
+  labels:
+    app: secrets-provider-conjur
+---
+# 5. Role - permissions to get/update secrets
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: secrets-provider-role
+  namespace: cyberark-conjur-app
+  labels:
+    app: secrets-provider-conjur
+rules:
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["get", "update"]
+---
+# 6. RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: secrets-provider-rolebinding
+  namespace: cyberark-conjur-app
+  labels:
+    app: secrets-provider-conjur
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: secrets-provider-role
+subjects:
+  - kind: ServiceAccount
+    name: cyberark-conjur-init-sa1
+    namespace: cyberark-conjur-app
+---
+# 7. CronJob - Secrets Provider with plain authn
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: secrets-provider-conjur
+  namespace: cyberark-conjur-app
+  labels:
+    app: secrets-provider-conjur
+spec:
+  schedule: "*/5 * * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    metadata:
+      labels:
+        app: secrets-provider-conjur
+    spec:
+      backoffLimit: 0
+      activeDeadlineSeconds: 120
+      template:
+        metadata:
+          labels:
+            app: secrets-provider-conjur
+        spec:
+          serviceAccountName: cyberark-conjur-init-sa1
+          restartPolicy: Never
+          securityContext:
+            runAsNonRoot: true
+            seccompProfile:
+              type: RuntimeDefault
+          containers:
+            - name: cyberark-secrets-provider-for-k8s
+              image: new-nexus.bri.co.id/cyberark/conjur/dev/secrets-provider-for-k8s:1.7.5-authn-plain
+              imagePullPolicy: Always
+              envFrom:
+                - configMapRef:
+                    name: conjur-connect
+              env:
+                - name: CONJUR_AUTHN_LOGIN
+                  valueFrom:
+                    secretKeyRef:
+                      name: conjur-credentials
+                      key: login
+                - name: CONJUR_AUTHN_API_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: conjur-credentials
+                      key: api-key
+                - name: CONTAINER_MODE
+                  value: "application"
+                - name: K8S_SECRETS
+                  value: "s3-creds"
+                - name: SECRETS_DESTINATION
+                  value: "k8s_secrets"
+                - name: MY_POD_NAME
+                  valueFrom:
+                    fieldRef:
+                      fieldPath: metadata.name
+                - name: MY_POD_NAMESPACE
+                  valueFrom:
+                    fieldRef:
+                      fieldPath: metadata.namespace
+                - name: LOG_LEVEL
+                  value: "info"
+                - name: RETRY_COUNT_LIMIT
+                  value: "5"
+                - name: RETRY_INTERVAL_SEC
+                  value: "1"
+              resources:
+                limits:
+                  cpu: 500m
+                  memory: 512Mi
+                requests:
+                  cpu: 100m
+                  memory: 128Mi
+              securityContext:
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop:
+                    - ALL

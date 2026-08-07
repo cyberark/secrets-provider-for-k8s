@@ -1,0 +1,18 @@
+---
+# ConfigMap holding Conjur connection details.
+# Same conjur-connect ConfigMap pattern used by authn-k8s and authn-jwt.
+#
+# For TLS, use ONE of:
+#   CONJUR_CERT_FILE - path to CA bundle inside the container (e.g. Alpine's system bundle)
+#   CONJUR_SSL_CERTIFICATE - PEM cert content directly (for self-signed or custom CA)
+#
+# If Conjur uses a publicly-trusted cert (DigiCert, etc.), just point to the system bundle:
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: conjur-connect
+  namespace: secrets-provider
+data:
+  CONJUR_ACCOUNT: "BRI"
+  CONJUR_APPLIANCE_URL: "https://conjur-follower.dev.bri.co.id"
+  CONJUR_CERT_FILE: "/etc/ssl/certs/ca-certificates.crt"

@@ -15,3 +15,5 @@ const CSPFK013D string = "CSPFK013D Kubernetes Secret '%s' has no '%s' annotatio
 const CSPFK014D string = "CSPFK014D Found %d secret group templates for Kubernetes secret %s"
 const CSPFK015D string = "CSPFK015D No secrets to update"
 const CSPFK016D string = "CSPFK016D No change in Kubernetes secret '%s/%s'"
+const CSPFK017D string = "CSPFK017D Plain authn: authenticating at %s"
+const CSPFK018D string = "CSPFK018D Plain authn: authentication successful"

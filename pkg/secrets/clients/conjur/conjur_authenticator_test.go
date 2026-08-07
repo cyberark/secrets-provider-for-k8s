@@ -2,7 +2,12 @@ package conjur
 
 import (
 	"context"
+	"encoding/pem"
 	"fmt"
+	"io"
+	"net/http"
+	"net/http/httptest"
+	"os"
 	"reflect"
 	"testing"
 
@@ -416,4 +421,166 @@ func TestGcpAuthenticator_GetAccessToken_Success(t *testing.T) {
 	tok, err := auth.GetAccessToken(context.Background())
 	require.NoError(t, err)
 	require.Equal(t, []byte("gcp-token"), tok)
+}
+
+// --- PlainAuthenticator factory tests -------------------------------------------
+
+func TestNewAuthenticatorFactory_SelectsPlainWhenAPIKeySet(t *testing.T) {
+	t.Setenv("CONJUR_AUTHN_API_KEY", "my-api-key")
+	t.Setenv("CONJUR_APPLIANCE_URL", "https://conjur.example.com")
+	t.Setenv("CONJUR_ACCOUNT", "BRI")
+
+	customEnv := func(key string) string {
+		if key == "CONJUR_AUTHN_LOGIN" {
+			return "host/apps/myapp"
+		}
+		return ""
+	}
+
+	authn, err := NewAuthenticator(customEnv)
+	require.NoError(t, err)
+	require.NotNil(t, authn)
+	require.Equal(t, reflect.TypeOf(&PlainAuthenticator{}), reflect.TypeOf(authn))
+}
+
+func TestNewAuthenticatorFactory_PlainMissingApplianceURL(t *testing.T) {
+	t.Setenv("CONJUR_AUTHN_API_KEY", "my-api-key")
+	t.Setenv("CONJUR_APPLIANCE_URL", "")
+	t.Setenv("CONJUR_ACCOUNT", "BRI")
+
+	customEnv := func(key string) string {
+		if key == "CONJUR_AUTHN_LOGIN" {
+			return "host/apps/myapp"
+		}
+		return ""
+	}
+
+	_, err := NewAuthenticator(customEnv)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "CONJUR_APPLIANCE_URL")
+}
+
+func TestNewAuthenticatorFactory_PlainMissingAccount(t *testing.T) {
+	t.Setenv("CONJUR_AUTHN_API_KEY", "my-api-key")
+	t.Setenv("CONJUR_APPLIANCE_URL", "https://conjur.example.com")
+	t.Setenv("CONJUR_ACCOUNT", "")
+
+	customEnv := func(key string) string {
+		if key == "CONJUR_AUTHN_LOGIN" {
+			return "host/apps/myapp"
+		}
+		return ""
+	}
+
+	_, err := NewAuthenticator(customEnv)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "CONJUR_ACCOUNT")
+}
+
+func TestNewAuthenticatorFactory_PlainMissingLogin(t *testing.T) {
+	t.Setenv("CONJUR_AUTHN_API_KEY", "my-api-key")
+	t.Setenv("CONJUR_APPLIANCE_URL", "https://conjur.example.com")
+	t.Setenv("CONJUR_ACCOUNT", "BRI")
+
+	customEnv := func(key string) string {
+		return "" // CONJUR_AUTHN_LOGIN not set
+	}
+
+	_, err := NewAuthenticator(customEnv)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "CONJUR_AUTHN_LOGIN")
+}
+
+// --- PlainAuthenticator GetAccessToken tests ------------------------------------
+
+func TestPlainAuthenticator_GetAccessToken_Success(t *testing.T) {
+	expectedToken := `{"protected":"eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9","payload":"eyJzdWIiOiJob3N0L2FwcHMvbXlhcHAifQ","signature":"test-sig"}`
+	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.Equal(t, http.MethodPost, r.Method)
+		require.Contains(t, r.URL.Path, "/authn/BRI/")
+		require.Contains(t, r.URL.Path, "/authenticate")
+		require.Equal(t, "text/plain", r.Header.Get("Content-Type"))
+
+		body, _ := io.ReadAll(r.Body)
+		require.Equal(t, "my-api-key", string(body))
+
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(expectedToken))
+	}))
+	defer server.Close()
+
+	certPEM := pem.EncodeToMemory(&pem.Block{
+		Type:  "CERTIFICATE",
+		Bytes: server.Certificate().Raw,
+	})
+	t.Setenv("CONJUR_SSL_CERTIFICATE", string(certPEM))
+
+	auth := NewPlainAuthenticator(server.URL, "BRI", "host/apps/myapp", "my-api-key")
+	tok, err := auth.GetAccessToken(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, []byte(expectedToken), tok)
+}
+
+func TestPlainAuthenticator_GetAccessToken_HTTPError(t *testing.T) {
+	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusUnauthorized)
+		w.Write([]byte("Unauthorized"))
+	}))
+	defer server.Close()
+
+	certPEM := pem.EncodeToMemory(&pem.Block{
+		Type:  "CERTIFICATE",
+		Bytes: server.Certificate().Raw,
+	})
+	t.Setenv("CONJUR_SSL_CERTIFICATE", string(certPEM))
+
+	auth := NewPlainAuthenticator(server.URL, "BRI", "host/apps/myapp", "wrong-key")
+	_, err := auth.GetAccessToken(context.Background())
+	require.Error(t, err)
+	require.Contains(t, err.Error(), messages.CSPFK010E)
+}
+
+func TestPlainAuthenticator_GetAccessToken_MissingSSLCert(t *testing.T) {
+	t.Setenv("CONJUR_SSL_CERTIFICATE", "")
+	t.Setenv("CONJUR_CERT_FILE", "")
+
+	auth := NewPlainAuthenticator("https://conjur.example.com", "BRI", "host/apps/myapp", "my-api-key")
+	_, err := auth.GetAccessToken(context.Background())
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "CONJUR_SSL_CERTIFICATE or CONJUR_CERT_FILE")
+}
+
+func TestPlainAuthenticator_GetAccessToken_InvalidSSLCert(t *testing.T) {
+	t.Setenv("CONJUR_SSL_CERTIFICATE", "not-a-valid-pem")
+	t.Setenv("CONJUR_CERT_FILE", "")
+
+	auth := NewPlainAuthenticator("https://conjur.example.com", "BRI", "host/apps/myapp", "my-api-key")
+	_, err := auth.GetAccessToken(context.Background())
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "failed to parse certificate")
+}
+
+func TestPlainAuthenticator_GetAccessToken_CertFilePath(t *testing.T) {
+	// Write a test cert to a temp file
+	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`{"protected":"test","payload":"test","signature":"test"}`))
+	}))
+	defer server.Close()
+
+	certPEM := pem.EncodeToMemory(&pem.Block{
+		Type:  "CERTIFICATE",
+		Bytes: server.Certificate().Raw,
+	})
+
+	tmpFile := t.TempDir() + "/ca-certificates.crt"
+	require.NoError(t, os.WriteFile(tmpFile, certPEM, 0644))
+
+	t.Setenv("CONJUR_SSL_CERTIFICATE", "")
+	t.Setenv("CONJUR_CERT_FILE", tmpFile)
+
+	auth := NewPlainAuthenticator(server.URL, "BRI", "host/apps/myapp", "my-api-key")
+	tok, err := auth.GetAccessToken(context.Background())
+	require.NoError(t, err)
+	require.NotEmpty(t, tok)
 }

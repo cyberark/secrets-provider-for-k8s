@@ -1,0 +1,84 @@
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: secrets-provider-conjur
+  namespace: secrets-provider
+  labels:
+    app: secrets-provider-conjur
+spec:
+  schedule: "*/5 * * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    metadata:
+      labels:
+        app: secrets-provider-conjur
+    spec:
+      backoffLimit: 0
+      activeDeadlineSeconds: 120
+      template:
+        metadata:
+          labels:
+            app: secrets-provider-conjur
+        spec:
+          serviceAccountName: secrets-provider-sa
+          restartPolicy: Never
+          securityContext:
+            runAsNonRoot: true
+            seccompProfile:
+              type: RuntimeDefault
+          containers:
+            - name: cyberark-secrets-provider-for-k8s
+              image: cyberark/secrets-provider-for-k8s:latest
+              imagePullPolicy: Always
+              envFrom:
+                - configMapRef:
+                    name: conjur-connect
+              env:
+                # Plain authn credentials (from K8s Secret)
+                - name: CONJUR_AUTHN_LOGIN
+                  valueFrom:
+                    secretKeyRef:
+                      name: conjur-credentials
+                      key: login
+                - name: CONJUR_AUTHN_API_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: conjur-credentials
+                      key: api-key
+
+                # Secrets Provider config
+                - name: CONTAINER_MODE
+                  value: "application"
+                - name: K8S_SECRETS
+                  value: "app-secrets"
+                - name: SECRETS_DESTINATION
+                  value: "k8s_secrets"
+                - name: MY_POD_NAME
+                  valueFrom:
+                    fieldRef:
+                      fieldPath: metadata.name
+                - name: MY_POD_NAMESPACE
+                  valueFrom:
+                    fieldRef:
+                      fieldPath: metadata.namespace
+                - name: LOG_LEVEL
+                  value: "info"
+                - name: RETRY_COUNT_LIMIT
+                  value: "5"
+                - name: RETRY_INTERVAL_SEC
+                  value: "1"
+              resources:
+                limits:
+                  cpu: 500m
+                  memory: 512Mi
+                requests:
+                  cpu: 100m
+                  memory: 128Mi
+              securityContext:
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop:
+                    - ALL

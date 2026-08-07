@@ -8,6 +8,7 @@
   - [Supported Platforms](#supported-platforms)
   - [Using secrets-provider-for-k8s with Conjur Open Source](#using-secrets-provider-for-k8s-with-conjur-open-source)
   - [Methods for Configuring CyberArk Secrets Provider](#methods-for-configuring-cyberark-secrets-provider)
+  - [Plain Authn (API Key) Mode](#plain-authn-api-key-mode)
   - [Retry Behavior](#retry-behavior)
   - [Fetch All](#fetch-all)
   - [Standalone Mode](#standalone-mode)
@@ -114,6 +115,90 @@ Some notes about the different configuration methods:
 1. If you are using the Secrets Provider in Kubernetes Secrets mode, it
    is recommended that you use environment variable settings to configure
    the Secrets Provider.
+
+## Plain Authn (API Key) Mode
+
+In addition to `authn-k8s`, `authn-jwt`, and cloud authenticators (`authn-iam`,
+`authn-azure`, `authn-gcp`), the Secrets Provider supports plain `authn`
+authentication using a Conjur host ID and API key.
+
+This is useful in environments where:
+- `authn-k8s` has certificate expiry issues (e.g. OpenShift)
+- `authn-jwt` requires self-signed domain configurations
+- You want a simpler authentication mechanism
+
+### How It Works
+
+When the environment variable `CONJUR_AUTHN_API_KEY` is set, the Secrets
+Provider bypasses the `CONJUR_AUTHN_URL`-based authenticator selection and
+uses plain authn instead:
+
+1. POSTs the API key to `{CONJUR_APPLIANCE_URL}/authn/{account}/{url-encoded-login}/authenticate`
+2. Receives a raw JSON access token (same format as all other authenticators)
+3. Uses that token to retrieve secrets (same as all other authenticators)
+
+### Configuration
+
+| Environment Variable | Description | Required |
+|---------------------|-------------|----------|
+| `CONJUR_APPLIANCE_URL` | Conjur/DAP appliance URL (e.g. `https://conjur.example.com`) | Yes |
+| `CONJUR_ACCOUNT` | Conjur account name (e.g. `BRI`) | Yes |
+| `CONJUR_AUTHN_LOGIN` | Host identity (e.g. `host/apps/myapp`) | Yes |
+| `CONJUR_AUTHN_API_KEY` | API key for the host | Yes (triggers plain authn mode) |
+| `CONJUR_SSL_CERTIFICATE` | PEM CA cert content (or use CONJUR_CERT_FILE) | One required |
+| `CONJUR_CERT_FILE` | Path to CA bundle (e.g. `/etc/ssl/certs/ca-certificates.crt`) | One required |
+
+**Note:** `CONJUR_AUTHN_URL` is **not required** when using plain authn mode.
+For publicly-trusted certs (DigiCert, etc.), set `CONJUR_CERT_FILE` to the container's
+system CA bundle — same as the JWT flow.
+
+### Deployment Example (CronJob)
+
+Store the host identity and API key in a Kubernetes Secret:
+
+```yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: conjur-credentials
+type: Opaque
+data:
+  login: aG9zdC9hcHBzL215YXBw         # base64("host/apps/myapp")
+  api-key: <base64-encoded-api-key>
+```
+
+Reference them in the CronJob manifest:
+
+```yaml
+env:
+  - name: CONJUR_APPLIANCE_URL
+    value: "https://conjur.example.com"
+  - name: CONJUR_ACCOUNT
+    value: "BRI"
+  - name: CONJUR_AUTHN_LOGIN
+    valueFrom:
+      secretKeyRef:
+        name: conjur-credentials
+        key: login
+  - name: CONJUR_AUTHN_API_KEY
+    valueFrom:
+      secretKeyRef:
+        name: conjur-credentials
+        key: api-key
+  - name: SECRETS_DESTINATION
+    value: "k8s_secrets"
+  - name: K8S_SECRETS
+    value: "app-secrets"
+```
+
+Full deployment manifests are available in [`deploy/authn-plain/`](deploy/authn-plain/).
+
+### Security Considerations
+
+- Store the API key in a Kubernetes Secret and reference it via `secretKeyRef`
+- Limit RBAC so only the Secrets Provider ServiceAccount can read the credentials secret
+- The Conjur endpoint uses standard TLS verification (system CA bundle)
+- Rotate the API key periodically in both Conjur and the Kubernetes Secret
 
 ## Retry Behavior
 
