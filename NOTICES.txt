@@ -22,7 +22,7 @@ SECTION 1: Apache License 2.0
 >>> github.com/aws/aws-sdk-go-v2/service/ssooidc-1.35.17
 >>> github.com/aws/aws-sdk-go-v2/service/sts-1.41.9
 >>> github.com/aws/smithy-go-1.24.2
->>> github.com/cyberark/conjur-api-go/conjurapi-0.13.19
+>>> github.com/cyberark/conjur-api-go/conjurapi-0.15.5
 >>> github.com/cyberark/conjur-authn-k8s-client/pkg-0.26.12
 >>> github.com/cyberark/conjur-opentelemetry-tracer/pkg/trace-0.0.6
 >>> github.com/go-logr/logr-1.4.3
@@ -45,18 +45,18 @@ SECTION 1: Apache License 2.0
 >>> github.com/modern-go/concurrent-0.0.0-20180306012644-bacd9c7ef1dd
 >>> github.com/modern-go/reflect2-1.0.3-0.20250322232337-35a7c28c31ee
 >>> go.opentelemetry.io/auto/sdk-1.2.1
->>> go.opentelemetry.io/otel-1.42.0
+>>> go.opentelemetry.io/otel-1.43.0
 >>> go.opentelemetry.io/otel/exporters/jaeger-1.17.0
 >>> go.opentelemetry.io/otel/exporters/jaeger/internal/third_party/thrift/lib/go/thrift-1.17.0
->>> go.opentelemetry.io/otel/exporters/stdout/stdouttrace-1.42.0
->>> go.opentelemetry.io/otel/metric-1.42.0
->>> go.opentelemetry.io/otel/sdk-1.42.0
->>> go.opentelemetry.io/otel/trace-1.42.0
+>>> go.opentelemetry.io/otel/exporters/stdout/stdouttrace-1.43.0
+>>> go.opentelemetry.io/otel/metric-1.43.0
+>>> go.opentelemetry.io/otel/sdk-1.43.0
+>>> go.opentelemetry.io/otel/trace-1.43.0
 >>> go.yaml.in/yaml/v2-2.4.4
 >>> gopkg.in/yaml.v2-2.4.0
->>> k8s.io/api-0.35.3
->>> k8s.io/apimachinery/pkg-0.35.3
->>> k8s.io/client-go-0.35.3
+>>> k8s.io/api-0.36.1
+>>> k8s.io/apimachinery/pkg-0.36.1
+>>> k8s.io/client-go-0.36.1
 >>> k8s.io/klog/v2-2.140.0
 >>> k8s.io/kube-openapi/pkg-0.0.0-20260319004828-5883c5ee87b9
 >>> k8s.io/kube-openapi/pkg/validation/spec-0.0.0-20260319004828-5883c5ee87b9
@@ -76,16 +76,16 @@ SECTION 3: BSD 3-clause "New" or "Revised" License
 >>> github.com/google/uuid-1.6.0
 >>> github.com/munnerz/goautoneg-0.0.0-20191010083416-a7dc8b61c822
 >>> github.com/pmezard/go-difflib/difflib-1.0.1-0.20181226105442-5d4384ee4fb2
->>> golang.org/x/net-0.52.0
+>>> golang.org/x/net-0.54.0
 >>> golang.org/x/oauth2-0.36.0
->>> golang.org/x/sys/unix-0.42.0
->>> golang.org/x/term-0.41.0
->>> golang.org/x/text-0.35.0
+>>> golang.org/x/sys/unix-0.44.0
+>>> golang.org/x/term-0.43.0
+>>> golang.org/x/text-0.37.0
 >>> golang.org/x/time/rate-0.15.0
->>> google.golang.org/protobuf-1.36.11
+>>> google.golang.org/protobuf-1.36.12-0.20260120151049-f2248ac996af
 >>> gopkg.in/evanphx/json-patch.v4-4.13.0
 >>> gopkg.in/inf.v0-0.9.1
->>> k8s.io/apimachinery/third_party/forked/golang-0.35.3
+>>> k8s.io/apimachinery/third_party/forked/golang-0.36.1
 >>> k8s.io/kube-openapi/pkg/internal/third_party/go-json-experiment/json-0.0.0-20260319004828-5883c5ee87b9
 >>> k8s.io/utils/internal/third_party/forked/golang/net-0.0.0-20260319190234-28399d86e0b5
 
@@ -2971,7 +2971,7 @@ Apache License 2.0 is applicable to the following component(s).
       of your accepting any such warranty or additional liability.
 
 
->>> github.com/cyberark/conjur-api-go/conjurapi-0.13.19
+>>> github.com/cyberark/conjur-api-go/conjurapi-0.15.5
 
 
                                  Apache License
@@ -7703,7 +7703,7 @@ Apache License 2.0 is applicable to the following component(s).
    limitations under the License.
 
 
->>> go.opentelemetry.io/otel-1.42.0
+>>> go.opentelemetry.io/otel-1.43.0
 
                                  Apache License
                            Version 2.0, January 2004
@@ -8452,7 +8452,7 @@ For t_cl_generator.cc
 ---------------------------------------------------
 
 
->>> go.opentelemetry.io/otel/exporters/stdout/stdouttrace-1.42.0
+>>> go.opentelemetry.io/otel/exporters/stdout/stdouttrace-1.43.0
 
                                  Apache License
                            Version 2.0, January 2004
@@ -8686,7 +8686,7 @@ THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
->>> go.opentelemetry.io/otel/metric-1.42.0
+>>> go.opentelemetry.io/otel/metric-1.43.0
 
                                  Apache License
                            Version 2.0, January 2004
@@ -8920,7 +8920,7 @@ THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
->>> go.opentelemetry.io/otel/sdk-1.42.0
+>>> go.opentelemetry.io/otel/sdk-1.43.0
 
                                  Apache License
                            Version 2.0, January 2004
@@ -9154,7 +9154,7 @@ THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
->>> go.opentelemetry.io/otel/trace-1.42.0
+>>> go.opentelemetry.io/otel/trace-1.43.0
 
                                  Apache License
                            Version 2.0, January 2004
@@ -9798,7 +9798,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
    limitations under the License.
 
 
->>> k8s.io/api-0.35.3
+>>> k8s.io/api-0.36.1
 
 
                                  Apache License
@@ -10004,7 +10004,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
    limitations under the License.
 
 
->>> k8s.io/apimachinery/pkg-0.35.3
+>>> k8s.io/apimachinery/pkg-0.36.1
 
 
                                  Apache License
@@ -10210,7 +10210,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
    limitations under the License.
 
 
->>> k8s.io/client-go-0.35.3
+>>> k8s.io/client-go-0.36.1
 
 
                                  Apache License
@@ -12361,7 +12361,7 @@ NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 
->>> golang.org/x/net-0.52.0
+>>> golang.org/x/net-0.54.0
 
 Copyright 2009 The Go Authors.
 
@@ -12423,7 +12423,7 @@ THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 
->>> golang.org/x/sys/unix-0.42.0
+>>> golang.org/x/sys/unix-0.44.0
 
 Copyright 2009 The Go Authors.
 
@@ -12454,7 +12454,7 @@ THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 
->>> golang.org/x/term-0.41.0
+>>> golang.org/x/term-0.43.0
 
 Copyright 2009 The Go Authors.
 
@@ -12485,7 +12485,7 @@ THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 
->>> golang.org/x/text-0.35.0
+>>> golang.org/x/text-0.37.0
 
 Copyright 2009 The Go Authors.
 
@@ -12547,7 +12547,7 @@ THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 
->>> google.golang.org/protobuf-1.36.11
+>>> google.golang.org/protobuf-1.36.12-0.20260120151049-f2248ac996af
 
 Copyright (c) 2018 The Go Authors. All rights reserved.
 
@@ -12639,7 +12639,7 @@ THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 
->>> k8s.io/apimachinery/third_party/forked/golang-0.35.3
+>>> k8s.io/apimachinery/third_party/forked/golang-0.36.1
 
 Copyright (c) 2009 The Go Authors. All rights reserved.
 
