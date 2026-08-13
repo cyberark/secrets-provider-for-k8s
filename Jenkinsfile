@@ -125,12 +125,13 @@ pipeline {
     stage('Get InfraPool ExecutorV2 Agent') {
       steps {
         script {
-          // Request ExecutorV2 agents for 1 hour(s)
-          INFRAPOOL_EXECUTORV2_AGENT_0 = getInfraPoolAgent.connected(type: "ExecutorV2", quantity: 1, duration: 2)[0]
+          // Must outlive the 3 hour build timeout above: the previous 2 hour lease
+          // expired mid-stage, failing green builds with "closed by remote host".
+          INFRAPOOL_EXECUTORV2_AGENT_0 = getInfraPoolAgent.connected(type: "ExecutorV2", quantity: 1, duration: 3)[0]
 
           // Request additional executors for cloud specific tests
           if (params.TEST_KIND_AUTHN_AZURE) {
-            INFRAPOOL_AZURE_EXECUTORV2_AGENT_0 = getInfraPoolAgent.connected(type: "AzureExecutorV2", quantity: 1, duration: 1)[0]
+            INFRAPOOL_AZURE_EXECUTORV2_AGENT_0 = getInfraPoolAgent.connected(type: "AzureExecutorV2", quantity: 1, duration: 2)[0]
           }
         }
       }
