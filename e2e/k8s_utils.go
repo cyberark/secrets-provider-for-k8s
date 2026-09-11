@@ -431,6 +431,13 @@ func GetPods(client klient.Client, namespace string, labelSelector string) (core
 	return pods, nil
 }
 
+// maxExecArgBytes is the maximum size of a secret value that can be safely passed
+// as a CLI argument in a kubectl exec request. Values larger than this threshold
+// are routed through stdin instead, keeping the exec URL short and avoiding the
+// HTTP 413 "Request Entity Too Large" error returned by GKE's load balancer when
+// the URL exceeds its ~8 KB limit.
+const maxExecArgBytes = 4096
+
 // SetConjurSecret sets a Conjur variable value using the Conjur CLI pod.
 func SetConjurSecret(client klient.Client, varID string, value string) error {
 	pod, err := FetchPodWithLabelSelector(client, ConjurNamespace(), ConjurCLILabelSelector)
@@ -439,9 +446,28 @@ func SetConjurSecret(client klient.Client, varID string, value string) error {
 	}
 
 	var stdout, stderr bytes.Buffer
-	command := []string{"conjur", "variable", "set", "-i", varID, "-v", value}
-	if err := client.Resources(ConjurNamespace()).ExecInPod(context.TODO(), ConjurNamespace(), pod.Name, ConjurCLIContainer, command, &stdout, &stderr); err != nil {
-		return fmt.Errorf("failed to execute command. %v, %s", err, stderr.String())
+
+	if len(value) <= maxExecArgBytes {
+		// Small value: pass inline via -v flag (fast path, no stdin needed).
+		command := []string{"conjur", "variable", "set", "-i", varID, "-v", value}
+		if err := client.Resources(ConjurNamespace()).ExecInPod(context.TODO(), ConjurNamespace(), pod.Name, ConjurCLIContainer, command, &stdout, &stderr); err != nil {
+			return fmt.Errorf("failed to execute command. %v, %s", err, stderr.String())
+		}
+	} else {
+		// Large value: pass via stdin using "-f /dev/stdin" so the value never
+		// appears in the exec request URL, avoiding GKE load-balancer HTTP 413s.
+		kubectlCmd := exec.Command("kubectl", "exec", "-i",
+			"-n", ConjurNamespace(), pod.Name,
+			"-c", ConjurCLIContainer,
+			"--",
+			"conjur", "variable", "set", "-i", varID, "-f", "/dev/stdin",
+		)
+		kubectlCmd.Stdin = strings.NewReader(value)
+		kubectlCmd.Stdout = &stdout
+		kubectlCmd.Stderr = &stderr
+		if err := kubectlCmd.Run(); err != nil {
+			return fmt.Errorf("failed to execute command. %v, %s", err, stderr.String())
+		}
 	}
 
 	if !strings.Contains(stdout.String(), "Value added") {

@@ -85,11 +85,15 @@ main() {
   else
     set_variable "conjur/authn-jwt/$AUTHENTICATOR_ID/identity-path" "conjur/authn-jwt/$AUTHENTICATOR_ID/apps"
     set_variable "conjur/authn-jwt/$AUTHENTICATOR_ID/jwks-uri" "$JWKS_URI"
-    local ca_cert_file
-    ca_cert_file=$(mktemp)
-    echo "$CA_CERT_B64" | base64 -d > "$ca_cert_file"
-    cli_exec variable set -i "conjur/authn-jwt/$AUTHENTICATOR_ID/ca-cert" -f "$ca_cert_file"
-    rm -f "$ca_cert_file"
+    if [ -n "${CA_CERT_B64:-}" ]; then
+      local ca_cert_file
+      ca_cert_file=$(mktemp)
+      echo "$CA_CERT_B64" | base64 -d > "$ca_cert_file"
+      cli_exec variable set -i "conjur/authn-jwt/$AUTHENTICATOR_ID/ca-cert" -f "$ca_cert_file"
+      rm -f "$ca_cert_file"
+    else
+      echo "CA_CERT_B64 is empty; skipping conjur/authn-jwt/$AUTHENTICATOR_ID/ca-cert (not required when JWKS endpoint uses a publicly trusted CA)"
+    fi
     if [ "$CONJUR_DEPLOYMENT" = "dap" ]; then
       enable_authenticator "authn-k8s" "$AUTHENTICATOR_ID"
     fi

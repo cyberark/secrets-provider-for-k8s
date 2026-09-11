@@ -40,6 +40,14 @@ if [[ "${DEPLOY_MASTER_CLUSTER}" == "true" ]]; then
   JWKS_URI=$($cli_without_timeout get --raw /.well-known/openid-configuration | jq -r '.jwks_uri')
   ISSUER=$($cli_without_timeout get --raw /.well-known/openid-configuration | jq -r '.issuer')
   CA_CERT_B64=$(kubectl config view --raw -o jsonpath='{.clusters[0].cluster.certificate-authority-data}')
+  if [ -z "$CA_CERT_B64" ]; then
+    # Fallback for GKE and other clusters where certificate-authority-data is not
+    # embedded inline in the kubeconfig (e.g. when using gke-gcloud-auth-plugin).
+    # kube-root-ca.crt is a standard ConfigMap present in every namespace on K8s >= 1.20.
+    announce "certificate-authority-data not found in kubeconfig, falling back to kube-root-ca.crt ConfigMap"
+    CA_CERT_B64=$(kubectl get configmap kube-root-ca.crt -n kube-public \
+      -o jsonpath='{.data.ca\.crt}' 2>/dev/null | base64 -w 0) || true
+  fi
   announce "JWKS URI of this cluster is $JWKS_URI and Issuer is $ISSUER"
 
   JWKS=$($cli_without_timeout get --raw "$JWKS_URI")
